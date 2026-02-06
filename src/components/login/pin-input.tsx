@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect, useTransition } from 'react';
+import { useState, useRef, useEffect, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { authenticateUser, MOCK_USER } from '@/lib/api';
+import { authenticateUser } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { LoaderCircle } from 'lucide-react';
 
@@ -21,30 +21,7 @@ export default function PinInput() {
     inputRefs.current[0]?.focus();
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
-    const { value } = e.target;
-    if (/[^0-9]/.test(value)) return;
-
-    const newPin = [...pin];
-    newPin[index] = value;
-    setPin(newPin);
-
-    if (value && index < PIN_LENGTH - 1) {
-      inputRefs.current[index + 1]?.focus();
-    }
-
-    if (newPin.join('').length === PIN_LENGTH) {
-      handleSubmit(newPin.join(''));
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
-    if (e.key === 'Backspace' && !pin[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handleSubmit = (fullPin: string) => {
+  const handleSubmit = useCallback((fullPin: string) => {
     startTransition(async () => {
       setIsError(false);
       const user = await authenticateUser(fullPin);
@@ -67,6 +44,32 @@ export default function PinInput() {
         inputRefs.current[0]?.focus();
       }
     });
+  }, [router, toast]);
+
+  useEffect(() => {
+    const fullPin = pin.join('');
+    if (fullPin.length === PIN_LENGTH) {
+      handleSubmit(fullPin);
+    }
+  }, [pin, handleSubmit]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const { value } = e.target;
+    if (/[^0-9]/.test(value)) return;
+
+    const newPin = [...pin];
+    newPin[index] = value;
+    setPin(newPin);
+
+    if (value && index < PIN_LENGTH - 1) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (e.key === 'Backspace' && !pin[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
   };
 
   return (
