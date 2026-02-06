@@ -1,1 +1,5 @@
-// Flows will be imported for their side effects in this file.
+import { config } from 'dotenv';
+config();
+
+import '@/ai/flows/outfit-generation.ts';
+import '@/ai/flows/generate-trending-outfits.ts';
