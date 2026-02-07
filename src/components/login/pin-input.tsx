@@ -1,106 +1,132 @@
 'use client';
 
-import { useState, useRef, useEffect, useTransition, useCallback } from 'react';
+import { useState, useRef, KeyboardEvent, ClipboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { authenticateUser } from '@/lib/api';
+import { loginUser } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { LoaderCircle } from 'lucide-react';
 
-const PIN_LENGTH = 4;
-
-export default function PinInput() {
-  const [pin, setPin] = useState<string[]>(Array(PIN_LENGTH).fill(''));
-  const [isError, setIsError] = useState(false);
-  const [isPending, startTransition] = useTransition();
+export function PinInput() {
+  const [pins, setPins] = useState(['', '', '', '']);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const router = useRouter();
   const { toast } = useToast();
 
-  useEffect(() => {
-    inputRefs.current[0]?.focus();
-  }, []);
+  const handleChange = (index: number, value: string) => {
+    if (value.length > 1) return;
+    if (value && !/^\d$/.test(value)) return;
 
-  const handleSubmit = useCallback((fullPin: string) => {
-    startTransition(async () => {
-      setIsError(false);
-      const user = await authenticateUser(fullPin);
-      if (user) {
-        localStorage.setItem('kkom-user', JSON.stringify(user));
-        toast({
-          title: `환영해요, ${user.name}님!`,
-          description: "오늘도 좋은 하루 보내세요.",
-        });
-        router.push('/');
-      } else {
-        setPin(Array(PIN_LENGTH).fill(''));
-        setIsError(true);
-        toast({
-          variant: "destructive",
-          title: "인증 실패",
-          description: "코드가 맞지 않아요. 다시 시도해주세요.",
-        });
-        setTimeout(() => setIsError(false), 500);
-        inputRefs.current[0]?.focus();
-      }
-    });
-  }, [router, toast]);
+    const newPins = [...pins];
+    newPins[index] = value;
+    setPins(newPins);
+    setError(false);
 
-  useEffect(() => {
-    const fullPin = pin.join('');
-    if (fullPin.length === PIN_LENGTH) {
-      handleSubmit(fullPin);
-    }
-  }, [pin, handleSubmit]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
-    const { value } = e.target;
-    if (/[^0-9]/.test(value)) return;
-
-    const newPin = [...pin];
-    newPin[index] = value;
-    setPin(newPin);
-
-    if (value && index < PIN_LENGTH - 1) {
+    if (value && index < 3) {
       inputRefs.current[index + 1]?.focus();
+    }
+
+    if (newPins.every(pin => pin !== '')) {
+      handleSubmit(newPins.join(''));
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
-    if (e.key === 'Backspace' && !pin[index] && index > 0) {
+  const handleKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !pins[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
+  const handlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text');
+    const digits = pastedData.replace(/\D/g, '').slice(0, 4).split('');
+    
+    if (digits.length === 4) {
+      setPins(digits);
+      inputRefs.current[3]?.focus();
+      handleSubmit(digits.join(''));
+    }
+  };
+
+  const handleSubmit = async (code: string) => {
+    setIsLoading(true);
+    setError(false);
+
+    try {
+      const user = await loginUser(code);
+      
+      if (user) {
+        toast({
+          title: '환영해요! 💚',
+          description: `${user.이름}님, 로그인 성공!`,
+        });
+        router.push('/');
+      } else {
+        setError(true);
+        setPins(['', '', '', '']);
+        inputRefs.current[0]?.focus();
+        toast({
+          title: '코드가 맞지 않아요',
+          description: '다시 시도해주세요.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      setError(true);
+      setPins(['', '', '', '']);
+      inputRefs.current[0]?.focus();
+      toast({
+        title: '로그인 실패',
+        description: '네트워크를 확인해주세요.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className={cn("flex flex-col items-center", isError && "shake")}>
-      <div className="flex space-x-3 sm:space-x-4">
-        {pin.map((digit, index) => (
+    <div className="space-y-6">
+      <div className="flex justify-center gap-3">
+        {pins.map((pin, index) => (
           <input
             key={index}
-            ref={(el) => (inputRefs.current[index] = el)}
+            ref={el => inputRefs.current[index] = el}
             type="tel"
             inputMode="numeric"
             pattern="[0-9]*"
             maxLength={1}
-            value={digit}
-            onChange={(e) => handleChange(e, index)}
-            onKeyDown={(e) => handleKeyDown(e, index)}
-            disabled={isPending}
+            value={pin}
+            onChange={e => handleChange(index, e.target.value)}
+            onKeyDown={e => handleKeyDown(index, e)}
+            onPaste={handlePaste}
+            disabled={isLoading}
             className={cn(
-              "w-16 h-20 rounded-xl border-2 text-center text-3xl font-bold transition-all duration-300 bg-white/30 focus:bg-white/70 focus:ring-2 focus:ring-white/80 focus:outline-none",
-              isError
-                ? "border-red-500 text-red-500"
-                : "border-emerald-500 focus:border-emerald-400 text-gray-800"
+              'w-16 h-20 text-3xl font-bold text-center',
+              'rounded-xl border-2 transition-all',
+              'focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500',
+              error
+                ? 'border-red-500 bg-red-50 animate-shake'
+                : 'border-emerald-300 bg-white hover:border-emerald-400',
+              isLoading && 'opacity-50 cursor-not-allowed'
             )}
+            autoFocus={index === 0}
           />
         ))}
       </div>
-      {isPending && (
-         <div className="flex items-center text-white mt-6">
-           <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
-           <span>인증 중...</span>
-         </div>
+
+      <p className="text-center text-sm text-gray-600">
+        우리만의 특별한 날짜를 입력해주세요 💚
+      </p>
+
+      {isLoading && (
+        <div className="flex items-center justify-center gap-2 text-emerald-600">
+          <LoaderCircle className="w-5 h-5 animate-spin" />
+          <span className="text-sm">확인 중...</span>
+        </div>
       )}
     </div>
   );
