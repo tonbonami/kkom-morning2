@@ -233,13 +233,23 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* D-Day Counter Card */}
+        {/* D-Day Counter */}
         {dDay > 0 && (
-          <div className="bg-emerald-50/50 border border-emerald-200 rounded-xl shadow-sm p-6">
-            <div className="text-center">
-              <p className="text-sm text-gray-600 mb-2">우리가 함께한지</p>
-              <p className="text-xl font-bold text-gray-800">꼼이 ❤️ 우댕</p>
-              <p className="text-4xl font-bold text-emerald-600 mt-2">+{dDay}일</p>
+          <div className="pt-6 pb-2">
+            <div className="text-center space-y-3">
+              <p className="text-sm text-gray-600">우리가 함께한지</p>
+              
+              <div className="flex justify-center items-center gap-2">
+                <span className="text-2xl font-bold text-gray-700">+</span>
+                {dDay.toString().split('').map((digit, index) => (
+                  <div key={index} className="w-10 h-12 flex items-center justify-center border-2 border-emerald-300 rounded-lg bg-white shadow-sm">
+                    <span className="text-3xl font-bold text-gray-800">{digit}</span>
+                  </div>
+                ))}
+                <span className="text-2xl font-bold text-gray-700">일</span>
+              </div>
+
+              <p className="text-xl font-bold text-gray-800 pt-1">꼼이 ❤️ 우댕</p>
             </div>
           </div>
         )}
