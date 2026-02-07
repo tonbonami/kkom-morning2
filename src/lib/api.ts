@@ -1,50 +1,10 @@
 // src/lib/api.ts
-import type { User } from '@/types';
+import type { User, WeatherData, AirQualityData, OutfitGuide } from '@/types';
 
 const API_URL = 'https://script.google.com/macros/s/AKfycbzUCWFscAaJ-iV5toRrhGsDUfZD4je1fdlIScbbj60d7mPktKNrvB2T-ZwoB3D636OR/exec'
 
 const CACHE_KEY = 'kkom-weather-cache'
 const CACHE_DURATION = 5 * 60 * 1000 // 5분
-
-export interface WeatherData {
-  current: {
-    temperature: number
-    feelsLike: number
-    condition: string
-    emoji: string
-  }
-  today: {
-    high: number
-    low: number
-  }
-}
-
-export interface AirQualityData {
-  overall: {
-    grade: number
-    text: string
-    color: string
-    emoji: string
-    message: string
-  }
-  pm10: {
-    value: number
-    grade: number
-  }
-  pm25: {
-    value: number
-    grade: number
-  }
-  stationName: string
-}
-
-export interface OutfitGuide {
-  emoji: string
-  mainOutfit: string
-  message: string
-  accessories: string[]
-  needMask: boolean
-}
 
 interface CachedData {
   weather: WeatherData
@@ -95,7 +55,8 @@ export async function getInitialData(
         // 같은 위치 && 5분 이내면 캐시 사용
         if (
           cachedLocation === location && 
-          Date.now() - timestamp < CACHE_DURATION
+          Date.now() - timestamp < CACHE_DURATION &&
+          !weather.isFallback // fallback 데이터는 캐시 사용 안 함
         ) {
           console.log('✅ 캐시된 데이터 사용 (5분 이내)')
           return { weather, airQuality, outfit }
@@ -125,17 +86,19 @@ export async function getInitialData(
     }
 
     const data = await response.json()
-    
-    // 캐시 저장
-    const cacheData: CachedData = {
-      weather: data.weather,
-      airQuality: data.airQuality,
-      outfit: data.outfit,
-      timestamp: Date.now(),
-      location
+
+    if (data.weather && !data.weather.isFallback) {
+      // isFallback이 아닐 때만 캐시 저장
+      const cacheData: CachedData = {
+        weather: data.weather,
+        airQuality: data.airQuality,
+        outfit: data.outfit,
+        timestamp: Date.now(),
+        location
+      }
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
+      console.log('💾 캐시 저장 완료')
     }
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
-    console.log('💾 캐시 저장 완료')
     
     return data
   } catch (error) {

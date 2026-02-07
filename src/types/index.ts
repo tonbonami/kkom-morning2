@@ -18,6 +18,7 @@ export interface WeatherData {
     high: number;
     low: number;
   };
+  isFallback?: boolean;
 }
 
 export interface AirQualityData {

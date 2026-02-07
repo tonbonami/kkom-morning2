@@ -33,8 +33,12 @@ export default function HomePage() {
       setAirQuality(data.airQuality);
       setOutfit(data.outfit);
       
-      const cacheInfo = getCacheInfo();
-      setLastUpdate(cacheInfo.lastUpdate);
+      if (!data.weather.isFallback) {
+        const cacheInfo = getCacheInfo();
+        setLastUpdate(cacheInfo.lastUpdate);
+      } else {
+        setLastUpdate(null);
+      }
 
       if (forceRefresh) {
         setShowSuccessMessage(true);
@@ -66,15 +70,15 @@ export default function HomePage() {
         const res = await fetch('/api/daily-message');
         const data = await res.json();
         
-        if (!res.ok) {
-          throw new Error(data.error || data.message || `서버 응답 오류: ${res.status}`);
+        if (!res.ok || data.result === 'fail' || data.result === 'error') {
+          throw new Error(data.message || `서버 응답 오류: ${res.status}`);
         }
         
         setDailyMessage(data.message || '오늘의 편지를 아직 못 받았어요. 💌');
       } catch (error) {
         console.error('데이터 로드 실패 (daily message):', error);
         const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류 발생';
-        setDailyMessage(`오늘의 편지를 가져오는 데 실패했어요. 😢\n\n[오류 원인]\n${errorMessage}`);
+        setDailyMessage(`오늘의 편지를 가져오는 데 실패했어요. 😢\n\n${errorMessage}`);
       } finally {
         setIsLoadingMessage(false);
       }
@@ -209,7 +213,12 @@ export default function HomePage() {
             </svg>
           </button>
           
-          {lastUpdate && (
+          {weather?.isFallback ? (
+            <div className="mt-1 flex justify-center items-center gap-1.5 text-xs text-orange-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <span>실시간 정보 로딩 실패</span>
+            </div>
+          ) : lastUpdate && (
             <p className="text-xs text-gray-400 mt-1">
               {getUpdateTimeText()} 업데이트
             </p>
