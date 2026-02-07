@@ -9,7 +9,6 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
-    // ⭐ 기존 remotePatterns 유지
     remotePatterns: [
       {
         protocol: 'https',
@@ -30,12 +29,6 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
-    
-    // ⭐⭐⭐ 이미지 최적화 추가 (여기부터!)
-    formats: ['image/avif', 'image/webp'],
-    deviceSizes: [640, 750, 828, 1080, 1200],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    quality: 75,
   },
 };
 
