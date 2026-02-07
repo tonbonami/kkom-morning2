@@ -74,7 +74,7 @@ export default function HomePage() {
       } catch (error) {
         console.error('데이터 로드 실패 (daily message):', error);
         const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류 발생';
-        setDailyMessage(`오늘의 편지를 가져오는 데 실패했어요. 😢\n\n[오류 원인]\n${errorMessage}\n\n💡 힌트: Google Apps Script에 설정된 시트 이름이 올바른지 확인해보세요.`);
+        setDailyMessage(`오늘의 편지를 가져오는 데 실패했어요. 😢\n\n[오류 원인]\n${errorMessage}`);
       } finally {
         setIsLoadingMessage(false);
       }
