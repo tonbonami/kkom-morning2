@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbzbCEaUaBxr5Ljqos2ZHsspUSM2FLcxxdciPUPfCc2L5uIM7Ocpf3ynjRxJXfZrUq8I/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzUCWFscAaJ-iV5toRrhGsDUfZD4je1fdlIScbbj60d7mPktKNrvB2T-ZwoB3D636OR/exec';
 
 // 실시간 데이터를 위해 캐시를 사용하지 않도록 설정합니다.
 export const revalidate = 0;

@@ -1,7 +1,7 @@
 // src/lib/api.ts
 import type { User } from '@/types';
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbzbCEaUaBxr5Ljqos2ZHsspUSM2FLcxxdciPUPfCc2L5uIM7Ocpf3ynjRxJXfZrUq8I/exec'
+const API_URL = 'https://script.google.com/macros/s/AKfycbzUCWFscAaJ-iV5toRrhGsDUfZD4je1fdlIScbbj60d7mPktKNrvB2T-ZwoB3D636OR/exec'
 
 const CACHE_KEY = 'kkom-weather-cache'
 const CACHE_DURATION = 5 * 60 * 1000 // 5분
