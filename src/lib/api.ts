@@ -1,7 +1,7 @@
 // src/lib/api.ts
 import type { User, WeatherData, AirQualityData, OutfitGuide } from '@/types';
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbyvrzsVrCjrzIKDTfI_KNnxolc09qhUdwQKYd9dj3qCmUwlj9GxOh1mLFmsRouQ-MDY/exec'
+const API_URL = 'https://script.google.com/macros/s/AKfycbyRRiSpnBE1VtF0RPt3-4C5uQ-wsyX9HJLo2gc3rOpgpq70oaCgHRXnhLRNTOsjnhy8/exec'
 
 const CACHE_KEY = 'kkom-weather-cache'
 const CACHE_DURATION = 5 * 60 * 1000 // 5분
