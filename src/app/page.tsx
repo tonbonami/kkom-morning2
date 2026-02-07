@@ -14,6 +14,7 @@ export default function HomePage() {
   const [userName, setUserName] = useState('꼼');
   const [location, setLocation] = useState<'home' | 'work'>('home');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [dDay, setDDay] = useState(0);
   const router = useRouter();
 
   const loadData = async (loc: 'home' | 'work') => {
@@ -43,6 +44,14 @@ export default function HomePage() {
 
     loadData(location);
   }, [router]);
+
+  useEffect(() => {
+    const startDate = new Date('2023-09-28');
+    const today = new Date();
+    const timeDiff = today.getTime() - startDate.getTime();
+    const dayDiff = Math.floor(timeDiff / (1000 * 3600 * 24)) + 1;
+    setDDay(dayDiff);
+  }, []);
 
   const handleLocationToggle = (newLocation: 'home' | 'work') => {
     if (location !== newLocation) {
@@ -220,6 +229,17 @@ export default function HomePage() {
                   <span className="text-red-700 font-semibold">😷 마스크 착용 권장</span>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* D-Day Counter Card */}
+        {dDay > 0 && (
+          <div className="bg-emerald-50/50 border border-emerald-200 rounded-xl shadow-sm p-6">
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-2">우리가 함께한지</p>
+              <p className="text-xl font-bold text-gray-800">꼼이 ❤️ 우댕</p>
+              <p className="text-4xl font-bold text-emerald-600 mt-2">+{dDay}일</p>
             </div>
           </div>
         )}
