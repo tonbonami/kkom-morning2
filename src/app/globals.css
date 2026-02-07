@@ -80,4 +80,30 @@
       transform: translate3d(4px, 0, 0);
     }
   }
+
+  /* Letter card flip animation */
+  .perspective {
+    perspective: 1000px;
+  }
+  .card-3d {
+    transform-style: preserve-3d;
+    transition: transform 0.8s;
+    transform: rotateY(0deg);
+  }
+  .card-front,
+  .card-back {
+    -webkit-backface-visibility: hidden; /* Safari */
+    backface-visibility: hidden;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .card-back {
+    transform: rotateY(180deg);
+  }
+  .is-flipped {
+    transform: rotateY(180deg);
+  }
 }

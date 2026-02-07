@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { getInitialData, getCacheInfo } from '@/lib/api';
 import type { WeatherData, AirQualityData, OutfitGuide } from '@/types';
+import DailyLetter from '@/components/daily-letter';
 
 export default function HomePage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [airQuality, setAirQuality] = useState<AirQualityData | null>(null);
   const [outfit, setOutfit] = useState<OutfitGuide | null>(null);
+  const [dailyMessage, setDailyMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMessage, setIsLoadingMessage] = useState(true);
   const [userName, setUserName] = useState('꼼');
   const [location, setLocation] = useState<'home' | 'work'>('home');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -20,6 +23,9 @@ export default function HomePage() {
   const router = useRouter();
 
   const loadData = async (loc: 'home' | 'work', forceRefresh = false) => {
+    if (!forceRefresh) {
+      setIsLoading(true);
+    }
     setIsRefreshing(true);
     try {
       const data = await getInitialData(loc, forceRefresh);
@@ -27,11 +33,9 @@ export default function HomePage() {
       setAirQuality(data.airQuality);
       setOutfit(data.outfit);
       
-      // 캐시 정보 업데이트
       const cacheInfo = getCacheInfo();
       setLastUpdate(cacheInfo.lastUpdate);
 
-      // 새로고침 성공 메시지
       if (forceRefresh) {
         setShowSuccessMessage(true);
         setTimeout(() => setShowSuccessMessage(false), 2000);
@@ -55,15 +59,29 @@ export default function HomePage() {
     setUserName(user.이름);
 
     loadData(location);
-  }, [router]);
 
-  useEffect(() => {
+    const fetchMessage = async () => {
+      setIsLoadingMessage(true);
+      try {
+        const res = await fetch('/api/daily-message');
+        if (!res.ok) throw new Error('Response not OK');
+        const data = await res.json();
+        setDailyMessage(data.message || '오늘의 편지를 아직 못 받았어요. 💌');
+      } catch (error) {
+        console.error('데이터 로드 실패 (daily message):', error);
+        setDailyMessage('오늘의 편지를 가져오는 데 실패했어요. 😢');
+      } finally {
+        setIsLoadingMessage(false);
+      }
+    };
+    fetchMessage();
+
     const startDate = new Date('2023-09-28');
     const today = new Date();
     const timeDiff = today.getTime() - startDate.getTime();
     const dayDiff = Math.floor(timeDiff / (1000 * 3600 * 24)) + 1;
     setDDay(dayDiff);
-  }, []);
+  }, [router]);
 
   const handleLocationToggle = (newLocation: 'home' | 'work') => {
     if (location !== newLocation) {
@@ -76,7 +94,6 @@ export default function HomePage() {
     loadData(location, true);
   };
 
-  // 마지막 업데이트 시간 포맷
   const getUpdateTimeText = () => {
     if (!lastUpdate) return '';
     
@@ -91,110 +108,45 @@ export default function HomePage() {
     return `${diffHours}시간 전`;
   };
 
-  // ⭐ 포차코 이미지 선택 (온도별)
   const getPochaccoImage = () => {
     if (!weather) return '/pochacco.png';
-    
     const temp = weather.current.temperature;
-    
-    // -1도 이하: 추운 버전
     if (temp <= -1) {
       return '/pochacco_cold.png';
     }
-    
-    // 나머지: 기본 버전
     return '/pochacco.png';
   };
 
-  // ⭐⭐⭐⭐ 로딩 스켈레톤 컴포넌트
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="w-full max-w-md mx-auto p-6 space-y-6">
-          {/* 헤더 스켈레톤 */}
+          {/* Header Skeleton */}
           <div className="text-center space-y-2 animate-pulse">
             <div className="h-8 bg-gray-200 rounded-lg w-48 mx-auto"></div>
             <div className="h-4 bg-gray-200 rounded w-64 mx-auto"></div>
           </div>
 
-          {/* 포차코 스켈레톤 */}
+          {/* Pochacco Skeleton */}
           <div className="flex justify-center px-4">
-            <div className="relative w-full aspect-square max-w-md rounded-3xl overflow-hidden bg-gray-200 animate-pulse">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-6xl opacity-20">🐶</div>
-              </div>
-            </div>
+            <div className="relative w-full aspect-square max-w-md rounded-3xl overflow-hidden bg-gray-200 animate-pulse"></div>
+          </div>
+          
+          {/* Daily Letter Skeleton */}
+          <div className="px-4">
+            <div className="h-24 bg-gray-200 rounded-2xl animate-pulse"></div>
           </div>
 
-          {/* 집/회사 토글 스켈레톤 */}
+          {/* Toggle Skeleton */}
           <div className="flex gap-2 bg-white rounded-xl p-2 shadow-sm border border-gray-200 animate-pulse">
             <div className="flex-1 h-12 bg-gray-200 rounded-lg"></div>
             <div className="flex-1 h-12 bg-gray-200 rounded-lg"></div>
           </div>
 
-          {/* 날씨 카드 스켈레톤 */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse">
-            <div className="h-6 bg-gray-200 rounded w-32 mb-4"></div>
-            <div className="text-center space-y-3">
-              <div className="w-16 h-16 bg-gray-200 rounded-full mx-auto"></div>
-              <div className="h-10 bg-gray-200 rounded w-24 mx-auto"></div>
-              <div className="h-4 bg-gray-200 rounded w-32 mx-auto"></div>
-              <div className="flex justify-center gap-4 mt-4">
-                <div className="h-4 bg-gray-200 rounded w-16"></div>
-                <div className="h-4 bg-gray-200 rounded w-16"></div>
-              </div>
-            </div>
-          </div>
-
-          {/* 미세먼지 카드 스켈레톤 */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse">
-            <div className="h-6 bg-gray-200 rounded w-24 mb-4"></div>
-            <div className="text-center space-y-3">
-              <div className="w-16 h-16 bg-gray-200 rounded-full mx-auto"></div>
-              <div className="h-8 bg-gray-200 rounded w-20 mx-auto"></div>
-              <div className="h-4 bg-gray-200 rounded w-24 mx-auto"></div>
-              <div className="flex justify-center gap-4 mt-4">
-                <div className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-12 mx-auto"></div>
-                  <div className="h-6 bg-gray-200 rounded w-16 mx-auto"></div>
-                </div>
-                <div className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-12 mx-auto"></div>
-                  <div className="h-6 bg-gray-200 rounded w-16 mx-auto"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 착장 가이드 카드 스켈레톤 */}
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl shadow-sm border border-emerald-200 p-6 animate-pulse">
-            <div className="h-6 bg-gray-200 rounded w-40 mb-4"></div>
-            <div className="text-center space-y-3">
-              <div className="w-16 h-16 bg-gray-200 rounded-full mx-auto"></div>
-              <div className="h-6 bg-gray-200 rounded w-32 mx-auto"></div>
-              <div className="h-4 bg-gray-200 rounded w-48 mx-auto"></div>
-              <div className="flex justify-center gap-2 mt-4">
-                <div className="h-6 bg-gray-200 rounded-full w-16"></div>
-                <div className="h-6 bg-gray-200 rounded-full w-16"></div>
-                <div className="h-6 bg-gray-200 rounded-full w-16"></div>
-              </div>
-            </div>
-          </div>
-
-          {/* D-Day 스켈레톤 */}
-          <div className="pt-6 pb-2 animate-pulse">
-            <div className="text-center space-y-3">
-              <div className="h-4 bg-gray-200 rounded w-32 mx-auto"></div>
-              <div className="flex justify-center items-center gap-2">
-                <div className="h-4 bg-gray-200 rounded w-4"></div>
-                <div className="w-10 h-12 bg-gray-200 rounded-lg"></div>
-                <div className="w-10 h-12 bg-gray-200 rounded-lg"></div>
-                <div className="w-10 h-12 bg-gray-200 rounded-lg"></div>
-                <div className="h-4 bg-gray-200 rounded w-8"></div>
-              </div>
-              <div className="h-6 bg-gray-200 rounded w-32 mx-auto"></div>
-            </div>
-          </div>
+          {/* Cards Skeleton */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse h-40"></div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse h-40"></div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse h-40"></div>
         </div>
       </div>
     );
@@ -209,7 +161,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 새로고침 성공 메시지 */}
       {showSuccessMessage && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in-out">
           <div className="bg-emerald-500 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2">
@@ -220,7 +171,6 @@ export default function HomePage() {
       )}
 
       <div className="w-full max-w-md mx-auto p-6 space-y-6">
-        {/* 헤더 */}
         <div className="text-center relative">
           <h1 className="text-2xl font-bold">안녕, {userName}! 👋</h1>
           <p className="text-gray-600 text-sm mt-1">
@@ -232,7 +182,6 @@ export default function HomePage() {
             })}
           </p>
           
-          {/* 투명한 새로고침 버튼 (우측 상단) */}
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
@@ -255,7 +204,6 @@ export default function HomePage() {
             </svg>
           </button>
           
-          {/* 마지막 업데이트 시간 */}
           {lastUpdate && (
             <p className="text-xs text-gray-400 mt-1">
               {getUpdateTimeText()} 업데이트
@@ -263,7 +211,6 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* ⭐ 포차코 크게! 정사각형 꽉차게 + 둥글게 + 온도별 이미지 */}
         <div className="flex justify-center px-4">
           <div className="relative w-full aspect-square max-w-md rounded-3xl overflow-hidden shadow-2xl border-4 border-gray-200">
             <Image
@@ -274,7 +221,6 @@ export default function HomePage() {
               priority
             />
             
-            {/* 새로고침 중 오버레이 */}
             {isRefreshing && (
               <div className="absolute inset-0 bg-white bg-opacity-60 flex flex-col items-center justify-center">
                 <div className="animate-bounce text-4xl mb-2">🐶</div>
@@ -286,7 +232,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 집/회사 토글 */}
+        <DailyLetter message={dailyMessage} isLoading={isLoadingMessage} />
+
         <div className="flex gap-2 bg-white rounded-xl p-2 shadow-sm border border-gray-200">
           <button
             onClick={() => handleLocationToggle('home')}
@@ -312,7 +259,6 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* 날씨 카드 */}
         {weather && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold mb-4">☁️ 오늘의 날씨</h2>
@@ -331,7 +277,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* 미세먼지 카드 */}
         {airQuality && (
           <div className={`rounded-xl shadow-sm border-2 p-6 ${getAirQualityBg(airQuality.overall.grade)}`}>
             <h2 className="text-lg font-semibold mb-4">💨 미세먼지</h2>
@@ -360,7 +305,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* 착장 가이드 카드 */}
         {outfit && (
           <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl shadow-sm border border-emerald-200 p-6">
             <h2 className="text-lg font-semibold mb-4">👗 오늘의 착장 가이드</h2>
@@ -386,7 +330,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* D-Day Counter */}
         {dDay > 0 && (
           <div className="pt-6 pb-2">
             <div className="text-center space-y-3">
