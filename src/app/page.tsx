@@ -64,12 +64,17 @@ export default function HomePage() {
       setIsLoadingMessage(true);
       try {
         const res = await fetch('/api/daily-message');
-        if (!res.ok) throw new Error('Response not OK');
         const data = await res.json();
+        
+        if (!res.ok) {
+          throw new Error(data.error || data.message || `서버 응답 오류: ${res.status}`);
+        }
+        
         setDailyMessage(data.message || '오늘의 편지를 아직 못 받았어요. 💌');
       } catch (error) {
         console.error('데이터 로드 실패 (daily message):', error);
-        setDailyMessage('오늘의 편지를 가져오는 데 실패했어요. 😢');
+        const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류 발생';
+        setDailyMessage(`오늘의 편지를 가져오는 데 실패했어요. 😢\n(${errorMessage})`);
       } finally {
         setIsLoadingMessage(false);
       }

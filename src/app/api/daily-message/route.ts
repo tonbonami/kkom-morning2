@@ -14,7 +14,10 @@ export async function GET() {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Google Apps Script request failed with status ${response.status}: ${errorText}`);
-      throw new Error(`Google Apps Script request failed with status ${response.status}`);
+      return NextResponse.json(
+        { message: 'Error fetching daily message from Google Apps Script.', error: errorText },
+        { status: 502 } // Bad Gateway
+      );
     }
 
     const contentType = response.headers.get('content-type');
@@ -22,7 +25,10 @@ export async function GET() {
     if (!contentType || !contentType.includes('application/json')) {
       const text = await response.text();
       console.error('Non-JSON response from GAS:', text);
-      throw new Error('Invalid response format from Google Apps Script. Expected JSON.');
+      return NextResponse.json(
+        { message: 'Invalid response format from Google Apps Script. Expected JSON.', error: "Received non-JSON response, which might be an error page from Google." },
+        { status: 502 }
+      );
     }
 
     const data = await response.json();
@@ -30,12 +36,19 @@ export async function GET() {
     if (data.result === 'success') {
       return NextResponse.json({ message: data.message });
     } else {
-      throw new Error(data.message || 'Failed to get daily message from GAS');
+      console.error('Google Apps Script returned a failure result:', data.message);
+      return NextResponse.json(
+        { message: 'Google Apps Script reported an error.', error: data.message || 'Unknown script error' },
+        { status: 500 }
+      );
     }
 
   } catch (error) {
-    console.error('API route error:', error);
+    console.error('API route error (network level):', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return NextResponse.json({ message: 'Error fetching daily message.', error: errorMessage }, { status: 500 });
+    return NextResponse.json(
+        { message: 'Failed to connect to the backend service.', error: errorMessage }, 
+        { status: 500 }
+    );
   }
 }
