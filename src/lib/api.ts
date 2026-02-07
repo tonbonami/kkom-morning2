@@ -1,6 +1,7 @@
 // src/lib/api.ts
+import type { User } from '@/types';
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbzRkRFH9xxCDWBxrc9SSM_YCUqwOoolM6-YqOK2haf7metCMDUr5Khw19uibXpYJLvp/exec'
+const API_URL = 'https://script.google.com/macros/s/AKfycbz4LsN6yONKcgfIn2CwpC0B4km_phEx_WdXPdAk6Eijr15PDk-e4pmNf-nw5M7mraAN/exec'
 
 const CACHE_KEY = 'kkom-weather-cache'
 const CACHE_DURATION = 5 * 60 * 1000 // 5분
@@ -53,7 +54,7 @@ interface CachedData {
   location: string
 }
 
-export async function loginUser(code: string): Promise<{ success: boolean; message: string }> {
+export async function loginUser(code: string): Promise<User | null> {
   try {
     const response = await fetch(`${API_URL}?action=login&code=${code}`)
     
@@ -64,11 +65,19 @@ export async function loginUser(code: string): Promise<{ success: boolean; messa
       throw new Error('API가 JSON 형식으로 응답하지 않았습니다')
     }
 
-    const data = await response.json()
-    return data
+    const data = await response.json();
+    
+    if (data.success && data.user) {
+      localStorage.setItem('kkom-user', JSON.stringify(data.user));
+      return data.user;
+    } else {
+      console.error('Login failed from API:', data.message);
+      return null;
+    }
+
   } catch (error) {
     console.error('Login error:', error)
-    throw error
+    return null;
   }
 }
 
