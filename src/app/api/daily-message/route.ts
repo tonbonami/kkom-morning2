@@ -12,15 +12,17 @@ export async function GET() {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Google Apps Script request failed with status ${response.status}: ${errorText}`);
       throw new Error(`Google Apps Script request failed with status ${response.status}`);
     }
 
     const contentType = response.headers.get('content-type');
-    // GAS 응답이 리디렉션 페이지를 포함할 수 있으므로 text/html도 일시적으로 허용
-    if (!contentType || (!contentType.includes('application/json') && !contentType.includes('text/html'))) {
+    // GAS can return an HTML page for redirects or errors. We must only parse JSON.
+    if (!contentType || !contentType.includes('application/json')) {
       const text = await response.text();
       console.error('Non-JSON response from GAS:', text);
-      throw new Error('Invalid response format from Google Apps Script');
+      throw new Error('Invalid response format from Google Apps Script. Expected JSON.');
     }
 
     const data = await response.json();
