@@ -2,46 +2,61 @@ import { NextResponse } from 'next/server';
 
 const API_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
 
-// 실시간 데이터를 위해 캐시를 사용하지 않도록 설정합니다.
 export const revalidate = 0;
 
 export async function GET() {
   if (!API_URL) {
-    return NextResponse.json({ message: 'API URL이 설정되지 않았습니다.' }, { status: 500 });
+    return NextResponse.json(
+      { message: 'API URL이 설정되지 않았습니다.' }, 
+      { status: 500 }
+    );
   }
 
   try {
-    const response = await fetch(`${API_URL}?action=getQuiz`, {
+    const response = await fetch(`${API_URL}?action=getTodayQuiz`, {
       cache: 'no-store',
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Google Apps Script request failed with status ${response.status}: ${errorText}`);
+      console.error(`Apps Script 요청 실패 (${response.status}):`, errorText);
       return NextResponse.json(
-        { message: 'Error fetching quiz from Google Apps Script.', error: errorText },
+        { message: 'Apps Script 연결 오류', error: errorText },
         { status: 502 }
       );
     }
     
     const data = await response.json();
+    console.log('Apps Script 응답:', data);
 
-    if (data.result === 'success' && data.quiz) {
-      return NextResponse.json(data.quiz);
+    // ✅ result 필드 확인
+    if (data.result === 'success') {
+      if (data.quiz && data.quiz.question) {
+        return NextResponse.json({
+          id: `quiz_${new Date().toISOString().split('T')[0]}`,
+          question: data.quiz.question,
+          type: 'text' as const,
+        });
+      } else {
+        return NextResponse.json(
+          { message: '퀴즈 데이터 형식이 올바르지 않습니다.' },
+          { status: 500 }
+        );
+      }
     } else {
-      console.error('Google Apps Script returned a failure result for quiz:', data.message);
+      // result가 'fail'인 경우
       return NextResponse.json(
-        { message: 'Google Apps Script reported an error for quiz.', error: data.message || 'Unknown script error' },
-        { status: 500 }
+        { message: data.message || '오늘의 퀴즈가 없습니다.' },
+        { status: 404 }
       );
     }
 
   } catch (error) {
-    console.error('API route error (quiz):', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    console.error('API route 오류 (quiz):', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-        { message: 'Failed to connect to the backend service for quiz.', error: errorMessage }, 
-        { status: 500 }
+      { message: '백엔드 연결 실패', error: errorMessage }, 
+      { status: 500 }
     );
   }
 }

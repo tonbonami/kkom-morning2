@@ -1,6 +1,5 @@
-'use client';
-
 import KkomQuiz from '@/components/QuizCard';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -8,6 +7,7 @@ import Image from 'next/image';
 import { getInitialData, getCacheInfo } from '@/lib/api';
 import type { WeatherData, AirQualityData, OutfitGuide } from '@/types';
 import DailyLetter from '@/components/daily-letter';
+import KkomQuiz from '@/components/kkom-quiz';
 
 export default function HomePage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
