@@ -22,6 +22,7 @@ export default function HomePage() {
   const [dDay, setDDay] = useState(0);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [currentDateText, setCurrentDateText] = useState('');
   const router = useRouter();
 
   const loadData = async (loc: 'home' | 'work', forceRefresh = false) => {
@@ -92,6 +93,13 @@ export default function HomePage() {
     const timeDiff = today.getTime() - startDate.getTime();
     const dayDiff = Math.floor(timeDiff / (1000 * 3600 * 24)) + 1;
     setDDay(dayDiff);
+
+    setCurrentDateText(new Date().toLocaleDateString('ko-KR', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        weekday: 'long'
+    }));
   }, [router]);
 
   const handleLocationToggle = (newLocation: 'home' | 'work') => {
@@ -185,12 +193,7 @@ export default function HomePage() {
         <div className="text-center relative">
           <h1 className="text-2xl font-bold">안녕, {userName}! 👋</h1>
           <p className="text-gray-600 text-sm mt-1">
-            {new Date().toLocaleDateString('ko-KR', { 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric',
-              weekday: 'long'
-            })}
+            {currentDateText}
           </p>
           
           <button
