@@ -1,50 +1,70 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-const API_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-export async function POST(request: Request) {
-  if (!API_URL) {
-    return NextResponse.json({ message: 'API URL이 설정되지 않았습니다.' }, { status: 500 });
-  }
-
+export async function POST(request: NextRequest) {
   try {
-    const { id, answer } = await request.json();
-    
-    const response = await fetch(`${API_URL}?action=checkQuiz`, {
+    const API_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
+
+    if (!API_URL) {
+      console.error('❌ API URL이 설정되지 않았습니다.');
+      return NextResponse.json(
+        { message: 'API URL이 설정되지 않았습니다.' },
+        { status: 500 }
+      );
+    }
+
+    const body = await request.json();
+    const { answer } = body;
+
+    console.log('📤 정답 확인 요청:', { answer });
+
+    const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ id, answer }),
-      cache: 'no-store',
+      body: JSON.stringify({
+        action: 'checkQuizAnswer',
+        answer: answer
+      }),
+      cache: 'no-store'
     });
+
+    console.log('📥 Apps Script 응답 상태:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Google Apps Script check request failed with status ${response.status}: ${errorText}`);
+      console.error('❌ Apps Script 연결 오류:', errorText);
       return NextResponse.json(
-        { message: 'Error checking quiz answer with Google Apps Script.', error: errorText },
+        { message: 'Apps Script 연결 오류', error: errorText },
         { status: 502 }
       );
     }
 
     const data = await response.json();
+    console.log('✅ Apps Script 응답 데이터:', data);
 
-    if (data.result === 'success') {
-      return NextResponse.json({ isCorrect: data.isCorrect, explanation: data.explanation });
+    if (data.success) {
+      return NextResponse.json({
+        isCorrect: true,
+        explanation: data.message,
+        memory: data.memory
+      });
     } else {
-      return NextResponse.json(
-        { message: 'Google Apps Script reported an error checking answer.', error: data.message },
-        { status: 500 }
-      );
+      return NextResponse.json({
+        isCorrect: false,
+        explanation: data.message || '다시 한 번 생각해보세요!',
+        hint: data.hint
+      });
     }
 
-  } catch (error) {
-    console.error('API route error (quiz check):', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+  } catch (error: any) {
+    console.error('❌ 정답 확인 오류:', error);
     return NextResponse.json(
-        { message: 'Failed to connect to the backend service for quiz check.', error: errorMessage }, 
-        { status: 500 }
+      { message: '정답 확인 중 오류가 발생했습니다.', error: error.message },
+      { status: 500 }
     );
   }
 }
