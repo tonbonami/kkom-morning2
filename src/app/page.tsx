@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { getInitialData, getCacheInfo } from '@/lib/api';
 import type { WeatherData, AirQualityData, OutfitGuide } from '@/types';
 import DailyLetter from '@/components/daily-letter';
+import KkomQuiz from '@/components/kkom-quiz';
 
 export default function HomePage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -70,15 +71,15 @@ export default function HomePage() {
         const res = await fetch('/api/daily-message');
         const data = await res.json();
         
-        if (!res.ok || data.result === 'fail' || data.result === 'error') {
-          throw new Error(data.message || `서버 응답 오류: ${res.status}`);
+        if (!res.ok) {
+          throw new Error(data.error || data.message || `서버 응답 오류: ${res.status}`);
         }
         
         setDailyMessage(data.message || '오늘의 편지를 아직 못 받았어요. 💌');
       } catch (error) {
         console.error('데이터 로드 실패 (daily message):', error);
         const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류 발생';
-        setDailyMessage(`오늘의 편지를 가져오는 데 실패했어요. 😢\n\n${errorMessage}`);
+        setDailyMessage(`오늘의 편지를 가져오는 데 실패했어요. 😢\n\n오류: ${errorMessage}`);
       } finally {
         setIsLoadingMessage(false);
       }
@@ -272,6 +273,8 @@ export default function HomePage() {
             🏢 회사 (중구)
           </button>
         </div>
+
+        <KkomQuiz />
 
         {weather && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

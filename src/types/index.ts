@@ -48,3 +48,15 @@ export interface OutfitGuide {
   message: string;
   needMask: boolean;
 }
+
+export interface QuizData {
+  id: string;
+  question: string;
+  options?: string[];
+  type: 'text' | 'multiple-choice';
+}
+
+export interface QuizResult {
+  isCorrect: boolean;
+  explanation: string;
+}

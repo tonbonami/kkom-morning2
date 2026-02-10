@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbyRRiSpnBE1VtF0RPt3-4C5uQ-wsyX9HJLo2gc3rOpgpq70oaCgHRXnhLRNTOsjnhy8/exec';
+const API_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
 
 // 실시간 데이터를 위해 캐시를 사용하지 않도록 설정합니다.
 export const revalidate = 0;
 
 export async function GET() {
+  if (!API_URL) {
+    return NextResponse.json({ message: 'API URL이 설정되지 않았습니다.' }, { status: 500 });
+  }
+
   try {
     const response = await fetch(`${API_URL}?action=getDailyMessage`, {
       cache: 'no-store',

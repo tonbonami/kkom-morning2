@@ -1,7 +1,7 @@
 // src/lib/api.ts
 import type { User, WeatherData, AirQualityData, OutfitGuide } from '@/types';
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbyRRiSpnBE1VtF0RPt3-4C5uQ-wsyX9HJLo2gc3rOpgpq70oaCgHRXnhLRNTOsjnhy8/exec'
+const API_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
 
 const CACHE_KEY = 'kkom-weather-cache'
 const CACHE_DURATION = 5 * 60 * 1000 // 5분
@@ -15,6 +15,10 @@ interface CachedData {
 }
 
 export async function loginUser(code: string): Promise<User | null> {
+  if (!API_URL) {
+    console.error("API URL is not configured in environment variables.");
+    return null;
+  }
   try {
     const response = await fetch(`${API_URL}?action=login&code=${code}`)
     
@@ -45,6 +49,9 @@ export async function getInitialData(
   location: 'home' | 'work', 
   forceRefresh = false
 ): Promise<{ weather: WeatherData; airQuality: AirQualityData; outfit: OutfitGuide }> {
+  if (!API_URL) {
+    throw new Error("API URL is not configured in environment variables.");
+  }
   try {
     // 강제 새로고침이 아니면 캐시 확인
     if (!forceRefresh) {
