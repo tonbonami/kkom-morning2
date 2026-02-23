@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent, useMemo } from 'react';
+import { useEffect, useMemo, useState, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,82 +23,89 @@ type Sparkle = {
   left: string;
   top: string;
   delay: number;
-  scale: number;
+  size: number;
   rotate: number;
 };
 
 function makeSparkles(count = 10): Sparkle[] {
-  const items: Sparkle[] = [];
-  for (let i = 0; i < count; i++) {
-    const left = `${10 + Math.random() * 80}%`;
-    const top = `${10 + Math.random() * 80}%`;
-    const delay = i * 0.06; // 순차로 피어오르는 느낌
-    const scale = 0.7 + Math.random() * 0.8;
-    const rotate = -20 + Math.random() * 40;
-    items.push({
-      id: `${Date.now()}-${i}-${Math.random().toString(16).slice(2)}`,
-      left,
-      top,
-      delay,
-      scale,
-      rotate,
-    });
-  }
-  return items;
+  const rand = (min: number, max: number) => Math.random() * (max - min) + min;
+
+  // 카드 "안쪽"에서 번쩍이는 느낌: 중앙-상단/중앙-하단 위주로 분포
+  const points = Array.from({ length: count }).map((_, i) => ({
+    id: `sp-${Date.now()}-${i}`,
+    left: `${rand(18, 82)}%`,
+    top: `${rand(18, 82)}%`,
+    delay: i * 0.06,
+    size: Math.round(rand(14, 22)),
+    rotate: Math.round(rand(-25, 25)),
+  }));
+
+  return points;
 }
 
 function SparklesBurst({ show }: { show: boolean }) {
-  const sparkles = useMemo(() => makeSparkles(12), []);
+  const sparkles = useMemo(() => makeSparkles(11), []); // 한 번만 생성(고급스러운 패턴 유지)
 
   return (
     <AnimatePresence>
-      {show && (
+      {show ? (
         <motion.div
-          className="pointer-events-none absolute inset-0"
+          key="sparkles-burst"
+          className="pointer-events-none absolute inset-0 z-[30] overflow-hidden rounded-2xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
+          transition={{ duration: 0.12 }}
         >
-          {/* 은은한 글로우(라이트 글래스 톤) */}
+          {/* 글로우(반짝임이 '느껴지게' 만드는 핵심 레이어) */}
           <motion.div
-            className="absolute inset-0 rounded-2xl"
+            className="absolute inset-0"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.12 }}
             style={{
               background:
-                'radial-gradient(circle at 30% 20%, rgba(16,185,129,0.30) 0%, transparent 55%), ' +
-                'radial-gradient(circle at 80% 70%, rgba(59,130,246,0.20) 0%, transparent 60%)',
+                'radial-gradient(circle at 32% 28%, rgba(16,185,129,0.42) 0%, transparent 58%),' +
+                'radial-gradient(circle at 74% 72%, rgba(59,130,246,0.30) 0%, transparent 62%),' +
+                'radial-gradient(circle at 55% 50%, rgba(255,255,255,0.35) 0%, transparent 55%)',
             }}
           />
 
-          {/* 반짝이들 */}
+          {/* 아이콘 스파클들 */}
           {sparkles.map((s) => (
             <motion.div
               key={s.id}
               className="absolute"
               style={{ left: s.left, top: s.top }}
-              initial={{ opacity: 0, scale: 0.6, y: 8, rotate: s.rotate }}
-              animate={{
-                opacity: [0, 1, 0],
-                scale: [0.6, s.scale, 0.8],
-                y: [8, -6, -14],
-                rotate: [s.rotate, s.rotate + 12, s.rotate + 20],
-              }}
-              exit={{ opacity: 0 }}
-              transition={{
-                duration: 0.8, // ✅ 요청하신 0.8초
-                delay: s.delay,
-                ease: 'easeOut',
-              }}
+              initial={{ opacity: 0, scale: 0.4, rotate: s.rotate }}
+              animate={{ opacity: [0, 1, 0], scale: [0.4, 1.12, 0.85], y: [8, -6, -12] }}
+              transition={{ duration: 0.8, delay: s.delay, ease: 'easeOut' }}
             >
-              <Sparkles className="h-5 w-5 text-emerald-500 will-change-transform" />
+              <Sparkles
+                className="drop-shadow-sm"
+                style={{
+                  width: s.size,
+                  height: s.size,
+                  // 색 고정: Tailwind class 대신 inline로 “항상” 보이게
+                  color: 'rgba(16,185,129,0.95)',
+                  filter: 'drop-shadow(0 6px 14px rgba(16,185,129,0.25))',
+                }}
+              />
             </motion.div>
           ))}
+
+          {/* 아주 작은 별점(느낌 강화) */}
+          <motion.div
+            className="absolute left-1/2 top-1/2 z-[31] -translate-x-1/2 -translate-y-1/2 text-3xl"
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: [0, 1, 0], scale: [0.6, 1.05, 0.9] }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+          >
+            ✨
+          </motion.div>
         </motion.div>
-      )}
+      ) : null}
     </AnimatePresence>
   );
 }
@@ -120,8 +127,8 @@ export default function KkomQuiz() {
         setError(null);
         const res = await fetch('/api/quiz');
         if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          throw new Error((errorData as any).message || '퀴즈를 가져오는 데 실패했습니다.');
+          const errorData = await res.json();
+          throw new Error(errorData.message || '퀴즈를 가져오는 데 실패했습니다.');
         }
         const data = await res.json();
         setQuiz(data);
@@ -149,18 +156,18 @@ export default function KkomQuiz() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error((errorData as any).message || '답변 확인 중 오류가 발생했습니다.');
+        const errorData = await res.json();
+        throw new Error(errorData.message || '답변 확인 중 오류가 발생했습니다.');
       }
 
       const data: QuizResult = await res.json();
       setResult(data);
       setIsFlipped(true);
 
-      // ✅ 정답일 때만 0.8초 스파클
+      // ✅ 정답일 때만 0.8초 스파클 (확실히 보이게)
       if (data.isCorrect) {
         setShowSparkles(true);
-        window.setTimeout(() => setShowSparkles(false), 850);
+        window.setTimeout(() => setShowSparkles(false), 800);
       }
     } catch (e: any) {
       console.error('정답 제출 오류:', e);
@@ -179,17 +186,17 @@ export default function KkomQuiz() {
 
   if (isLoading) {
     return (
-      <Card className="w-full bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200/60">
+      <Card variant="glass" className="w-full">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-purple-700">
+          <CardTitle className="flex items-center gap-2 text-emerald-700">
             <BrainCircuit className="animate-pulse" />
             <span>오늘의 꼼퀴즈 로딩 중...</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="h-6 bg-purple-200/70 rounded animate-pulse" />
-            <div className="h-10 bg-purple-200/70 rounded animate-pulse" />
+            <div className="h-6 bg-emerald-100/80 rounded animate-pulse" />
+            <div className="h-10 bg-emerald-100/80 rounded animate-pulse" />
           </div>
         </CardContent>
       </Card>
@@ -198,7 +205,7 @@ export default function KkomQuiz() {
 
   if (error || !quiz) {
     return (
-      <Card className="w-full border-yellow-200/70 bg-yellow-50/70">
+      <Card variant="glass" className="w-full !border-yellow-300/70 !ring-yellow-500/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-yellow-800">
             <Lightbulb />
@@ -206,16 +213,14 @@ export default function KkomQuiz() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-yellow-800">
-            {error || '오늘은 퀴즈가 없어요. 내일 다시 만나요!'}
-          </p>
+          <p className="text-yellow-800">{error || '오늘은 퀴즈가 없어요. 내일 다시 만나요!'}</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="w-full perspective">
+    <div className="relative w-full" style={{ perspective: '1000px' }}>
       <AnimatePresence mode="wait">
         {isFlipped && result ? (
           // 뒷면 (결과)
@@ -226,18 +231,19 @@ export default function KkomQuiz() {
             exit={{ rotateY: -180, opacity: 0 }}
             transition={{ duration: 0.6 }}
             style={{ transformStyle: 'preserve-3d' }}
-            className="relative"
           >
-            <SparklesBurst show={showSparkles} />
-
             <Card
-              className={[
-                'relative w-full overflow-hidden',
+              variant="accent"
+              interactive
+              className={`relative w-full ${
                 result.isCorrect
-                  ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200/70'
-                  : 'bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200/70',
-              ].join(' ')}
+                  ? 'bg-gradient-to-br from-emerald-50/80 to-teal-50/70'
+                  : 'bg-gradient-to-br from-orange-50/80 to-yellow-50/70'
+              }`}
             >
+              {/* ✅ 정답 순간 스파클 */}
+              <SparklesBurst show={showSparkles} />
+
               <CardHeader>
                 <CardTitle className="flex items-center justify-center gap-2 text-2xl">
                   {result.isCorrect ? (
@@ -264,16 +270,11 @@ export default function KkomQuiz() {
               </CardHeader>
 
               <CardContent className="text-center space-y-4">
-                <p className="text-base text-gray-700 whitespace-pre-line leading-relaxed">
-                  {result.explanation}
-                </p>
+                <p className="text-lg text-gray-800 whitespace-pre-line">{result.explanation}</p>
               </CardContent>
 
               <CardFooter className="flex justify-center">
-                <Button
-                  onClick={handleRetry}
-                  className="bg-purple-600 hover:bg-purple-700 active:scale-[0.99] transition-transform"
-                >
+                <Button onClick={handleRetry} className="bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99]">
                   다시 풀기
                 </Button>
               </CardFooter>
@@ -289,17 +290,17 @@ export default function KkomQuiz() {
             transition={{ duration: 0.6 }}
             style={{ transformStyle: 'preserve-3d' }}
           >
-            <Card className="w-full bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200/60">
+            <Card variant="glass" interactive className="w-full">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-purple-700">
+                <CardTitle className="flex items-center gap-2 text-emerald-700">
                   <BrainCircuit className="animate-bounce" />
-                  <span>오늘의 꼼퀴즈!</span>
+                  <span>오늘의 꼼퀴즈</span>
                 </CardTitle>
               </CardHeader>
 
               <form onSubmit={handleSubmit}>
                 <CardContent className="space-y-4">
-                  <p className="text-base font-medium text-gray-800 bg-white/60 p-4 rounded-lg">
+                  <p className="text-lg font-medium text-gray-900 bg-white/50 p-4 rounded-lg">
                     {quiz.question}
                   </p>
 
@@ -317,7 +318,7 @@ export default function KkomQuiz() {
                   <Button
                     type="submit"
                     disabled={isChecking || !answer.trim()}
-                    className="w-full bg-purple-600 hover:bg-purple-700 active:scale-[0.99] transition-transform"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99]"
                   >
                     {isChecking ? (
                       <>
