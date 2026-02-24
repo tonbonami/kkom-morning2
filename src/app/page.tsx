@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { getInitialData, getCacheInfo } from '@/lib/api';
-import type { WeatherData, AirQualityData, OutfitGuide } from '@/types';
+import type { WeatherData, OutfitGuide } from '@/types';
 import DailyLetter from '@/components/daily-letter';
 import { getSkyCondition, getAirQualityEmoji, getAirQualityColor } from '@/lib/weatherHelpers';
 
@@ -25,11 +25,14 @@ import {
   CloudRain,
 } from 'lucide-react';
 
-const UI_VERSION = 'v2026-02-24.1';
+const UI_VERSION = 'v2026-02-24.2';
 
 export default function HomePage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [airQuality, setAirQuality] = useState<AirQualityData | null>(null);
+
+  // ⚠️ 프로젝트에서 data.air 를 그대로 쓰고 있어서 타입을 any로 둡니다(현재 상황 유지)
+  const [airQuality, setAirQuality] = useState<any>(null);
+
   const [outfit, setOutfit] = useState<OutfitGuide | null>(null);
   const [dailyMessage, setDailyMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -59,19 +62,6 @@ export default function HomePage() {
 
     try {
       const data = await getInitialData(loc, forceRefresh);
-
-      console.log('[initialData.weather.today]', data.weather?.today);
-      console.log('[initialData.weather.tomorrow]', data.weather?.tomorrow);
-
-     // ✅ 디버그 로그 (브라우저 콘솔에서 확인)
-     console.log(
-      '[initialData.weather.today.precip]',
-      data.weather?.today?.precipitation
-    );
-    console.log(
-      '[initialData.weather.tomorrow.precip]',
-      data.weather?.tomorrow?.precipitation
-    );
 
       setWeather(data.weather);
       setAirQuality(data.air);
@@ -110,7 +100,6 @@ export default function HomePage() {
     const user = JSON.parse(userStr);
     setUserName(user.이름);
 
-    // ✅ location state와 일치
     loadData(location);
 
     const fetchMessage = async () => {
@@ -159,16 +148,11 @@ export default function HomePage() {
       : `${Math.floor(diffMins / 60)}시간 전`;
   };
 
+  // ✅ 포차코: 10도 이상이면 피크닉(우선), 영하면 콜드
   const getPochaccoImage = () => {
     const temp = weather?.current?.temp ?? 0;
-  
-    // 10도 초과면 피크닉
-    if (temp > 10) return '/pochacco_picnic.png';
-  
-    // 영하(= -1 이하)면 콜드
+    if (temp >= 10) return '/pochacco_picnic.png';
     if (temp <= -1) return '/pochacco_cold.png';
-  
-    // 그 외 기본
     return '/pochacco.png';
   };
 
@@ -182,73 +166,84 @@ export default function HomePage() {
     show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } },
   };
 
-  const todayPrecip = weather?.today?.precipitation ?? null;
-const tomorrowPrecip = weather?.tomorrow?.precipitation ?? null;
+  // ✅ 강수: 오늘/내일 "항상" 렌더
+  const todayPrecip = weather?.today?.precipitation;
+  const tomorrowPrecip = weather?.tomorrow?.precipitation;
 
-const renderPrecip = (label: string, p?: any) => {
-  // ✅ 카드 자체는 항상 렌더
-  const safe = p ?? {
-    type: null,
-    typeText: '정보 없음',
-    emoji: '☀️',
-    probability: null,
-    startTimeKor: null,
-  };
+  const renderPrecip = (label: string, p?: any) => {
+    const safe = p ?? {
+      type: null,
+      typeText: '정보 없음',
+      emoji: '☀️',
+      probability: null,
+      startTimeKor: null,
+    };
 
-  // 타입 안전하게 방어
-  const typeText = safe.typeText ?? '정보 없음';
-  const emoji = safe.emoji ?? '☀️';
-  const probability =
-    typeof safe.probability === 'number' ? `${safe.probability}%` : '';
-  const startTimeKor = safe.startTimeKor ?? '';
+    const typeText = safe.typeText ?? '정보 없음';
+    const emoji = safe.emoji ?? '☀️';
+    const probabilityNum = typeof safe.probability === 'number' ? safe.probability : null;
+    const probabilityText = probabilityNum !== null ? `${probabilityNum}%` : '';
+    const startTimeKor = safe.startTimeKor ?? '';
 
-  // 강수 없음도 예쁘게 보여주기
-  const isNone = typeText === '강수 없음';
+    const isNone = typeText === '강수 없음';
+    const isUnknown = typeText === '정보 없음';
 
-  return (
-    <Card variant="glass">
-      <CardContent className="p-6">
-        <div className="flex items-center gap-2 mb-4 text-slate-400">
-          <CloudRain size={16} strokeWidth={2.5} />
-          <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">
-            {label}
-          </h2>
-        </div>
+    return (
+      <Card
+        variant="glass"
+        className={cn(
+          'transition-all duration-500',
+          isNone && 'opacity-80 scale-[0.99]',
+          isUnknown && 'opacity-85'
+        )}
+      >
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-4 text-slate-400">
+            <div className="flex items-center gap-2">
+              <CloudRain
+                size={16}
+                strokeWidth={2.5}
+                className={cn(isNone ? 'text-slate-300' : 'text-slate-400')}
+              />
+              <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">{label}</h2>
+            </div>
 
-        <div className="flex items-center justify-between gap-4">
-          <div className="text-5xl">{emoji}</div>
-
-          <div className="flex-1">
-            <p className="text-2xl font-black text-slate-800 tracking-tight">
-              {isNone ? '강수 없음' : typeText}
-            </p>
-
-            <p className="text-xs text-slate-500 font-medium leading-tight mt-1">
-              {isNone
-                ? '우산 없이도 괜찮아요!'
-                : (
-                  <>
-                    {startTimeKor ? `${startTimeKor}부터 가능성` : '강수 가능성'}
-                    {probability ? ` · 최대 ${probability}` : ''}
-                  </>
-                )}
-            </p>
-          </div>
-
-          <div className="text-right">
-            {probability && !isNone && (
+            {/* ✅ 확률은 상단 배지로 강조 */}
+            {probabilityText && !isNone && (
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/70 border border-white shadow-sm">
                 <span className="text-[10px] font-black text-slate-600 tracking-widest uppercase">
-                  POP {probability}
+                  POP {probabilityText}
                 </span>
               </div>
             )}
           </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+
+          <div className="flex items-center justify-between gap-4">
+            <div className="text-5xl">{emoji}</div>
+
+            <div className="flex-1">
+              <p className="text-2xl font-black text-slate-800 tracking-tight">
+                {isNone ? '강수 없음' : typeText}
+              </p>
+
+              <p className="text-xs text-slate-500 font-medium leading-tight mt-1">
+                {isNone
+                  ? '우산 없이도 괜찮아요!'
+                  : isUnknown
+                  ? '예보 데이터를 확인할 수 없어요.'
+                  : (
+                    <>
+                      {startTimeKor ? `${startTimeKor}부터 가능성` : '강수 가능성'}
+                      {probabilityText ? ` · 최대 ${probabilityText}` : ''}
+                    </>
+                  )}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   if (isLoading) return <div className="min-h-screen bg-white animate-pulse" />;
 
@@ -414,15 +409,13 @@ const renderPrecip = (label: string, p?: any) => {
             </motion.div>
           )}
 
-          {/* ✅ 오늘 강수 */}
-          {weather && todayPrecip && (
+          {/* ✅ 오늘/내일 강수: 항상 렌더 */}
+          {weather && (
             <motion.div variants={itemVars}>
               {renderPrecip('Today Forecast', todayPrecip)}
             </motion.div>
           )}
-
-          {/* ✅ 내일 강수 */}
-          {weather && tomorrowPrecip && (
+          {weather && (
             <motion.div variants={itemVars}>
               {renderPrecip('Tomorrow Forecast', tomorrowPrecip)}
             </motion.div>
@@ -578,7 +571,6 @@ const renderPrecip = (label: string, p?: any) => {
                   <p className="text-xl font-black text-white tracking-widest">꼼이 ❤️ 우댕</p>
                   <div className="h-[3px] w-8 bg-gradient-to-r from-emerald-500 to-teal-500 mx-auto mt-3 rounded-full" />
 
-                  {/* ✅ 배포 확인용 버전 라벨 */}
                   <p className="text-[10px] font-black tracking-[0.25em] uppercase text-white/40">
                     {UI_VERSION}
                   </p>
