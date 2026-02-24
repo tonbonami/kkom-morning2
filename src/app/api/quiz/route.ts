@@ -4,17 +4,21 @@ const API_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
 
 export const revalidate = 0;
 
+function todayId() {
+  return `quiz_${new Date().toISOString().split('T')[0]}`;
+}
+
 export async function GET() {
   if (!API_URL) {
-    return NextResponse.json(
-      { message: 'API URL이 설정되지 않았습니다.' }, 
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'API URL이 설정되지 않았습니다.' }, { status: 500 });
   }
 
   try {
-    const response = await fetch(`${API_URL}?action=getTodayQuiz`, {
+    // ✅ v10.1 기준: getInitialData 안에 todayQuiz가 들어오는 구조가 가장 안정적
+    // (기존/구버전(getTodayQuiz)도 아래에서 호환 처리)
+    const response = await fetch(`${API_URL}?action=getInitialData&location=home`, {
       cache: 'no-store',
+      redirect: 'follow',
     });
 
     if (!response.ok) {
@@ -25,37 +29,74 @@ export async function GET() {
         { status: 502 }
       );
     }
-    
-    const data = await response.json();
-    console.log('Apps Script 응답:', data);
 
-    // ✅ result 필드 확인
-    if (data.result === 'success') {
-      if (data.quiz && data.quiz.question) {
-        return NextResponse.json({
-          id: `quiz_${new Date().toISOString().split('T')[0]}`,
-          question: data.quiz.question,
-          type: 'text' as const,
-        });
-      } else {
-        return NextResponse.json(
-          { message: '퀴즈 데이터 형식이 올바르지 않습니다.' },
-          { status: 500 }
-        );
-      }
-    } else {
-      // result가 'fail'인 경우
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('Non-JSON response from GAS:', text);
       return NextResponse.json(
-        { message: data.message || '오늘의 퀴즈가 없습니다.' },
-        { status: 404 }
+        { message: 'GAS가 JSON이 아닌 응답을 반환했습니다.', error: 'Non-JSON response' },
+        { status: 502 }
       );
     }
 
+    const data = await response.json();
+
+    // =========================
+    // ✅ v10.1 응답 형식
+    // =========================
+    // 예: { todayQuiz: { hasQuiz: false, question: "" }, ... }
+    const todayQuiz = data?.todayQuiz;
+    if (todayQuiz && typeof todayQuiz === 'object') {
+      const hasQuiz = Boolean(todayQuiz.hasQuiz);
+      const question = (todayQuiz.question || '').trim();
+
+      if (hasQuiz && question) {
+        return NextResponse.json({
+          hasQuiz: true,
+          id: todayId(),
+          question,
+          type: 'text' as const,
+        });
+      }
+
+      // ✅ 퀴즈가 없는 날도 "정상(200)"으로 처리
+      return NextResponse.json({
+        hasQuiz: false,
+        message: '오늘은 퀴즈가 없어요. 내일 다시 만나요! 🙂',
+      });
+    }
+
+    // =========================
+    // ✅ 구버전(getTodayQuiz) 응답 형식 호환
+    // =========================
+    // 예: { result: 'success', quiz: { question: '...' } }
+    if (data?.result === 'success') {
+      const q = (data?.quiz?.question || '').trim();
+      if (q) {
+        return NextResponse.json({
+          hasQuiz: true,
+          id: todayId(),
+          question: q,
+          type: 'text' as const,
+        });
+      }
+      return NextResponse.json({
+        hasQuiz: false,
+        message: '오늘은 퀴즈가 없어요. 내일 다시 만나요! 🙂',
+      });
+    }
+
+    // 그 외: 실패 케이스도 200으로 “퀴즈 없음” 처리 (UX 안정)
+    return NextResponse.json({
+      hasQuiz: false,
+      message: data?.message || '오늘은 퀴즈가 없어요. 내일 다시 만나요! 🙂',
+    });
   } catch (error) {
     console.error('API route 오류 (quiz):', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { message: '백엔드 연결 실패', error: errorMessage }, 
+      { message: '백엔드 연결 실패', error: errorMessage },
       { status: 500 }
     );
   }

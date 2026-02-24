@@ -7,18 +7,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, BrainCircuit, Check, X, Send, Lightbulb, Sparkles } from 'lucide-react';
 
-interface QuizData {
-  id: string;
-  question: string;
-  type: 'text';
-}
+type QuizPayload =
+  | { hasQuiz: true; id: string; question: string; type: 'text' }
+  | { hasQuiz: false; message: string };
 
 interface QuizResult {
   isCorrect: boolean;
   explanation: string;
 }
 
-type Sparkle = {
+type SparkleType = {
   id: string;
   left: string;
   top: string;
@@ -27,11 +25,10 @@ type Sparkle = {
   rotate: number;
 };
 
-function makeSparkles(count = 10): Sparkle[] {
+function makeSparkles(count = 10): SparkleType[] {
   const rand = (min: number, max: number) => Math.random() * (max - min) + min;
 
-  // 카드 "안쪽"에서 번쩍이는 느낌: 중앙-상단/중앙-하단 위주로 분포
-  const points = Array.from({ length: count }).map((_, i) => ({
+  return Array.from({ length: count }).map((_, i) => ({
     id: `sp-${Date.now()}-${i}`,
     left: `${rand(18, 82)}%`,
     top: `${rand(18, 82)}%`,
@@ -39,12 +36,10 @@ function makeSparkles(count = 10): Sparkle[] {
     size: Math.round(rand(14, 22)),
     rotate: Math.round(rand(-25, 25)),
   }));
-
-  return points;
 }
 
 function SparklesBurst({ show }: { show: boolean }) {
-  const sparkles = useMemo(() => makeSparkles(11), []); // 한 번만 생성(고급스러운 패턴 유지)
+  const sparkles = useMemo(() => makeSparkles(11), []);
 
   return (
     <AnimatePresence>
@@ -57,7 +52,6 @@ function SparklesBurst({ show }: { show: boolean }) {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.12 }}
         >
-          {/* 글로우(반짝임이 '느껴지게' 만드는 핵심 레이어) */}
           <motion.div
             className="absolute inset-0"
             initial={{ opacity: 0 }}
@@ -72,7 +66,6 @@ function SparklesBurst({ show }: { show: boolean }) {
             }}
           />
 
-          {/* 아이콘 스파클들 */}
           {sparkles.map((s) => (
             <motion.div
               key={s.id}
@@ -87,7 +80,6 @@ function SparklesBurst({ show }: { show: boolean }) {
                 style={{
                   width: s.size,
                   height: s.size,
-                  // 색 고정: Tailwind class 대신 inline로 “항상” 보이게
                   color: 'rgba(16,185,129,0.95)',
                   filter: 'drop-shadow(0 6px 14px rgba(16,185,129,0.25))',
                 }}
@@ -95,7 +87,6 @@ function SparklesBurst({ show }: { show: boolean }) {
             </motion.div>
           ))}
 
-          {/* 아주 작은 별점(느낌 강화) */}
           <motion.div
             className="absolute left-1/2 top-1/2 z-[31] -translate-x-1/2 -translate-y-1/2 text-3xl"
             initial={{ opacity: 0, scale: 0.6 }}
@@ -111,26 +102,28 @@ function SparklesBurst({ show }: { show: boolean }) {
 }
 
 export default function KkomQuiz() {
-  const [quiz, setQuiz] = useState<QuizData | null>(null);
+  const [quiz, setQuiz] = useState<QuizPayload | null>(null);
   const [answer, setAnswer] = useState('');
   const [result, setResult] = useState<QuizResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [showSparkles, setShowSparkles] = useState(true);
+  const [showSparkles, setShowSparkles] = useState(false); // ✅ 기본은 false
 
   useEffect(() => {
     const fetchQuiz = async () => {
       try {
         setIsLoading(true);
         setError(null);
+
         const res = await fetch('/api/quiz');
         if (!res.ok) {
-          const errorData = await res.json();
+          const errorData = await res.json().catch(() => ({}));
           throw new Error(errorData.message || '퀴즈를 가져오는 데 실패했습니다.');
         }
-        const data = await res.json();
+
+        const data: QuizPayload = await res.json();
         setQuiz(data);
       } catch (e: any) {
         setError(e.message);
@@ -138,12 +131,14 @@ export default function KkomQuiz() {
         setIsLoading(false);
       }
     };
+
     fetchQuiz();
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!quiz || !answer.trim()) return;
+    if (!quiz || quiz.hasQuiz === false) return;
+    if (!answer.trim()) return;
 
     setIsChecking(true);
     setError(null);
@@ -152,11 +147,12 @@ export default function KkomQuiz() {
       const res = await fetch('/api/quiz/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answer: answer.trim() }),
+        // ✅ id도 같이 보내서 check 라우트가 id 요구해도 안전
+        body: JSON.stringify({ id: quiz.id, answer: answer.trim() }),
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
+        const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.message || '답변 확인 중 오류가 발생했습니다.');
       }
 
@@ -164,7 +160,6 @@ export default function KkomQuiz() {
       setResult(data);
       setIsFlipped(true);
 
-      // ✅ 정답일 때만 0.8초 스파클 (확실히 보이게)
       if (data.isCorrect) {
         setShowSparkles(true);
         window.setTimeout(() => setShowSparkles(false), 800);
@@ -184,6 +179,7 @@ export default function KkomQuiz() {
     setShowSparkles(false);
   };
 
+  // 로딩
   if (isLoading) {
     return (
       <Card variant="glass" className="w-full">
@@ -203,7 +199,8 @@ export default function KkomQuiz() {
     );
   }
 
-  if (error || !quiz) {
+  // 진짜 에러
+  if (error) {
     return (
       <Card variant="glass" className="w-full !border-yellow-300/70 !ring-yellow-500/20">
         <CardHeader>
@@ -213,17 +210,35 @@ export default function KkomQuiz() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-yellow-800">{error || '오늘은 퀴즈가 없어요. 내일 다시 만나요!'}</p>
+          <p className="text-yellow-800">{error}</p>
         </CardContent>
       </Card>
     );
   }
 
+  // 퀴즈 없음(✅ 이제 404가 아니라 200으로 내려오므로 여기로 안정적으로 떨어짐)
+  if (!quiz || quiz.hasQuiz === false) {
+    const msg = quiz?.message || '오늘은 퀴즈가 없어요. 내일 다시 만나요! 🙂';
+    return (
+      <Card variant="glass" className="w-full !border-yellow-300/70 !ring-yellow-500/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-yellow-800">
+            <Lightbulb />
+            <span>오늘의 퀴즈</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-yellow-800">{msg}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // 퀴즈 있음
   return (
     <div className="relative w-full" style={{ perspective: '1000px' }}>
       <AnimatePresence mode="wait">
         {isFlipped && result ? (
-          // 뒷면 (결과)
           <motion.div
             key="back"
             initial={{ rotateY: 180, opacity: 0 }}
@@ -241,7 +256,6 @@ export default function KkomQuiz() {
                   : 'bg-gradient-to-br from-orange-50/80 to-yellow-50/70'
               }`}
             >
-              {/* ✅ 정답 순간 스파클 */}
               <SparklesBurst show={showSparkles} />
 
               <CardHeader>
@@ -274,14 +288,16 @@ export default function KkomQuiz() {
               </CardContent>
 
               <CardFooter className="flex justify-center">
-                <Button onClick={handleRetry} className="bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99]">
+                <Button
+                  onClick={handleRetry}
+                  className="bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99]"
+                >
                   다시 풀기
                 </Button>
               </CardFooter>
             </Card>
           </motion.div>
         ) : (
-          // 앞면 (퀴즈)
           <motion.div
             key="front"
             initial={{ rotateY: -180, opacity: 0 }}
