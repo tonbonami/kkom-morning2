@@ -118,7 +118,7 @@ export default function KkomQuiz() {
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [showSparkles, setShowSparkles] = useState(false);
+  const [showSparkles, setShowSparkles] = useState(true);
 
   useEffect(() => {
     const fetchQuiz = async () => {
