@@ -161,7 +161,15 @@ export default function HomePage() {
 
   const getPochaccoImage = () => {
     const temp = weather?.current?.temp ?? 0;
-    return temp <= -1 ? '/pochacco_cold.png' : '/pochacco.png';
+  
+    // 10도 초과면 피크닉
+    if (temp > 10) return '/pochacco_picnic.png';
+  
+    // 영하(= -1 이하)면 콜드
+    if (temp <= -1) return '/pochacco_cold.png';
+  
+    // 그 외 기본
+    return '/pochacco.png';
   };
 
   const containerVars = {
