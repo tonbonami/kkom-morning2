@@ -58,7 +58,7 @@ export default function HomePage() {
       const data = await getInitialData(loc, forceRefresh);
 
       setWeather(data.weather);
-      setAirQuality(data.air); // ✅ data.airQuality → data.air
+      setAirQuality(data.air);
       setOutfit(data.outfit);
 
       if (data.weather && !data.weather.isFallback) {
@@ -72,7 +72,6 @@ export default function HomePage() {
         setTimeout(() => setShowSuccessMessage(false), 2000);
       }
 
-      // (선택) 서버 에러 로그: UI는 안 건드림
       if (data.weather?.error) console.warn('[Weather error]', data.weather.error);
       if (data.air?.error) console.warn('[Air error]', data.air.error);
     } catch (error) {
@@ -93,7 +92,6 @@ export default function HomePage() {
     const user = JSON.parse(userStr);
     setUserName(user.이름);
 
-    // ✅ 최초 진입 1회만 로드 (location 의존성 제거로 중복 호출 방지)
     loadData('home');
 
     const fetchMessage = async () => {
@@ -142,7 +140,7 @@ export default function HomePage() {
   };
 
   const getPochaccoImage = () => {
-    const temp = weather?.current?.temp ?? 0; // ✅ temperature → temp
+    const temp = weather?.current?.temp ?? 0;
     return temp <= -1 ? '/pochacco_cold.png' : '/pochacco.png';
   };
 
@@ -390,21 +388,24 @@ export default function HomePage() {
                   <div className="text-center space-y-4">
                     <div className="text-5xl mb-2">{outfit.icon}</div>
 
-                    {/* ✅ 배지 split 안전 처리 (', ' 고정 X) */}
                     <div className="space-y-3 px-4">
                       <div className="flex flex-wrap justify-center gap-1.5">
-                        {outfit.text
-                          .split(',')
-                          .map(s => s.trim())
-                          .filter(Boolean)
-                          .map((item, idx) => (
-                            <span
-                              key={idx}
-                              className="px-2.5 py-1 bg-white/70 rounded-full text-[10px] font-bold text-slate-500 border border-white shadow-sm"
-                            >
-                              {item}
-                            </span>
-                          ))}
+                        {outfit?.text ? (
+                          outfit.text
+                            .split(',')
+                            .map(s => s.trim())
+                            .filter(Boolean)
+                            .map((item, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2.5 py-1 bg-white/70 rounded-full text-[10px] font-bold text-slate-500 border border-white shadow-sm"
+                              >
+                                {item}
+                              </span>
+                            ))
+                        ) : (
+                          <span className="text-xs text-slate-400">옷차림 정보를 불러오는 중...</span>
+                        )}
                       </div>
                       <p className="text-xs text-slate-500 font-medium leading-relaxed">
                         오늘 기온에 딱 맞는 추천이에요!
