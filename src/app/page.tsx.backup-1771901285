@@ -22,10 +22,7 @@ import {
   Building2,
   AlertCircle,
   Sparkles,
-  CloudRain,
 } from 'lucide-react';
-
-const UI_VERSION = 'v2026-02-24.1';
 
 export default function HomePage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -60,18 +57,8 @@ export default function HomePage() {
     try {
       const data = await getInitialData(loc, forceRefresh);
 
-     // ✅ 디버그 로그 (브라우저 콘솔에서 확인)
-     console.log(
-      '[initialData.weather.today.precip]',
-      data.weather?.today?.precipitation
-    );
-    console.log(
-      '[initialData.weather.tomorrow.precip]',
-      data.weather?.tomorrow?.precipitation
-    );
-
       setWeather(data.weather);
-      setAirQuality(data.air);
+      setAirQuality(data.air); // ✅ data.airQuality → data.air
       setOutfit(data.outfit);
 
       if (data.weather && !data.weather.isFallback) {
@@ -85,6 +72,7 @@ export default function HomePage() {
         setTimeout(() => setShowSuccessMessage(false), 2000);
       }
 
+      // (선택) 서버 에러 로그: UI는 안 건드림
       if (data.weather?.error) console.warn('[Weather error]', data.weather.error);
       if (data.air?.error) console.warn('[Air error]', data.air.error);
     } catch (error) {
@@ -96,8 +84,6 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    console.log('✅ NEW HOME PAGE LOADED', UI_VERSION);
-
     const userStr = localStorage.getItem('kkom-user');
     if (!userStr) {
       router.push('/login');
@@ -107,8 +93,8 @@ export default function HomePage() {
     const user = JSON.parse(userStr);
     setUserName(user.이름);
 
-    // ✅ location state와 일치
-    loadData(location);
+    // ✅ 최초 진입 1회만 로드 (location 의존성 제거로 중복 호출 방지)
+    loadData('home');
 
     const fetchMessage = async () => {
       setIsLoadingMessage(true);
@@ -136,7 +122,6 @@ export default function HomePage() {
         weekday: 'long',
       })
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   const handleLocationToggle = (newLocation: 'home' | 'work') => {
@@ -157,7 +142,7 @@ export default function HomePage() {
   };
 
   const getPochaccoImage = () => {
-    const temp = weather?.current?.temp ?? 0;
+    const temp = weather?.current?.temp ?? 0; // ✅ temperature → temp
     return temp <= -1 ? '/pochacco_cold.png' : '/pochacco.png';
   };
 
@@ -170,74 +155,6 @@ export default function HomePage() {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } },
   };
-
-  const todayPrecip = weather?.today?.precipitation ?? null;
-const tomorrowPrecip = weather?.tomorrow?.precipitation ?? null;
-
-const renderPrecip = (label: string, p?: any) => {
-  // ✅ 카드 자체는 항상 렌더
-  const safe = p ?? {
-    type: null,
-    typeText: '정보 없음',
-    emoji: '☀️',
-    probability: null,
-    startTimeKor: null,
-  };
-
-  // 타입 안전하게 방어
-  const typeText = safe.typeText ?? '정보 없음';
-  const emoji = safe.emoji ?? '☀️';
-  const probability =
-    typeof safe.probability === 'number' ? `${safe.probability}%` : '';
-  const startTimeKor = safe.startTimeKor ?? '';
-
-  // 강수 없음도 예쁘게 보여주기
-  const isNone = typeText === '강수 없음';
-
-  return (
-    <Card variant="glass">
-      <CardContent className="p-6">
-        <div className="flex items-center gap-2 mb-4 text-slate-400">
-          <CloudRain size={16} strokeWidth={2.5} />
-          <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">
-            {label}
-          </h2>
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div className="text-5xl">{emoji}</div>
-
-          <div className="flex-1">
-            <p className="text-2xl font-black text-slate-800 tracking-tight">
-              {isNone ? '강수 없음' : typeText}
-            </p>
-
-            <p className="text-xs text-slate-500 font-medium leading-tight mt-1">
-              {isNone
-                ? '우산 없이도 괜찮아요!'
-                : (
-                  <>
-                    {startTimeKor ? `${startTimeKor}부터 가능성` : '강수 가능성'}
-                    {probability ? ` · 최대 ${probability}` : ''}
-                  </>
-                )}
-            </p>
-          </div>
-
-          <div className="text-right">
-            {probability && !isNone && (
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/70 border border-white shadow-sm">
-                <span className="text-[10px] font-black text-slate-600 tracking-widest uppercase">
-                  POP {probability}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
 
   if (isLoading) return <div className="min-h-screen bg-white animate-pulse" />;
 
@@ -403,20 +320,6 @@ const renderPrecip = (label: string, p?: any) => {
             </motion.div>
           )}
 
-          {/* ✅ 오늘 강수 */}
-          {weather && todayPrecip && (
-            <motion.div variants={itemVars}>
-              {renderPrecip('Today Forecast', todayPrecip)}
-            </motion.div>
-          )}
-
-          {/* ✅ 내일 강수 */}
-          {weather && tomorrowPrecip && (
-            <motion.div variants={itemVars}>
-              {renderPrecip('Tomorrow Forecast', tomorrowPrecip)}
-            </motion.div>
-          )}
-
           {airQuality && (
             <motion.div variants={itemVars}>
               <Card variant="glass" className={cn('border-l-4', getAirQualityColor(airQuality.grade))}>
@@ -487,24 +390,21 @@ const renderPrecip = (label: string, p?: any) => {
                   <div className="text-center space-y-4">
                     <div className="text-5xl mb-2">{outfit.icon}</div>
 
+                    {/* ✅ 배지 split 안전 처리 (', ' 고정 X) */}
                     <div className="space-y-3 px-4">
                       <div className="flex flex-wrap justify-center gap-1.5">
-                        {outfit?.text ? (
-                          outfit.text
-                            .split(',')
-                            .map(s => s.trim())
-                            .filter(Boolean)
-                            .map((item, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2.5 py-1 bg-white/70 rounded-full text-[10px] font-bold text-slate-500 border border-white shadow-sm"
-                              >
-                                {item}
-                              </span>
-                            ))
-                        ) : (
-                          <span className="text-xs text-slate-400">옷차림 정보를 불러오는 중...</span>
-                        )}
+                        {outfit.text
+                          .split(',')
+                          .map(s => s.trim())
+                          .filter(Boolean)
+                          .map((item, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2.5 py-1 bg-white/70 rounded-full text-[10px] font-bold text-slate-500 border border-white shadow-sm"
+                            >
+                              {item}
+                            </span>
+                          ))}
                       </div>
                       <p className="text-xs text-slate-500 font-medium leading-relaxed">
                         오늘 기온에 딱 맞는 추천이에요!
@@ -563,14 +463,9 @@ const renderPrecip = (label: string, p?: any) => {
                   <span className="text-3xl font-black text-white/20">일</span>
                 </div>
 
-                <div className="pt-2 space-y-2">
+                <div className="pt-2">
                   <p className="text-xl font-black text-white tracking-widest">꼼이 ❤️ 우댕</p>
                   <div className="h-[3px] w-8 bg-gradient-to-r from-emerald-500 to-teal-500 mx-auto mt-3 rounded-full" />
-
-                  {/* ✅ 배포 확인용 버전 라벨 */}
-                  <p className="text-[10px] font-black tracking-[0.25em] uppercase text-white/40">
-                    {UI_VERSION}
-                  </p>
                 </div>
               </CardContent>
             </Card>
