@@ -60,6 +60,9 @@ export default function HomePage() {
     try {
       const data = await getInitialData(loc, forceRefresh);
 
+      console.log('[initialData.weather.today]', data.weather?.today);
+      console.log('[initialData.weather.tomorrow]', data.weather?.tomorrow);
+
      // ✅ 디버그 로그 (브라우저 콘솔에서 확인)
      console.log(
       '[initialData.weather.today.precip]',
