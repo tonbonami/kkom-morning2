@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { getInitialData, getCacheInfo } from '@/lib/api';
-import type { WeatherData, OutfitGuide } from '@/types';
+import type { WeatherData, OutfitGuide, MemoryPhotosData } from '@/types';
 import DailyLetter from '@/components/daily-letter';
+import MemoryGallery from '@/components/MemoryGallery';
 import { getSkyCondition, getAirQualityEmoji, getAirQualityColor } from '@/lib/weatherHelpers';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,15 +26,13 @@ import {
   CloudRain,
 } from 'lucide-react';
 
-const UI_VERSION = 'v2026-02-24.2';
+const UI_VERSION = 'v2026-02-26';
 
 export default function HomePage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
-
-  // ⚠️ 프로젝트에서 data.air 를 그대로 쓰고 있어서 타입을 any로 둡니다(현재 상황 유지)
   const [airQuality, setAirQuality] = useState<any>(null);
-
   const [outfit, setOutfit] = useState<OutfitGuide | null>(null);
+  const [memoryPhotos, setMemoryPhotos] = useState<MemoryPhotosData | null>(null);
   const [dailyMessage, setDailyMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessage, setIsLoadingMessage] = useState(true);
@@ -66,6 +65,7 @@ export default function HomePage() {
       setWeather(data.weather);
       setAirQuality(data.air);
       setOutfit(data.outfit);
+      setMemoryPhotos(data.memoryPhotos);
 
       if (data.weather && !data.weather.isFallback) {
         setLastUpdate(getCacheInfo()?.lastUpdate || null);
@@ -152,7 +152,6 @@ export default function HomePage() {
       : `${Math.floor(diffMins / 60)}시간 전`;
   };
 
-  // ✅ 포차코: 10도 이상이면 피크닉(우선), 영하면 콜드
   const getPochaccoImage = () => {
     const temp = weather?.current?.temp ?? 0;
     if (temp >= 10) return '/pochacco_picnic.png';
@@ -170,7 +169,6 @@ export default function HomePage() {
     show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } },
   };
 
-  // ✅ 강수: 오늘/내일 "항상" 렌더
   const todayPrecip = weather?.today?.precipitation;
   const tomorrowPrecip = weather?.tomorrow?.precipitation;
 
@@ -212,7 +210,6 @@ export default function HomePage() {
               <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">{label}</h2>
             </div>
 
-            {/* ✅ 확률은 상단 배지로 강조 */}
             {probabilityText && !isNone && (
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/70 border border-white shadow-sm">
                 <span className="text-[10px] font-black text-slate-600 tracking-widest uppercase">
@@ -326,6 +323,15 @@ export default function HomePage() {
           <DailyLetter message={dailyMessage} isLoading={isLoadingMessage} />
         </motion.div>
 
+        {/* ✅ 추억 사진 갤러리 추가 */}
+        {memoryPhotos?.hasPhotos && (
+          <motion.div variants={itemVars}
+          className="py-2"
+          >
+            <MemoryGallery photos={memoryPhotos.photos} />
+          </motion.div>
+        )}
+
         <motion.div variants={itemVars}>
           <Card variant="glass" className="p-1.5 flex gap-2 bg-slate-200/20">
             <button
@@ -413,7 +419,6 @@ export default function HomePage() {
             </motion.div>
           )}
 
-          {/* ✅ 오늘/내일 강수: 항상 렌더 */}
           {weather && (
             <motion.div variants={itemVars}>
               {renderPrecip('Today Forecast', todayPrecip)}
