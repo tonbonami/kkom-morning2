@@ -118,7 +118,11 @@ export default function HomePage() {
     fetchMessage();
 
     const startDate = new Date('2023-09-28');
-    setDDay(Math.floor((new Date().getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1);
+    const today = new Date();
+    startDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+    setDDay(diffDays + 1);
 
     setCurrentDateText(
       new Date().toLocaleDateString('ko-KR', {
