@@ -1,4 +1,4 @@
-import type { User, WeatherData, AirQualityData, OutfitGuide } from '@/types';
+import type { User, WeatherData, AirQualityData, OutfitGuide, MemoryPhotosData } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
 
@@ -12,16 +12,22 @@ interface CachedData {
   weather: WeatherData;
   air: AirQualityData;
   outfit: OutfitGuide;
+  memoryPhotos: MemoryPhotosData;
   timestamp: number;
   location: Location;
 }
 
 /**
  * ✅ 구버전/신버전 응답을 v10.1 형태로 강제 통일
- * - v10.1: { weather, air, outfit, ... }
+ * - v10.1: { weather, air, outfit, memoryPhotos, ... }
  * - 구버전: { weather, airQuality, outfit, ... }
  */
-function normalizeInitialData(raw: any): { weather: WeatherData; air: AirQualityData; outfit: OutfitGuide } {
+function normalizeInitialData(raw: any): { 
+  weather: WeatherData; 
+  air: AirQualityData; 
+  outfit: OutfitGuide;
+  memoryPhotos: MemoryPhotosData;
+} {
   const weather: WeatherData = raw?.weather ?? {
     current: { temp: null, feelsLike: null, sky: null, precipitation: null, tempSource: 'N/A' },
     today: { high: null, low: null },
@@ -42,7 +48,13 @@ function normalizeInitialData(raw: any): { weather: WeatherData; air: AirQuality
       icon: '🤷',
     };
 
-  return { weather, air, outfit };
+  const memoryPhotos: MemoryPhotosData = 
+    raw?.memoryPhotos ?? {
+      hasPhotos: false,
+      photos: []
+    };
+
+  return { weather, air, outfit, memoryPhotos };
 }
 
 export async function loginUser(code: string): Promise<User | null> {
@@ -80,7 +92,12 @@ export async function loginUser(code: string): Promise<User | null> {
 export async function getInitialData(
   location: Location,
   forceRefresh = false
-): Promise<{ weather: WeatherData; air: AirQualityData; outfit: OutfitGuide }> {
+): Promise<{ 
+  weather: WeatherData; 
+  air: AirQualityData; 
+  outfit: OutfitGuide;
+  memoryPhotos: MemoryPhotosData;
+}> {
   if (!API_URL) {
     throw new Error('❌ NEXT_PUBLIC_APPS_SCRIPT_URL이 설정되어 있지 않습니다.');
   }
@@ -101,7 +118,12 @@ export async function getInitialData(
           !parsed.weather?.isFallback
         ) {
           console.log('✅ 캐시된 데이터 사용 (5분 이내)');
-          return { weather: parsed.weather, air: parsed.air, outfit: parsed.outfit };
+          return { 
+            weather: parsed.weather, 
+            air: parsed.air, 
+            outfit: parsed.outfit,
+            memoryPhotos: parsed.memoryPhotos || { hasPhotos: false, photos: [] }
+          };
         }
       }
     }
@@ -121,7 +143,12 @@ export async function getInitialData(
       if (cached) {
         const parsed: CachedData = JSON.parse(cached);
         console.warn('⚠️ API 오류, 캐시된 데이터 사용');
-        return { weather: parsed.weather, air: parsed.air, outfit: parsed.outfit };
+        return { 
+          weather: parsed.weather, 
+          air: parsed.air, 
+          outfit: parsed.outfit,
+          memoryPhotos: parsed.memoryPhotos || { hasPhotos: false, photos: [] }
+        };
       }
 
       throw new Error('API가 JSON 형식으로 응답하지 않았습니다');
@@ -130,13 +157,14 @@ export async function getInitialData(
     const raw = await response.json();
 
     // ✅ 여기서 형태 통일(구버전/신버전 자동 대응)
-    const { weather, air, outfit } = normalizeInitialData(raw);
+    const { weather, air, outfit, memoryPhotos } = normalizeInitialData(raw);
 
     // ✅ 디버그: 내일/강수 구조가 실제로 오는지 바로 확인
     console.log('[normalized.weather.today]', weather?.today);
     console.log('[normalized.weather.tomorrow]', (raw?.weather?.tomorrow ?? weather?.tomorrow));
     console.log('[normalized.weather.today.precip]', weather?.today?.precipitation);
     console.log('[normalized.weather.tomorrow.precip]', (raw?.weather?.tomorrow?.precipitation ?? weather?.tomorrow?.precipitation));
+    console.log('[memoryPhotos]', memoryPhotos);
 
     // 3) 캐시 저장(실시간 정상일 때만)
     if (weather && !weather.isFallback) {
@@ -144,6 +172,7 @@ export async function getInitialData(
         weather,
         air,
         outfit,
+        memoryPhotos,
         timestamp: Date.now(),
         location,
       };
@@ -151,7 +180,7 @@ export async function getInitialData(
       console.log('💾 캐시 저장 완료');
     }
 
-    return { weather, air, outfit };
+    return { weather, air, outfit, memoryPhotos };
   } catch (error) {
     console.error('API error:', error);
 
@@ -160,7 +189,12 @@ export async function getInitialData(
     if (cached) {
       const parsed: CachedData = JSON.parse(cached);
       console.warn('⚠️ API 오류, 캐시된 데이터 사용');
-      return { weather: parsed.weather, air: parsed.air, outfit: parsed.outfit };
+      return { 
+        weather: parsed.weather, 
+        air: parsed.air, 
+        outfit: parsed.outfit,
+        memoryPhotos: parsed.memoryPhotos || { hasPhotos: false, photos: [] }
+      };
     }
 
     throw error;
