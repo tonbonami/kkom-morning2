@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         action: 'checkQuizAnswer',
-        answer: answer
+        userAnswer: answer?.trim() || '' // ✅ 이 줄만 수정
       }),
       cache: 'no-store'
     });
@@ -46,17 +46,17 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     console.log('✅ Apps Script 응답 데이터:', data);
 
-    if (data.success) {
+    // ✅ data.success → data.correct 수정
+    if (data.correct) {
       return NextResponse.json({
         isCorrect: true,
         explanation: data.message,
-        memory: data.memory
+        memory: data.memory || '' // ✅ 이것도 안전하게
       });
     } else {
       return NextResponse.json({
         isCorrect: false,
-        explanation: data.message || '다시 한 번 생각해보세요!',
-        hint: data.hint
+        explanation: data.message || '다시 한 번 생각해보세요!'
       });
     }
 
