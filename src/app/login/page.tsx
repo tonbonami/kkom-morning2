@@ -10,7 +10,7 @@ export default function LoginPage() {
             Kkom-Morning
           </h1>
           <p className="text-gray-600">
-            꼼이를 위한 아침 보살핌
+            꼼이와 우댕이의 행복 이야기
           </p>
         </div>
 
@@ -19,7 +19,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-500 mt-6">
-          Made with 💚 by 우댕님
+          Created 💚 by 우댕님
         </p>
       </div>
     </div>

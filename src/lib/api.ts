@@ -93,7 +93,18 @@ export async function loginUser(code: string): Promise<User | null> {
 
     // Apps Script가 {success:true}만 주는 경우도 허용
     if (data?.success) {
-      const user: User = data.user ?? { 로그인코드: code, 이름: '꼼' };
+      const name = data.name || '꼼이';
+      
+      // 화면 표시용 이름
+      const displayName = name === '꼼이' ? '꼼✌️' : name;
+      
+      const user: User = {
+        로그인코드: code,
+        이름: displayName,   // 토스트, UI 표시용 → "꼼✌️"
+        name: name,          // 아뜰리에 작성자 식별용 → "꼼이" (원본 유지)
+      };
+    
+      console.log('✅ 로그인 성공:', user);
       localStorage.setItem('kkom-user', JSON.stringify(user));
       return user;
     }
