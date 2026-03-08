@@ -1,9 +1,17 @@
-import type { User, WeatherData, AirQualityData, OutfitGuide, MemoryPhotosData } from '@/types';
+import type {
+  User,
+  WeatherData,
+  AirQualityData,
+  OutfitGuide,
+  MemoryPhotosData,
+  Novel,
+  CoverImage,
+} from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
 
-// ✅ 캐시 키 버전 업 (구캐시가 UI를 망치는 문제 방지)
-const CACHE_KEY = 'kkom-weather-cache:v10.1';
+// 캐시 키 버전 업 (아뜰리에 데이터 포함)
+const CACHE_KEY = 'kkom-weather-cache:v10.3';
 const CACHE_DURATION = 5 * 60 * 1000; // 5분
 
 type Location = 'home' | 'work';
@@ -13,27 +21,31 @@ interface CachedData {
   air: AirQualityData;
   outfit: OutfitGuide;
   memoryPhotos: MemoryPhotosData;
+  activeNovels: Novel[];
+  completedNovels: Novel[];
+  coverLibrary: CoverImage[];
   timestamp: number;
   location: Location;
 }
 
 /**
- * ✅ 구버전/신버전 응답을 v10.1 형태로 강제 통일
- * - v10.1: { weather, air, outfit, memoryPhotos, ... }
- * - 구버전: { weather, airQuality, outfit, ... }
+ * 구버전/신버전 응답을 v10.3 형태로 강제 통일
  */
-function normalizeInitialData(raw: any): { 
-  weather: WeatherData; 
-  air: AirQualityData; 
+function normalizeInitialData(raw: any): {
+  weather: WeatherData;
+  air: AirQualityData;
   outfit: OutfitGuide;
   memoryPhotos: MemoryPhotosData;
+  activeNovels: Novel[];
+  completedNovels: Novel[];
+  coverLibrary: CoverImage[];
 } {
   const weather: WeatherData = raw?.weather ?? {
     current: { temp: null, feelsLike: null, sky: null, precipitation: null, tempSource: 'N/A' },
     today: { high: null, low: null },
   };
 
-  // ✅ 핵심: air vs airQuality 둘 다 받되, 최종은 air로 통일
+  // air vs airQuality 둘 다 받되, 최종은 air로 통일
   const air: AirQualityData =
     raw?.air ??
     raw?.airQuality ?? {
@@ -48,13 +60,17 @@ function normalizeInitialData(raw: any): {
       icon: '🤷',
     };
 
-  const memoryPhotos: MemoryPhotosData = 
+  const memoryPhotos: MemoryPhotosData =
     raw?.memoryPhotos ?? {
       hasPhotos: false,
-      photos: []
+      photos: [],
     };
 
-  return { weather, air, outfit, memoryPhotos };
+  const activeNovels: Novel[] = raw?.activeNovels ?? [];
+  const completedNovels: Novel[] = raw?.completedNovels ?? [];
+  const coverLibrary: CoverImage[] = raw?.coverLibrary ?? [];
+
+  return { weather, air, outfit, memoryPhotos, activeNovels, completedNovels, coverLibrary };
 }
 
 export async function loginUser(code: string): Promise<User | null> {
@@ -75,7 +91,7 @@ export async function loginUser(code: string): Promise<User | null> {
 
     const data = await response.json();
 
-    // ✅ Apps Script가 {success:true}만 주는 경우도 허용 (지금 서버가 이 형태)
+    // Apps Script가 {success:true}만 주는 경우도 허용
     if (data?.success) {
       const user: User = data.user ?? { 로그인코드: code, 이름: '꼼' };
       localStorage.setItem('kkom-user', JSON.stringify(user));
@@ -92,17 +108,19 @@ export async function loginUser(code: string): Promise<User | null> {
 export async function getInitialData(
   location: Location,
   forceRefresh = false
-): Promise<{ 
-  weather: WeatherData; 
-  air: AirQualityData; 
+): Promise<{
+  weather: WeatherData;
+  air: AirQualityData;
   outfit: OutfitGuide;
   memoryPhotos: MemoryPhotosData;
+  activeNovels: Novel[];
+  completedNovels: Novel[];
+  coverLibrary: CoverImage[];
 }> {
   if (!API_URL) {
     throw new Error('❌ NEXT_PUBLIC_APPS_SCRIPT_URL이 설정되어 있지 않습니다.');
   }
 
-  // ✅ (중요) 지금 배포가 어떤 URL을 쓰는지 콘솔로 바로 보이게
   console.log('🌐 API_URL =', API_URL);
 
   try {
@@ -118,11 +136,14 @@ export async function getInitialData(
           !parsed.weather?.isFallback
         ) {
           console.log('✅ 캐시된 데이터 사용 (5분 이내)');
-          return { 
-            weather: parsed.weather, 
-            air: parsed.air, 
+          return {
+            weather: parsed.weather,
+            air: parsed.air,
             outfit: parsed.outfit,
-            memoryPhotos: parsed.memoryPhotos || { hasPhotos: false, photos: [] }
+            memoryPhotos: parsed.memoryPhotos || { hasPhotos: false, photos: [] },
+            activeNovels: parsed.activeNovels || [],
+            completedNovels: parsed.completedNovels || [],
+            coverLibrary: parsed.coverLibrary || [],
           };
         }
       }
@@ -143,11 +164,14 @@ export async function getInitialData(
       if (cached) {
         const parsed: CachedData = JSON.parse(cached);
         console.warn('⚠️ API 오류, 캐시된 데이터 사용');
-        return { 
-          weather: parsed.weather, 
-          air: parsed.air, 
+        return {
+          weather: parsed.weather,
+          air: parsed.air,
           outfit: parsed.outfit,
-          memoryPhotos: parsed.memoryPhotos || { hasPhotos: false, photos: [] }
+          memoryPhotos: parsed.memoryPhotos || { hasPhotos: false, photos: [] },
+          activeNovels: parsed.activeNovels || [],
+          completedNovels: parsed.completedNovels || [],
+          coverLibrary: parsed.coverLibrary || [],
         };
       }
 
@@ -156,31 +180,38 @@ export async function getInitialData(
 
     const raw = await response.json();
 
-    // ✅ 여기서 형태 통일(구버전/신버전 자동 대응)
-    const { weather, air, outfit, memoryPhotos } = normalizeInitialData(raw);
+    // 형태 통일 (구버전/신버전 자동 대응)
+    const { weather, air, outfit, memoryPhotos, activeNovels, completedNovels, coverLibrary } =
+      normalizeInitialData(raw);
 
-    // ✅ 디버그: 내일/강수 구조가 실제로 오는지 바로 확인
+    // 디버그 로그
     console.log('[normalized.weather.today]', weather?.today);
-    console.log('[normalized.weather.tomorrow]', (raw?.weather?.tomorrow ?? weather?.tomorrow));
+    console.log('[normalized.weather.tomorrow]', raw?.weather?.tomorrow ?? weather?.tomorrow);
     console.log('[normalized.weather.today.precip]', weather?.today?.precipitation);
-    console.log('[normalized.weather.tomorrow.precip]', (raw?.weather?.tomorrow?.precipitation ?? weather?.tomorrow?.precipitation));
+    console.log('[normalized.weather.tomorrow.precip]', raw?.weather?.tomorrow?.precipitation ?? weather?.tomorrow?.precipitation);
     console.log('[memoryPhotos]', memoryPhotos);
+    console.log('[activeNovels]', activeNovels.length, '권');
+    console.log('[completedNovels]', completedNovels.length, '권');
+    console.log('[coverLibrary]', coverLibrary.length, '개');
 
-    // 3) 캐시 저장(실시간 정상일 때만)
+    // 3) 캐시 저장 (실시간 정상일 때만)
     if (weather && !weather.isFallback) {
       const cacheData: CachedData = {
         weather,
         air,
         outfit,
         memoryPhotos,
+        activeNovels,
+        completedNovels,
+        coverLibrary,
         timestamp: Date.now(),
         location,
       };
       localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-      console.log('💾 캐시 저장 완료');
+      console.log('💾 캐시 저장 완료 (v10.3)');
     }
 
-    return { weather, air, outfit, memoryPhotos };
+    return { weather, air, outfit, memoryPhotos, activeNovels, completedNovels, coverLibrary };
   } catch (error) {
     console.error('API error:', error);
 
@@ -189,11 +220,14 @@ export async function getInitialData(
     if (cached) {
       const parsed: CachedData = JSON.parse(cached);
       console.warn('⚠️ API 오류, 캐시된 데이터 사용');
-      return { 
-        weather: parsed.weather, 
-        air: parsed.air, 
+      return {
+        weather: parsed.weather,
+        air: parsed.air,
         outfit: parsed.outfit,
-        memoryPhotos: parsed.memoryPhotos || { hasPhotos: false, photos: [] }
+        memoryPhotos: parsed.memoryPhotos || { hasPhotos: false, photos: [] },
+        activeNovels: parsed.activeNovels || [],
+        completedNovels: parsed.completedNovels || [],
+        coverLibrary: parsed.coverLibrary || [],
       };
     }
 

@@ -1,6 +1,5 @@
 'use client';
 
-import KkomQuiz from '@/components/QuizCard';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -24,9 +23,10 @@ import {
   AlertCircle,
   Sparkles,
   CloudRain,
+  BookOpen,
 } from 'lucide-react';
 
-const UI_VERSION = 'v2026-02-26';
+const UI_VERSION = 'v2026-03-08';
 
 export default function HomePage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -323,11 +323,9 @@ export default function HomePage() {
           <DailyLetter message={dailyMessage} isLoading={isLoadingMessage} />
         </motion.div>
 
-        {/* ✅ 추억 사진 갤러리 추가 */}
+        {/* 추억 사진 갤러리 */}
         {memoryPhotos?.hasPhotos && (
-          <motion.div variants={itemVars}
-          className="py-2"
-          >
+          <motion.div variants={itemVars} className="py-2">
             <MemoryGallery photos={memoryPhotos.photos} />
           </motion.div>
         )}
@@ -362,8 +360,36 @@ export default function HomePage() {
         </motion.div>
 
         <div className="space-y-4">
+          {/* 우리들의 서재 카드 */}
           <motion.div variants={itemVars}>
-            <KkomQuiz />
+            <Card
+              variant="glass"
+              className="cursor-pointer group hover:shadow-xl hover:shadow-amber-200/40 transition-all duration-300 active:scale-[0.98] bg-gradient-to-br from-amber-50/40 to-purple-50/30"
+              onClick={() => router.push('/novel')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 mb-4 text-amber-500">
+                  <BookOpen size={16} strokeWidth={2.5} />
+                  <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">
+                    Atelier de Kkom & Teo
+                  </h2>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1 space-y-2">
+                    <p className="text-2xl font-black text-slate-800 tracking-tight">
+                      우리들의 서재
+                    </p>
+                    <p className="text-xs text-slate-500 font-medium leading-tight">
+                      꼼이와 테오의 릴레이 소설을 이어가 보세요
+                    </p>
+                  </div>
+                  <div className="text-5xl group-hover:scale-110 transition-transform duration-300 animate-[pulse_3s_ease-in-out_infinite]">
+                    📖
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </motion.div>
 
           {weather && (
