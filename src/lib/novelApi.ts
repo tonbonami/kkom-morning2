@@ -24,9 +24,6 @@ const AUTHOR_MAP_KKOMI = ['꼼이', '꼼', '꼼2', '꼬미'];
 
 /**
  * localStorage에 저장된 사용자 이름을 아뜰리에 작성자명으로 변환
- * - 우댕 / 테오 / Teo → '테오'
- * - 꼼이 / 꼼 / 꼼2 / 꼬미 → '꼼이'
- * - 그 외 → '꼬미' (기본값)
  */
 export function getAtelierAuthorName(): string {
   if (typeof window === 'undefined') return '꼬미';
@@ -49,9 +46,6 @@ export function getAtelierAuthorName(): string {
 
 /**
  * 소설의 마지막 문장 작성자를 기반으로 다음 차례 작성자를 반환
- * - 마지막이 테오 → 다음은 꼼이
- * - 마지막이 꼼이 → 다음은 테오
- * - 문장이 없으면 → 테오 (첫 번째 문장은 테오가 시작)
  */
 export function getNextTurnAuthor(novel: Novel): string {
   if (!novel.sentences || novel.sentences.length === 0) return '테오';
@@ -69,13 +63,20 @@ export function isMyTurn(novel: Novel): boolean {
   return myName === nextAuthor;
 }
 
+/**
+ * 현재 사용자가 마지막 문장의 작성자인지 확인
+ */
+export function isLastSentenceMine(novel: Novel): boolean {
+  if (!novel.sentences || novel.sentences.length === 0) return false;
+  const lastSentence = novel.sentences[novel.sentences.length - 1];
+  const myName = getAtelierAuthorName();
+  return lastSentence.author === myName;
+}
+
 // ─────────────────────────────────────────────
 // GAS 통신 헬퍼
 // ─────────────────────────────────────────────
 
-/**
- * POST 요청 헬퍼 — Apps Script의 doPost로 JSON body를 전송
- */
 async function postToGAS<T>(body: Record<string, unknown>): Promise<T> {
   if (!API_URL) {
     throw new Error('[novelApi] NEXT_PUBLIC_APPS_SCRIPT_URL 환경변수가 설정되지 않았습니다.');
@@ -111,7 +112,6 @@ async function postToGAS<T>(body: Record<string, unknown>): Promise<T> {
 
 /**
  * 모든 소설 데이터 조회 (GET)
- * - 활성 소설, 완결 소설, 표지 라이브러리 반환
  */
 export async function getNovelData(): Promise<NovelDataResponse> {
   if (!API_URL) {
@@ -137,7 +137,6 @@ export async function getNovelData(): Promise<NovelDataResponse> {
       coverLibrary: data.coverLibrary?.length ?? 0,
     });
 
-    // 응답 정규화 (빈 배열 기본값)
     const result: NovelDataResponse = {
       activeNovels: data.activeNovels || [],
       completedNovels: data.completedNovels || [],
@@ -169,7 +168,6 @@ export async function createNovel(
 
 /**
  * 소설에 새 문장 추가 (POST)
- * - author는 자동으로 getAtelierAuthorName()에서 가져옴
  */
 export async function addSentence(
   bookId: string,
@@ -183,6 +181,38 @@ export async function addSentence(
     author,
     text,
     type,
+  });
+}
+
+/**
+ * 마지막 문장 수정 (POST)
+ * - 본인이 작성한 마지막 문장만 수정 가능
+ */
+export async function editSentence(
+  bookId: string,
+  order: number,
+  newText: string
+): Promise<{ success: boolean; error?: string }> {
+  return postToGAS<{ success: boolean; error?: string }>({
+    action: 'editSentence',
+    bookId,
+    order,
+    newText,
+  });
+}
+
+/**
+ * 마지막 문장 삭제 (POST)
+ * - 본인이 작성한 마지막 문장만 삭제 가능
+ */
+export async function deleteSentence(
+  bookId: string,
+  order: number
+): Promise<{ success: boolean; error?: string }> {
+  return postToGAS<{ success: boolean; error?: string }>({
+    action: 'deleteSentence',
+    bookId,
+    order,
   });
 }
 

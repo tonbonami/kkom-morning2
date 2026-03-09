@@ -34,15 +34,15 @@ export default function InputForm({
   const isFirstSentence = novel.sentences.length === 0;
 
   // 마침표·느낌표·물음표 기준 문장 수 (1~3 제한)
+  // 따옴표·괄호 등을 제거한 뒤 종결부호 개수를 카운트
   const countSentences = (input: string): number => {
     const trimmed = input.trim();
     if (!trimmed) return 0;
     if (selectedType === 'chapter') return 1;
 
-    const sentences = trimmed.split(/[.!?。…]+/).filter(function(s) {
-      return s.trim().length > 0;
-    });
-    return sentences.length;
+    const cleaned = trimmed.replace(/["""''()（）\[\]{}]/g, '');
+    const matches = cleaned.match(/[.!?。…]+/g);
+    return matches ? matches.length : (cleaned.trim().length > 0 ? 1 : 0);
   };
 
   const sentenceCount = countSentences(text);
@@ -93,7 +93,7 @@ export default function InputForm({
   return (
     <Card variant="glass">
       <CardContent className="p-4 space-y-3">
-        {/* ✅ 수정: 턴 인디케이터에 Glow 효과 */}
+        {/* 턴 인디케이터 + Glow 효과 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className={cn(
@@ -133,35 +133,33 @@ export default function InputForm({
               className="overflow-hidden"
             >
               <div className="flex gap-2 pb-2">
-                {typeButtons.map(function(btn) {
-                  return (
-                    <button
-                      key={btn.type}
-                      onClick={function() { setSelectedType(btn.type); }}
-                      className={cn(
-                        'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all',
-                        selectedType === btn.type
-                          ? 'bg-amber-100 text-amber-700 border border-amber-200'
-                          : 'bg-white/50 text-slate-400 border border-white/60 hover:text-slate-600'
-                      )}
-                    >
-                      {btn.icon}
-                      {btn.label}
-                    </button>
-                  );
-                })}
+                {typeButtons.map((btn) => (
+                  <button
+                    key={btn.type}
+                    onClick={() => setSelectedType(btn.type)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all',
+                      selectedType === btn.type
+                        ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                        : 'bg-white/50 text-slate-400 border border-white/60 hover:text-slate-600'
+                    )}
+                  >
+                    {btn.icon}
+                    {btn.label}
+                  </button>
+                ))}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ✅ 수정: 내 차례일 때 입력창에 Glow 테두리 */}
+        {/* 내 차례일 때 입력창에 Glow 테두리 */}
         <div className="flex gap-2 items-end">
           <div className="flex-1 relative">
             <textarea
               ref={textareaRef}
               value={text}
-              onChange={function(e) { setText(e.target.value); }}
+              onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={!myTurn || isSending}
               placeholder={
