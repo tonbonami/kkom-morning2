@@ -40,7 +40,7 @@ export default function DailyLetter({ message, isLoading }: DailyLetterProps) {
               <Heart className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[60%] w-6 h-6 text-white" fill="white" />
               <Heart className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[60%] w-5 h-5 text-red-400" fill="currentColor" />
             </div>
-            <p className="mt-2 text-emerald-700 font-semibold text-sm">오늘의 편지가 도착했어요!</p>
+            <p className="mt-2 text-emerald-700 font-semibold text-sm">Today's letter has arrived!</p>
           </div>
 
           {/* Back of the card */}
