@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { getInitialData, getCacheInfo } from '@/lib/api';
+import { subscribeLatestLetterTo, nameFromCode } from '@/lib/letters';
 import type { WeatherData, OutfitGuide, MemoryPhotosData } from '@/types';
 import DailyLetter from '@/components/daily-letter';
 import MemoryGallery from '@/components/MemoryGallery';
-import { getSkyCondition, getAirQualityEmoji, getAirQualityColor } from '@/lib/weatherHelpers';
+import { getSkyCondition, getAirQualityEmoji, getAirQualityBg, getAirQualityText } from '@/lib/weatherHelpers';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,7 @@ import {
   Sparkles,
   CloudRain,
   BookOpen,
+  Mail,
 } from 'lucide-react';
 
 const UI_VERSION = 'v2026-03-08';
@@ -91,6 +93,8 @@ export default function HomePage() {
   useEffect(() => {
     console.log('✅ NEW HOME PAGE LOADED', UI_VERSION);
 
+    let unsubscribeLetter: (() => void) | undefined;
+
     const userStr = localStorage.getItem('kkom-user');
     if (!userStr) {
       router.push('/login');
@@ -98,24 +102,17 @@ export default function HomePage() {
     }
 
     const user = JSON.parse(userStr);
-    setUserName(user.이름);
+    const me = nameFromCode(user.로그인코드);
+    setUserName(me);
 
     loadData(location);
 
-    const fetchMessage = async () => {
-      setIsLoadingMessage(true);
-      try {
-        const res = await fetch('/api/daily-message');
-        if (!res.ok) throw new Error(`서버 응답 오류: ${res.status}`);
-        const data = await res.json();
-        setDailyMessage(data.message || '오늘의 편지를 아직 못 받았어요. 💌');
-      } catch {
-        setDailyMessage('편지를 불러오는 중 오류가 발생했어요. 😢');
-      } finally {
-        setIsLoadingMessage(false);
-      }
-    };
-    fetchMessage();
+    // 오늘의 편지: Firestore 실시간 구독 (to == 나)
+    setIsLoadingMessage(true);
+    unsubscribeLetter = subscribeLatestLetterTo(me, (letter) => {
+      setDailyMessage(letter?.body || '아직 도착한 편지가 없어요 💌');
+      setIsLoadingMessage(false);
+    });
 
     const startDate = new Date('2023-09-28');
     const today = new Date();
@@ -132,6 +129,8 @@ export default function HomePage() {
         weekday: 'long',
       })
     );
+
+    return () => unsubscribeLetter?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
@@ -246,8 +245,6 @@ export default function HomePage() {
     );
   };
 
-  if (isLoading) return <div className="min-h-screen bg-white animate-pulse" />;
-
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
       <div className="pointer-events-none fixed inset-0 -z-10" style={auroraStyle} />
@@ -319,8 +316,14 @@ export default function HomePage() {
           </div>
         </motion.div>
 
-        <motion.div variants={itemVars}>
+        <motion.div variants={itemVars} className="space-y-3">
           <DailyLetter message={dailyMessage} isLoading={isLoadingMessage} />
+          <button
+            onClick={() => router.push('/letter/new')}
+            className="w-full py-3 rounded-2xl bg-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-200/50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+          >
+            <Mail size={16} strokeWidth={2.5} /> 편지 쓰기
+          </button>
         </motion.div>
 
         {/* 추억 사진 갤러리 */}
@@ -360,6 +363,80 @@ export default function HomePage() {
         </motion.div>
 
         <div className="space-y-4">
+          {/* 미세먼지(공기질) — 꼬미 최우선 */}
+          {airQuality ? (
+            <motion.div variants={itemVars}>
+              <Card variant="glass" className={cn('border-2', getAirQualityBg(airQuality.grade))}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <Wind size={16} strokeWidth={2.5} />
+                      <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">미세먼지</h2>
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">
+                      📍 {airQuality.location || '호평동'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className={cn('text-4xl font-black tracking-tight', getAirQualityText(airQuality.grade))}>
+                        {airQuality.grade}
+                      </p>
+                      <p className="text-xs text-slate-500 font-medium leading-tight">
+                        {airQuality.grade === '좋음' && '오늘은 공기가 깨끗해요!'}
+                        {airQuality.grade === '보통' && '나쁘지 않은 수준이에요'}
+                        {airQuality.grade === '나쁨' && '마스크 꼭 챙기세요 😷'}
+                        {airQuality.grade === '매우 나쁨' && '되도록 외출을 자제하세요'}
+                        {(airQuality.grade === '정보 없음' || airQuality.grade === '조회 실패') &&
+                          '데이터를 확인할 수 없어요'}
+                      </p>
+                    </div>
+                    <div className="text-6xl">{getAirQualityEmoji(airQuality.grade)}</div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mt-5">
+                    <div className="rounded-2xl bg-white/60 border border-white p-3 text-center">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        미세먼지 PM10
+                      </p>
+                      <p className="text-lg font-black text-slate-800">
+                        {airQuality.pm10 ?? '--'} <span className="text-[9px] font-bold text-slate-400">㎍/㎥</span>
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-white/60 border border-white p-3 text-center">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        초미세 PM2.5
+                      </p>
+                      <p className="text-lg font-black text-slate-800">
+                        {airQuality.pm25 ?? '--'} <span className="text-[9px] font-bold text-slate-400">㎍/㎥</span>
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : isLoading ? (
+            <motion.div variants={itemVars}>
+              <Card variant="glass">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-4 text-slate-300">
+                    <Wind size={16} strokeWidth={2.5} />
+                    <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">미세먼지</h2>
+                  </div>
+                  <div className="space-y-3 animate-pulse">
+                    <div className="h-9 w-24 rounded-lg bg-slate-200/70" />
+                    <div className="h-3 w-40 rounded bg-slate-200/60" />
+                    <div className="grid grid-cols-2 gap-3 mt-5">
+                      <div className="h-16 rounded-2xl bg-slate-200/50" />
+                      <div className="h-16 rounded-2xl bg-slate-200/50" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : null}
+
           {/* 우리들의 서재 카드 */}
           <motion.div variants={itemVars}>
             <Card
@@ -453,62 +530,6 @@ export default function HomePage() {
           {weather && (
             <motion.div variants={itemVars}>
               {renderPrecip('Tomorrow Forecast', tomorrowPrecip)}
-            </motion.div>
-          )}
-
-          {airQuality && (
-            <motion.div variants={itemVars}>
-              <Card variant="glass" className={cn('border-l-4', getAirQualityColor(airQuality.grade))}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <Wind size={16} strokeWidth={2.5} />
-                      <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">
-                        Air Quality
-                      </h2>
-                    </div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">
-                      📍 {airQuality.location || '호평동'}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <p className="text-2xl font-black text-slate-800 tracking-tight">
-                        {airQuality.grade}
-                      </p>
-                      <p className="text-xs text-slate-500 font-medium leading-tight">
-                        {airQuality.grade === '좋음' && '야외 활동하기 좋아요!'}
-                        {airQuality.grade === '보통' && '보통 수준이에요'}
-                        {airQuality.grade === '나쁨' && '마스크를 착용하세요'}
-                        {airQuality.grade === '매우 나쁨' && '외출을 자제하세요'}
-                        {(airQuality.grade === '정보 없음' || airQuality.grade === '조회 실패') &&
-                          '데이터를 확인할 수 없어요'}
-                      </p>
-                    </div>
-                    <div className="text-5xl">{getAirQualityEmoji(airQuality.grade)}</div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-100">
-                    <div className="text-center">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                        PM10
-                      </p>
-                      <p className="text-sm font-black text-slate-700">
-                        {airQuality.pm10 ?? '--'} <span className="text-[8px] opacity-50">㎍/㎥</span>
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                        PM2.5
-                      </p>
-                      <p className="text-sm font-black text-slate-700">
-                        {airQuality.pm25 ?? '--'} <span className="text-[8px] opacity-50">㎍/㎥</span>
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             </motion.div>
           )}
 
