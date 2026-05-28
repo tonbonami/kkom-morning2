@@ -239,3 +239,24 @@ export async function likeSentence(
     order,
   });
 }
+import type { AtelierAuthor } from '@/types';
+
+/**
+ * 로그인 이름을 표준 아뜰리에 작성자명으로 변환
+ * 우댕, 테오, Teo, teo → '테오'
+ * 꼼이, 꼼, 꼼2, 꼬미 → '꼼이'
+ * 그 외 → '' (빈 문자열)
+ */
+export function normalizeAtelierAuthor(raw: string): AtelierAuthor | '' {
+  const name = String(raw || '').trim();
+  
+  if (['우댕', '테오', 'Teo', 'teo'].includes(name)) {
+    return '테오';
+  }
+  
+  if (['꼼이', '꼼', '꼼2', '꼬미'].includes(name)) {
+    return '꼼이';
+  }
+  
+  return '';
+}

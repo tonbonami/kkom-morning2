@@ -33,7 +33,7 @@ export default function InputForm({
   const nextTurn = getNextTurnAuthor(novel);
   const isFirstSentence = novel.sentences.length === 0;
 
-  // 마침표·느낌표·물음표 기준 문장 수 (1~3 제한)
+  // 마침표·느낌표·물음표 기준 문장 수 (1~5 제한으로 확장)
   // 따옴표·괄호 등을 제거한 뒤 종결부호 개수를 카운트
   const countSentences = (input: string): number => {
     const trimmed = input.trim();
@@ -48,7 +48,7 @@ export default function InputForm({
   const sentenceCount = countSentences(text);
   const isValidLength = selectedType === 'chapter'
     ? text.trim().length > 0
-    : (sentenceCount >= 1 && sentenceCount <= 3);
+    : (sentenceCount >= 1 && sentenceCount <= 5);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && e.shiftKey) {
@@ -169,7 +169,7 @@ export default function InputForm({
                   ? '첫 문장으로 이야기를 시작하세요...'
                   : selectedType === 'chapter'
                   ? '챕터 제목을 입력하세요'
-                  : '1~3문장을 입력하세요 (Shift+Enter: 타입 변경)'
+                  : '1~5문장을 입력하세요 (Shift+Enter: 타입 변경)'
               }
               rows={2}
               className={cn(
@@ -208,7 +208,7 @@ export default function InputForm({
             'text-[9px] font-bold',
             selectedType === 'chapter'
               ? 'text-purple-400'
-              : sentenceCount > 3
+              : sentenceCount > 5
               ? 'text-rose-400'
               : sentenceCount > 0
               ? 'text-emerald-400'
@@ -216,7 +216,7 @@ export default function InputForm({
           )}>
             {selectedType === 'chapter'
               ? '📖 챕터 제목'
-              : sentenceCount + '/3 문장'
+              : sentenceCount + '/5 문장'
             }
           </span>
           <span className="text-[9px] text-slate-300">

@@ -1,9 +1,14 @@
+// src/types/index.ts
+
+// ========== 사용자 타입 ==========
 export interface User {
   로그인코드: string;
   이름: string;
+  name?: string; // 일부 컴포넌트 호환
   특별한날_설명?: string;
 }
 
+// ========== 날씨 관련 타입 ==========
 export type TempSource = 'TMP' | 'T1H' | 'N/A' | 'ERROR';
 export type PrecipitationType = 'rain' | 'snow' | 'sleet' | null;
 
@@ -17,6 +22,7 @@ export interface PrecipitationSummary {
 }
 
 export interface WeatherData {
+  // 기존 홈 구조
   current: {
     temp: number | null;
     feelsLike: number | null;
@@ -36,143 +42,90 @@ export interface WeatherData {
   timestamp?: string;
   isFallback?: boolean;
   error?: string;
+
+  // 대시보드/기존 컴포넌트 호환용 평면 필드
+  temperature?: number | null;
+  feelsLike?: number | null;
+  condition?: string | null;
+  high?: number | null;
+  low?: number | null;
 }
 
-export type AirGrade = '좋음' | '보통' | '나쁨' | '매우 나쁨' | '정보 없음' | '조회 실패';
+// ========== 대기질 타입 ==========
+export type AirGrade =
+  | 1
+  | 2
+  | 3
+  | 4
+  | '좋음'
+  | '보통'
+  | '나쁨'
+  | '매우 나쁨'
+  | '정보 없음'
+  | '조회 실패';
 
 export interface AirQualityData {
   pm10: number | null;
   pm25: number | null;
-  grade: AirGrade;
+  grade: any; // 숫자형/문자형 혼용 복구용
   location?: string;
   dataTime?: string;
   error?: string;
+  aqi?: number | null;
 }
 
+// ========== 옷차림 ==========
 export interface OutfitGuide {
+  // 기존 구조
   text: string;
   icon: string;
+
+  // 일부 컴포넌트 호환
+  emoji?: string;
+  recommendation?: string;
 }
 
+// ========== 포차코 ==========
 export type PochaccoImageKey = 'cold' | 'hot' | 'normal';
 
+// ========== 편지 / 퀴즈 ==========
 export interface DailyMessage {
   hasMessage: boolean;
   message: string;
   error?: string;
-}
 
-export interface TodayQuiz {
-  hasQuiz: boolean;
-  question: string;
-  error?: string;
-}
-
-export interface QuizResult {
-  correct: boolean;
-  message: string;
-  memory?: string;
-  error?: string;
-}
-
-// ✅ ========== 추억 사진 타입 (신규 추가) ========== ✅
-export interface MemoryPhoto {
-  date: string;        // 'YYYY-MM-DD'
-  title: string;       // 사진 제목
-  imageUrl: string;    // Google Drive 이미지 URL
-  description: string; // 사진 설명
-}
-
-export interface MemoryPhotosData {
-  hasPhotos: boolean;
-  photos: MemoryPhoto[];
-}
-// ✅ ============================================== ✅
-
-export interface InitialDataResponse {
-  weather: WeatherData;
-  air: AirQualityData;
-  outfit: OutfitGuide;
-  pochaccoImage: PochaccoImageKey;
-  dailyMessage: DailyMessage;
-  todayQuiz: TodayQuiz;
-  memoryPhotos?: MemoryPhotosData;  // ✅ 신규 필드 추가
-}
-export interface User {
-  로그인코드: string;
-  이름: string;
-  특별한날_설명?: string;
-}
-
-export type TempSource = 'TMP' | 'T1H' | 'N/A' | 'ERROR';
-export type PrecipitationType = 'rain' | 'snow' | 'sleet' | null;
-
-export interface PrecipitationSummary {
-  type: PrecipitationType;
-  typeText: string;
-  emoji: string;
-  probability: number | null;
-  startTime: string | null;
-  startTimeKor: string | null;
-}
-
-export interface WeatherData {
-  current: {
-    temp: number | null;
-    feelsLike: number | null;
-    tempSource?: TempSource;
-    sky: string | null;
-    precipitation: string | null;
-  };
-  today: {
-    high: number | null;
-    low: number | null;
-    precipitation?: PrecipitationSummary;
-  };
-  tomorrow?: {
-    precipitation?: PrecipitationSummary;
-  };
-  location?: string;
+  // 일부 홈 응답/컴포넌트 호환
+  author?: string;
   timestamp?: string;
-  isFallback?: boolean;
-  error?: string;
-}
-
-export type AirGrade = '좋음' | '보통' | '나쁨' | '매우 나쁨' | '정보 없음' | '조회 실패';
-
-export interface AirQualityData {
-  pm10: number | null;
-  pm25: number | null;
-  grade: AirGrade;
-  location?: string;
-  dataTime?: string;
-  error?: string;
-}
-
-export interface OutfitGuide {
-  text: string;
-  icon: string;
-}
-
-export type PochaccoImageKey = 'cold' | 'hot' | 'normal';
-
-export interface DailyMessage {
-  hasMessage: boolean;
-  message: string;
-  error?: string;
 }
 
 export interface TodayQuiz {
   hasQuiz: boolean;
   question: string;
   error?: string;
+
+  // 일부 홈 응답/컴포넌트 호환
+  correctAnswer?: string;
+  userAnswer?: string | null;
+  isCorrect?: boolean | null;
+}
+
+export interface QuizData {
+  id: string;
+  question: string;
+  type: 'text';
 }
 
 export interface QuizResult {
-  correct: boolean;
-  message: string;
+  // 구버전
+  correct?: boolean;
+  message?: string;
   memory?: string;
   error?: string;
+
+  // 신버전 UI 호환
+  isCorrect?: boolean;
+  explanation?: string;
 }
 
 // ========== 추억 사진 타입 ==========
@@ -188,54 +141,56 @@ export interface MemoryPhotosData {
   photos: MemoryPhoto[];
 }
 
-// ========== 아뜰리에 드 꼼 & 테오 타입 ==========
+// ========== 아뜰리에 공통 타입 ==========
+export type AtelierAuthor = '테오' | '꼼이';
 
-/** 문장 타입: 일반 / 문단 시작 / 챕터 구분 */
+// ========== 소설 타입 ==========
 export type NovelSentenceType = 'normal' | 'paragraph' | 'chapter';
-
-/** 소설 상태 */
 export type NovelStatus = 'active' | 'completed';
 
-/** 작성자 표준 이름 (Apps Script normalizeAuthor와 일치) */
-export type NovelAuthor = '테오' | '꼼이';
-
-/** 소설 문장 한 줄 */
 export interface NovelSentence {
   bookId: string;
-  author: NovelAuthor | string;
+  order: number;
+  author: AtelierAuthor | string;
   text: string;
   type: NovelSentenceType;
-  timestamp: string;       // 'YYYY-MM-DD HH:mm:ss'
-  order: number;
+  timestamp: string; // 'YYYY-MM-DD HH:mm:ss'
   likes: number;
 }
 
-/** 소설 한 권 */
 export interface Novel {
   bookId: string;
   title: string;
   status: NovelStatus;
-  createdAt: string;       // 'YYYY-MM-DD'
-  coverColor: string;      // hex color (예: '#FFF5E1')
-  fontStyle: string;       // 'serif' | 'sans-serif' 등
+  createdAt: string; // 백엔드/기존 혼용 수용
+  coverColor: string;
+  fontStyle: string;
   sentences: NovelSentence[];
+
+  // v10.8 대응
+  nextTurn?: AtelierAuthor | '';
+  firstTurnOpen?: boolean;
 }
 
-/** 표지 이미지 */
 export interface CoverImage {
-  fileName: string;        // '/covers/autumn.jpg'
-  displayName: string;     // '🍂 가을'
-  category: string;        // 'novel' | 'poem'
+  category: string;
+
+  // 기존 UI 계약
+  fileName?: string;
+  displayName?: string;
+
+  // 신규 백엔드 계약
+  id?: string;
+  url?: string;
+  title?: string;
 }
 
-/** getNovelData / getInitialData 아뜰리에 응답 */
 export interface NovelDataResponse {
   activeNovels: Novel[];
   completedNovels: Novel[];
   coverLibrary: CoverImage[];
 }
 
-/** createNovel 성공 응답 */
 export interface CreateNovelResponse {
   success: boolean;
   bookId?: string;
@@ -244,32 +199,28 @@ export interface CreateNovelResponse {
   createdAt?: string;
   coverColor?: string;
   fontStyle?: string;
-  sentences?: NovelSentence[];
   error?: string;
 }
 
-/** addSentence 성공 응답 */
 export interface AddSentenceResponse {
   success: boolean;
   bookId?: string;
-  author?: string;
+  order?: number;
+  author?: AtelierAuthor | string;
   text?: string;
   type?: NovelSentenceType;
   timestamp?: string;
-  order?: number;
   likes?: number;
   error?: string;
 }
 
-/** completeNovel 응답 */
 export interface CompleteNovelResponse {
   success: boolean;
   bookId?: string;
-  status?: string;
+  status?: NovelStatus;
   error?: string;
 }
 
-/** likeSentence 응답 */
 export interface LikeSentenceResponse {
   success: boolean;
   bookId?: string;
@@ -278,17 +229,106 @@ export interface LikeSentenceResponse {
   error?: string;
 }
 
-// ========== InitialData 응답 (아뜰리에 포함) ==========
-
+// ========== 홈 초기 데이터 응답 ==========
+// 기존 구조 유지 + 확장 필드 허용
 export interface InitialDataResponse {
   weather: WeatherData;
   air: AirQualityData;
-  outfit: OutfitGuide;
-  pochaccoImage: PochaccoImageKey;
+  outfit: OutfitGuide | string;
+  pochaccoImage?: PochaccoImageKey;
   dailyMessage: DailyMessage;
   todayQuiz: TodayQuiz;
-  memoryPhotos?: MemoryPhotosData;
+  memoryPhotos?: MemoryPhotosData | Array<{
+    id: string;
+    url: string;
+    date: string;
+    caption: string;
+    location: string;
+    uploadedBy: string;
+  }>;
+
+  // 아뜰리에 데이터
   activeNovels?: Novel[];
   completedNovels?: Novel[];
   coverLibrary?: CoverImage[];
+}
+
+// ========== 시 관련 타입 ==========
+export interface PoetryTheme {
+  weekId: string;
+  theme: string;
+  setBy: AtelierAuthor;
+  startDate: string;
+  endDate: string;
+  status: 'active' | 'completed';
+}
+
+export interface Poem {
+  poemId: string;
+  weekId: string;
+  author: AtelierAuthor;
+  title: string;
+  body: string;
+  status: 'writing' | 'completed';
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+}
+
+export interface PoetryWeekArchive {
+  theme: PoetryTheme;
+  poems: Poem[];
+}
+
+export interface PoetryNextWeekInfo {
+  nextAuthor: AtelierAuthor;
+  lastTheme: string;
+  lastWeekId: string;
+}
+
+export interface PoetryDataResponse {
+  activeTheme: PoetryTheme | null;
+  teoPoem: Poem | null;
+  kkomiPoem: Poem | null;
+  pastWeeks: PoetryWeekArchive[];
+
+  // 신버전
+  nextWeekInfo?: PoetryNextWeekInfo;
+
+  // 구버전 호환
+  nextSetBy?: AtelierAuthor;
+}
+
+export interface SavePoemResponse {
+  success: boolean;
+  poemId?: string;
+  title?: string;
+  body?: string;
+  status?: string;
+  updatedAt?: string;
+  error?: string;
+}
+
+export interface CompletePoemResponse {
+  success: boolean;
+  poemId?: string;
+  status?: string;
+  completedAt?: string;
+  error?: string;
+}
+
+export interface CompletePoetryThemeResponse {
+  success: boolean;
+  weekId?: string;
+  status?: string;
+  error?: string;
+}
+
+export interface CreatePoetryThemeResponse {
+  success: boolean;
+  weekId?: string;
+  theme?: string;
+  setBy?: AtelierAuthor;
+  startDate?: string;
+  error?: string;
 }
