@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kkom-Morning · 꼬미를 위한 앱 개선 아이디어 20</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --emerald:#10b981; --emerald-d:#047857; --teal:#14b8a6;
+    --ink:#0f172a; --slate:#475569; --mute:#94a3b8;
+    --bg1:#ecfdf5; --bg2:#f0fdfa; --card:#ffffff; --line:#e2e8f0;
+    --easy:#10b981; --mid:#f59e0b; --hard:#ef4444;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;
+    color:var(--ink); line-height:1.65;
+    background:
+      radial-gradient(circle at 12% 8%, rgba(16,185,129,.14) 0%, transparent 42%),
+      radial-gradient(circle at 88% 14%, rgba(20,184,166,.12) 0%, transparent 42%),
+      linear-gradient(180deg, var(--bg1), var(--bg2) 60%, #ffffff);
+    background-attachment:fixed;
+    padding:0 0 80px;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 22px}
+
+  /* Header */
+  header.hero{text-align:center;padding:64px 22px 40px}
+  .hero .heart{font-size:54px;line-height:1}
+  .hero h1{font-size:34px;font-weight:900;letter-spacing:-1px;margin:14px 0 6px;color:var(--ink)}
+  .hero .sub{color:var(--slate);font-size:15px;font-weight:500}
+  .hero .meta{margin-top:18px;font-size:12px;color:var(--mute);font-weight:500;letter-spacing:.04em}
+  .hero .meta b{color:var(--emerald-d)}
+
+  /* Section */
+  section{margin-top:40px}
+  .lead{
+    background:var(--card);border:1px solid var(--line);border-radius:22px;
+    padding:26px 28px;box-shadow:0 14px 40px -22px rgba(15,23,42,.35)
+  }
+  .lead h2,.cat h2,.block h2{font-size:20px;font-weight:900;letter-spacing:-.5px;display:flex;align-items:center;gap:8px}
+  .lead p{margin-top:10px;color:var(--slate);font-size:14.5px}
+  .lead p+p{margin-top:8px}
+  .lead .tag{display:inline-block;background:#ecfdf5;color:var(--emerald-d);font-weight:700;font-size:12px;padding:3px 10px;border-radius:999px;margin:2px 4px 2px 0;border:1px solid #a7f3d0}
+
+  /* Principles grid */
+  .principles{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:16px}
+  .principles .p{background:#f8fafc;border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+  .principles .p b{display:block;font-size:14px;font-weight:800;margin-bottom:3px}
+  .principles .p span{font-size:13px;color:var(--slate)}
+
+  /* Category header */
+  .cat{margin-top:46px}
+  .cat .catbar{
+    display:flex;align-items:center;gap:10px;
+    background:linear-gradient(90deg,var(--emerald),var(--teal));
+    color:#fff;padding:14px 20px;border-radius:18px;box-shadow:0 12px 30px -16px rgba(16,185,129,.7)
+  }
+  .cat .catbar .cnum{font-size:13px;font-weight:700;opacity:.85}
+  .cat .catbar h2{color:#fff;font-size:18px}
+  .cat .catbar .desc{margin-left:auto;font-size:12px;opacity:.9;font-weight:500;text-align:right}
+
+  /* Idea card */
+  .idea{
+    background:var(--card);border:1px solid var(--line);border-radius:20px;
+    padding:22px 24px;margin-top:14px;box-shadow:0 10px 34px -24px rgba(15,23,42,.4);
+    position:relative;overflow:hidden
+  }
+  .idea::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--emerald)}
+  .idea.pri-top::before{background:linear-gradient(var(--emerald),var(--teal))}
+  .idea .head{display:flex;align-items:flex-start;gap:12px}
+  .idea .no{
+    flex:0 0 auto;width:38px;height:38px;border-radius:12px;background:#ecfdf5;color:var(--emerald-d);
+    font-weight:900;font-size:16px;display:flex;align-items:center;justify-content:center;border:1px solid #a7f3d0
+  }
+  .idea .titles{flex:1}
+  .idea h3{font-size:17px;font-weight:800;letter-spacing:-.3px}
+  .idea .one{color:var(--slate);font-size:13.5px;margin-top:2px}
+  .badges{margin:14px 0 4px;display:flex;flex-wrap:wrap;gap:6px}
+  .b{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid transparent}
+  .b.diff-easy{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+  .b.diff-mid{background:#fffbeb;color:#b45309;border-color:#fde68a}
+  .b.diff-hard{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+  .b.pri{background:#eef2ff;color:#4338ca;border-color:#c7d2fe}
+  .b.ref{background:#f8fafc;color:var(--slate);border-color:var(--line)}
+  .idea dl{margin-top:12px;display:grid;grid-template-columns:74px 1fr;gap:8px 12px}
+  .idea dt{font-size:12px;font-weight:800;color:var(--emerald-d);padding-top:1px}
+  .idea dd{font-size:13.5px;color:var(--slate)}
+  .idea dd code{background:#f1f5f9;padding:1px 6px;border-radius:6px;font-size:12px;color:#0f766e}
+
+  /* Roadmap table */
+  .block{margin-top:46px;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:26px 26px;box-shadow:0 14px 40px -24px rgba(15,23,42,.35)}
+  table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13.5px}
+  th,td{text-align:left;padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;color:var(--mute);font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+  td b{color:var(--ink)}
+  .phase{display:inline-block;font-weight:800;font-size:12px;padding:2px 9px;border-radius:999px}
+  .ph1{background:#ecfdf5;color:#047857}
+  .ph2{background:#fffbeb;color:#b45309}
+  .ph3{background:#eef2ff;color:#4338ca}
+
+  .block ul{margin:12px 0 0 2px;list-style:none}
+  .block li{position:relative;padding:7px 0 7px 26px;font-size:13.5px;color:var(--slate);border-bottom:1px dashed var(--line)}
+  .block li:last-child{border-bottom:0}
+  .block li::before{content:"›";position:absolute;left:6px;top:7px;color:var(--emerald);font-weight:900}
+  .block li b{color:var(--ink)}
+
+  footer{margin-top:48px;text-align:center;color:var(--mute);font-size:12px}
+  footer .src{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 22px;text-align:left;margin-bottom:22px}
+  footer .src h3{font-size:13px;color:var(--slate);margin-bottom:8px;font-weight:800}
+  footer .src a{color:var(--emerald-d);text-decoration:none;font-size:12.5px}
+  footer .src a:hover{text-decoration:underline}
+  footer .src li{list-style:none;padding:3px 0}
+  @media(max-width:560px){
+    .principles{grid-template-columns:1fr}
+    .hero h1{font-size:27px}
+    .idea dl{grid-template-columns:1fr}
+    .idea dt{padding-top:6px}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="heart">💚</div>
+  <h1>Kkom-Morning을 꼬미에게 진짜 도움이 되는 앱으로</h1>
+  <div class="sub">아침을 여는 따뜻한 보살핌 — 개선 아이디어 20가지 상세 보고서</div>
+  <div class="meta">작성: <b>우댕님을 위한 정리</b> · 2026-05-29 · 커플앱·미세먼지앱·모닝루틴앱 리서치 기반</div>
+</header>
+
+<div class="wrap">
+
+  <!-- INTRO -->
+  <section class="lead">
+    <h2>📌 이 보고서는</h2>
+    <p>Kkom-Morning은 우댕님이 짝꿍 <b>꼬미</b>를 위해 만든 “아침 companion 앱”입니다. 현재 핵심은 <b>오늘의 편지 💌 · 날씨 · 미세먼지 · 옷차림 · 추억 사진 · 둘이 잇는 릴레이 소설 · D-day 카운터</b>예요. 최근 편지는 GAS(느림) → <b>Firestore 실시간(즉시)</b>으로 옮겨 빨라졌습니다.</p>
+    <p>핵심 인사이트 두 가지를 모든 아이디어의 기준으로 삼았습니다.</p>
+    <p>
+      <span class="tag">① 꼬미는 미세먼지를 가장 중요하게 본다 (미세미세 애용)</span>
+      <span class="tag">② 매일 아침 한 번 여는 앱 — 빠르고, 따뜻하고, 손이 덜 가야 한다</span>
+    </p>
+    <p style="margin-top:12px;font-size:13px;color:var(--mute)">현재 GAS의 날씨·미세먼지 데이터가 <b>null(죽음)</b> 상태라, 아래 여러 아이디어는 “데이터를 살리는 것”에서 출발합니다.</p>
+  </section>
+
+  <!-- PRINCIPLES -->
+  <section class="lead">
+    <h2>🧭 설계 원칙 (모든 기능의 공통 기준)</h2>
+    <div class="principles">
+      <div class="p"><b>미세먼지 우선</b><span>꼬미의 1순위. 항상 빠르고 정확하게, 화면 맨 위에.</span></div>
+      <div class="p"><b>제로 마찰</b><span>로그인 한 번, 아침에 열면 끝. 입력·설정 최소화.</span></div>
+      <div class="p"><b>감정의 따뜻함</b><span>유틸리티 + 편지·기분 교류. 매일 챙김받는 느낌.</span></div>
+      <div class="p"><b>폰 우선(PWA)</b><span>홈 화면 설치 + 알림 + 위젯. 진짜 앱처럼.</span></div>
+      <div class="p"><b>탈(脫)GAS</b><span>죽은 GAS 데이터를 직접 API/Firestore로 대체해 신뢰성↑.</span></div>
+      <div class="p"><b>둘만의 공간</b><span>두 사람 전용. 사적이고 안전하게(보안 규칙 필수).</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CATEGORY A ============ -->
+  <div class="cat">
+    <div class="catbar"><span class="cnum">A</span><h2>🌫️ 미세먼지 & 건강 — 꼬미 최우선</h2><span class="desc">5가지</span></div>
+
+    <div class="idea pri-top">
+      <div class="head"><div class="no">1</div><div class="titles">
+        <h3>실시간 미세먼지 직접 연동 (에어코리아)</h3>
+        <div class="one">죽은 GAS 대신 공공데이터포털에서 직접 받아 1초 미만으로 PM10/PM2.5·등급 표시.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-easy">난이도 보통</span><span class="b pri">우선순위 ★★★★★</span><span class="b ref">참고: 미세미세 · AirKorea</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>꼬미가 매일 제일 먼저 보는 정보인데 지금은 “정보 없음”. 이걸 살리는 게 앱 부활의 핵심.</dd>
+        <dt>구현</dt><dd>Next.js <code>/api/air</code> 라우트 → 에어코리아 “측정소별 실시간 측정정보” 호출(호평동/남양주 측정소). <code>data.go.kr</code> 무료 키 1개 필요. 응답을 60초 캐시.</dd>
+      </dl>
+    </div>
+
+    <div class="idea pri-top">
+      <div class="head"><div class="no">2</div><div class="titles">
+        <h3>시간별 · 내일 미세먼지 예보</h3>
+        <div class="one">“오후부터 나빠져요”처럼 24시간·이틀 예보를 보여줘 하루 계획에 도움.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-mid">난이도 보통</span><span class="b pri">우선순위 ★★★★☆</span><span class="b ref">미세미세도 24h/2일 예보 제공</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>“지금”뿐 아니라 “언제 나가면 좋은지”를 알려줘 외출·환기 타이밍을 잡게 해줌.</dd>
+        <dt>구현</dt><dd>에어코리아 “대기질 예보통보” + 시간별 측정 추세. 미니 막대 그래프(이미 recharts 설치됨)로 시각화.</dd>
+      </dl>
+    </div>
+
+    <div class="idea pri-top">
+      <div class="head"><div class="no">3</div><div class="titles">
+        <h3>미세먼지 푸시 알림 🎯</h3>
+        <div class="one">‘나쁨’ 이상이면 아침에 “오늘 미세먼지 나쁨, 마스크 챙겨요 😷”. 좋아지면 “오늘 공기 깨끗! 산책 추천 🌿”.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-hard">난이도 높음</span><span class="b pri">우선순위 ★★★★★</span><span class="b ref">PWA 설치 전제</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>앱을 열지 않아도 꼬미가 챙김받는 핵심 기능. “미세먼지 중요”에 가장 직접적으로 응답.</dd>
+        <dt>구현</dt><dd>PWA(아이디어 11) + 웹푸시(VAPID/<code>web-push</code>) 또는 FCM. Vercel Cron이 매일 아침 등급 체크 → 임계값 넘으면 발송. ⚠️ iOS는 16.4+ & 홈 화면 설치 시에만 가능.</dd>
+      </dl>
+    </div>
+
+    <div class="idea">
+      <div class="head"><div class="no">4</div><div class="titles">
+        <h3>마스크 & 환기 추천</h3>
+        <div class="one">등급에 따라 “KF94 권장” / 공기 좋을 때 “지금 환기하기 좋아요 🪟”.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-easy">난이도 쉬움</span><span class="b pri">우선순위 ★★★☆☆</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>숫자를 “행동”으로 번역. 미세미세의 ‘활동 추천’과 같은 결.</dd>
+        <dt>구현</dt><dd>미세먼지 카드 안에 등급→문구 매핑만 추가(데이터 1·2번에 의존). 코드 거의 없음.</dd>
+      </dl>
+    </div>
+
+    <div class="idea">
+      <div class="head"><div class="no">5</div><div class="titles">
+        <h3>계절 건강 지표 (꽃가루·자외선·체감온도)</h3>
+        <div class="one">봄엔 꽃가루, 여름엔 자외선, 겨울엔 체감온도까지 한 카드에.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-mid">난이도 보통</span><span class="b pri">우선순위 ★★★☆☆</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>“건강 챙김” 테마 확장. 꼬미가 알레르기·피부에 민감하면 특히 유용.</dd>
+        <dt>구현</dt><dd>기상청 생활기상지수 API(자외선·꽃가루·체감온도, 모두 data.go.kr). 미세먼지 키와 같은 포털.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- ============ CATEGORY B ============ -->
+  <div class="cat">
+    <div class="catbar"><span class="cnum">B</span><h2>💌 편지 & 마음 교류 — 둘의 핵심</h2><span class="desc">5가지</span></div>
+
+    <div class="idea pri-top">
+      <div class="head"><div class="no">6</div><div class="titles">
+        <h3>편지 도착 푸시 알림</h3>
+        <div class="one">우댕이 편지를 보내면 꼬미 폰에 즉시 “💌 오늘의 편지가 도착했어요”.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-hard">난이도 높음</span><span class="b pri">우선순위 ★★★★★</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>지금은 앱을 열어야만 편지를 봄. 알림이 있으면 “설렘”이 실시간이 됨 — 앱의 감정적 심장.</dd>
+        <dt>구현</dt><dd>Firestore <code>onCreate</code>(Cloud Function) 또는 편지 전송 시 서버에서 상대에게 웹푸시. 알림 인프라(11·3과 공유).</dd>
+      </dl>
+    </div>
+
+    <div class="idea pri-top">
+      <div class="head"><div class="no">7</div><div class="titles">
+        <h3>편지 보관함 · 타임라인</h3>
+        <div class="one">지금은 최신 1통만. 그동안 주고받은 편지를 날짜별로 모아 다시 읽기.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-easy">난이도 쉬움</span><span class="b pri">우선순위 ★★★★☆</span><span class="b ref">참고: Between 메모리 타임라인</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>쌓인 편지는 그 자체로 추억. 힘든 날 다시 꺼내 보는 보물상자가 됨.</dd>
+        <dt>구현</dt><dd>이미 Firestore <code>letters</code>에 다 저장 중. <code>/letters</code> 페이지에서 <code>orderBy(createdAt)</code>로 목록만 그리면 됨. <b>데이터 이미 있음 → 화면만</b>.</dd>
+      </dl>
+    </div>
+
+    <div class="idea">
+      <div class="head"><div class="no">8</div><div class="titles">
+        <h3>음성 편지</h3>
+        <div class="one">글 대신 목소리로. 출근길에 듣는 우댕의 한마디.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-mid">난이도 보통</span><span class="b pri">우선순위 ★★★☆☆</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>텍스트보다 따뜻함. 목소리는 감정 전달이 압도적.</dd>
+        <dt>구현</dt><dd>녹음(MediaRecorder) → Firebase Storage 업로드 → 편지 문서에 오디오 URL. (앱에 이미 있는 TTS flow로 ‘텍스트→음성’ 변환도 가능.)</dd>
+      </dl>
+    </div>
+
+    <div class="idea pri-top">
+      <div class="head"><div class="no">9</div><div class="titles">
+        <h3>오늘의 기분 공유</h3>
+        <div class="one">이모지/한 줄로 컨디션 교환. 꼬미가 안 좋으면 우댕이 바로 알아챔.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-easy">난이도 쉬움</span><span class="b pri">우선순위 ★★★★☆</span><span class="b ref">참고: LuvDiary mood</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>“오늘 어때?”를 매일 자연스럽게. 멀리 있어도 서로의 상태를 안다.</dd>
+        <dt>구현</dt><dd>Firestore <code>moods</code> 컬렉션(편지와 동일 패턴). 홈 상단에 둘의 오늘 기분 이모지 2개.</dd>
+      </dl>
+    </div>
+
+    <div class="idea">
+      <div class="head"><div class="no">10</div><div class="titles">
+        <h3>예약 편지 · 타임캡슐</h3>
+        <div class="one">미래 날짜에 ‘도착’하는 편지. 기념일·생일에 깜짝 등장.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-mid">난이도 보통</span><span class="b pri">우선순위 ★★★☆☆</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>“미래의 나/너에게”라는 설렘. 1주년 같은 날 자동으로 열림.</dd>
+        <dt>구현</dt><dd>편지에 <code>openAt</code> 필드 → 그 시각 전엔 잠금 표시, 이후 노출. (정렬/필터만 추가.)</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- ============ CATEGORY C ============ -->
+  <div class="cat">
+    <div class="catbar"><span class="cnum">C</span><h2>🔔 알림 · 습관 · 접근성 (PWA)</h2><span class="desc">4가지</span></div>
+
+    <div class="idea pri-top">
+      <div class="head"><div class="no">11</div><div class="titles">
+        <h3>PWA — 홈 화면에 추가</h3>
+        <div class="one">진짜 앱처럼 폰에 설치. 전체화면 실행 + 오프라인에서도 최근 편지 캐시.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-mid">난이도 보통</span><span class="b pri">우선순위 ★★★★★ (기반)</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd><b>모든 알림(3·6·13)의 전제조건.</b> 매일 여는 앱이라면 홈 화면 아이콘이 필수. 설치만으로 “우리 앱” 느낌.</dd>
+        <dt>구현</dt><dd><code>manifest.json</code>(아이콘·standalone) + 서비스워커. Next.js PWA 가이드대로. Vercel은 HTTPS라 조건 충족.</dd>
+      </dl>
+    </div>
+
+    <div class="idea">
+      <div class="head"><div class="no">12</div><div class="titles">
+        <h3>홈 화면 / 잠금화면 위젯</h3>
+        <div class="one">앱을 안 열어도 미세먼지 등급 + ‘편지 도착’ 여부를 위젯으로.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-hard">난이도 높음</span><span class="b pri">우선순위 ★★★☆☆</span><span class="b ref">참고: Cupla · Lovio 위젯</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>“열어야 보는” 마찰 제거. 미세먼지를 폰 첫 화면에서 바로 확인.</dd>
+        <dt>구현</dt><dd>웹은 한계 → 진짜 위젯은 네이티브 영역. 대안: iOS <b>스크린샷 위젯/단축어</b> 또는 추후 경량 네이티브 래퍼. (중장기)</dd>
+      </dl>
+    </div>
+
+    <div class="idea pri-top">
+      <div class="head"><div class="no">13</div><div class="titles">
+        <h3>모닝 브리핑 알림</h3>
+        <div class="one">매일 아침 정해진 시간 한 번에: “좋은 아침 꼬미 💚 미세먼지 보통, 편지 도착, 13°C”.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-hard">난이도 높음</span><span class="b pri">우선순위 ★★★★☆</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>앱의 콘셉트(아침 companion)를 한 줄로 완성. 하루를 챙김으로 시작.</dd>
+        <dt>구현</dt><dd>Vercel Cron(매일 07:00) → 미세먼지+편지+날씨 묶어 웹푸시. 알림 인프라 공유(3·6).</dd>
+      </dl>
+    </div>
+
+    <div class="idea">
+      <div class="head"><div class="no">14</div><div class="titles">
+        <h3>접속 스트릭 · 함께 출석</h3>
+        <div class="one">둘이 매일 앱을 연 연속 일수. 귀여운 보상/뱃지로 습관화.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-easy">난이도 쉬움</span><span class="b pri">우선순위 ★★☆☆☆</span><span class="b ref">참고: TwoDo 마일스톤 스트릭</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>“우리 며칠째 함께”라는 작은 게임. 재방문 동기 + 소소한 재미.</dd>
+        <dt>구현</dt><dd>Firestore에 마지막 접속일·연속일수 기록. 홈에 작은 🔥 카운터.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- ============ CATEGORY D ============ -->
+  <div class="cat">
+    <div class="catbar"><span class="cnum">D</span><h2>🌅 아침 일상 도움</h2><span class="desc">4가지</span></div>
+
+    <div class="idea pri-top">
+      <div class="head"><div class="no">15</div><div class="titles">
+        <h3>옷차림 추천 고도화 + 날씨 직접 연동</h3>
+        <div class="one">실제 기온·미세먼지·강수를 반영: “쌀쌀+미세먼지 나쁨 → 마스크 + 가디건”.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-mid">난이도 보통</span><span class="b pri">우선순위 ★★★★☆</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>아침에 제일 실용적인 “뭐 입지?”를 해결. 죽은 날씨 데이터도 함께 부활.</dd>
+        <dt>구현</dt><dd>기상청 단기예보 API(data.go.kr)로 날씨 직접 호출 → 기온·강수+미세먼지 등급을 규칙으로 추천. (지금 옷차림은 GAS·AI flow였지만 둘 다 사실상 미작동.)</dd>
+      </dl>
+    </div>
+
+    <div class="idea">
+      <div class="head"><div class="no">16</div><div class="titles">
+        <h3>물 · 약 · 영양제 리마인더</h3>
+        <div class="one">“물 한 잔 💧” “영양제 챙겼어?” 같은 부드러운 챙김 알림.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-mid">난이도 보통</span><span class="b pri">우선순위 ★★★☆☆</span><span class="b ref">참고: Me+ 셀프케어 루틴</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>건강 챙김의 디테일. 우댕이 직접 못 챙겨도 앱이 대신 챙겨줌.</dd>
+        <dt>구현</dt><dd>간단한 리마인더 설정 + 웹푸시. 또는 모닝 브리핑(13)에 끼워넣기.</dd>
+      </dl>
+    </div>
+
+    <div class="idea">
+      <div class="head"><div class="no">17</div><div class="titles">
+        <h3>생리주기 케어 (선택 · 꼬미 동의 하에)</h3>
+        <div class="one">우댕이 주기를 알고 미리 챙김: “곧 그날, 따뜻한 거·진통제 챙겨주기”.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-mid">난이도 보통</span><span class="b pri">우선순위 ★★★★☆</span><span class="b ref">참고: Flo for Partners · Blood for Couples</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>파트너 케어 앱의 핵심 기능. “챙김받는다”는 느낌이 가장 큰 영역. <b>매우 사적이니 꼬미가 원할 때만.</b></dd>
+        <dt>구현</dt><dd>꼬미가 시작일 기록 → 예측 + D-day. 우댕 화면엔 “곧/오늘” 부드러운 안내. Firestore 비공개 컬렉션 + 보안 규칙 엄격히.</dd>
+      </dl>
+    </div>
+
+    <div class="idea">
+      <div class="head"><div class="no">18</div><div class="titles">
+        <h3>둘이 보는 캘린더 · 할 일</h3>
+        <div class="one">데이트·기념일·약속·할 일을 한 곳에서 공유.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-mid">난이도 보통</span><span class="b pri">우선순위 ★★★☆☆</span><span class="b ref">참고: Between · Cupla 캘린더</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>커플앱 단골 기능. 약속을 놓치지 않고, 다가올 일정으로 설렘.</dd>
+        <dt>구현</dt><dd>Firestore <code>events</code> 컬렉션 + 월간 뷰(react-day-picker 이미 설치). 기념일은 D-day(19)와 연동.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- ============ CATEGORY E ============ -->
+  <div class="cat">
+    <div class="catbar"><span class="cnum">E</span><h2>🎁 추억 · 기념일 · 재미</h2><span class="desc">2가지</span></div>
+
+    <div class="idea">
+      <div class="head"><div class="no">19</div><div class="titles">
+        <h3>D-day 확장 + 기념일 알림 + 추억 갤러리 살리기</h3>
+        <div class="one">100일·1주년 자동 카운트 + 미리 알림. 잠자는 추억 사진 갤러리 부활.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-easy">난이도 쉬움</span><span class="b pri">우선순위 ★★★☆☆</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd>이미 ‘2023-09-28 since’ 카운터가 있음. 100일·기념일 알림은 커플앱 표준(Lovewick은 1주 전 알림).</dd>
+        <dt>구현</dt><dd>여러 기념일 등록 + 임박 알림(브리핑에 포함). <code>MemoryGallery</code> 컴포넌트는 이미 있으니 사진 소스만 Firebase Storage로 연결.</dd>
+      </dl>
+    </div>
+
+    <div class="idea">
+      <div class="head"><div class="no">20</div><div class="titles">
+        <h3>데일리 퀴즈 / 대화 카드 살리기</h3>
+        <div class="one">이미 만들어둔 퀴즈 UI를 화면에 연결: “서로 알아맞히기” + 대화 주제 카드.</div>
+      </div></div>
+      <div class="badges"><span class="b diff-easy">난이도 쉬움</span><span class="b pri">우선순위 ★★★☆☆</span><span class="b ref">참고: Lovewick 디스커버리 카드</span></div>
+      <dl>
+        <dt>왜 좋나</dt><dd><code>kkom-quiz</code>·<code>QuizCard</code>·<code>/api/quiz</code>가 멀쩡히 있는데 <b>어느 화면에도 안 붙어있음</b>. 연결만 하면 바로 기능 부활.</dd>
+        <dt>구현</dt><dd>홈에 퀴즈 카드 렌더 추가(이미 만든 컴포넌트 import). 데이터 소스만 Firestore로 옮기면 더 안정적.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- ROADMAP -->
+  <div class="block">
+    <h2>🗺️ 추천 실행 순서 (로드맵)</h2>
+    <p style="color:var(--slate);font-size:13.5px;margin-top:8px">효과 대비 난이도로 정렬했습니다. <b>꼬미의 1순위(미세먼지)</b>와 <b>이미 80% 만들어진 것(편지 보관함·퀴즈)</b>부터 빠르게 가는 걸 권합니다.</p>
+    <table>
+      <tr><th>단계</th><th>무엇을</th><th>왜 먼저</th></tr>
+      <tr><td><span class="phase ph1">1 · 빠른 승리</span></td><td><b>#1 미세먼지 실연동</b>, <b>#7 편지 보관함</b>, <b>#20 퀴즈 살리기</b>, <b>#4 마스크·환기 문구</b>, <b>#9 기분 공유</b></td><td>임팩트 크고 난이도 낮음. 미세먼지는 꼬미 1순위, 보관함·퀴즈는 거의 다 만들어져 화면만 붙이면 됨.</td></tr>
+      <tr><td><span class="phase ph2">2 · 기반 + 알림</span></td><td><b>#11 PWA</b> → <b>#3 미세먼지 알림</b> · <b>#6 편지 알림</b> · <b>#13 모닝 브리핑</b>, <b>#15 날씨·옷차림</b>, <b>#2 미세먼지 예보</b></td><td>PWA가 알림의 전제. 한 번 깔면 ‘앱을 안 열어도 챙겨주는’ 단계로 도약.</td></tr>
+      <tr><td><span class="phase ph3">3 · 확장</span></td><td><b>#17 생리주기 케어</b>, <b>#18 캘린더</b>, <b>#8 음성편지</b>, <b>#10 예약편지</b>, <b>#5 계절지표</b>, <b>#16 리마인더</b>, <b>#19 기념일</b>, <b>#14 스트릭</b>, <b>#12 위젯</b></td><td>깊이를 더하는 기능들. 1·2단계가 자리 잡은 뒤 하나씩.</td></tr>
+    </table>
+  </div>
+
+  <!-- APPENDIX: AUDIT -->
+  <div class="block">
+    <h2>🔧 부록 — 코드 검사에서 나온 “손볼 곳”</h2>
+    <p style="color:var(--slate);font-size:13.5px;margin-top:8px">새 기능 전에 정리하면 좋은 항목들입니다(오늘 앱 전체 검사 결과).</p>
+    <ul>
+      <li>🔴 <b>소설 작성자 버그</b> — 릴레이 소설이 GAS의 <code>user.name</code>으로 작성자를 판별하는데, GAS가 우댕(0319)에게도 “꼼이”를 돌려줘 <b>우댕이 소설에서 꼼이로 인식</b>됨. 편지에서 쓴 “로그인 코드 기준”으로 고치면 해결.</li>
+      <li>🔴 <b>GAS 날씨·미세먼지 = null</b> — 외부 데이터가 죽어 있음. → 에어코리아/기상청 직접 연동(#1·#15)으로 해결.</li>
+      <li>🔴 <b>퀴즈가 화면에 안 붙어있음</b> — 컴포넌트·API는 멀쩡(#20에서 연결).</li>
+      <li>🟡 <b>죽은 코드 정리</b> — <code>src/components/dashboard/*</code>(7개·미사용·typecheck 에러 원인), <code>src/ai/*</code>(라이브 미연결), <code>page.tsx.backup/.broken</code> 4개, 루트 잡파일(<code>api-response.json</code> 등), 미사용 <code>/api/daily-message</code>.</li>
+      <li>🟢 <b>작은 손질</b> — <code>layout.tsx</code>의 <code>&lt;html lang="en"&gt;</code> → <code>"ko"</code>, <code>api.ts</code> 디버그 <code>console.log</code> 정리.</li>
+      <li>🔒 <b>보안</b> — Firestore가 현재 테스트 모드(2026-06-28까지 오픈). 실제 비공개 편지를 지키려면 Firebase 인증 + 규칙 잠금 필요(지금은 4자리 코드 게이트뿐이라 보호 약함).</li>
+    </ul>
+  </div>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="src">
+      <h3>참고한 자료 (리서치)</h3>
+      <ul>
+        <li><a href="https://cupla.app/blog/long-distance-relationship-app-cupla/">Cupla — 장거리 커플 앱 기능(카운트다운 위젯·공유 캘린더·위시리스트)</a></li>
+        <li><a href="https://habi.app/insights/best-couple-apps/">Habi — 2026 베스트 커플 앱 비교</a></li>
+        <li><a href="https://lovewick.com/">Lovewick — 기념일 알림·버킷리스트·대화 카드</a></li>
+        <li><a href="https://apps.apple.com/us/app/luvdiary-couple-relationship/id1541493791">LuvDiary — 기분 공유·편지·타임캡슐</a></li>
+        <li><a href="https://play.google.com/store/apps/details?id=cheehoon.ha.particulateforecaster">미세미세(MiseMise) — 미세먼지 실시간·예보·알림</a></li>
+        <li><a href="https://airkorea.or.kr/eng/currentAirQuality?pMENU_NO=68">AirKorea — 공식 대기질 데이터</a></li>
+        <li><a href="https://flo.health/product-tour/flo-for-partners">Flo for Partners — 파트너 주기 케어</a></li>
+        <li><a href="https://nextjs.org/docs/app/guides/progressive-web-apps">Next.js — PWA & 웹푸시 가이드</a></li>
+        <li><a href="https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide">PWA iOS 한계(16.4+ · 홈 화면 설치 시 푸시)</a></li>
+        <li><a href="https://habi.app/insights/best-daily-routine-apps/">Habi — 모닝 루틴/습관 앱(위젯·리마인더·스트릭)</a></li>
+      </ul>
+    </div>
+    💚 Kkom-Morning · 꼬미의 아침을 여는 따뜻한 보살핌
+  </div>
+</footer>
+
+</body>
+</html>
