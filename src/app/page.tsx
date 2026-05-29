@@ -65,7 +65,7 @@ export default function HomePage() {
       const data = await getInitialData(loc, forceRefresh);
 
       setWeather(data.weather);
-      setAirQuality(data.air);
+      // 미세먼지는 GAS(죽음) 대신 /api/air(에어코리아)에서 별도로 받음
       setOutfit(data.outfit);
       setMemoryPhotos(data.memoryPhotos);
 
@@ -133,6 +133,22 @@ export default function HomePage() {
     return () => unsubscribeLetter?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  // 미세먼지: 에어코리아(/api/air)에서 받아 5분마다 갱신 (GAS 미사용)
+  useEffect(() => {
+    let active = true;
+    const loadAir = () =>
+      fetch('/api/air')
+        .then((r) => r.json())
+        .then((a) => { if (active) setAirQuality(a); })
+        .catch(() => {});
+    loadAir();
+    const id = setInterval(loadAir, 5 * 60 * 1000);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, []);
 
   const handleLocationToggle = (newLocation: 'home' | 'work') => {
     if (location !== newLocation) {
