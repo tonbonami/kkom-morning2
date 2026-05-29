@@ -1,370 +1,310 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { motion } from 'framer-motion';
-import { getInitialData, getCacheInfo } from '@/lib/api';
-import { subscribeLatestLetterTo, nameFromCode } from '@/lib/letters';
-import { AirExtra } from '@/components/air-extra';
-import { MoodRow } from '@/components/mood-row';
-import type { WeatherData, OutfitGuide, MemoryPhotosData } from '@/types';
-import DailyLetter from '@/components/daily-letter';
-import MemoryGallery from '@/components/MemoryGallery';
-import { getSkyCondition, getAirQualityEmoji, getAirQualityBg, getAirQualityText } from '@/lib/weatherHelpers';
-
+import { getInitialData } from '@/lib/api';
+import { subscribeLatestLetterTo, nameFromCode, partnerOf } from '@/lib/letters';
+import { subscribeTodayMoods, setMyMood, MOOD_OPTIONS, type MoodMap } from '@/lib/moods';
+import type { WeatherData, OutfitGuide } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
-  RefreshCw,
-  CloudSun,
-  Wind,
-  CalendarHeart,
-  AlertCircle,
-  Sparkles,
-  BookOpen,
-  Mail,
-  History,
+  RefreshCw, Wind, CloudSun, ThermometerSun, Umbrella,
+  Heart, BookOpen, PenLine, ChevronRight, Smile,
 } from 'lucide-react';
 
-const UI_VERSION = 'v2026-05-29';
+// 등급별 풀컬러 스타일 (미세먼지 Hero 카드)
+const getAirStyle = (grade?: string) => {
+  switch (grade) {
+    case '좋음': return 'bg-emerald-400 text-white shadow-emerald-200/60';
+    case '보통': return 'bg-sky-400 text-white shadow-sky-200/60';
+    case '나쁨': return 'bg-orange-400 text-white shadow-orange-200/60';
+    case '매우 나쁨': return 'bg-red-500 text-white shadow-red-200/60';
+    default: return 'bg-slate-300 text-white shadow-slate-200/60';
+  }
+};
 
 export default function HomePage() {
+  const router = useRouter();
   const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [airQuality, setAirQuality] = useState<any>(null);
+  const [air, setAir] = useState<any>(null);
   const [outfit, setOutfit] = useState<OutfitGuide | null>(null);
-  const [memoryPhotos, setMemoryPhotos] = useState<MemoryPhotosData | null>(null);
   const [dailyMessage, setDailyMessage] = useState<string>('');
-  const [isLoadingMessage, setIsLoadingMessage] = useState(true);
-  const [userName, setUserName] = useState('꼼');
-  const [location] = useState<'home' | 'work'>('home');
+  const [hasLetter, setHasLetter] = useState(false);
+  const [moods, setMoods] = useState<MoodMap>({});
+  const [moodOpen, setMoodOpen] = useState(false);
+  const [userName, setUserName] = useState('꼼이');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dDay, setDDay] = useState(0);
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [currentDateText, setCurrentDateText] = useState('');
-  const router = useRouter();
+  const [dateText, setDateText] = useState('');
 
-  const auroraStyle = useMemo(
-    () => ({
-      background:
-        'radial-gradient(circle at 10% 8%, rgba(16,185,129,0.14) 0%, transparent 48%),' +
-        'radial-gradient(circle at 90% 16%, rgba(20,184,166,0.12) 0%, transparent 48%),' +
-        'radial-gradient(circle at 50% 92%, rgba(250,204,21,0.06) 0%, transparent 50%)',
-    }),
-    []
-  );
-
-  const loadData = async (loc: 'home' | 'work', forceRefresh = false) => {
+  const loadData = async (forceRefresh = false) => {
     setIsRefreshing(true);
     try {
-      const data = await getInitialData(loc, forceRefresh);
+      const data = await getInitialData('home', forceRefresh);
       setWeather(data.weather);
-      // 미세먼지는 GAS(죽음) 대신 /api/air(에어코리아)에서 별도로 받음
       setOutfit(data.outfit);
-      setMemoryPhotos(data.memoryPhotos);
-      if (forceRefresh) {
-        setShowSuccessMessage(true);
-        setTimeout(() => setShowSuccessMessage(false), 2000);
-      }
-    } catch (error) {
-      console.error('데이터 로드 실패:', error);
+    } catch (e) {
+      console.error('데이터 로드 실패:', e);
     } finally {
-      setIsRefreshing(false);
+      setTimeout(() => setIsRefreshing(false), 600);
     }
   };
 
   useEffect(() => {
-    let unsubscribeLetter: (() => void) | undefined;
-
     const userStr = localStorage.getItem('kkom-user');
     if (!userStr) {
       router.push('/login');
       return;
     }
-
-    const user = JSON.parse(userStr);
-    const me = nameFromCode(user.로그인코드);
+    const me = nameFromCode(JSON.parse(userStr).로그인코드);
     setUserName(me);
 
-    loadData(location);
+    loadData();
 
-    // 오늘의 편지: Firestore 실시간 구독 (to == 나)
-    setIsLoadingMessage(true);
-    unsubscribeLetter = subscribeLatestLetterTo(me, (letter) => {
-      setDailyMessage(letter?.body || '아직 도착한 편지가 없어요 💌');
-      setIsLoadingMessage(false);
+    const unsubLetter = subscribeLatestLetterTo(me, (letter) => {
+      setHasLetter(!!letter);
+      setDailyMessage(letter?.body || '');
     });
+    const unsubMoods = subscribeTodayMoods(setMoods);
 
-    const startDate = new Date('2023-09-28');
+    const start = new Date('2023-09-28');
     const today = new Date();
-    startDate.setHours(0, 0, 0, 0);
+    start.setHours(0, 0, 0, 0);
     today.setHours(0, 0, 0, 0);
-    const diffDays = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
-    setDDay(diffDays + 1);
+    setDDay(Math.floor((today.getTime() - start.getTime()) / 86400000) + 1);
+    setDateText(new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' }));
 
-    setCurrentDateText(
-      new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
-    );
-
-    return () => unsubscribeLetter?.();
+    return () => {
+      unsubLetter();
+      unsubMoods();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  // 미세먼지: 에어코리아(/api/air)에서 받아 5분마다 갱신 (GAS 미사용)
+  // 미세먼지: /api/air 5분 갱신
   useEffect(() => {
     let active = true;
-    const loadAir = () =>
-      fetch('/api/air')
-        .then((r) => r.json())
-        .then((a) => { if (active) setAirQuality(a); })
-        .catch(() => {});
-    loadAir();
-    const id = setInterval(loadAir, 5 * 60 * 1000);
-    return () => {
-      active = false;
-      clearInterval(id);
-    };
+    const load = () => fetch('/api/air').then((r) => r.json()).then((a) => { if (active) setAir(a); }).catch(() => {});
+    load();
+    const id = setInterval(load, 5 * 60 * 1000);
+    return () => { active = false; clearInterval(id); };
   }, []);
 
-  const getPochaccoImage = () => {
-    const temp = weather?.current?.temp ?? 0;
-    if (temp >= 10) return '/pochacco_picnic.png';
-    if (temp <= -1) return '/pochacco_cold.png';
+  const getPochacco = () => {
+    const t = weather?.current?.temp ?? 0;
+    if (t >= 10) return '/pochacco_picnic.png';
+    if (t <= -1) return '/pochacco_cold.png';
     return '/pochacco.png';
   };
 
-  const containerVars = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-  };
-  const itemVars = {
-    hidden: { opacity: 0, y: 14 },
-    show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 120, damping: 16 } },
-  };
+  const partner = partnerOf(userName);
+  const hasGrade = air && air.grade && air.grade !== '정보 없음' && air.grade !== '조회 실패';
+  const hasWeather = weather?.current?.temp != null;
+  const hourly = (air?.hourly || []).filter((h: any) => h.pm10 != null);
+  const maxPm = Math.max(50, ...hourly.map((h: any) => h.pm10 || 0));
 
-  const todayPrecip = weather?.today?.precipitation as any;
-  const isBadAir = airQuality?.grade === '나쁨' || airQuality?.grade === '매우 나쁨';
+  const pickMood = async (emoji: string) => {
+    setMoodOpen(false);
+    try { await setMyMood(userName, emoji); } catch (e) { console.error(e); }
+  };
 
   return (
-    <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
-      <div className="pointer-events-none fixed inset-0 -z-10" style={auroraStyle} />
+    <div className="min-h-screen bg-slate-50 flex justify-center text-slate-800 selection:bg-[#99E6D9]/40">
+      <div className="w-full max-w-md bg-slate-50 min-h-screen relative overflow-hidden pb-12">
+        <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-[#99E6D9]/30 to-transparent -z-0" />
 
-      {showSuccessMessage && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-emerald-500 text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-2"
-          >
-            <Sparkles size={16} />
-            <span className="font-bold text-xs">최신 정보로 업데이트했어요!</span>
-          </motion.div>
-        </div>
-      )}
-
-      <motion.div
-        variants={containerVars}
-        initial="hidden"
-        animate="show"
-        className="w-full max-w-md mx-auto px-5 py-6 space-y-3.5"
-      >
-        {/* 헤더 */}
-        <motion.header variants={itemVars} className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative w-11 h-11 rounded-2xl overflow-hidden border-2 border-white shadow-md bg-emerald-50 shrink-0">
-              <Image src={getPochaccoImage()} alt="포차코" fill className="object-cover" priority />
+        <div className="relative px-5 pt-10 pb-4 z-10">
+          {/* Header */}
+          <header className="flex justify-between items-center mb-6">
+            <div>
+              <p className="text-sm font-medium text-slate-500 mb-1">{dateText}</p>
+              <h1 className="text-2xl font-bold tracking-tight">안녕, {userName} 👋</h1>
             </div>
-            <div className="leading-tight">
-              <p className="text-[10px] font-black text-slate-400 tracking-[0.15em] uppercase">
-                {currentDateText}
-              </p>
-              <h1 className="text-xl font-black tracking-tight text-slate-900">안녕, {userName} 👋</h1>
-            </div>
-          </div>
-          <button
-            onClick={() => loadData(location, true)}
-            disabled={isRefreshing}
-            className="p-2.5 bg-white/60 rounded-xl border border-white text-emerald-600 shadow-sm active:scale-90 transition-all"
-            aria-label="새로고침"
-          >
-            <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
-          </button>
-        </motion.header>
-
-        {/* 미세먼지 + 날씨 타일 */}
-        <motion.div variants={itemVars} className="grid grid-cols-2 gap-3">
-          {/* 미세먼지 */}
-          <div
-            className={cn(
-              'rounded-3xl border-2 p-4 flex flex-col min-h-[112px]',
-              airQuality ? getAirQualityBg(airQuality.grade) : 'bg-white/70 border-white'
-            )}
-          >
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1.5">
-              <Wind size={13} strokeWidth={2.8} />
-              <span className="text-[10px] font-black tracking-[0.12em] uppercase">미세먼지</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span
-                className={cn(
-                  'text-2xl font-black tracking-tight',
-                  airQuality ? getAirQualityText(airQuality.grade) : 'text-slate-300'
-                )}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => loadData(true)}
+                className={cn('p-2 bg-white rounded-full shadow-sm text-slate-400 hover:text-[#45b5a3] transition-colors', isRefreshing && 'animate-spin')}
+                aria-label="새로고침"
               >
-                {airQuality?.grade ?? '…'}
-              </span>
-              <span className="text-3xl leading-none">
-                {airQuality ? getAirQualityEmoji(airQuality.grade) : '🫧'}
-              </span>
-            </div>
-            <div className="mt-auto pt-2 flex items-center gap-2.5 text-[10px] font-bold text-slate-400">
-              <span>PM10 <b className="text-slate-700">{airQuality?.pm10 ?? '--'}</b></span>
-              <span>PM2.5 <b className="text-slate-700">{airQuality?.pm25 ?? '--'}</b></span>
-            </div>
-          </div>
-
-          {/* 날씨 */}
-          <div className="rounded-3xl border-2 border-white bg-white/70 p-4 flex flex-col min-h-[112px]">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1.5">
-              <CloudSun size={13} strokeWidth={2.8} />
-              <span className="text-[10px] font-black tracking-[0.12em] uppercase">날씨</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-2xl font-black tracking-tight text-slate-800">
-                {weather?.current?.temp != null ? `${weather.current.temp}°` : '--°'}
-              </span>
-              <span className="text-3xl leading-none">{getSkyCondition(weather?.current?.sky ?? null).emoji}</span>
-            </div>
-            <div className="mt-auto pt-2 flex items-center gap-2.5 text-[10px] font-bold text-slate-400">
-              <span>체감 <b className="text-slate-700">{weather?.current?.feelsLike ?? '--'}°</b></span>
-              <span>
-                강수 <b className="text-slate-700">
-                  {typeof todayPrecip?.probability === 'number' ? `${todayPrecip.probability}%` : '0%'}
-                </b>
-              </span>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* 미세먼지 나쁨 경고 */}
-        {isBadAir && (
-          <motion.div
-            variants={itemVars}
-            className="rounded-2xl bg-red-50 border border-red-100 px-4 py-2.5 flex items-center justify-center gap-2"
-          >
-            <AlertCircle size={14} className="text-red-500" />
-            <span className="text-[11px] font-black text-red-600">미세먼지 {airQuality.grade} — 마스크 챙기세요 😷</span>
-          </motion.div>
-        )}
-
-        {/* 미세먼지 상세 (내일 예보 + 24시간 흐름) */}
-        {airQuality && (airQuality.tomorrow || (airQuality.hourly && airQuality.hourly.length > 0)) && (
-          <motion.div variants={itemVars}>
-            <Card variant="glass">
-              <CardContent className="px-4 pt-3 pb-4">
-                <AirExtra air={airQuality} />
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* 오늘의 편지 */}
-        <motion.div variants={itemVars} className="space-y-2.5">
-          <DailyLetter message={dailyMessage} isLoading={isLoadingMessage} />
-          <div className="flex gap-2">
-            <button
-              onClick={() => router.push('/letter/new')}
-              className="flex-1 py-2.5 rounded-2xl bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-200/50 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
-            >
-              <Mail size={14} strokeWidth={2.6} /> 편지 쓰기
-            </button>
-            <button
-              onClick={() => router.push('/letters')}
-              className="flex-1 py-2.5 rounded-2xl bg-white/70 border border-emerald-200 text-emerald-600 font-black text-xs active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
-            >
-              <History size={14} strokeWidth={2.6} /> 지난 편지
-            </button>
-          </div>
-        </motion.div>
-
-        {/* 오늘의 기분 */}
-        <motion.div variants={itemVars}>
-          <MoodRow me={userName} />
-        </motion.div>
-
-        {/* 서재 + 함께한 날 칩 */}
-        <motion.div variants={itemVars} className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => router.push('/novel')}
-            className="rounded-3xl border-2 border-white bg-gradient-to-br from-amber-50/70 to-purple-50/50 p-4 text-left active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-1.5 text-amber-500 mb-1.5">
-              <BookOpen size={13} strokeWidth={2.8} />
-              <span className="text-[10px] font-black tracking-[0.12em] uppercase">우리들의 서재</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-black text-slate-700">소설 이어쓰기</span>
-              <span className="text-2xl">📖</span>
-            </div>
-          </button>
-
-          <div className="rounded-3xl border-2 border-slate-800 bg-slate-900 p-4 text-left">
-            <div className="flex items-center gap-1.5 text-emerald-400 mb-1.5">
-              <CalendarHeart size={13} strokeWidth={2.8} />
-              <span className="text-[10px] font-black tracking-[0.12em] uppercase">함께한 날</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-xl font-black text-white tracking-tight">D+{dDay}</span>
-              <span className="text-base">💗</span>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* 옷차림 (컴팩트) */}
-        {outfit && (
-          <motion.div variants={itemVars}>
-            <Card variant="glass" className="bg-gradient-to-br from-white/50 to-emerald-50/30">
-              <CardContent className="px-4 py-3 flex items-center gap-3">
-                <span className="text-3xl shrink-0">{outfit.icon || '👕'}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black text-slate-400 tracking-[0.12em] uppercase mb-1">
-                    오늘 옷차림
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {outfit?.text ? (
-                      outfit.text
-                        .split(',')
-                        .map((s) => s.trim())
-                        .filter(Boolean)
-                        .map((item, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2 py-0.5 bg-white/70 rounded-full text-[10px] font-bold text-slate-500 border border-white"
-                          >
-                            {item}
-                          </span>
-                        ))
-                    ) : (
-                      <span className="text-xs text-slate-400">정보 준비중이에요</span>
-                    )}
-                  </div>
+                <RefreshCw size={18} />
+              </button>
+              <div className="relative w-12 h-12 bg-white rounded-full p-1 shadow-sm border border-[#99E6D9]/40">
+                <div className="relative w-full h-full rounded-full overflow-hidden bg-emerald-50">
+                  <Image src={getPochacco()} alt="포차코" fill className="object-cover" priority />
                 </div>
+              </div>
+            </div>
+          </header>
+
+          <div className="flex flex-col gap-4">
+            {/* 1. 미세먼지 Hero */}
+            <Card className={cn('rounded-[28px] border-none shadow-lg overflow-hidden', getAirStyle(air?.grade))}>
+              <CardContent className="p-6 relative">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Wind size={18} className="opacity-80" />
+                      <span className="text-sm font-medium opacity-90">
+                        {air?.location || '금곡동'} 미세먼지
+                      </span>
+                    </div>
+                    <h2 className="text-4xl font-extrabold tracking-tight mb-2">
+                      {hasGrade ? air.grade : '불러오는 중'}
+                    </h2>
+                    <p className="text-sm opacity-90">
+                      PM10 {air?.pm10 ?? '--'} · PM2.5 {air?.pm25 ?? '--'}
+                    </p>
+                  </div>
+                  {air?.tomorrow?.grade && air.tomorrow.grade !== '정보 없음' && (
+                    <div className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-medium border border-white/20 shrink-0">
+                      내일 {air.tomorrow.grade}
+                    </div>
+                  )}
+                </div>
+
+                {hourly.length > 0 && (
+                  <div className="mt-6">
+                    <div className="flex items-end justify-between h-12 gap-[3px] mb-2">
+                      {hourly.map((h: any, i: number) => (
+                        <div key={i} className="flex-1 flex items-end h-full" title={`${(h.time || '').slice(11, 16)} · ${h.pm10}㎍/㎥`}>
+                          <div
+                            className="w-full bg-white/45 rounded-t-sm"
+                            style={{ height: `${Math.max(8, Math.min((h.pm10 / maxPm) * 100, 100))}%` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between text-[10px] opacity-70 px-0.5">
+                      <span>24시간 전</span>
+                      <span>지금 {hourly[hourly.length - 1]?.pm10}</span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          </motion.div>
-        )}
 
-        {/* 추억 사진 */}
-        {memoryPhotos?.hasPhotos && (
-          <motion.div variants={itemVars}>
-            <MemoryGallery photos={memoryPhotos.photos} />
-          </motion.div>
-        )}
+            {/* 2. 날씨 & 옷차림 */}
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="rounded-[24px] border-none shadow-[0_4px_20px_rgba(0,0,0,0.04)] bg-white h-full">
+                <CardContent className="p-5 flex flex-col justify-between h-full min-h-[120px]">
+                  <div className="flex items-center gap-2 text-slate-500 mb-2">
+                    <CloudSun size={16} />
+                    <span className="text-sm font-medium">오늘 날씨</span>
+                  </div>
+                  {hasWeather ? (
+                    <>
+                      <div className="flex items-end gap-2 mb-3">
+                        <span className="text-3xl font-bold">{weather!.current!.temp}°</span>
+                        <span className="text-sm text-slate-400 mb-1">체감 {weather!.current!.feelsLike ?? '--'}°</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-slate-500">
+                        <span className="flex items-center gap-1"><ThermometerSun size={12} /> {weather!.today?.high ?? '--'}°/{weather!.today?.low ?? '--'}°</span>
+                        <span className="flex items-center gap-1"><Umbrella size={12} /> {(weather!.today?.precipitation as any)?.probability ?? 0}%</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex-1 flex items-center text-sm text-slate-300 font-medium">곧 연결돼요</div>
+                  )}
+                </CardContent>
+              </Card>
 
-        <p className="text-center text-[10px] font-bold tracking-[0.2em] uppercase text-slate-300 pt-1">
-          꼼이 💚 우댕 · {UI_VERSION}
-        </p>
-      </motion.div>
+              <Card className="rounded-[24px] border-none shadow-[0_4px_20px_rgba(0,0,0,0.04)] bg-white h-full">
+                <CardContent className="p-5 flex flex-col items-center justify-center h-full min-h-[120px] text-center">
+                  <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-2xl mb-2">
+                    {outfit?.icon || '👕'}
+                  </div>
+                  <p className="text-xs font-medium text-slate-600 leading-snug line-clamp-3">
+                    {outfit?.text || '오늘 옷차림 추천 준비 중'}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 3. 기분 & D-Day */}
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="rounded-[24px] border-none shadow-[0_4px_20px_rgba(0,0,0,0.04)] bg-white">
+                <CardContent className="p-5">
+                  <div className="flex justify-between items-center mb-3 text-sm font-medium text-slate-500">
+                    <span className="flex items-center gap-1.5"><Smile size={15} className="text-[#45b5a3]" /> 오늘의 기분</span>
+                  </div>
+                  <div className="flex justify-around items-center bg-slate-50 p-2 rounded-2xl">
+                    <button onClick={() => setMoodOpen((v) => !v)} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+                      <span className="text-2xl">{moods[userName]?.emoji || '＋'}</span>
+                      <span className="text-[10px] text-slate-400">{userName} (나)</span>
+                    </button>
+                    <div className="w-px h-6 bg-slate-200" />
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-2xl">{moods[partner]?.emoji || '…'}</span>
+                      <span className="text-[10px] text-slate-400">{partner}</span>
+                    </div>
+                  </div>
+                  {moodOpen && (
+                    <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+                      {MOOD_OPTIONS.map((e) => (
+                        <button key={e} onClick={() => pickMood(e)} className="w-8 h-8 rounded-lg bg-white border border-slate-100 text-lg active:scale-90 hover:bg-emerald-50 transition-all">
+                          {e}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-[24px] border-none shadow-[0_4px_20px_rgba(0,0,0,0.04)] bg-gradient-to-br from-white to-[#99E6D9]/10 h-full">
+                <CardContent className="p-5 h-full flex flex-col justify-center items-center text-center">
+                  <Heart className="text-rose-400 mb-2" size={24} fill="currentColor" />
+                  <p className="text-sm text-slate-500 mb-1">함께한 지</p>
+                  <p className="text-xl font-bold text-slate-800">D+{dDay}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 4. 오늘의 편지 */}
+            <Card className="rounded-[24px] border-none shadow-[0_4px_20px_rgba(0,0,0,0.04)] bg-white relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1.5 h-full bg-[#99E6D9]" />
+              <CardContent className="p-6 pl-8">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-2 text-[#45b5a3] font-medium">
+                    <PenLine size={16} />
+                    <span className="text-sm">{partner}에게서 온 편지</span>
+                  </div>
+                  <button onClick={() => router.push('/letters')} className="text-xs text-slate-400 hover:text-slate-600 font-medium px-2 py-1 bg-slate-50 rounded-lg">
+                    지난 편지
+                  </button>
+                </div>
+                {hasLetter ? (
+                  <p className="text-slate-700 leading-relaxed font-medium mb-4 whitespace-pre-wrap">&ldquo;{dailyMessage}&rdquo;</p>
+                ) : (
+                  <p className="text-center py-3 text-slate-400 text-sm mb-2">아직 도착한 편지가 없어요 💌</p>
+                )}
+                <button onClick={() => router.push('/letter/new')} className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 active:scale-[0.98]">
+                  <PenLine size={14} /> 편지 쓰기
+                </button>
+              </CardContent>
+            </Card>
+
+            {/* 5. 우리들의 서재 */}
+            <button onClick={() => router.push('/novel')} className="w-full flex items-center justify-between p-5 rounded-[24px] bg-slate-800 text-white shadow-lg hover:bg-slate-700 transition-colors active:scale-[0.98]">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 rounded-xl">
+                  <BookOpen size={20} className="text-[#99E6D9]" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold">우리들의 서재</p>
+                  <p className="text-xs text-slate-300">릴레이 소설 이어쓰기</p>
+                </div>
+              </div>
+              <ChevronRight size={20} className="text-slate-400" />
+            </button>
+
+            <p className="text-center text-[10px] font-medium tracking-widest uppercase text-slate-300 pt-1">
+              꼼이 💚 우댕
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
