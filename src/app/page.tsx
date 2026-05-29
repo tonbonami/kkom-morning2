@@ -150,22 +150,26 @@ export default function KkomMorningHome() {
 
           {/* 24시간 추세 + 내일 예보 */}
           <div className="bg-white/60 backdrop-blur-xl rounded-[32px] p-5 shadow-[0_2px_24px_rgba(0,0,0,0.03)] border border-white/40">
-            {trend.length > 0 ? (
-              <div className="flex items-end justify-between h-14 gap-2 mb-4 px-1">
-                {trend.map((h: any, i: number) => {
-                  const height = Math.max(20, Math.min(100, (h.pm10 / maxPm) * 100));
-                  return (
-                    <div key={i} className="flex flex-col items-center flex-1 gap-1.5">
-                      <div className="w-full h-full flex items-end justify-center">
-                        <div className={`w-1.5 rounded-full ${theme.bar} opacity-70`} style={{ height: `${height}%` }} />
+            {allHourly.length > 0 ? (
+              <div className="mb-4">
+                <div className="flex items-end justify-between h-12 gap-[2px]">
+                  {allHourly.map((h: any, i: number) => {
+                    const height = Math.max(16, Math.min(100, (h.pm10 / maxPm) * 100));
+                    const isNow = i === allHourly.length - 1;
+                    return (
+                      <div key={i} className="flex-1 flex items-end h-full" title={`${(h.time || '').slice(11, 16)} · ${h.pm10}㎍/㎥`}>
+                        <div className={`w-full rounded-[2px] ${theme.bar} ${isNow ? 'opacity-100' : 'opacity-50'}`} style={{ height: `${height}%` }} />
                       </div>
-                      <span className="text-[11px] font-semibold text-slate-400">{(h.time || '').slice(11, 13)}시</span>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between text-[11px] font-semibold text-slate-400 mt-1.5">
+                  <span>24시간 전</span>
+                  <span>지금 <strong className="text-slate-600">{allHourly[allHourly.length - 1]?.pm10}</strong></span>
+                </div>
               </div>
             ) : (
-              <div className="h-14 flex items-center justify-center text-xs text-slate-300 mb-4">추세 불러오는 중</div>
+              <div className="h-12 flex items-center justify-center text-xs text-slate-300 mb-4">추세 불러오는 중</div>
             )}
             <div className="pt-4 border-t border-slate-200/50 flex items-center justify-between text-sm">
               <span className="font-semibold text-slate-600">내일 예보</span>
