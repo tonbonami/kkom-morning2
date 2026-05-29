@@ -72,8 +72,16 @@ export async function GET() {
     if (!items.length) return NextResponse.json(fallback);
 
     const cur = items[0];
-    const pm10 = num(cur.pm10Value);
-    const pm25 = num(cur.pm25Value);
+    // 현재값이 통신장애(null)면 최근 정상값으로 폴백 ('--' 방지)
+    const latest = (field: string): number | null => {
+      for (const it of items) {
+        const v = num(it[field]);
+        if (v != null) return v;
+      }
+      return null;
+    };
+    const pm10 = latest('pm10Value');
+    const pm25 = latest('pm25Value');
     const worst = Math.max(gradePm10(pm10), gradePm25(pm25));
 
     // 시간별(오래된→최신)

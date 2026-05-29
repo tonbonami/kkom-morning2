@@ -19,19 +19,15 @@ import {
   RefreshCw,
   CloudSun,
   Wind,
-  Shirt,
   CalendarHeart,
-  Home,
-  Building2,
   AlertCircle,
   Sparkles,
-  CloudRain,
   BookOpen,
   Mail,
   History,
 } from 'lucide-react';
 
-const UI_VERSION = 'v2026-03-08';
+const UI_VERSION = 'v2026-05-29';
 
 export default function HomePage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -39,13 +35,11 @@ export default function HomePage() {
   const [outfit, setOutfit] = useState<OutfitGuide | null>(null);
   const [memoryPhotos, setMemoryPhotos] = useState<MemoryPhotosData | null>(null);
   const [dailyMessage, setDailyMessage] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessage, setIsLoadingMessage] = useState(true);
   const [userName, setUserName] = useState('꼼');
-  const [location, setLocation] = useState<'home' | 'work'>('home');
+  const [location] = useState<'home' | 'work'>('home');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dDay, setDDay] = useState(0);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [currentDateText, setCurrentDateText] = useState('');
   const router = useRouter();
@@ -53,49 +47,33 @@ export default function HomePage() {
   const auroraStyle = useMemo(
     () => ({
       background:
-        'radial-gradient(circle at 10% 10%, rgba(16,185,129,0.12) 0%, transparent 50%),' +
-        'radial-gradient(circle at 90% 20%, rgba(59,130,246,0.10) 0%, transparent 50%),' +
-        'radial-gradient(circle at 50% 90%, rgba(250,204,21,0.06) 0%, transparent 50%)',
+        'radial-gradient(circle at 10% 8%, rgba(16,185,129,0.14) 0%, transparent 48%),' +
+        'radial-gradient(circle at 90% 16%, rgba(20,184,166,0.12) 0%, transparent 48%),' +
+        'radial-gradient(circle at 50% 92%, rgba(250,204,21,0.06) 0%, transparent 50%)',
     }),
     []
   );
 
   const loadData = async (loc: 'home' | 'work', forceRefresh = false) => {
-    if (!forceRefresh) setIsLoading(true);
     setIsRefreshing(true);
-
     try {
       const data = await getInitialData(loc, forceRefresh);
-
       setWeather(data.weather);
       // 미세먼지는 GAS(죽음) 대신 /api/air(에어코리아)에서 별도로 받음
       setOutfit(data.outfit);
       setMemoryPhotos(data.memoryPhotos);
-
-      if (data.weather && !data.weather.isFallback) {
-        setLastUpdate(getCacheInfo()?.lastUpdate || null);
-      } else {
-        setLastUpdate(null);
-      }
-
       if (forceRefresh) {
         setShowSuccessMessage(true);
         setTimeout(() => setShowSuccessMessage(false), 2000);
       }
-
-      if (data.weather?.error) console.warn('[Weather error]', data.weather.error);
-      if (data.air?.error) console.warn('[Air error]', data.air.error);
     } catch (error) {
       console.error('데이터 로드 실패:', error);
     } finally {
       setIsRefreshing(false);
-      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    console.log('✅ NEW HOME PAGE LOADED', UI_VERSION);
-
     let unsubscribeLetter: (() => void) | undefined;
 
     const userStr = localStorage.getItem('kkom-user');
@@ -125,12 +103,7 @@ export default function HomePage() {
     setDDay(diffDays + 1);
 
     setCurrentDateText(
-      new Date().toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long',
-      })
+      new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
     );
 
     return () => unsubscribeLetter?.();
@@ -153,23 +126,6 @@ export default function HomePage() {
     };
   }, []);
 
-  const handleLocationToggle = (newLocation: 'home' | 'work') => {
-    if (location !== newLocation) {
-      setLocation(newLocation);
-      loadData(newLocation);
-    }
-  };
-
-  const getUpdateTimeText = () => {
-    if (!lastUpdate) return '';
-    const diffMins = Math.floor((new Date().getTime() - lastUpdate.getTime()) / (1000 * 60));
-    return diffMins < 1
-      ? '방금 전'
-      : diffMins < 60
-      ? `${diffMins}분 전`
-      : `${Math.floor(diffMins / 60)}시간 전`;
-  };
-
   const getPochaccoImage = () => {
     const temp = weather?.current?.temp ?? 0;
     if (temp >= 10) return '/pochacco_picnic.png';
@@ -179,104 +135,29 @@ export default function HomePage() {
 
   const containerVars = {
     hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.1 } },
+    show: { opacity: 1, transition: { staggerChildren: 0.06 } },
   };
-
   const itemVars = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } },
+    hidden: { opacity: 0, y: 14 },
+    show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 120, damping: 16 } },
   };
 
-  const todayPrecip = weather?.today?.precipitation;
-  const tomorrowPrecip = weather?.tomorrow?.precipitation;
-
-  const renderPrecip = (label: string, p?: any) => {
-    const safe = p ?? {
-      type: null,
-      typeText: '정보 없음',
-      emoji: '☀️',
-      probability: null,
-      startTimeKor: null,
-    };
-
-    const typeText = safe.typeText ?? '정보 없음';
-    const emoji = safe.emoji ?? '☀️';
-    const probabilityNum = typeof safe.probability === 'number' ? safe.probability : null;
-    const probabilityText = probabilityNum !== null ? `${probabilityNum}%` : '';
-    const startTimeKor = safe.startTimeKor ?? '';
-
-    const isNone = typeText === '강수 없음';
-    const isUnknown = typeText === '정보 없음';
-
-    return (
-      <Card
-        variant="glass"
-        className={cn(
-          'transition-all duration-500',
-          isNone && 'opacity-80 scale-[0.99]',
-          isUnknown && 'opacity-85'
-        )}
-      >
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4 text-slate-400">
-            <div className="flex items-center gap-2">
-              <CloudRain
-                size={16}
-                strokeWidth={2.5}
-                className={cn(isNone ? 'text-slate-300' : 'text-slate-400')}
-              />
-              <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">{label}</h2>
-            </div>
-
-            {probabilityText && !isNone && (
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/70 border border-white shadow-sm">
-                <span className="text-[10px] font-black text-slate-600 tracking-widest uppercase">
-                  POP {probabilityText}
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between gap-4">
-            <div className="text-5xl">{emoji}</div>
-
-            <div className="flex-1">
-              <p className="text-2xl font-black text-slate-800 tracking-tight">
-                {isNone ? '강수 없음' : typeText}
-              </p>
-
-              <p className="text-xs text-slate-500 font-medium leading-tight mt-1">
-                {isNone
-                  ? '우산 없이도 괜찮아요!'
-                  : isUnknown
-                  ? '예보 데이터를 확인할 수 없어요.'
-                  : (
-                    <>
-                      {startTimeKor ? `${startTimeKor}부터 가능성` : '강수 가능성'}
-                      {probabilityText ? ` · 최대 ${probabilityText}` : ''}
-                    </>
-                  )}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
+  const todayPrecip = weather?.today?.precipitation as any;
+  const isBadAir = airQuality?.grade === '나쁨' || airQuality?.grade === '매우 나쁨';
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
       <div className="pointer-events-none fixed inset-0 -z-10" style={auroraStyle} />
 
       {showSuccessMessage && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-emerald-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-2"
+            className="bg-emerald-500 text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-2"
           >
-            <Sparkles size={18} />
-            <span className="font-bold text-sm">최신 정보 업데이트 완료!</span>
+            <Sparkles size={16} />
+            <span className="font-bold text-xs">최신 정보로 업데이트했어요!</span>
           </motion.div>
         </div>
       )}
@@ -285,389 +166,204 @@ export default function HomePage() {
         variants={containerVars}
         initial="hidden"
         animate="show"
-        className="w-full max-w-md mx-auto p-6 space-y-8"
+        className="w-full max-w-md mx-auto px-5 py-6 space-y-3.5"
       >
-        <motion.header variants={itemVars} className="flex justify-between items-start pt-2">
-          <div className="space-y-1">
-            <p className="text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase">
-              {currentDateText}
-            </p>
-            <h1 className="text-3xl font-black tracking-tighter text-slate-900">
-              안녕, {userName}! 👋
-            </h1>
-            {weather?.isFallback && (
-              <div className="flex items-center gap-1.5 text-[10px] text-orange-500 font-bold uppercase">
-                <AlertCircle size={10} /> Real-time Data Error
-              </div>
-            )}
+        {/* 헤더 */}
+        <motion.header variants={itemVars} className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative w-11 h-11 rounded-2xl overflow-hidden border-2 border-white shadow-md bg-emerald-50 shrink-0">
+              <Image src={getPochaccoImage()} alt="포차코" fill className="object-cover" priority />
+            </div>
+            <div className="leading-tight">
+              <p className="text-[10px] font-black text-slate-400 tracking-[0.15em] uppercase">
+                {currentDateText}
+              </p>
+              <h1 className="text-xl font-black tracking-tight text-slate-900">안녕, {userName} 👋</h1>
+            </div>
           </div>
-
           <button
             onClick={() => loadData(location, true)}
             disabled={isRefreshing}
-            className="p-3 bg-white/40 backdrop-blur-xl rounded-2xl border border-white/60 text-emerald-600 shadow-xl active:scale-90 transition-all"
+            className="p-2.5 bg-white/60 rounded-xl border border-white text-emerald-600 shadow-sm active:scale-90 transition-all"
             aria-label="새로고침"
-            title="새로고침"
           >
-            <RefreshCw className={cn('w-5 h-5', isRefreshing && 'animate-spin')} />
+            <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
           </button>
         </motion.header>
 
-        <motion.div variants={itemVars} className="flex justify-center">
-          <div className="relative w-full aspect-square max-w-[260px] group">
-            <div className="absolute inset-[-8%] bg-emerald-400/10 blur-[40px] rounded-full animate-pulse" />
-            <Card
-              variant="glass"
-              className="p-0 overflow-hidden relative w-full h-full rounded-[48px] border-[6px] border-white shadow-2xl"
-            >
-              <Image src={getPochaccoImage()} alt="포차코" fill className="object-cover" priority />
-              {isRefreshing && (
-                <div className="absolute inset-0 bg-white/30 backdrop-blur-md flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="animate-bounce text-4xl mb-1">🐶</div>
-                    <p className="text-emerald-600 font-black text-[10px] tracking-widest uppercase">
-                      Loading
-                    </p>
-                  </div>
-                </div>
-              )}
-            </Card>
+        {/* 미세먼지 + 날씨 타일 */}
+        <motion.div variants={itemVars} className="grid grid-cols-2 gap-3">
+          {/* 미세먼지 */}
+          <div
+            className={cn(
+              'rounded-3xl border-2 p-4 flex flex-col min-h-[112px]',
+              airQuality ? getAirQualityBg(airQuality.grade) : 'bg-white/70 border-white'
+            )}
+          >
+            <div className="flex items-center gap-1.5 text-slate-400 mb-1.5">
+              <Wind size={13} strokeWidth={2.8} />
+              <span className="text-[10px] font-black tracking-[0.12em] uppercase">미세먼지</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span
+                className={cn(
+                  'text-2xl font-black tracking-tight',
+                  airQuality ? getAirQualityText(airQuality.grade) : 'text-slate-300'
+                )}
+              >
+                {airQuality?.grade ?? '…'}
+              </span>
+              <span className="text-3xl leading-none">
+                {airQuality ? getAirQualityEmoji(airQuality.grade) : '🫧'}
+              </span>
+            </div>
+            <div className="mt-auto pt-2 flex items-center gap-2.5 text-[10px] font-bold text-slate-400">
+              <span>PM10 <b className="text-slate-700">{airQuality?.pm10 ?? '--'}</b></span>
+              <span>PM2.5 <b className="text-slate-700">{airQuality?.pm25 ?? '--'}</b></span>
+            </div>
+          </div>
+
+          {/* 날씨 */}
+          <div className="rounded-3xl border-2 border-white bg-white/70 p-4 flex flex-col min-h-[112px]">
+            <div className="flex items-center gap-1.5 text-slate-400 mb-1.5">
+              <CloudSun size={13} strokeWidth={2.8} />
+              <span className="text-[10px] font-black tracking-[0.12em] uppercase">날씨</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-black tracking-tight text-slate-800">
+                {weather?.current?.temp != null ? `${weather.current.temp}°` : '--°'}
+              </span>
+              <span className="text-3xl leading-none">{getSkyCondition(weather?.current?.sky ?? null).emoji}</span>
+            </div>
+            <div className="mt-auto pt-2 flex items-center gap-2.5 text-[10px] font-bold text-slate-400">
+              <span>체감 <b className="text-slate-700">{weather?.current?.feelsLike ?? '--'}°</b></span>
+              <span>
+                강수 <b className="text-slate-700">
+                  {typeof todayPrecip?.probability === 'number' ? `${todayPrecip.probability}%` : '0%'}
+                </b>
+              </span>
+            </div>
           </div>
         </motion.div>
 
-        <motion.div variants={itemVars} className="space-y-3">
+        {/* 미세먼지 나쁨 경고 */}
+        {isBadAir && (
+          <motion.div
+            variants={itemVars}
+            className="rounded-2xl bg-red-50 border border-red-100 px-4 py-2.5 flex items-center justify-center gap-2"
+          >
+            <AlertCircle size={14} className="text-red-500" />
+            <span className="text-[11px] font-black text-red-600">미세먼지 {airQuality.grade} — 마스크 챙기세요 😷</span>
+          </motion.div>
+        )}
+
+        {/* 미세먼지 상세 (내일 예보 + 24시간 흐름) */}
+        {airQuality && (airQuality.tomorrow || (airQuality.hourly && airQuality.hourly.length > 0)) && (
+          <motion.div variants={itemVars}>
+            <Card variant="glass">
+              <CardContent className="px-4 pt-3 pb-4">
+                <AirExtra air={airQuality} />
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* 오늘의 편지 */}
+        <motion.div variants={itemVars} className="space-y-2.5">
           <DailyLetter message={dailyMessage} isLoading={isLoadingMessage} />
           <div className="flex gap-2">
             <button
               onClick={() => router.push('/letter/new')}
-              className="flex-1 py-3 rounded-2xl bg-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-200/50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-2xl bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-200/50 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
             >
-              <Mail size={16} strokeWidth={2.5} /> 편지 쓰기
+              <Mail size={14} strokeWidth={2.6} /> 편지 쓰기
             </button>
             <button
               onClick={() => router.push('/letters')}
-              className="flex-1 py-3 rounded-2xl bg-white/70 border border-emerald-200 text-emerald-600 font-black text-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-2xl bg-white/70 border border-emerald-200 text-emerald-600 font-black text-xs active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
             >
-              <History size={16} strokeWidth={2.5} /> 지난 편지
+              <History size={14} strokeWidth={2.6} /> 지난 편지
             </button>
           </div>
         </motion.div>
 
+        {/* 오늘의 기분 */}
         <motion.div variants={itemVars}>
           <MoodRow me={userName} />
         </motion.div>
 
-        {/* 추억 사진 갤러리 */}
+        {/* 서재 + 함께한 날 칩 */}
+        <motion.div variants={itemVars} className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => router.push('/novel')}
+            className="rounded-3xl border-2 border-white bg-gradient-to-br from-amber-50/70 to-purple-50/50 p-4 text-left active:scale-[0.98] transition-all"
+          >
+            <div className="flex items-center gap-1.5 text-amber-500 mb-1.5">
+              <BookOpen size={13} strokeWidth={2.8} />
+              <span className="text-[10px] font-black tracking-[0.12em] uppercase">우리들의 서재</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-black text-slate-700">소설 이어쓰기</span>
+              <span className="text-2xl">📖</span>
+            </div>
+          </button>
+
+          <div className="rounded-3xl border-2 border-slate-800 bg-slate-900 p-4 text-left">
+            <div className="flex items-center gap-1.5 text-emerald-400 mb-1.5">
+              <CalendarHeart size={13} strokeWidth={2.8} />
+              <span className="text-[10px] font-black tracking-[0.12em] uppercase">함께한 날</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xl font-black text-white tracking-tight">D+{dDay}</span>
+              <span className="text-base">💗</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* 옷차림 (컴팩트) */}
+        {outfit && (
+          <motion.div variants={itemVars}>
+            <Card variant="glass" className="bg-gradient-to-br from-white/50 to-emerald-50/30">
+              <CardContent className="px-4 py-3 flex items-center gap-3">
+                <span className="text-3xl shrink-0">{outfit.icon || '👕'}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black text-slate-400 tracking-[0.12em] uppercase mb-1">
+                    오늘 옷차림
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {outfit?.text ? (
+                      outfit.text
+                        .split(',')
+                        .map((s) => s.trim())
+                        .filter(Boolean)
+                        .map((item, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 bg-white/70 rounded-full text-[10px] font-bold text-slate-500 border border-white"
+                          >
+                            {item}
+                          </span>
+                        ))
+                    ) : (
+                      <span className="text-xs text-slate-400">정보 준비중이에요</span>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* 추억 사진 */}
         {memoryPhotos?.hasPhotos && (
-          <motion.div variants={itemVars} className="py-2">
+          <motion.div variants={itemVars}>
             <MemoryGallery photos={memoryPhotos.photos} />
           </motion.div>
         )}
 
-        <motion.div variants={itemVars}>
-          <Card variant="glass" className="p-1.5 flex gap-2 bg-slate-200/20">
-            <button
-              onClick={() => handleLocationToggle('home')}
-              className={cn(
-                'flex-1 py-3 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2',
-                location === 'home'
-                  ? 'bg-white text-emerald-600 shadow-lg'
-                  : 'text-slate-400 hover:text-slate-600'
-              )}
-              disabled={isRefreshing}
-            >
-              <Home size={14} /> HOME
-            </button>
-            <button
-              onClick={() => handleLocationToggle('work')}
-              className={cn(
-                'flex-1 py-3 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2',
-                location === 'work'
-                  ? 'bg-white text-emerald-600 shadow-lg'
-                  : 'text-slate-400 hover:text-slate-600'
-              )}
-              disabled={isRefreshing}
-            >
-              <Building2 size={14} /> OFFICE
-            </button>
-          </Card>
-        </motion.div>
-
-        <div className="space-y-4">
-          {/* 미세먼지(공기질) — 꼬미 최우선 */}
-          {airQuality ? (
-            <motion.div variants={itemVars}>
-              <Card variant="glass" className={cn('border-2', getAirQualityBg(airQuality.grade))}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <Wind size={16} strokeWidth={2.5} />
-                      <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">미세먼지</h2>
-                    </div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">
-                      📍 {airQuality.location || '호평동'}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <p className={cn('text-4xl font-black tracking-tight', getAirQualityText(airQuality.grade))}>
-                        {airQuality.grade}
-                      </p>
-                      <p className="text-xs text-slate-500 font-medium leading-tight">
-                        {airQuality.grade === '좋음' && '오늘은 공기가 깨끗해요!'}
-                        {airQuality.grade === '보통' && '나쁘지 않은 수준이에요'}
-                        {airQuality.grade === '나쁨' && '마스크 꼭 챙기세요 😷'}
-                        {airQuality.grade === '매우 나쁨' && '되도록 외출을 자제하세요'}
-                        {(airQuality.grade === '정보 없음' || airQuality.grade === '조회 실패') &&
-                          '데이터를 확인할 수 없어요'}
-                      </p>
-                    </div>
-                    <div className="text-6xl">{getAirQualityEmoji(airQuality.grade)}</div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 mt-5">
-                    <div className="rounded-2xl bg-white/60 border border-white p-3 text-center">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                        미세먼지 PM10
-                      </p>
-                      <p className="text-lg font-black text-slate-800">
-                        {airQuality.pm10 ?? '--'} <span className="text-[9px] font-bold text-slate-400">㎍/㎥</span>
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-white/60 border border-white p-3 text-center">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                        초미세 PM2.5
-                      </p>
-                      <p className="text-lg font-black text-slate-800">
-                        {airQuality.pm25 ?? '--'} <span className="text-[9px] font-bold text-slate-400">㎍/㎥</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <AirExtra air={airQuality} />
-                </CardContent>
-              </Card>
-            </motion.div>
-          ) : isLoading ? (
-            <motion.div variants={itemVars}>
-              <Card variant="glass">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-4 text-slate-300">
-                    <Wind size={16} strokeWidth={2.5} />
-                    <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">미세먼지</h2>
-                  </div>
-                  <div className="space-y-3 animate-pulse">
-                    <div className="h-9 w-24 rounded-lg bg-slate-200/70" />
-                    <div className="h-3 w-40 rounded bg-slate-200/60" />
-                    <div className="grid grid-cols-2 gap-3 mt-5">
-                      <div className="h-16 rounded-2xl bg-slate-200/50" />
-                      <div className="h-16 rounded-2xl bg-slate-200/50" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ) : null}
-
-          {/* 우리들의 서재 카드 */}
-          <motion.div variants={itemVars}>
-            <Card
-              variant="glass"
-              className="cursor-pointer group hover:shadow-xl hover:shadow-amber-200/40 transition-all duration-300 active:scale-[0.98] bg-gradient-to-br from-amber-50/40 to-purple-50/30"
-              onClick={() => router.push('/novel')}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2 mb-4 text-amber-500">
-                  <BookOpen size={16} strokeWidth={2.5} />
-                  <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">
-                    Atelier de Kkom & Teo
-                  </h2>
-                </div>
-
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex-1 space-y-2">
-                    <p className="text-2xl font-black text-slate-800 tracking-tight">
-                      우리들의 서재
-                    </p>
-                    <p className="text-xs text-slate-500 font-medium leading-tight">
-                      꼼이와 테오의 릴레이 소설을 이어가 보세요
-                    </p>
-                  </div>
-                  <div className="text-5xl group-hover:scale-110 transition-transform duration-300 animate-[pulse_3s_ease-in-out_infinite]">
-                    📖
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {weather && (
-            <motion.div variants={itemVars}>
-              <Card variant="glass">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-4 text-slate-400">
-                    <CloudSun size={16} strokeWidth={2.5} />
-                    <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">
-                      Current Weather
-                    </h2>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="text-center flex-1">
-                      <div className="text-6xl mb-1">
-                        {getSkyCondition(weather.current?.sky).emoji}
-                      </div>
-                      <div className="text-4xl font-black tracking-tighter text-slate-800">
-                        {weather.current?.temp ?? '--'}°
-                      </div>
-                    </div>
-
-                    <div className="flex-1 space-y-2 border-l border-slate-200 pl-6 py-1">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Feels</span>
-                        <span className="font-black text-slate-700">
-                          {weather.current?.feelsLike ?? '--'}°
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">High</span>
-                        <span className="font-black text-rose-500">
-                          {weather.today?.high ?? '--'}°
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Low</span>
-                        <span className="font-black text-blue-500">
-                          {weather.today?.low ?? '--'}°
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {lastUpdate && (
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex justify-center gap-2 text-[10px] font-bold text-slate-400 uppercase">
-                      <RefreshCw size={10} /> Last Update: {getUpdateTimeText()}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {weather && (
-            <motion.div variants={itemVars}>
-              {renderPrecip('Today Forecast', todayPrecip)}
-            </motion.div>
-          )}
-          {weather && (
-            <motion.div variants={itemVars}>
-              {renderPrecip('Tomorrow Forecast', tomorrowPrecip)}
-            </motion.div>
-          )}
-
-          {outfit && (
-            <motion.div variants={itemVars}>
-              <Card variant="glass" className="bg-gradient-to-br from-white/40 to-emerald-50/30">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-4 text-slate-400">
-                    <Shirt size={16} strokeWidth={2.5} />
-                    <h2 className="text-[10px] font-black tracking-[0.2em] uppercase">
-                      Outfit Guide
-                    </h2>
-                  </div>
-
-                  <div className="text-center space-y-4">
-                    <div className="text-5xl mb-2">{outfit.icon}</div>
-
-                    <div className="space-y-3 px-4">
-                      <div className="flex flex-wrap justify-center gap-1.5">
-                        {outfit?.text ? (
-                          outfit.text
-                            .split(',')
-                            .map(s => s.trim())
-                            .filter(Boolean)
-                            .map((item, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2.5 py-1 bg-white/70 rounded-full text-[10px] font-bold text-slate-500 border border-white shadow-sm"
-                              >
-                                {item}
-                              </span>
-                            ))
-                        ) : (
-                          <span className="text-xs text-slate-400">옷차림 정보를 불러오는 중...</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                        오늘 기온에 딱 맞는 추천이에요!
-                      </p>
-                    </div>
-
-                    {(airQuality?.grade === '나쁨' || airQuality?.grade === '매우 나쁨') && (
-                      <motion.div
-                        initial={{ scale: 0.9 }}
-                        animate={{ scale: [0.9, 1, 0.9] }}
-                        transition={{ repeat: Infinity, duration: 2 }}
-                        className="mt-4 bg-red-50 border border-red-100 rounded-2xl p-3 flex items-center justify-center gap-2"
-                      >
-                        <AlertCircle size={14} className="text-red-500" />
-                        <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">
-                          Mask Recommended
-                        </span>
-                      </motion.div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-        </div>
-
-        {dDay > 0 && (
-          <motion.footer variants={itemVars} className="pt-8 pb-10">
-            <Card
-              variant="glass"
-              className="bg-slate-900 border-none shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-[40px] overflow-hidden"
-            >
-              <CardContent className="p-8 text-center space-y-6">
-                <div className="flex items-center justify-center gap-2 text-emerald-400">
-                  <CalendarHeart size={18} />
-                  <p className="text-[10px] font-black tracking-[0.4em] uppercase opacity-60">
-                    Memory Since 2023
-                  </p>
-                </div>
-
-                <div className="flex justify-center items-center gap-3">
-                  <span className="text-3xl font-black text-white/20">+</span>
-                  {dDay
-                    .toString()
-                    .split('')
-                    .map((digit, index) => (
-                      <div
-                        key={index}
-                        className="w-12 h-16 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 backdrop-blur-3xl shadow-inner"
-                      >
-                        <span className="text-4xl font-black text-white font-mono tracking-tighter">
-                          {digit}
-                        </span>
-                      </div>
-                    ))}
-                  <span className="text-3xl font-black text-white/20">일</span>
-                </div>
-
-                <div className="pt-2 space-y-2">
-                  <p className="text-xl font-black text-white tracking-widest">꼼이 ❤️ 우댕</p>
-                  <div className="h-[3px] w-8 bg-gradient-to-r from-emerald-500 to-teal-500 mx-auto mt-3 rounded-full" />
-
-                  <p className="text-[10px] font-black tracking-[0.25em] uppercase text-white/40">
-                    {UI_VERSION}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.footer>
-        )}
+        <p className="text-center text-[10px] font-bold tracking-[0.2em] uppercase text-slate-300 pt-1">
+          꼼이 💚 우댕 · {UI_VERSION}
+        </p>
       </motion.div>
     </div>
   );

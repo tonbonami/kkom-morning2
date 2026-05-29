@@ -23,13 +23,14 @@ export function AirExtra({ air }: { air: AirQ | null }) {
   const tomorrow = air?.tomorrow;
   if (!hourly.length && (!tomorrow || tomorrow.grade === '정보 없음')) return null;
 
-  const max = Math.max(60, ...hourly.map((h) => h.pm10 || 0));
+  const max = Math.max(50, ...hourly.map((h) => h.pm10 || 0));
+  const now = hourly.length ? hourly[hourly.length - 1].pm10 : null;
 
   return (
-    <div className="mt-5 space-y-4">
+    <div className="space-y-2.5">
       {tomorrow && tomorrow.grade !== '정보 없음' && (
-        <div className="flex items-center justify-between rounded-2xl bg-white/60 border border-white px-4 py-3">
-          <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-black text-slate-500 tracking-[0.12em] uppercase">
             내일 미세먼지
           </span>
           <span className={cn('text-sm font-black', getAirQualityText(tomorrow.grade))}>
@@ -40,19 +41,26 @@ export function AirExtra({ air }: { air: AirQ | null }) {
 
       {hourly.length > 0 && (
         <div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-            24시간 PM10 흐름
-          </p>
-          <div className="flex items-end gap-[2px] h-16">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-black text-slate-500 tracking-[0.12em] uppercase">
+              24시간 흐름 · PM10
+            </span>
+            {now != null && (
+              <span className="text-[10px] font-bold text-slate-400">
+                지금 <b className="text-slate-700">{now}</b>
+              </span>
+            )}
+          </div>
+          <div className="flex items-end gap-[2px] h-9">
             {hourly.map((h, i) => (
               <div
                 key={i}
-                className="flex-1 flex items-end"
-                title={`${(h.time || '').slice(11)} · ${h.pm10}㎍/㎥`}
+                className="flex-1 flex items-end h-full"
+                title={`${(h.time || '').slice(11, 16)} · ${h.pm10}㎍/㎥`}
               >
                 <div
-                  className={cn('w-full rounded-t transition-all', barColor(h.pm10))}
-                  style={{ height: `${Math.max(6, ((h.pm10 || 0) / max) * 100)}%` }}
+                  className={cn('w-full rounded-sm', barColor(h.pm10))}
+                  style={{ height: `${Math.max(10, ((h.pm10 || 0) / max) * 100)}%` }}
                 />
               </div>
             ))}
