@@ -122,23 +122,28 @@ export default function HomePage() {
             <p className="text-sm font-medium text-slate-500 mb-0.5">{dateText}</p>
             <h1 className="text-2xl font-bold tracking-tight">안녕, {userName} 👋</h1>
           </div>
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => loadData(true)}
-              className={cn('p-2 bg-white/70 rounded-full text-slate-400 hover:text-[#45b5a3] transition-colors', isRefreshing && 'animate-spin')}
-              aria-label="새로고침"
-            >
-              <RefreshCw size={17} />
-            </button>
-            <div className="relative w-11 h-11 bg-white rounded-full p-0.5 shadow-sm border border-white">
-              <div className="relative w-full h-full rounded-full overflow-hidden bg-emerald-50">
+          <button
+            onClick={() => loadData(true)}
+            className={cn('p-2.5 bg-white/70 rounded-full text-slate-400 hover:text-[#45b5a3] transition-colors', isRefreshing && 'animate-spin')}
+            aria-label="새로고침"
+          >
+            <RefreshCw size={18} />
+          </button>
+        </header>
+
+        <div className="space-y-3">
+          {/* 포차코 — 배경에 자연스럽게 녹아드는 큰 히어로 (하드 박스 X, 글로우+소프트 그림자) */}
+          <div className="flex justify-center pt-1 pb-1">
+            <div className="relative w-44 h-44">
+              {/* 뒤쪽 민트 글로우 → 배경과 그라데이션으로 블렌딩 */}
+              <div className="absolute -inset-5 rounded-full bg-emerald-300/30 blur-3xl" />
+              {/* 이미지 자체의 그린 그라데이션 배경이 페이지 민트와 이어짐 + 부드러운 민트 그림자 */}
+              <div className="relative w-full h-full rounded-[44px] overflow-hidden shadow-[0_22px_50px_-18px_rgba(16,185,129,0.5)]">
                 <Image src={getPochacco()} alt="포차코" fill className="object-cover" priority />
               </div>
             </div>
           </div>
-        </header>
 
-        <div className="space-y-3">
           {/* 미세먼지 Hero (축소) */}
           <div className={cn('rounded-3xl p-5 text-white bg-gradient-to-br shadow-lg', getAirStyle(air?.grade))}>
             <div className="flex justify-between items-center mb-2.5">
