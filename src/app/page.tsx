@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { getInitialData, getCacheInfo } from '@/lib/api';
 import { subscribeLatestLetterTo, nameFromCode } from '@/lib/letters';
+import { AirExtra } from '@/components/air-extra';
 import type { WeatherData, OutfitGuide, MemoryPhotosData } from '@/types';
 import DailyLetter from '@/components/daily-letter';
 import MemoryGallery from '@/components/MemoryGallery';
@@ -429,6 +430,8 @@ export default function HomePage() {
                       </p>
                     </div>
                   </div>
+
+                  <AirExtra air={airQuality} />
                 </CardContent>
               </Card>
             </motion.div>
