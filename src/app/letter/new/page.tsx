@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Send, Mail } from 'lucide-react';
+import { ArrowLeft, Send, Mail, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { sendLetter, nameFromCode, partnerOf } from '@/lib/letters';
 
@@ -13,6 +13,8 @@ export default function NewLetterPage() {
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [scheduled, setScheduled] = useState(false);
+  const [openAtStr, setOpenAtStr] = useState('');
 
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
@@ -31,7 +33,7 @@ export default function NewLetterPage() {
     setSending(true);
     setError('');
     try {
-      await sendLetter(me, body);
+      await sendLetter(me, body, scheduled && openAtStr ? new Date(openAtStr) : null);
       router.push('/');
     } catch (e) {
       console.error('편지 전송 실패:', e);
@@ -75,13 +77,40 @@ export default function NewLetterPage() {
           </Card>
         </motion.div>
 
+        <div className="rounded-2xl bg-white/50 border border-white px-4 py-3 space-y-3">
+          <label className="flex items-center justify-between cursor-pointer">
+            <span className="text-sm font-bold text-slate-600 flex items-center gap-2">
+              <Clock size={15} /> 예약 편지로 보내기
+            </span>
+            <input
+              type="checkbox"
+              checked={scheduled}
+              onChange={(e) => setScheduled(e.target.checked)}
+              className="w-5 h-5 accent-emerald-500"
+            />
+          </label>
+          {scheduled && (
+            <input
+              type="datetime-local"
+              value={openAtStr}
+              onChange={(e) => setOpenAtStr(e.target.value)}
+              className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-emerald-300"
+            />
+          )}
+          {scheduled && (
+            <p className="text-[11px] text-slate-400 leading-tight">
+              이 날짜·시각이 되면 {partner || '상대'}에게 도착해요. 그 전엔 잠겨 있어요 🔒
+            </p>
+          )}
+        </div>
+
         <button
           onClick={handleSend}
-          disabled={!body.trim() || sending}
+          disabled={!body.trim() || sending || (scheduled && !openAtStr)}
           className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-200/50 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:active:scale-100"
         >
           <Send size={16} strokeWidth={2.5} />
-          {sending ? '보내는 중…' : '편지 보내기'}
+          {sending ? '보내는 중…' : scheduled ? '예약 편지 보내기' : '편지 보내기'}
         </button>
       </div>
     </div>

@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { getInitialData, getCacheInfo } from '@/lib/api';
 import { subscribeLatestLetterTo, nameFromCode } from '@/lib/letters';
 import { AirExtra } from '@/components/air-extra';
+import { MoodRow } from '@/components/mood-row';
 import type { WeatherData, OutfitGuide, MemoryPhotosData } from '@/types';
 import DailyLetter from '@/components/daily-letter';
 import MemoryGallery from '@/components/MemoryGallery';
@@ -27,6 +28,7 @@ import {
   CloudRain,
   BookOpen,
   Mail,
+  History,
 } from 'lucide-react';
 
 const UI_VERSION = 'v2026-03-08';
@@ -335,12 +337,24 @@ export default function HomePage() {
 
         <motion.div variants={itemVars} className="space-y-3">
           <DailyLetter message={dailyMessage} isLoading={isLoadingMessage} />
-          <button
-            onClick={() => router.push('/letter/new')}
-            className="w-full py-3 rounded-2xl bg-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-200/50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-          >
-            <Mail size={16} strokeWidth={2.5} /> 편지 쓰기
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push('/letter/new')}
+              className="flex-1 py-3 rounded-2xl bg-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-200/50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            >
+              <Mail size={16} strokeWidth={2.5} /> 편지 쓰기
+            </button>
+            <button
+              onClick={() => router.push('/letters')}
+              className="flex-1 py-3 rounded-2xl bg-white/70 border border-emerald-200 text-emerald-600 font-black text-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            >
+              <History size={16} strokeWidth={2.5} /> 지난 편지
+            </button>
+          </div>
+        </motion.div>
+
+        <motion.div variants={itemVars}>
+          <MoodRow me={userName} />
         </motion.div>
 
         {/* 추억 사진 갤러리 */}
