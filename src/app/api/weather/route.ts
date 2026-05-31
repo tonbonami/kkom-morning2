@@ -80,19 +80,53 @@ export async function GET() {
 
     const tmx = num(todayItems.find((i) => i.category === 'TMX')?.fcstValue);
     const tmn = num(todayItems.find((i) => i.category === 'TMN')?.fcstValue);
-    const pops = todayItems
-      .filter((i) => i.category === 'POP')
-      .map((i) => num(i.fcstValue))
-      .filter((v): v is number => v != null);
-    const popMax = pops.length ? Math.max(...pops) : null;
+
+    // 강수 확률(POP): 해당 날짜의 시간대별 중 최대값을 "대표 강수확률"로
+    const popsOf = (items: any[]) =>
+      items.filter((i) => i.category === 'POP').map((i) => num(i.fcstValue)).filter((v): v is number => v != null);
+    const popsToday = popsOf(todayItems);
+    const popsTomorrow = popsOf(tomorrowItems);
+    const popMaxToday = popsToday.length ? Math.max(...popsToday) : null;
+    const popMaxTomorrow = popsTomorrow.length ? Math.max(...popsTomorrow) : null;
+
+    // 대표 하늘 상태 — 시간대별 SKY 중 가장 많이 나온 값 (mode). PTY도 동일하게.
+    const mode = (items: any[], cat: string): string | null => {
+      const vals = items.filter((i) => i.category === cat).map((i) => i.fcstValue).filter(Boolean);
+      if (!vals.length) return null;
+      const counts = vals.reduce<Record<string, number>>((acc, v) => { acc[v] = (acc[v] || 0) + 1; return acc; }, {});
+      return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+    };
+    // PTY는 0(없음)이 대부분이라 mode 쓰면 항상 0이 됨 — 0이 아닌 값이 한 번이라도 있으면 그걸 우선
+    const dominantPty = (items: any[]): string | null => {
+      const nonZero = items
+        .filter((i) => i.category === 'PTY' && i.fcstValue && i.fcstValue !== '0')
+        .map((i) => i.fcstValue);
+      if (nonZero.length) return mode(nonZero.map((v) => ({ category: 'PTY', fcstValue: v })), 'PTY');
+      return '0';
+    };
+
+    const skyToday = mode(todayItems, 'SKY');
+    const skyTomorrow = mode(tomorrowItems, 'SKY');
+    const ptyToday = dominantPty(todayItems);
+    const ptyTomorrow = dominantPty(tomorrowItems);
 
     const tmx2 = num(tomorrowItems.find((i) => i.category === 'TMX')?.fcstValue);
     const tmn2 = num(tomorrowItems.find((i) => i.category === 'TMN')?.fcstValue);
 
     return NextResponse.json({
-      current: { temp: tmp, feelsLike: tmp, sky, pty, humidity: reh },
-      today: { high: tmx, low: tmn, precipitation: { probability: popMax } },
-      tomorrow: { high: tmx2, low: tmn2 },
+      current: { temp: tmp, sky, pty, humidity: reh },
+      today: {
+        high: tmx, low: tmn,
+        sky: skyToday, pty: ptyToday,
+        precipProb: popMaxToday,
+        // 호환: 기존 코드가 today.precipitation.probability 로 읽고 있어서 유지
+        precipitation: { probability: popMaxToday },
+      },
+      tomorrow: {
+        high: tmx2, low: tmn2,
+        sky: skyTomorrow, pty: ptyTomorrow,
+        precipProb: popMaxTomorrow,
+      },
       baseDate,
       baseTime,
     });

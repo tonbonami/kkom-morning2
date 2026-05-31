@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  Wind, CloudSun, Umbrella, Heart, PenLine, BookOpen,
-  RefreshCcw, Thermometer, ChevronRight, Shirt, Smile, Camera,
+  Wind, Heart, PenLine, BookOpen,
+  RefreshCcw, ChevronRight, Shirt, Smile, Camera,
 } from 'lucide-react';
+import TodayTomorrowWeather from '@/components/TodayTomorrowWeather';
 import { getInitialData } from '@/lib/api';
 import { subscribeLatestLetterTo, nameFromCode, partnerOf, type Voice } from '@/lib/letters';
 import { subscribeMemories, type Memory } from '@/lib/memories';
@@ -200,36 +201,25 @@ export default function KkomMorningHome() {
 
       {/* 3. 대시보드 본문 — 하나의 일관된 그리드 */}
       <main className="relative z-10 px-5 flex flex-col gap-4">
-        {/* 날씨 & 옷차림 */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white rounded-[32px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between aspect-square">
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <CloudSun size={18} strokeWidth={2.5} />
-              <span className="text-sm font-bold">날씨</span>
-            </div>
-            {hasWeather ? (
-              <div>
-                <span className="text-4xl font-extrabold text-slate-800 tracking-tighter">{weather!.current!.temp}°</span>
-                <p className="text-sm text-slate-500 font-medium mt-1 mb-3">체감 {weather!.current!.feelsLike ?? '--'}° · {({ '1': '맑음', '3': '구름많음', '4': '흐림' } as Record<string, string>)[String(weather!.current!.sky)] || '맑음'}</p>
-                <div className="flex items-center gap-3 text-xs font-semibold text-slate-400 bg-slate-50 w-max px-3 py-1.5 rounded-full">
-                  <span className="flex items-center gap-1"><Thermometer size={12} /> {weather!.today?.high ?? '--'}°/{weather!.today?.low ?? '--'}°</span>
-                  <span className="flex items-center gap-1"><Umbrella size={12} /> {(weather!.today?.precipitation as any)?.probability ?? 0}%</span>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-slate-300 font-medium">곧 연결돼요</p>
-            )}
-          </div>
+        {/* 날씨 V2 — 오늘 + 내일 통합 풀폭 카드 (Gemini) */}
+        <TodayTomorrowWeather
+          location={air?.location || '호평동'}
+          current={(weather as any)?.current || { temp: null, sky: null, pty: null, humidity: null }}
+          today={(weather as any)?.today || { high: null, low: null, sky: null, pty: null, precipProb: null }}
+          tomorrow={(weather as any)?.tomorrow || { high: null, low: null, sky: null, pty: null, precipProb: null }}
+        />
 
-          <div className="bg-white rounded-[32px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between aspect-square">
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <Shirt size={18} strokeWidth={2.5} />
-              <span className="text-sm font-bold">오늘의 옷차림</span>
+        {/* 옷차림 — 슬림 한 줄 (날씨 카드 아래) */}
+        <div className="bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 text-2xl">
+            {outfit?.icon || '👕'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-slate-400 mb-0.5">
+              <Shirt size={14} strokeWidth={2.5} />
+              <span className="text-xs font-bold">오늘의 옷차림</span>
             </div>
-            <div className="flex flex-col items-center justify-center flex-1 mt-2">
-              <div className="text-4xl mb-3">{outfit?.icon || '👕'}</div>
-              <p className="text-[15px] font-bold text-slate-700 text-center leading-snug line-clamp-2">{outfit?.text || '추천 준비 중'}</p>
-            </div>
+            <p className="text-sm font-bold text-slate-700 leading-snug line-clamp-2">{outfit?.text || '추천 준비 중'}</p>
           </div>
         </div>
 
