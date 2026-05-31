@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 const KEY = process.env.AIRKOREA_SERVICE_KEY;
-const STATION = process.env.AIRKOREA_STATION || '금곡동';
-const REGION = process.env.AIRKOREA_REGION || '경기북부'; // 예보 권역 (남양주=경기북부)
+const DEFAULT_STATION = process.env.AIRKOREA_STATION || '금곡동';
+const DEFAULT_REGION = process.env.AIRKOREA_REGION || '경기북부'; // 예보 권역 (남양주=경기북부)
 const SVC = 'https://apis.data.go.kr/B552584/ArpltnInforInqireSvc';
 
 function num(v?: string | null): number | null {
@@ -42,7 +42,12 @@ function parseRegionGrade(informGrade: string | null, region: string): string {
   return part.split(':')[1]?.trim() || '정보 없음';
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // 쿼리로 station/region 받으면 우선, 없으면 env 기본값(금곡동/경기북부)
+  const url = new URL(req.url);
+  const STATION = url.searchParams.get('station') || DEFAULT_STATION;
+  const REGION = url.searchParams.get('region') || DEFAULT_REGION;
+
   const fallback = {
     grade: '정보 없음',
     pm10: null,

@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/notify-air-commute",
+      "schedule": "50 8 * * *"
+    },
+    {
       "path": "/api/notify-air",
       "schedule": "0 22 * * *"
     }
