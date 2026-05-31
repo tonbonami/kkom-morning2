@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   Wind, CloudSun, Umbrella, Heart, PenLine, BookOpen,
-  RefreshCcw, Thermometer, ChevronRight, Shirt, Smile,
+  RefreshCcw, Thermometer, ChevronRight, Shirt, Smile, Camera,
 } from 'lucide-react';
 import { getInitialData } from '@/lib/api';
-import { subscribeLatestLetterTo, nameFromCode, partnerOf } from '@/lib/letters';
+import { subscribeLatestLetterTo, nameFromCode, partnerOf, type Voice } from '@/lib/letters';
+import { subscribeMemories, type Memory } from '@/lib/memories';
+import MemoryGallery from '@/components/MemoryGallery';
 import { subscribeTodayMoods, setMyMood, MOOD_OPTIONS, type MoodMap } from '@/lib/moods';
 import type { WeatherData, OutfitGuide } from '@/types';
 
@@ -30,8 +32,10 @@ export default function KkomMorningHome() {
   const [air, setAir] = useState<any>(null);
   const [outfit, setOutfit] = useState<OutfitGuide | null>(null);
   const [dailyMessage, setDailyMessage] = useState<string>('');
+  const [latestVoice, setLatestVoice] = useState<Voice | null>(null);
   const [hasLetter, setHasLetter] = useState(false);
   const [moods, setMoods] = useState<MoodMap>({});
+  const [memories, setMemories] = useState<Memory[]>([]);
   const [moodOpen, setMoodOpen] = useState(false);
   const [userName, setUserName] = useState('꼼이');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -42,7 +46,7 @@ export default function KkomMorningHome() {
     setIsRefreshing(true);
     try {
       const data = await getInitialData('home', forceRefresh);
-      setWeather(data.weather);
+      // 날씨는 GAS(죽음) 대신 /api/weather(기상청)에서 별도로 받음
       setOutfit(data.outfit);
     } catch (e) {
       console.error('데이터 로드 실패:', e);
@@ -62,8 +66,10 @@ export default function KkomMorningHome() {
     const unsubLetter = subscribeLatestLetterTo(me, (letter) => {
       setHasLetter(!!letter);
       setDailyMessage(letter?.body || '');
+      setLatestVoice(letter?.voice ?? null);
     });
     const unsubMoods = subscribeTodayMoods(setMoods);
+    const unsubMemories = subscribeMemories(setMemories);
 
     const start = new Date('2023-09-28');
     const today = new Date();
@@ -71,7 +77,7 @@ export default function KkomMorningHome() {
     setDDay(Math.floor((today.getTime() - start.getTime()) / 86400000) + 1);
     setDateText(new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' }));
 
-    return () => { unsubLetter(); unsubMoods(); };
+    return () => { unsubLetter(); unsubMoods(); unsubMemories(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
@@ -80,6 +86,19 @@ export default function KkomMorningHome() {
     const load = () => fetch('/api/air').then((r) => r.json()).then((a) => { if (active) setAir(a); }).catch(() => {});
     load();
     const id = setInterval(load, 5 * 60 * 1000);
+    return () => { active = false; clearInterval(id); };
+  }, []);
+
+  // 날씨: /api/weather (기상청 단기예보) 10분 갱신
+  useEffect(() => {
+    let active = true;
+    const load = () =>
+      fetch('/api/weather')
+        .then((r) => r.json())
+        .then((w) => { if (active && w && (w.current || w.today)) setWeather(w as any); })
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 10 * 60 * 1000);
     return () => { active = false; clearInterval(id); };
   }, []);
 
@@ -191,7 +210,7 @@ export default function KkomMorningHome() {
             {hasWeather ? (
               <div>
                 <span className="text-4xl font-extrabold text-slate-800 tracking-tighter">{weather!.current!.temp}°</span>
-                <p className="text-sm text-slate-500 font-medium mt-1 mb-3">체감 {weather!.current!.feelsLike ?? '--'}° · {weather!.current!.sky ?? ''}</p>
+                <p className="text-sm text-slate-500 font-medium mt-1 mb-3">체감 {weather!.current!.feelsLike ?? '--'}° · {({ '1': '맑음', '3': '구름많음', '4': '흐림' } as Record<string, string>)[String(weather!.current!.sky)] || '맑음'}</p>
                 <div className="flex items-center gap-3 text-xs font-semibold text-slate-400 bg-slate-50 w-max px-3 py-1.5 rounded-full">
                   <span className="flex items-center gap-1"><Thermometer size={12} /> {weather!.today?.high ?? '--'}°/{weather!.today?.low ?? '--'}°</span>
                   <span className="flex items-center gap-1"><Umbrella size={12} /> {(weather!.today?.precipitation as any)?.probability ?? 0}%</span>
@@ -262,7 +281,18 @@ export default function KkomMorningHome() {
             <button onClick={() => router.push('/letters')} className="text-[11px] font-bold text-slate-400 hover:text-slate-600 bg-slate-50 px-3 py-1.5 rounded-full transition-colors">지난 편지</button>
           </div>
           {hasLetter ? (
-            <p className="text-[15px] font-medium text-slate-700 leading-relaxed tracking-tight mb-5 px-1 whitespace-pre-wrap">&ldquo;{dailyMessage}&rdquo;</p>
+            <div className="mb-5 px-1 space-y-3">
+              {dailyMessage.trim() && (
+                <p className="text-[15px] font-medium text-slate-700 leading-relaxed tracking-tight whitespace-pre-wrap">&ldquo;{dailyMessage}&rdquo;</p>
+              )}
+              {latestVoice && (
+                <audio
+                  controls
+                  src={`data:${latestVoice.mime};base64,${latestVoice.data}`}
+                  className="w-full h-10 rounded-xl"
+                />
+              )}
+            </div>
           ) : (
             <p className="text-center text-[14px] text-slate-400 py-3 mb-2">아직 도착한 편지가 없어요 💌</p>
           )}
@@ -270,6 +300,17 @@ export default function KkomMorningHome() {
             <PenLine size={15} /> 편지 쓰기
           </button>
         </div>
+
+        {/* 우리의 추억 */}
+        {memories.length > 0 && (
+          <div className="bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+            <div className="flex items-center gap-1.5 text-slate-400 mb-1 px-2">
+              <Camera size={16} strokeWidth={2.5} />
+              <span className="text-sm font-bold">우리의 추억</span>
+            </div>
+            <MemoryGallery photos={memories} />
+          </div>
+        )}
 
         {/* 우리들의 서재 */}
         <button onClick={() => router.push('/novel')} className="w-full flex items-center justify-between p-6 rounded-[32px] bg-slate-800 text-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-transform text-left">

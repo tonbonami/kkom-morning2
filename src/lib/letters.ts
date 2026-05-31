@@ -24,6 +24,8 @@ export function partnerOf(name: string): string {
   return COUPLE.find((u) => u !== name) ?? COUPLE[0];
 }
 
+export type Voice = { mime: string; data: string; duration?: number };
+
 export type Letter = {
   id: string;
   from: string;
@@ -31,6 +33,7 @@ export type Letter = {
   body: string;
   createdAt: Timestamp | null;
   openAt?: Timestamp | null; // 예약 도착 시각 (없으면 즉시)
+  voice?: Voice | null;      // 10초 보이스 편지 (base64 — Storage 없이 Firestore 직접)
 };
 
 function ms(t?: Timestamp | null): number {
@@ -82,8 +85,13 @@ export function subscribeAllLetters(cb: (letters: Letter[]) => void): () => void
   );
 }
 
-// 상대에게 편지 전송 (openAt 주면 예약 편지)
-export async function sendLetter(from: string, body: string, openAt?: Date | null): Promise<void> {
+// 상대에게 편지 전송 (openAt 주면 예약 편지, voice 주면 음성 편지)
+export async function sendLetter(
+  from: string,
+  body: string,
+  openAt?: Date | null,
+  voice?: Voice | null
+): Promise<void> {
   const data: Record<string, unknown> = {
     from,
     to: partnerOf(from),
@@ -91,5 +99,6 @@ export async function sendLetter(from: string, body: string, openAt?: Date | nul
     createdAt: serverTimestamp(),
   };
   if (openAt) data.openAt = Timestamp.fromDate(openAt);
+  if (voice && voice.data) data.voice = voice;
   await addDoc(collection(db, 'letters'), data);
 }

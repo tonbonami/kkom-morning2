@@ -92,9 +92,18 @@ export default function LettersPage() {
                           </span>
                         </div>
                       ) : (
-                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                          {l.body}
-                        </p>
+                        <div className="space-y-2">
+                          {l.body && (
+                            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{l.body}</p>
+                          )}
+                          {l.voice && (
+                            <audio
+                              controls
+                              src={`data:${l.voice.mime};base64,${l.voice.data}`}
+                              className="w-full h-10 rounded-xl"
+                            />
+                          )}
+                        </div>
                       )}
 
                       {!locked && l.openAt && (

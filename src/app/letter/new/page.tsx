@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Send, Mail, Clock } from 'lucide-react';
+import { ArrowLeft, Send, Mail, Clock, Mic, Square, Play, Pause, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { sendLetter, nameFromCode, partnerOf } from '@/lib/letters';
+import { sendLetter, nameFromCode, partnerOf, type Voice } from '@/lib/letters';
+
+const MAX_REC_SEC = 10;
 
 export default function NewLetterPage() {
   const router = useRouter();
@@ -16,24 +18,114 @@ export default function NewLetterPage() {
   const [scheduled, setScheduled] = useState(false);
   const [openAtStr, setOpenAtStr] = useState('');
 
+  // 음성 편지
+  const [voice, setVoice] = useState<Voice | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [secLeft, setSecLeft] = useState(MAX_REC_SEC);
+  const [playing, setPlaying] = useState(false);
+  const mrRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
-    if (!userStr) {
-      router.push('/login');
-      return;
-    }
-    const user = JSON.parse(userStr);
-    setMe(nameFromCode(user.로그인코드));
+    if (!userStr) { router.push('/login'); return; }
+    setMe(nameFromCode(JSON.parse(userStr).로그인코드));
   }, [router]);
+
+  // 정리
+  useEffect(() => {
+    return () => {
+      if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+      if (tickRef.current) clearInterval(tickRef.current);
+      if (mrRef.current?.state === 'recording') mrRef.current.stop();
+    };
+  }, []);
 
   const partner = me ? partnerOf(me) : '';
 
+  // 녹음 시작 — 10초 자동 중지
+  const startRecording = async () => {
+    setError('');
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+      setError('이 브라우저는 녹음을 지원하지 않아요.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime =
+        MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
+        : '';
+      const mr = mime ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 32000 })
+                      : new MediaRecorder(stream, { audioBitsPerSecond: 32000 });
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: mime || 'audio/webm' });
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          const base64 = dataUrl.split(',')[1] || '';
+          const sizeKB = Math.round(base64.length * 0.75 / 1024);
+          if (sizeKB > 700) {
+            setError(`녹음이 너무 길거나 커요(${sizeKB}KB). 다시 짧게 시도해주세요.`);
+            return;
+          }
+          const duration = MAX_REC_SEC - secLeft;
+          setVoice({ mime: mime || 'audio/webm', data: base64, duration: Math.max(1, duration) });
+        };
+        reader.readAsDataURL(blob);
+        setRecording(false);
+        setSecLeft(MAX_REC_SEC);
+        if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
+        if (stopTimerRef.current) { clearTimeout(stopTimerRef.current); stopTimerRef.current = null; }
+      };
+      mr.start();
+      mrRef.current = mr;
+      setRecording(true);
+      setSecLeft(MAX_REC_SEC);
+      tickRef.current = setInterval(() => setSecLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
+      stopTimerRef.current = setTimeout(() => stopRecording(), MAX_REC_SEC * 1000 + 200);
+    } catch (e) {
+      console.error(e);
+      setError('마이크 권한이 필요해요.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mrRef.current?.state === 'recording') mrRef.current.stop();
+  };
+
+  const resetAudio = () => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+    setVoice(null);
+    setPlaying(false);
+  };
+
+  const togglePlay = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) { a.pause(); setPlaying(false); }
+    else { a.play(); setPlaying(true); }
+  };
+
+  const canSend = (body.trim().length > 0 || !!voice) && !sending && !recording && (!scheduled || !!openAtStr);
+
   const handleSend = async () => {
-    if (!body.trim() || sending) return;
+    if (!canSend) return;
     setSending(true);
     setError('');
     try {
-      await sendLetter(me, body, scheduled && openAtStr ? new Date(openAtStr) : null);
+      await sendLetter(
+        me,
+        body,
+        scheduled && openAtStr ? new Date(openAtStr) : null,
+        voice
+      );
       router.push('/');
     } catch (e) {
       console.error('편지 전송 실패:', e);
@@ -44,7 +136,7 @@ export default function NewLetterPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="w-full max-w-md mx-auto p-6 space-y-6">
+      <div className="w-full max-w-md mx-auto p-6 space-y-5">
         <header className="flex items-center gap-3 pt-2">
           <button
             onClick={() => router.back()}
@@ -61,14 +153,15 @@ export default function NewLetterPage() {
           </div>
         </header>
 
+        {/* 글 */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
           <Card variant="glass">
-            <CardContent className="p-5 space-y-4">
+            <CardContent className="p-5 space-y-3">
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder={`${partner || '상대'}에게 전할 마음을 적어보세요…`}
-                rows={8}
+                rows={6}
                 autoFocus
                 className="w-full resize-none bg-transparent outline-none text-slate-700 leading-relaxed text-sm placeholder:text-slate-400"
               />
@@ -77,6 +170,68 @@ export default function NewLetterPage() {
           </Card>
         </motion.div>
 
+        {/* 보이스 편지 (10초) */}
+        <div className="rounded-2xl bg-white/60 border border-white px-4 py-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-slate-600 flex items-center gap-2">
+              <Mic size={15} /> 보이스 편지 <span className="text-[10px] text-slate-400 font-medium">(10초)</span>
+            </span>
+            {voice && (
+              <span className="text-[11px] text-emerald-600 font-bold">
+                녹음됨 · 약 {voice.duration ?? '?'}초
+              </span>
+            )}
+          </div>
+
+          {!voice && !recording && (
+            <button
+              onClick={startRecording}
+              className="w-full py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+            >
+              <Mic size={15} /> 녹음 시작
+            </button>
+          )}
+
+          {recording && (
+            <button
+              onClick={stopRecording}
+              className="w-full py-2.5 rounded-xl bg-red-500 text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+            >
+              <Square size={14} fill="currentColor" />
+              <span className="flex items-center gap-1.5">
+                녹음 중 · <strong>{secLeft}초</strong> 남음
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              </span>
+            </button>
+          )}
+
+          {voice && !recording && (
+            <div className="flex items-center gap-2">
+              <audio
+                ref={audioRef}
+                src={`data:${voice.mime};base64,${voice.data}`}
+                onEnded={() => setPlaying(false)}
+                className="hidden"
+              />
+              <button
+                onClick={togglePlay}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm flex items-center justify-center gap-2 transition-colors"
+              >
+                {playing ? <Pause size={14} /> : <Play size={14} />}
+                {playing ? '일시정지' : '들어보기'}
+              </button>
+              <button
+                onClick={resetAudio}
+                className="py-2.5 px-3 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-red-500 transition-colors"
+                aria-label="다시 녹음"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 예약 편지 */}
         <div className="rounded-2xl bg-white/50 border border-white px-4 py-3 space-y-3">
           <label className="flex items-center justify-between cursor-pointer">
             <span className="text-sm font-bold text-slate-600 flex items-center gap-2">
@@ -106,7 +261,7 @@ export default function NewLetterPage() {
 
         <button
           onClick={handleSend}
-          disabled={!body.trim() || sending || (scheduled && !openAtStr)}
+          disabled={!canSend}
           className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-200/50 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:active:scale-100"
         >
           <Send size={16} strokeWidth={2.5} />
