@@ -12,7 +12,7 @@ import { getInitialData } from '@/lib/api';
 import { subscribeLatestLetterTo, nameFromCode, partnerOf, type Voice } from '@/lib/letters';
 import { subscribeMemories, type Memory } from '@/lib/memories';
 import VoicePlayer from '@/components/VoicePlayer';
-import { subscribeTodayMoods, setMyMood, MOOD_OPTIONS, type MoodMap } from '@/lib/moods';
+import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
 import type { WeatherData, OutfitGuide } from '@/types';
 
 // 등급별 테마 (배경 그라데이션·텍스트·막대 색을 한 색으로 통일)
@@ -123,9 +123,27 @@ export default function KkomMorningHome() {
   const trend = allHourly.slice(-6);
   const maxPm = Math.max(50, ...allHourly.map((h: any) => h.pm10 || 0));
 
-  const pickMood = async (emoji: string) => {
+  const pickMood = async (opt: MoodOption) => {
     setMoodOpen(false);
-    try { await setMyMood(userName, emoji); } catch (e) { console.error(e); }
+    try { await setMyMood(userName, opt.id); } catch (e) { console.error(e); }
+  };
+
+  // 저장된 키(신규 id 또는 옛날 이모지) → 화면 표시
+  const renderMoodFace = (key: string | undefined, size = 36) => {
+    const m = moodFromKey(key);
+    if (m) {
+      return (
+        <Image
+          src={m.image}
+          alt={m.label}
+          width={size}
+          height={size}
+          className="drop-shadow-sm"
+        />
+      );
+    }
+    // 매칭 실패 — 레거시 이모지든 빈 값이든
+    return <span className="text-2xl drop-shadow-sm">{key || '…'}</span>;
   };
 
   if (!mounted) return <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />;
@@ -236,20 +254,30 @@ export default function KkomMorningHome() {
               <span className="text-xs font-bold">오늘의 기분</span>
             </div>
             {moodOpen ? (
-              <div className="flex flex-wrap justify-center gap-1.5">
-                {MOOD_OPTIONS.map((e) => (
-                  <button key={e} onClick={() => pickMood(e)} className="w-8 h-8 rounded-lg bg-slate-50 text-lg active:scale-90 hover:bg-emerald-50 transition-all">{e}</button>
+              <div className="grid grid-cols-3 gap-1.5">
+                {MOOD_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => pickMood(opt)}
+                    title={opt.label}
+                    aria-label={opt.label}
+                    className="aspect-square rounded-xl bg-slate-50 hover:bg-emerald-50 active:scale-90 transition-all flex items-center justify-center p-1"
+                  >
+                    <Image src={opt.image} alt={opt.label} width={40} height={40} className="drop-shadow-sm" />
+                  </button>
                 ))}
               </div>
             ) : (
               <div className="flex justify-between px-2 items-center">
                 <div className="flex flex-col items-center gap-1">
-                  <span className="text-2xl drop-shadow-sm">{moods[partner]?.emoji || '…'}</span>
+                  {renderMoodFace(moods[partner]?.emoji)}
                   <span className="text-[10px] font-bold text-slate-400">{partner}</span>
                 </div>
                 <div className="w-8 h-[1px] bg-slate-100" />
                 <button onClick={() => setMoodOpen(true)} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
-                  <span className="text-2xl drop-shadow-sm">{moods[userName]?.emoji || '＋'}</span>
+                  {moods[userName]?.emoji
+                    ? renderMoodFace(moods[userName]?.emoji)
+                    : <span className="text-2xl drop-shadow-sm text-[#10B981]">＋</span>}
                   <span className="text-[10px] font-bold text-[#10B981]">{userName}</span>
                 </button>
               </div>
