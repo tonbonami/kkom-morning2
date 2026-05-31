@@ -129,7 +129,8 @@ export default function KkomMorningHome() {
   };
 
   // 저장된 키(신규 id 또는 옛날 이모지) → 화면 표시
-  const renderMoodFace = (key: string | undefined, size = 36) => {
+  // 표시 사이즈는 크게 (구분이 잘 가도록), 피커 안에서 쓰는 사이즈와 무관
+  const renderMoodFace = (key: string | undefined, size = 60) => {
     const m = moodFromKey(key);
     if (m) {
       return (
@@ -143,7 +144,7 @@ export default function KkomMorningHome() {
       );
     }
     // 매칭 실패 — 레거시 이모지든 빈 값이든
-    return <span className="text-2xl drop-shadow-sm">{key || '…'}</span>;
+    return <span className="text-4xl drop-shadow-sm">{key || '…'}</span>;
   };
 
   if (!mounted) return <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />;
@@ -277,7 +278,7 @@ export default function KkomMorningHome() {
                 <button onClick={() => setMoodOpen(true)} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
                   {moods[userName]?.emoji
                     ? renderMoodFace(moods[userName]?.emoji)
-                    : <span className="text-2xl drop-shadow-sm text-[#10B981]">＋</span>}
+                    : <span className="text-5xl leading-none drop-shadow-sm text-[#10B981]">＋</span>}
                   <span className="text-[10px] font-bold text-[#10B981]">{userName}</span>
                 </button>
               </div>
