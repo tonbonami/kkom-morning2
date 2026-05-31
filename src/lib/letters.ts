@@ -1,4 +1,4 @@
-import { db } from './firebase';
+import { db, storage } from './firebase';
 import {
   collection,
   addDoc,
@@ -10,6 +10,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // 2인 앱: 로그인 코드 → 이름 (정체성의 단일 출처)
 export const CODE_TO_NAME: Record<string, string> = {
@@ -153,6 +154,7 @@ export function toInboxLetter(l: Letter): InboxLetter {
 }
 
 // 상대에게 편지 전송 (openAt 주면 예약 편지, voice 주면 음성 편지)
+// voice.data 에는 base64(레거시) 또는 Storage URL(신규) 둘 다 가능.
 export async function sendLetter(
   from: string,
   body: string,
@@ -168,4 +170,15 @@ export async function sendLetter(
   if (openAt) data.openAt = Timestamp.fromDate(openAt);
   if (voice && voice.data) data.voice = voice;
   await addDoc(collection(db, 'letters'), data);
+}
+
+// 음성 Blob을 Firebase Storage에 올리고 다운로드 URL 반환.
+// 경로: voices/{보낸사람}/{timestamp}.{ext}  (Storage 콘솔에서 정리해 보기 좋게)
+export async function uploadVoice(blob: Blob, fromName: string): Promise<string> {
+  const ext = blob.type.includes('mp4') ? 'm4a' : 'webm';
+  const safeName = fromName.replace(/[^\w가-힣]/g, '_') || 'anon';
+  const path = `voices/${safeName}/${Date.now()}.${ext}`;
+  const r = storageRef(storage, path);
+  await uploadBytes(r, blob, { contentType: blob.type || 'audio/webm' });
+  return await getDownloadURL(r);
 }

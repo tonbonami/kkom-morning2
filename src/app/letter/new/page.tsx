@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Send, Mail, Clock, Mic, Square, Play, Pause, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { sendLetter, nameFromCode, partnerOf, type Voice } from '@/lib/letters';
+import { sendLetter, uploadVoice, nameFromCode, partnerOf } from '@/lib/letters';
 
 const MAX_REC_SEC = 10;
 
@@ -18,8 +18,11 @@ export default function NewLetterPage() {
   const [scheduled, setScheduled] = useState(false);
   const [openAtStr, setOpenAtStr] = useState('');
 
-  // 음성 편지
-  const [voice, setVoice] = useState<Voice | null>(null);
+  // 음성 편지 — Storage 업로드 흐름: Blob을 그대로 들고 있다가 보낼 때만 업로드
+  const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
+  const [voiceMime, setVoiceMime] = useState<string>('audio/webm');
+  const [voiceDuration, setVoiceDuration] = useState<number>(0);
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState<string>('');
   const [recording, setRecording] = useState(false);
   const [secLeft, setSecLeft] = useState(MAX_REC_SEC);
   const [playing, setPlaying] = useState(false);
@@ -28,6 +31,7 @@ export default function NewLetterPage() {
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const voice = voiceBlob; // canSend 등에서 사용 (boolean처럼)
 
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
@@ -41,7 +45,9 @@ export default function NewLetterPage() {
       if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
       if (tickRef.current) clearInterval(tickRef.current);
       if (mrRef.current?.state === 'recording') mrRef.current.stop();
+      if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const partner = me ? partnerOf(me) : '';
@@ -65,20 +71,16 @@ export default function NewLetterPage() {
       mr.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: mime || 'audio/webm' });
-        const reader = new FileReader();
-        reader.onload = () => {
-          const dataUrl = reader.result as string;
-          const base64 = dataUrl.split(',')[1] || '';
-          const sizeKB = Math.round(base64.length * 0.75 / 1024);
-          if (sizeKB > 700) {
-            setError(`녹음이 너무 길거나 커요(${sizeKB}KB). 다시 짧게 시도해주세요.`);
-            return;
-          }
-          const duration = MAX_REC_SEC - secLeft;
-          setVoice({ mime: mime || 'audio/webm', data: base64, duration: Math.max(1, duration) });
-        };
-        reader.readAsDataURL(blob);
+        const finalMime = mime || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: finalMime });
+        const duration = Math.max(1, MAX_REC_SEC - secLeft);
+        // 이전 미리듣기 URL 해제
+        if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
+        const url = URL.createObjectURL(blob);
+        setVoiceBlob(blob);
+        setVoiceMime(finalMime);
+        setVoiceDuration(duration);
+        setVoicePreviewUrl(url);
         setRecording(false);
         setSecLeft(MAX_REC_SEC);
         if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
@@ -102,7 +104,10 @@ export default function NewLetterPage() {
 
   const resetAudio = () => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
-    setVoice(null);
+    if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
+    setVoiceBlob(null);
+    setVoicePreviewUrl('');
+    setVoiceDuration(0);
     setPlaying(false);
   };
 
@@ -120,11 +125,17 @@ export default function NewLetterPage() {
     setSending(true);
     setError('');
     try {
+      let voicePayload = null;
+      if (voiceBlob) {
+        // Storage 업로드 — Firestore에는 짧은 URL 1개만 저장 (예전: base64 50KB → 지금: URL 100B)
+        const url = await uploadVoice(voiceBlob, me);
+        voicePayload = { mime: voiceMime, data: url, duration: voiceDuration };
+      }
       await sendLetter(
         me,
         body,
         scheduled && openAtStr ? new Date(openAtStr) : null,
-        voice
+        voicePayload
       );
       router.push('/');
     } catch (e) {
@@ -176,14 +187,14 @@ export default function NewLetterPage() {
             <span className="text-sm font-bold text-slate-600 flex items-center gap-2">
               <Mic size={15} /> 보이스 편지 <span className="text-[10px] text-slate-400 font-medium">(10초)</span>
             </span>
-            {voice && (
+            {voiceBlob && (
               <span className="text-[11px] text-emerald-600 font-bold">
-                녹음됨 · 약 {voice.duration ?? '?'}초
+                녹음됨 · 약 {voiceDuration}초
               </span>
             )}
           </div>
 
-          {!voice && !recording && (
+          {!voiceBlob && !recording && (
             <button
               onClick={startRecording}
               className="w-full py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
@@ -205,11 +216,11 @@ export default function NewLetterPage() {
             </button>
           )}
 
-          {voice && !recording && (
+          {voiceBlob && !recording && (
             <div className="flex items-center gap-2">
               <audio
                 ref={audioRef}
-                src={`data:${voice.mime};base64,${voice.data}`}
+                src={voicePreviewUrl}
                 onEnded={() => setPlaying(false)}
                 className="hidden"
               />
