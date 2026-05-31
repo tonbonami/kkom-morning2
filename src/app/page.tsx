@@ -13,7 +13,7 @@ import { subscribeLatestLetterTo, nameFromCode, partnerOf, type Voice } from '@/
 import { subscribeMemories, type Memory } from '@/lib/memories';
 import VoicePlayer from '@/components/VoicePlayer';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
-import { touchPresence, subscribePresence, formatPresenceRelative } from '@/lib/presence';
+import { touchPresence, subscribePresence, formatPresenceRelative, type Presence } from '@/lib/presence';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
 import AirSkyVisual from '@/components/AirSkyVisual';
 import { Bell, BellOff } from 'lucide-react';
@@ -46,7 +46,7 @@ export default function KkomMorningHome() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dDay, setDDay] = useState(0);
   const [dateText, setDateText] = useState('');
-  const [partnerLastSeen, setPartnerLastSeen] = useState<Date | null>(null);
+  const [partnerPresence, setPartnerPresence] = useState<Presence>({ lastSeenAt: null, active: false });
   const [presenceTick, setPresenceTick] = useState(0); // 매분 재계산용
   const [pushState, setPushState] = useState<PushState>('unknown');
 
@@ -89,23 +89,37 @@ export default function KkomMorningHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  // 접속 — 내 presence touch (마운트 + 5분마다 + 다시 보일 때마다) + 상대 구독
+  // 접속 — 내 presence (active/inactive 명시) + 상대 구독
   useEffect(() => {
     if (!userName) return;
     const partner = partnerOf(userName);
-    touchPresence(userName);
-    const heartbeat = setInterval(() => touchPresence(userName), 5 * 60 * 1000);
-    const onVis = () => { if (document.visibilityState === 'visible') touchPresence(userName); };
+    // 마운트 시 active=true
+    touchPresence(userName, true);
+    // 2분마다 heartbeat (단, 페이지가 visible일 때만 active=true)
+    const heartbeat = setInterval(() => {
+      const visible = document.visibilityState === 'visible';
+      touchPresence(userName, visible);
+    }, 2 * 60 * 1000);
+    // 페이지 visible/hidden 전환마다 명시적으로 표시
+    const onVis = () => {
+      touchPresence(userName, document.visibilityState === 'visible');
+    };
     document.addEventListener('visibilitychange', onVis);
-    const unsub = subscribePresence(partner, setPartnerLastSeen);
+    // 페이지/탭 닫을 때 inactive 표시 — 모바일에선 신뢰성 낮지만 데스크탑에선 유효
+    const onUnload = () => { touchPresence(userName, false); };
+    window.addEventListener('pagehide', onUnload);
+    const unsub = subscribePresence(partner, setPartnerPresence);
     // "N분 전" 표시 매 1분마다 재계산
     const tick = setInterval(() => setPresenceTick((x) => x + 1), 60_000);
     // 푸시 구독 상태 1회 확인
     getPushState(userName).then(setPushState);
     return () => {
+      // 언마운트 시도 active=false (라우트 이동 등)
+      touchPresence(userName, false);
       clearInterval(heartbeat);
       clearInterval(tick);
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pagehide', onUnload);
       unsub();
     };
   }, [userName]);
@@ -206,7 +220,7 @@ export default function KkomMorningHome() {
           <p className="text-xs font-bold text-slate-500 mt-1.5">
             <span className="text-[#10B981]">{partner}</span>
             <span className="text-slate-400"> · </span>
-            <span suppressHydrationWarning>{formatPresenceRelative(partnerLastSeen)}</span>
+            <span suppressHydrationWarning>{formatPresenceRelative(partnerPresence)}</span>
             {/* presenceTick 참조로 매분 리렌더 */}
             <span className="hidden">{presenceTick}</span>
           </p>
