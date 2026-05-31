@@ -14,7 +14,9 @@ import { subscribeMemories, type Memory } from '@/lib/memories';
 import VoicePlayer from '@/components/VoicePlayer';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
 import { touchPresence, subscribePresence, formatPresenceRelative } from '@/lib/presence';
+import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
 import AirSkyVisual from '@/components/AirSkyVisual';
+import { Bell, BellOff } from 'lucide-react';
 import type { WeatherData, OutfitGuide } from '@/types';
 
 // 등급별 테마 (배경 그라데이션·텍스트·막대 색을 한 색으로 통일)
@@ -46,6 +48,7 @@ export default function KkomMorningHome() {
   const [dateText, setDateText] = useState('');
   const [partnerLastSeen, setPartnerLastSeen] = useState<Date | null>(null);
   const [presenceTick, setPresenceTick] = useState(0); // 매분 재계산용
+  const [pushState, setPushState] = useState<PushState>('unknown');
 
   const loadData = async (forceRefresh = false) => {
     setIsRefreshing(true);
@@ -97,6 +100,8 @@ export default function KkomMorningHome() {
     const unsub = subscribePresence(partner, setPartnerLastSeen);
     // "N분 전" 표시 매 1분마다 재계산
     const tick = setInterval(() => setPresenceTick((x) => x + 1), 60_000);
+    // 푸시 구독 상태 1회 확인
+    getPushState(userName).then(setPushState);
     return () => {
       clearInterval(heartbeat);
       clearInterval(tick);
@@ -104,6 +109,21 @@ export default function KkomMorningHome() {
       unsub();
     };
   }, [userName]);
+
+  const togglePush = async () => {
+    if (pushState === 'on') {
+      await disablePush(userName);
+      setPushState('off');
+      return;
+    }
+    if (pushState === 'denied') {
+      alert('알림 권한이 차단돼있어요. 폰 설정 > Safari/브라우저 > 알림 에서 허용해주세요.');
+      return;
+    }
+    const r = await enablePush(userName);
+    if (r.ok) setPushState('on');
+    else alert(r.error || '알림을 켤 수 없어요.');
+  };
 
   useEffect(() => {
     let active = true;
@@ -209,9 +229,26 @@ export default function KkomMorningHome() {
 
         <div className="relative z-10 flex flex-col gap-6">
           <div className="pt-10">
-            <div className="flex items-center gap-1.5 mb-2 opacity-80">
-              <Wind size={16} className={theme.text} strokeWidth={2.5} />
-              <span className="text-sm font-bold text-slate-600">{air?.location || '금곡동'} 미세먼지</span>
+            <div className="flex items-center justify-between mb-2 opacity-80">
+              <div className="flex items-center gap-1.5">
+                <Wind size={16} className={theme.text} strokeWidth={2.5} />
+                <span className="text-sm font-bold text-slate-600">{air?.location || '금곡동'} 미세먼지</span>
+              </div>
+              {pushState !== 'unknown' && pushState !== 'unsupported' && (
+                <button
+                  onClick={togglePush}
+                  className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full transition-colors ${
+                    pushState === 'on'
+                      ? 'bg-emerald-50 text-emerald-600'
+                      : pushState === 'denied'
+                      ? 'bg-slate-100 text-slate-400'
+                      : 'bg-white/70 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600'
+                  }`}
+                >
+                  {pushState === 'on' ? <Bell size={11} strokeWidth={2.5} /> : <BellOff size={11} strokeWidth={2.5} />}
+                  {pushState === 'on' ? '알림 켜짐' : pushState === 'denied' ? '권한 차단' : '알림 켜기'}
+                </button>
+              )}
             </div>
             <div className="flex items-baseline gap-3 flex-wrap">
               <h2 className={`text-5xl font-extrabold tracking-tight ${theme.text}`}>
