@@ -372,15 +372,20 @@ export default function KkomMorningHome() {
               {dailyMessage.trim() && (
                 <p className="text-[15px] font-medium text-slate-700 leading-relaxed tracking-tight whitespace-pre-wrap">&ldquo;{dailyMessage}&rdquo;</p>
               )}
-              {latestVoice && (
-                <VoicePlayer
-                  src={`data:${latestVoice.mime};base64,${latestVoice.data}`}
-                  mime={latestVoice.mime}
-                  durationHint={latestVoice.duration}
-                  accent="emerald"
-                  compact
-                />
-              )}
+              {latestVoice && (() => {
+                // Storage URL이면 그대로, 옛날 base64면 data: URL로 감쌈
+                const isUrl = /^https?:\/\//i.test(latestVoice.data);
+                const src = isUrl ? latestVoice.data : `data:${latestVoice.mime};base64,${latestVoice.data}`;
+                return (
+                  <VoicePlayer
+                    src={src}
+                    mime={latestVoice.mime}
+                    durationHint={latestVoice.duration}
+                    accent="emerald"
+                    compact
+                  />
+                );
+              })()}
             </div>
           ) : (
             <p className="text-center text-[14px] text-slate-400 py-3 mb-2">아직 도착한 편지가 없어요 💌</p>
