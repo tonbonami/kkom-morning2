@@ -229,26 +229,9 @@ export default function KkomMorningHome() {
 
         <div className="relative z-10 flex flex-col gap-6">
           <div className="pt-10">
-            <div className="flex items-center justify-between mb-2 opacity-80">
-              <div className="flex items-center gap-1.5">
-                <Wind size={16} className={theme.text} strokeWidth={2.5} />
-                <span className="text-sm font-bold text-slate-600">{air?.location || '금곡동'} 미세먼지</span>
-              </div>
-              {pushState !== 'unknown' && pushState !== 'unsupported' && (
-                <button
-                  onClick={togglePush}
-                  className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full transition-colors ${
-                    pushState === 'on'
-                      ? 'bg-emerald-50 text-emerald-600'
-                      : pushState === 'denied'
-                      ? 'bg-slate-100 text-slate-400'
-                      : 'bg-white/70 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600'
-                  }`}
-                >
-                  {pushState === 'on' ? <Bell size={11} strokeWidth={2.5} /> : <BellOff size={11} strokeWidth={2.5} />}
-                  {pushState === 'on' ? '알림 켜짐' : pushState === 'denied' ? '권한 차단' : '알림 켜기'}
-                </button>
-              )}
+            <div className="flex items-center gap-1.5 mb-2 opacity-80">
+              <Wind size={16} className={theme.text} strokeWidth={2.5} />
+              <span className="text-sm font-bold text-slate-600">{air?.location || '금곡동'} 미세먼지</span>
             </div>
             <div className="flex items-baseline gap-3 flex-wrap">
               <h2 className={`text-5xl font-extrabold tracking-tight ${theme.text}`}>
@@ -260,13 +243,42 @@ export default function KkomMorningHome() {
             </div>
           </div>
 
-          {/* SVG 하늘 — 등급별 비주얼 (맑은하늘/뿌연하늘/먼지) + 내일 예보 */}
+          {/* SVG 하늘 — 등급별 비주얼 (맑은하늘/뿌연하늘/먼지) + 내일 예보 + 알림 토글 */}
           <div className="bg-white rounded-[32px] overflow-hidden shadow-[0_2px_24px_rgba(0,0,0,0.03)] border border-white/40">
             <AirSkyVisual grade={air?.grade} height={170} />
-            <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between text-sm">
+            <div className="px-5 py-3.5 border-t border-slate-100 flex items-center justify-between text-sm">
               <span className="font-semibold text-slate-600">내일 예보</span>
               <span className="text-slate-500">{air?.tomorrow?.summary || (air?.tomorrow?.grade ? `${air.tomorrow.grade} 예상` : '준비 중')}</span>
             </div>
+            {/* 미세먼지 알림 토글 — 폰 푸시 (매일 아침 7시, 나쁨 이상이면 알림) */}
+            {pushState !== 'unknown' && pushState !== 'unsupported' && (
+              <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2 text-slate-600">
+                  {pushState === 'on'
+                    ? <Bell size={14} strokeWidth={2.5} className="text-[#10B981]" />
+                    : <BellOff size={14} strokeWidth={2.5} className="text-slate-400" />}
+                  <span className="font-semibold">미세먼지 알림</span>
+                  <span className="text-[11px] font-medium text-slate-400">매일 아침 7시</span>
+                </div>
+                {pushState === 'denied' ? (
+                  <span className="text-[11px] font-bold text-slate-400">권한 차단됨</span>
+                ) : (
+                  <button
+                    onClick={togglePush}
+                    role="switch"
+                    aria-checked={pushState === 'on'}
+                    aria-label="미세먼지 알림 토글"
+                    className="relative w-10 h-6 rounded-full transition-colors duration-200 shrink-0"
+                    style={{ backgroundColor: pushState === 'on' ? '#10B981' : '#CBD5E1' }}
+                  >
+                    <span
+                      className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200"
+                      style={{ transform: pushState === 'on' ? 'translateX(16px)' : 'translateX(0)' }}
+                    />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
