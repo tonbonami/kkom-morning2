@@ -14,12 +14,33 @@ const CRON_SECRET = process.env.CRON_SECRET || '';
 
 webpush.setVapidDetails(SUBJECT, PUBLIC_KEY, PRIVATE_KEY);
 
-// 등급별 알림 문구
+// 등급별 알림 문구 — grade별로 톤·이모지 다르게
 function makePayload(grade: string, tomorrowSummary?: string | null) {
-  const isVeryBad = grade === '매우 나쁨';
-  const title = isVeryBad ? '🚨 미세먼지 매우 나쁨' : '😷 미세먼지 나쁨';
+  let title: string;
+  let advice: string;
+  switch (grade) {
+    case '매우 나쁨':
+      title = '🚨 미세먼지 매우 나쁨';
+      advice = '외출 줄이고 KF94 꼭!';
+      break;
+    case '나쁨':
+      title = '😷 미세먼지 나쁨';
+      advice = '마스크 꼭 챙겨!';
+      break;
+    case '보통':
+      title = '🌤 미세먼지 보통';
+      advice = '평소대로 외출 OK 👌';
+      break;
+    case '좋음':
+      title = '🌿 미세먼지 좋음';
+      advice = '오늘 공기 깨끗해 ☘️';
+      break;
+    default:
+      title = `미세먼지 ${grade}`;
+      advice = '';
+  }
   const lines = [
-    `오늘 ${grade} — 마스크 꼭 챙겨!`,
+    `오늘 ${grade}${advice ? ` — ${advice}` : ''}`,
     tomorrowSummary ? `내일: ${tomorrowSummary}` : null,
   ].filter(Boolean) as string[];
   return { title, body: lines.join(' · '), url: '/' };

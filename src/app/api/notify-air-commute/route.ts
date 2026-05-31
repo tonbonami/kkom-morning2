@@ -37,9 +37,29 @@ function pickLocation(): { station: string; region: string; label: string; isWee
 }
 
 function makePayload(grade: string, locationLabel: string, isWeekend: boolean) {
-  const isVeryBad = grade === '매우 나쁨';
-  const emoji = isVeryBad ? '🚨' : '😷';
-  const tip = isWeekend ? '저녁 외출하면 마스크 꼭 챙겨!' : '퇴근길 마스크 꼭 챙겨!';
+  let emoji: string;
+  let tip: string;
+  switch (grade) {
+    case '매우 나쁨':
+      emoji = '🚨';
+      tip = isWeekend ? '외출 줄이고 KF94 꼭!' : '퇴근길 외출 줄이고 KF94 꼭!';
+      break;
+    case '나쁨':
+      emoji = '😷';
+      tip = isWeekend ? '저녁 외출하면 마스크 꼭 챙겨!' : '퇴근길 마스크 꼭 챙겨!';
+      break;
+    case '보통':
+      emoji = '🌤';
+      tip = isWeekend ? '평소대로 외출 OK 👌' : '퇴근길 무난해 👌';
+      break;
+    case '좋음':
+      emoji = '🌿';
+      tip = isWeekend ? '공기 깨끗해 ☘️ 산책하기 좋아' : '퇴근길 공기 깨끗해 ☘️';
+      break;
+    default:
+      emoji = '🌤';
+      tip = '';
+  }
   return {
     title: `${emoji} ${locationLabel} 미세먼지 ${grade}`,
     body: tip,
