@@ -10,6 +10,7 @@ import {
 import { getInitialData } from '@/lib/api';
 import { subscribeLatestLetterTo, nameFromCode, partnerOf, type Voice } from '@/lib/letters';
 import { subscribeMemories, type Memory } from '@/lib/memories';
+import VoicePlayer from '@/components/VoicePlayer';
 import { subscribeTodayMoods, setMyMood, MOOD_OPTIONS, type MoodMap } from '@/lib/moods';
 import type { WeatherData, OutfitGuide } from '@/types';
 
@@ -285,10 +286,12 @@ export default function KkomMorningHome() {
                 <p className="text-[15px] font-medium text-slate-700 leading-relaxed tracking-tight whitespace-pre-wrap">&ldquo;{dailyMessage}&rdquo;</p>
               )}
               {latestVoice && (
-                <audio
-                  controls
+                <VoicePlayer
                   src={`data:${latestVoice.mime};base64,${latestVoice.data}`}
-                  className="w-full h-10 rounded-xl"
+                  mime={latestVoice.mime}
+                  durationHint={latestVoice.duration}
+                  accent="emerald"
+                  compact
                 />
               )}
             </div>

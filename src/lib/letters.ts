@@ -4,6 +4,8 @@ import {
   addDoc,
   query,
   where,
+  orderBy,
+  limit,
   onSnapshot,
   serverTimestamp,
   Timestamp,
@@ -83,6 +85,71 @@ export function subscribeAllLetters(cb: (letters: Letter[]) => void): () => void
       cb([]);
     }
   );
+}
+
+// 보관함 (페이지네이션 버전): 최신 N개만 구독 + 더 있는지 여부 반환.
+// "더 보기" 누를 때마다 pageSize를 늘려서 재구독하면 됨.
+// createdAt가 null(서버시간 막 저장된 직후) 인 문서는 orderBy에 포함되지 않을 수 있음 — 정상이고
+// 잠시 후 서버 타임스탬프가 채워지면 다음 스냅샷에 자연스럽게 들어옴.
+export function subscribeRecentLetters(
+  pageSize: number,
+  cb: (letters: Letter[], hasMore: boolean) => void
+): () => void {
+  const q = query(
+    collection(db, 'letters'),
+    orderBy('createdAt', 'desc'),
+    limit(pageSize + 1) // +1로 다음 페이지 존재 여부 확인
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Letter, 'id'>) }));
+      const hasMore = docs.length > pageSize;
+      cb(hasMore ? docs.slice(0, pageSize) : docs, hasMore);
+    },
+    (err) => {
+      console.error('편지 페이지 구독 오류:', err);
+      cb([], false);
+    }
+  );
+}
+
+// Firestore Letter → LetterInboxV2 / VoicePlayer 가 기대하는 형태로 변환.
+// - createdAt/openAt: Timestamp → Date
+// - voice: { mime, data(base64) } → { src: data URL, mime, duration }
+// from/to는 '우댕'|'꼼이' 외 값이 들어올 일이 없지만 타입은 string인 채로 들어와도 그대로 통과.
+export type InboxLetter = {
+  id: string;
+  from: '우댕' | '꼼이';
+  to: '우댕' | '꼼이';
+  body: string;
+  createdAt: Date;
+  openAt?: Date | null;
+  voice?: { src: string; mime?: string; duration?: number } | null;
+};
+
+export function toInboxLetter(l: Letter): InboxLetter {
+  const createdAt = l.createdAt?.toDate?.() ?? new Date();
+  const openAt = l.openAt?.toDate?.() ?? null;
+  let voice: InboxLetter['voice'] = null;
+  if (l.voice && l.voice.data) {
+    // base64면 data URL로 감싸고, 이미 https URL(향후 Storage)이면 그대로 사용
+    const isUrl = /^https?:\/\//i.test(l.voice.data);
+    voice = {
+      src: isUrl ? l.voice.data : `data:${l.voice.mime};base64,${l.voice.data}`,
+      mime: l.voice.mime,
+      duration: l.voice.duration,
+    };
+  }
+  return {
+    id: l.id,
+    from: l.from as '우댕' | '꼼이',
+    to: l.to as '우댕' | '꼼이',
+    body: l.body || '',
+    createdAt,
+    openAt,
+    voice,
+  };
 }
 
 // 상대에게 편지 전송 (openAt 주면 예약 편지, voice 주면 음성 편지)
