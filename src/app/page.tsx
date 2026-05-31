@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   Wind, Heart, PenLine, BookOpen,
-  RefreshCcw, ChevronRight, Shirt, Smile, Camera,
+  RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles,
 } from 'lucide-react';
 import TodayTomorrowWeather from '@/components/TodayTomorrowWeather';
 import { getInitialData } from '@/lib/api';
@@ -415,6 +415,23 @@ export default function KkomMorningHome() {
             <ChevronRight size={20} className="text-slate-400 shrink-0" />
           </button>
         )}
+
+        {/* 위시리스트 진입 카드 */}
+        <button
+          onClick={() => router.push('/wishlist')}
+          className="w-full bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center gap-4 text-left active:scale-[0.98] transition-all"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 text-[#10B981]">
+            <Sparkles size={22} strokeWidth={2.5} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+              <span className="text-xs font-bold">우리의 위시리스트</span>
+            </div>
+            <p className="text-sm font-bold text-slate-700">먹고 싶은 곳 · 가고 싶은 곳 · 보고 싶은 거</p>
+          </div>
+          <ChevronRight size={20} className="text-slate-400 shrink-0" />
+        </button>
 
         {/* 우리들의 서재 */}
         <button onClick={() => router.push('/novel')} className="w-full flex items-center justify-between p-6 rounded-[32px] bg-slate-800 text-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-transform text-left">
