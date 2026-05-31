@@ -10,7 +10,6 @@ import {
 import { getInitialData } from '@/lib/api';
 import { subscribeLatestLetterTo, nameFromCode, partnerOf, type Voice } from '@/lib/letters';
 import { subscribeMemories, type Memory } from '@/lib/memories';
-import MemoryGallery from '@/components/MemoryGallery';
 import { subscribeTodayMoods, setMyMood, MOOD_OPTIONS, type MoodMap } from '@/lib/moods';
 import type { WeatherData, OutfitGuide } from '@/types';
 
@@ -301,15 +300,25 @@ export default function KkomMorningHome() {
           </button>
         </div>
 
-        {/* 우리의 추억 */}
+        {/* 우리의 추억 — 진입 카드 (전체 갤러리는 /memories) */}
         {memories.length > 0 && (
-          <div className="bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1 px-2">
-              <Camera size={16} strokeWidth={2.5} />
-              <span className="text-sm font-bold">우리의 추억</span>
+          <button
+            onClick={() => router.push('/memories')}
+            className="w-full bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center gap-4 text-left active:scale-[0.98] transition-all"
+          >
+            <div className="relative w-16 h-16 rounded-2xl overflow-hidden shrink-0 bg-slate-100">
+              <img src={memories[0].imageUrl} alt={memories[0].title} className="w-full h-full object-cover" />
             </div>
-            <MemoryGallery photos={memories} />
-          </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                <Camera size={14} strokeWidth={2.5} />
+                <span className="text-xs font-bold">우리의 추억</span>
+              </div>
+              <p className="text-sm font-bold text-slate-700 truncate">{memories[0].title || '소중한 순간'}</p>
+              <p className="text-[11px] text-slate-400">총 {memories.length}장 · 모두 보기</p>
+            </div>
+            <ChevronRight size={20} className="text-slate-400 shrink-0" />
+          </button>
         )}
 
         {/* 우리들의 서재 */}
