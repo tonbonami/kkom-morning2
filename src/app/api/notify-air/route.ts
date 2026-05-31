@@ -71,9 +71,11 @@ export async function GET(req: NextRequest) {
   const tomorrow = air?.tomorrow?.summary || (air?.tomorrow?.grade ? `${air.tomorrow.grade} 예상` : null);
 
   // 등급 판정 — 나쁨/매우 나쁨 또는 force
-  const shouldSend = force || grade === '나쁨' || grade === '매우 나쁨';
+  // B안: 좋음/보통도 매일 발송. 단 '정보 없음' / '조회 실패' 같은 무효 등급은 건너뜀.
+  const validGrades = ['좋음', '보통', '나쁨', '매우 나쁨'];
+  const shouldSend = force || (!!grade && validGrades.includes(grade));
   if (!shouldSend) {
-    return NextResponse.json({ sent: 0, reason: 'grade ok', grade });
+    return NextResponse.json({ sent: 0, reason: 'no valid grade', grade });
   }
 
   const payload = makePayload(grade || '나쁨', tomorrow);

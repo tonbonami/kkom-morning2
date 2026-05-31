@@ -84,9 +84,11 @@ export async function GET(req: NextRequest) {
   const air = await airRes.json();
   const grade = air?.grade as string | undefined;
 
-  const shouldSend = force || grade === '나쁨' || grade === '매우 나쁨';
+  // B안: 좋음/보통도 매일 발송.
+  const validGrades = ['좋음', '보통', '나쁨', '매우 나쁨'];
+  const shouldSend = force || (!!grade && validGrades.includes(grade));
   if (!shouldSend) {
-    return NextResponse.json({ sent: 0, reason: 'grade ok', station: label, grade });
+    return NextResponse.json({ sent: 0, reason: 'no valid grade', station: label, grade });
   }
 
   const payload = makePayload(grade || '나쁨', label, isWeekend);
