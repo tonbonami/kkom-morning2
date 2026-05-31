@@ -104,6 +104,10 @@ export default function KkomMorningHome() {
   }, []);
 
   const getPochacco = () => {
+    // 우선순위: 미세먼지 보호 > 더위/추위 > 기본
+    if (air?.grade === '나쁨' || air?.grade === '매우 나쁨') {
+      return '/pochacco/pochacco_dust.png'; // 마스크 + 후드 ver
+    }
     const t = weather?.current?.temp ?? 0;
     if (t >= 28) return '/pochacco/pochacco_sohot.png'; // 아주 더움 — 땀 닦는 민소매 ver
     if (t >= 10) return '/pochacco_picnic.png';
