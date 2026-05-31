@@ -105,6 +105,7 @@ export default function KkomMorningHome() {
 
   const getPochacco = () => {
     const t = weather?.current?.temp ?? 0;
+    if (t >= 28) return '/pochacco/pochacco_sohot.png'; // 아주 더움 — 땀 닦는 민소매 ver
     if (t >= 10) return '/pochacco_picnic.png';
     if (t <= -1) return '/pochacco_cold.png';
     return '/pochacco.png';
