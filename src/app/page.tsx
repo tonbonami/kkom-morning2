@@ -13,6 +13,8 @@ import { subscribeLatestLetterTo, nameFromCode, partnerOf, type Voice } from '@/
 import { subscribeMemories, type Memory } from '@/lib/memories';
 import VoicePlayer from '@/components/VoicePlayer';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
+import { touchPresence, subscribePresence, formatPresenceRelative } from '@/lib/presence';
+import AirSkyVisual from '@/components/AirSkyVisual';
 import type { WeatherData, OutfitGuide } from '@/types';
 
 // 등급별 테마 (배경 그라데이션·텍스트·막대 색을 한 색으로 통일)
@@ -42,6 +44,8 @@ export default function KkomMorningHome() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dDay, setDDay] = useState(0);
   const [dateText, setDateText] = useState('');
+  const [partnerLastSeen, setPartnerLastSeen] = useState<Date | null>(null);
+  const [presenceTick, setPresenceTick] = useState(0); // 매분 재계산용
 
   const loadData = async (forceRefresh = false) => {
     setIsRefreshing(true);
@@ -81,6 +85,25 @@ export default function KkomMorningHome() {
     return () => { unsubLetter(); unsubMoods(); unsubMemories(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  // 접속 — 내 presence touch (마운트 + 5분마다 + 다시 보일 때마다) + 상대 구독
+  useEffect(() => {
+    if (!userName) return;
+    const partner = partnerOf(userName);
+    touchPresence(userName);
+    const heartbeat = setInterval(() => touchPresence(userName), 5 * 60 * 1000);
+    const onVis = () => { if (document.visibilityState === 'visible') touchPresence(userName); };
+    document.addEventListener('visibilitychange', onVis);
+    const unsub = subscribePresence(partner, setPartnerLastSeen);
+    // "N분 전" 표시 매 1분마다 재계산
+    const tick = setInterval(() => setPresenceTick((x) => x + 1), 60_000);
+    return () => {
+      clearInterval(heartbeat);
+      clearInterval(tick);
+      document.removeEventListener('visibilitychange', onVis);
+      unsub();
+    };
+  }, [userName]);
 
   useEffect(() => {
     let active = true;
@@ -159,6 +182,14 @@ export default function KkomMorningHome() {
         <div>
           <p className="text-sm font-semibold text-slate-500 mb-1 opacity-80">{dateText}</p>
           <h1 className="text-3xl font-extrabold tracking-tight">안녕, {userName} 👋</h1>
+          {/* 상대 접속 시각 — presenceTick으로 매 1분 재계산 */}
+          <p className="text-xs font-bold text-slate-500 mt-1.5">
+            <span className="text-[#10B981]">{partner}</span>
+            <span className="text-slate-400"> · </span>
+            <span suppressHydrationWarning>{formatPresenceRelative(partnerLastSeen)}</span>
+            {/* presenceTick 참조로 매분 리렌더 */}
+            <span className="hidden">{presenceTick}</span>
+          </p>
         </div>
         <button
           onClick={() => loadData(true)}
@@ -192,30 +223,10 @@ export default function KkomMorningHome() {
             </div>
           </div>
 
-          {/* 24시간 추세 + 내일 예보 */}
-          <div className="bg-white/60 backdrop-blur-xl rounded-[32px] p-5 shadow-[0_2px_24px_rgba(0,0,0,0.03)] border border-white/40">
-            {allHourly.length > 0 ? (
-              <div className="mb-4">
-                <div className="flex items-end justify-between h-12 gap-[2px]">
-                  {allHourly.map((h: any, i: number) => {
-                    const height = Math.max(16, Math.min(100, (h.pm10 / maxPm) * 100));
-                    const isNow = i === allHourly.length - 1;
-                    return (
-                      <div key={i} className="flex-1 flex items-end h-full" title={`${(h.time || '').slice(11, 16)} · ${h.pm10}㎍/㎥`}>
-                        <div className={`w-full rounded-[2px] ${theme.bar} ${isNow ? 'opacity-100' : 'opacity-50'}`} style={{ height: `${height}%` }} />
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="flex justify-between text-[11px] font-semibold text-slate-400 mt-1.5">
-                  <span>24시간 전</span>
-                  <span>지금 <strong className="text-slate-600">{allHourly[allHourly.length - 1]?.pm10}</strong></span>
-                </div>
-              </div>
-            ) : (
-              <div className="h-12 flex items-center justify-center text-xs text-slate-300 mb-4">추세 불러오는 중</div>
-            )}
-            <div className="pt-4 border-t border-slate-200/50 flex items-center justify-between text-sm">
+          {/* SVG 하늘 — 등급별 비주얼 (맑은하늘/뿌연하늘/먼지) + 내일 예보 */}
+          <div className="bg-white rounded-[32px] overflow-hidden shadow-[0_2px_24px_rgba(0,0,0,0.03)] border border-white/40">
+            <AirSkyVisual grade={air?.grade} height={170} />
+            <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between text-sm">
               <span className="font-semibold text-slate-600">내일 예보</span>
               <span className="text-slate-500">{air?.tomorrow?.summary || (air?.tomorrow?.grade ? `${air.tomorrow.grade} 예상` : '준비 중')}</span>
             </div>
