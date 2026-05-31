@@ -273,9 +273,12 @@ export default function KkomMorningHome() {
                     onClick={() => pickMood(opt)}
                     title={opt.label}
                     aria-label={opt.label}
-                    className="aspect-square rounded-xl bg-slate-50 hover:bg-emerald-50 active:scale-90 transition-all flex items-center justify-center p-1"
+                    className="aspect-square rounded-xl bg-slate-50 hover:bg-emerald-50 active:scale-90 transition-all flex flex-col items-center justify-center gap-0.5 p-1"
                   >
-                    <Image src={opt.image} alt={opt.label} width={40} height={40} className="drop-shadow-sm" />
+                    <Image src={opt.image} alt={opt.label} width={36} height={36} className="drop-shadow-sm" />
+                    <span className="text-[10px] font-bold text-slate-500 leading-none whitespace-nowrap">
+                      {opt.label}
+                    </span>
                   </button>
                 ))}
               </div>
