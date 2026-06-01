@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // data.go.kr 키는 계정 단위로 공통 → AIRKOREA_SERVICE_KEY 그대로 사용 가능
 const KEY = process.env.KMA_SERVICE_KEY || process.env.AIRKOREA_SERVICE_KEY;
-const NX = Number(process.env.KMA_NX || '64'); // 호평동(남양주) 근처
-const NY = Number(process.env.KMA_NY || '128');
+const DEFAULT_NX = Number(process.env.KMA_NX || '64'); // 호평동(남양주) 근처
+const DEFAULT_NY = Number(process.env.KMA_NY || '128');
 const BASE = 'https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst';
 
 const FCST_TIMES = [200, 500, 800, 1100, 1400, 1700, 2000, 2300]; // 단기예보 발표 시각(KST)
@@ -39,7 +39,12 @@ function getBase(): { baseDate: string; baseTime: string } {
   return { baseDate: ymd(adjusted), baseTime: pad4(baseTimeNum) };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // 쿼리로 nx/ny 받으면 우선, 없으면 env default(호평동)
+  const u = new URL(req.url);
+  const NX = Number(u.searchParams.get('nx')) || DEFAULT_NX;
+  const NY = Number(u.searchParams.get('ny')) || DEFAULT_NY;
+
   const fallback = { current: null, today: null, tomorrow: null };
   if (!KEY) return NextResponse.json({ ...fallback, error: 'KMA/data.go.kr 키 미설정' });
 

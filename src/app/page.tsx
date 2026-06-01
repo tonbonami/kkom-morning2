@@ -5,8 +5,15 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   Wind, Heart, PenLine, BookOpen,
-  RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles,
+  RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2,
 } from 'lucide-react';
+
+// 화면에서 보는 위치 (알림 cron과 별개로 사용자가 선택)
+const LOCATIONS = {
+  home: { label: '호평동', station: '금곡동', region: '경기북부', nx: 64, ny: 128 },
+  work: { label: '서울 중구', station: '중구', region: '서울', nx: 60, ny: 127 },
+} as const;
+type LocKey = keyof typeof LOCATIONS;
 import TodayTomorrowWeather from '@/components/TodayTomorrowWeather';
 import { getInitialData } from '@/lib/api';
 import { subscribeLatestLetterTo, nameFromCode, partnerOf, type Voice } from '@/lib/letters';
@@ -49,6 +56,7 @@ export default function KkomMorningHome() {
   const [partnerPresence, setPartnerPresence] = useState<Presence>({ lastSeenAt: null, active: false });
   const [presenceTick, setPresenceTick] = useState(0); // 매분 재계산용
   const [pushState, setPushState] = useState<PushState>('unknown');
+  const [locKey, setLocKey] = useState<LocKey>('home'); // 화면 위치 선택
 
   const loadData = async (forceRefresh = false) => {
     setIsRefreshing(true);
@@ -84,6 +92,10 @@ export default function KkomMorningHome() {
     start.setHours(0, 0, 0, 0); today.setHours(0, 0, 0, 0);
     setDDay(Math.floor((today.getTime() - start.getTime()) / 86400000) + 1);
     setDateText(new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' }));
+
+    // 저장된 위치 선택 복구
+    const savedLoc = localStorage.getItem('kkom-loc');
+    if (savedLoc === 'home' || savedLoc === 'work') setLocKey(savedLoc);
 
     return () => { unsubLetter(); unsubMoods(); unsubMemories(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -139,26 +151,36 @@ export default function KkomMorningHome() {
     else alert(r.error || '알림을 켤 수 없어요.');
   };
 
+  // 미세먼지: locKey 바뀔 때마다 재구독 (5분 갱신)
   useEffect(() => {
+    const loc = LOCATIONS[locKey];
     let active = true;
-    const load = () => fetch('/api/air').then((r) => r.json()).then((a) => { if (active) setAir(a); }).catch(() => {});
+    const url = `/api/air?station=${encodeURIComponent(loc.station)}&region=${encodeURIComponent(loc.region)}`;
+    const load = () => fetch(url).then((r) => r.json()).then((a) => { if (active) setAir(a); }).catch(() => {});
     load();
     const id = setInterval(load, 5 * 60 * 1000);
     return () => { active = false; clearInterval(id); };
-  }, []);
+  }, [locKey]);
 
-  // 날씨: /api/weather (기상청 단기예보) 10분 갱신
+  // 날씨: locKey 바뀔 때마다 재구독 (10분 갱신)
   useEffect(() => {
+    const loc = LOCATIONS[locKey];
     let active = true;
+    const url = `/api/weather?nx=${loc.nx}&ny=${loc.ny}`;
     const load = () =>
-      fetch('/api/weather')
+      fetch(url)
         .then((r) => r.json())
         .then((w) => { if (active && w && (w.current || w.today)) setWeather(w as any); })
         .catch(() => {});
     load();
     const id = setInterval(load, 10 * 60 * 1000);
     return () => { active = false; clearInterval(id); };
-  }, []);
+  }, [locKey]);
+
+  const changeLoc = (k: LocKey) => {
+    setLocKey(k);
+    try { localStorage.setItem('kkom-loc', k); } catch {}
+  };
 
   const getPochacco = () => {
     // 우선순위: 미세먼지 보호 > 더위/추위 > 기본
@@ -233,6 +255,29 @@ export default function KkomMorningHome() {
           <RefreshCcw size={20} className={isRefreshing ? 'animate-spin' : ''} />
         </button>
       </header>
+
+      {/* 위치 토글 — 화면 표시 위치 (알림 정책과 별개) */}
+      <div className="relative z-10 px-6 pt-2 pb-1">
+        <div className="inline-flex bg-white/70 backdrop-blur-md rounded-full p-1 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
+          {(['home', 'work'] as const).map((k) => {
+            const active = locKey === k;
+            const loc = LOCATIONS[k];
+            const Icon = k === 'home' ? Home : Building2;
+            return (
+              <button
+                key={k}
+                onClick={() => changeLoc(k)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors ${
+                  active ? 'bg-[#10B981] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Icon size={12} strokeWidth={2.5} />
+                {loc.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* 2. 포차코 + 미세먼지 (카드 아닌 공간으로 존재) */}
       <section className="relative z-10 px-6 pt-2 pb-8">
