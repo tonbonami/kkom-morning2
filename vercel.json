@@ -7,10 +7,6 @@
     {
       "path": "/api/notify-air",
       "schedule": "0 22 * * *"
-    },
-    {
-      "path": "/api/notify-pending-letters",
-      "schedule": "*/5 * * * *"
     }
   ]
 }
