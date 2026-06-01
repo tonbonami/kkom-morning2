@@ -316,7 +316,7 @@ export default function ShareListV1({
             >
               <div className="px-6 pt-5 pb-3 flex items-center justify-between bg-white sticky top-0 z-10">
                 <h2 className="text-xl font-black text-slate-800">
-                  {me === '우댕' ? '꼼이야 이거 봐봐 💚' : '우댕아 이거 봐봐 💚'}
+                  {me === '우댕' ? '우댕아 이거 봐봐 💚' : '꼼이야 이거 봐봐 💚'}
                 </h2>
                 <button onClick={() => !isSubmitting && setIsAdding(false)} className="p-2 bg-slate-50 rounded-full text-slate-400 hover:bg-slate-100 transition-colors">
                   <X size={20} />

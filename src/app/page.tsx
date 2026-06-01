@@ -532,8 +532,8 @@ export default function KkomMorningHome() {
             </div>
             <p className="text-sm font-bold text-slate-700">
               {shares.length === 0
-                ? `${vocativeOf(partner)} 이거 봐봐 💚`
-                : `${vocativeOf(partner)} 이거 봐봐 💚 · 총 ${shares.length}개`}
+                ? `${vocativeOf(userName)} 이거 봐봐 💚`
+                : `${vocativeOf(userName)} 이거 봐봐 💚 · 총 ${shares.length}개`}
             </p>
           </div>
           <ChevronRight size={20} className="text-slate-400 shrink-0" />
