@@ -51,11 +51,10 @@ const formatRelative = (d: Date) => {
   return `${d.getMonth() + 1}월 ${d.getDate()}일`;
 };
 
-// 헬퍼: 하트 카운트 포맷
+// 헬퍼: 하트 카운트 포맷 — 999까지 풀 표시, 1000+ 부터만 압축
 const formatCount = (n?: number) => {
   const cnt = n || 0;
   if (cnt >= 1000) return (cnt / 1000).toFixed(1) + 'k+';
-  if (cnt >= 100) return '100+';
   return cnt.toString();
 };
 
