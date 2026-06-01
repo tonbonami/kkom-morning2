@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   Wind, Heart, PenLine, BookOpen,
-  RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2,
+  RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2,
 } from 'lucide-react';
 
 // 화면에서 보는 위치 (알림 cron과 별개로 사용자가 선택)
@@ -549,6 +549,23 @@ export default function KkomMorningHome() {
               <span className="text-xs font-bold">우리의 위시리스트</span>
             </div>
             <p className="text-sm font-bold text-slate-700">먹고 싶은 곳 · 가고 싶은 곳 · 보고 싶은 거</p>
+          </div>
+          <ChevronRight size={20} className="text-slate-400 shrink-0" />
+        </button>
+
+        {/* 또 갈래 진입 카드 */}
+        <button
+          onClick={() => router.push('/again')}
+          className="w-full bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center gap-4 text-left active:scale-[0.98] transition-all"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 text-[#10B981]">
+            <CheckCircle2 size={22} strokeWidth={2.5} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+              <span className="text-xs font-bold">또 갈래</span>
+            </div>
+            <p className="text-sm font-bold text-slate-700">또 가고 싶은 곳 · 단골</p>
           </div>
           <ChevronRight size={20} className="text-slate-400 shrink-0" />
         </button>

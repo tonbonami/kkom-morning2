@@ -57,11 +57,11 @@ const CATEGORY_TEXT_COLORS = {
   done: 'text-slate-800'
 };
 
+// '다녀온 곳' 탭은 별도 페이지(또 갈래)로 분리됨 — 여기선 미래형 3탭만
 const TABS: { id: Category; label: string; icon: React.ReactNode; color: string }[] = [
   { id: 'food', label: '먹을곳', icon: <Utensils size={14} />, color: CATEGORY_COLORS.food },
   { id: 'place', label: '갈곳', icon: <Map size={14} />, color: CATEGORY_COLORS.place },
   { id: 'watch', label: '볼것', icon: <MonitorPlay size={14} />, color: CATEGORY_COLORS.watch },
-  { id: 'done', label: '다녀온 곳', icon: <CheckCircle2 size={14} />, color: CATEGORY_COLORS.done },
 ];
 
 export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, onAddPhoto, onBack, fetchPreview, onOpenLink }: Props) {
