@@ -15,8 +15,9 @@ export interface Presence {
   active: boolean;
 }
 
-// '지금 함께'로 칠 시간 (heartbeat 2분 + 여유 1분)
-const ACTIVE_THRESHOLD_MS = 3 * 60 * 1000;
+// '지금 함께'로 칠 시간 — heartbeat 1분 + 약간의 여유.
+// 짧게 잡아야 background에서 잠깐 깬 세션이 오래 fresh로 안 남음.
+const ACTIVE_THRESHOLD_MS = 90 * 1000;
 
 export async function touchPresence(name: string, active: boolean): Promise<void> {
   if (!name) return;
@@ -54,6 +55,7 @@ export function subscribePresence(
 
 // '지금 함께 💚' / '5분 전' 등으로 변환
 // active 플래그 + 최근 활동 두 조건 모두 충족해야 '지금 함께'
+// '방금 전'이라는 표현은 background heartbeat로 잘못 트리거되기 쉬워서 빼고 분 단위로 정직하게.
 export function formatPresenceRelative(p: Presence): string {
   if (!p.lastSeenAt) return '아직 한 번도';
   const now = Date.now();
@@ -62,8 +64,8 @@ export function formatPresenceRelative(p: Presence): string {
   // 시계 어긋남 보정: 클라이언트가 서버 시간보다 약간 빨라도 active 플래그 우선
   if (p.active && diff < ACTIVE_THRESHOLD_MS) return '지금 함께 💚';
 
-  const min = Math.floor(diff / 60_000);
-  if (min < 1) return '방금 전';
+  // 1분 미만은 '1분 전'으로 통일 (이전 '방금 전' 표현이 오해 유발)
+  const min = Math.max(1, Math.floor(diff / 60_000));
   if (min < 60) return `${min}분 전`;
   const hour = Math.floor(min / 60);
   if (hour < 24) return `${hour}시간 전`;

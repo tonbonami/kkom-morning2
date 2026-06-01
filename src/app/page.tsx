@@ -112,11 +112,12 @@ export default function KkomMorningHome() {
     const partner = partnerOf(userName);
     // 마운트 시 active=true
     touchPresence(userName, true);
-    // 2분마다 heartbeat (단, 페이지가 visible일 때만 active=true)
+    // 1분마다 heartbeat (단, 페이지가 visible일 때만 active=true)
+    // 더 자주 → background 가면 빠르게 stale로 빠짐 → '지금 함께' 오탐 줄음
     const heartbeat = setInterval(() => {
       const visible = document.visibilityState === 'visible';
       touchPresence(userName, visible);
-    }, 2 * 60 * 1000);
+    }, 60 * 1000);
     // 페이지 visible/hidden 전환마다 명시적으로 표시
     const onVis = () => {
       touchPresence(userName, document.visibilityState === 'visible');

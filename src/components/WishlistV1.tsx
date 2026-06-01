@@ -214,14 +214,27 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
                 key={item.id}
-                className={`relative bg-white rounded-[28px] p-4 flex gap-4 shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden transition-opacity ${
-                  isDone ? 'opacity-75 bg-slate-50/50' : ''
-                }`}
+                className="relative w-full rounded-[28px] overflow-hidden bg-red-50 shadow-[0_4px_20px_rgba(0,0,0,0.04)]"
               >
+                {/* Delete background — swipe로 드러남 */}
+                <div className="absolute inset-y-0 right-0 w-24 flex items-center justify-center text-red-500 bg-red-100">
+                  <Trash2 size={24} />
+                </div>
+
+                {/* 드래그 가능한 카드 본체 */}
+                <motion.div
+                  drag="x"
+                  dragConstraints={{ left: -80, right: 0 }}
+                  dragElastic={0.2}
+                  onDragEnd={(_, info) => { if (info.offset.x < -60) onDelete(item.id); }}
+                  className={`relative z-10 bg-white rounded-[28px] p-4 flex gap-4 cursor-pointer transition-opacity ${
+                    isDone ? 'opacity-75 bg-slate-50/50' : ''
+                  }`}
+                >
                 {/* Left: Image or Icon */}
                 <div className="shrink-0 flex flex-col items-center">
                   {item.preview?.image ? (
-                    <img src={item.preview.image} alt="" className={`w-14 h-14 rounded-full object-cover shadow-sm ${isDone ? 'grayscale opacity-80' : ''}`} />
+                    <img src={item.preview.image} alt="" className={`w-14 h-14 rounded-full object-cover shadow-sm ${isDone ? 'grayscale opacity-80' : ''}`} draggable={false} />
                   ) : (
                     <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-sm ${isDone ? 'bg-slate-300' : categoryColor}`}>
                       {item.category === 'food' ? <Utensils size={24} /> : item.category === 'place' ? <Map size={24} /> : <MonitorPlay size={24} />}
@@ -236,25 +249,19 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                       {item.title}
                     </h3>
 
-                    {/* Checkbox (or Trash if done tab) */}
+                    {/* '또 갈래로!' 체크 버튼 — 휴지통은 제거(스와이프로 대체) */}
                     <div className="flex items-center gap-2">
                       <motion.button
                         whileTap={{ scale: 0.8 }}
-                        onClick={() => {
-                          if (confirm('삭제하시겠어요?')) onDelete(item.id);
-                        }}
-                        className="text-slate-300 hover:text-red-400 p-1"
-                      >
-                        <Trash2 size={16} />
-                      </motion.button>
-                      <motion.button
-                        whileTap={{ scale: 0.8 }}
                         onClick={() => onToggleDone(item.id, !isDone)}
-                        className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-colors shadow-sm ${
-                          isDone ? 'bg-[#10B981] text-white border-none' : 'bg-white border-2 border-slate-200 text-transparent hover:border-[#10B981]'
+                        aria-label="또 갈래로 보내기"
+                        title="또 갈래로 보내기"
+                        className={`shrink-0 flex items-center gap-1 px-2.5 h-8 rounded-full transition-colors shadow-sm text-[11px] font-bold ${
+                          isDone ? 'bg-[#10B981] text-white' : 'bg-emerald-50 text-[#10B981] hover:bg-emerald-100'
                         }`}
                       >
-                        <Check size={16} strokeWidth={3} className={isDone ? 'opacity-100' : 'opacity-0'} />
+                        <Check size={13} strokeWidth={3} />
+                        또 갈래
                       </motion.button>
                     </div>
                   </div>
@@ -290,6 +297,7 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                     )}
                   </div>
                 </div>
+                </motion.div>
               </motion.div>
             );
           })}
