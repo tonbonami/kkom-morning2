@@ -161,15 +161,31 @@ export async function sendLetter(
   openAt?: Date | null,
   voice?: Voice | null
 ): Promise<void> {
+  const to = partnerOf(from);
   const data: Record<string, unknown> = {
     from,
-    to: partnerOf(from),
+    to,
     body: body.trim(),
     createdAt: serverTimestamp(),
   };
   if (openAt) data.openAt = Timestamp.fromDate(openAt);
   if (voice && voice.data) data.voice = voice;
   await addDoc(collection(db, 'letters'), data);
+
+  // 도착 푸시 — 즉시 편지면 곧바로, 예약 편지면 cron이 도착 시각에 보냄.
+  // 푸시 실패는 편지 전송 자체엔 영향 주지 않음(.catch 흡수).
+  const isScheduled = !!openAt;
+  fetch('/api/notify-letter', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to,
+      from,
+      hasBody: !!body.trim(),
+      hasVoice: !!(voice && voice.data),
+      isScheduled,
+    }),
+  }).catch(() => {});
 }
 
 // 음성 Blob을 Firebase Storage에 올리고 다운로드 URL 반환.
