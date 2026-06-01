@@ -18,6 +18,7 @@ import TodayTomorrowWeather from '@/components/TodayTomorrowWeather';
 import { getInitialData } from '@/lib/api';
 import { subscribeLatestLetterTo, nameFromCode, partnerOf, type Voice } from '@/lib/letters';
 import { subscribeMemories, type Memory } from '@/lib/memories';
+import { subscribeShareList, type ShareItemView } from '@/lib/share';
 import VoicePlayer from '@/components/VoicePlayer';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
 import { touchPresence, subscribePresence, formatPresenceRelative, type Presence } from '@/lib/presence';
@@ -58,6 +59,7 @@ export default function KkomMorningHome() {
   const [presenceTick, setPresenceTick] = useState(0); // 매분 재계산용
   const [pushState, setPushState] = useState<PushState>('unknown');
   const [locKey, setLocKey] = useState<LocKey>('home'); // 화면 위치 선택
+  const [shares, setShares] = useState<ShareItemView[]>([]);
 
   const loadData = async (forceRefresh = false) => {
     setIsRefreshing(true);
@@ -88,6 +90,7 @@ export default function KkomMorningHome() {
     });
     const unsubMoods = subscribeTodayMoods(setMoods);
     const unsubMemories = subscribeMemories(setMemories);
+    const unsubShares = subscribeShareList(setShares);
 
     const start = new Date('2023-09-28');
     const today = new Date();
@@ -99,7 +102,7 @@ export default function KkomMorningHome() {
     const savedLoc = localStorage.getItem('kkom-loc');
     if (savedLoc === 'home' || savedLoc === 'work') setLocKey(savedLoc);
 
-    return () => { unsubLetter(); unsubMoods(); unsubMemories(); };
+    return () => { unsubLetter(); unsubMoods(); unsubMemories(); unsubShares(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
@@ -257,6 +260,23 @@ export default function KkomMorningHome() {
           <RefreshCcw size={20} className={isRefreshing ? 'animate-spin' : ''} />
         </button>
       </header>
+
+      {/* Share List 알림 바 — 미확인 카드 있을 때만 (홈 only) */}
+      {(() => {
+        const unseen = shares.filter((s) => !s.seenBy.includes(userName as '우댕' | '꼼이')).length;
+        if (unseen <= 0) return null;
+        return (
+          <button
+            onClick={() => router.push('/share')}
+            className="relative z-10 mx-6 mt-2 w-[calc(100%-3rem)] bg-[#FCD34D]/95 hover:bg-[#FCD34D] text-yellow-900 rounded-full px-4 py-2.5 flex items-center justify-between gap-2 shadow-[0_4px_16px_rgba(252,211,77,0.35)] active:scale-[0.98] transition-all"
+          >
+            <span className="flex items-center gap-1.5 text-[13px] font-bold">
+              <Sparkles size={14} fill="currentColor" /> 새로운 Share List {unseen}개 있어요
+            </span>
+            <ChevronRight size={16} strokeWidth={2.5} />
+          </button>
+        );
+      })()}
 
       {/* 위치 토글 — 화면 표시 위치 (알림 정책과 별개) */}
       <div className="relative z-10 px-6 pt-2 pb-1">
@@ -496,6 +516,25 @@ export default function KkomMorningHome() {
             <ChevronRight size={20} className="text-slate-400 shrink-0" />
           </button>
         )}
+
+        {/* Share List 진입 카드 */}
+        <button
+          onClick={() => router.push('/share')}
+          className="w-full bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center gap-4 text-left active:scale-[0.98] transition-all"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-yellow-50 flex items-center justify-center shrink-0 text-[#FCD34D]">
+            <Sparkles size={22} strokeWidth={2.5} fill="currentColor" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+              <span className="text-xs font-bold">Share List</span>
+            </div>
+            <p className="text-sm font-bold text-slate-700">
+              {shares.length === 0 ? '둘이서 가볍게 공유해봐 💚' : `총 ${shares.length}개 · 둘이서 본 거`}
+            </p>
+          </div>
+          <ChevronRight size={20} className="text-slate-400 shrink-0" />
+        </button>
 
         {/* 위시리스트 진입 카드 */}
         <button
