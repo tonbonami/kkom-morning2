@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Image as ImageIcon, Trash2, ChevronLeft, ChevronRight, Calendar, Type, AlignLeft } from 'lucide-react';
-import { subscribeMemories, addMemory, deleteMemory, compressImage, type Memory } from '@/lib/memories';
+import { Plus, X, Image as ImageIcon, Trash2, ChevronLeft, ChevronRight, Calendar, Type, AlignLeft, Pencil } from 'lucide-react';
+import { subscribeMemories, addMemory, updateMemory, deleteMemory, compressImage, type Memory } from '@/lib/memories';
 
 export default function MemoryGalleryV2() {
   const [isMounted, setIsMounted] = useState(false);
@@ -18,6 +18,8 @@ export default function MemoryGalleryV2() {
   const [uploadDesc, setUploadDesc] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // editingId가 set되면 sheet는 '수정' 모드로 동작 (사진 변경 X, title/date/desc만 업데이트)
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -37,6 +39,28 @@ export default function MemoryGalleryV2() {
   };
 
   const handleUpload = async () => {
+    if (editingId) {
+      // 수정 모드 — title/date/description만 patch
+      if (!uploadTitle || !uploadDate) {
+        alert('제목과 날짜는 비울 수 없어요!');
+        return;
+      }
+      setIsUploading(true);
+      try {
+        await updateMemory(editingId, {
+          title: uploadTitle,
+          date: uploadDate,
+          description: uploadDesc,
+        });
+        closeUploadSheet();
+      } catch (error) {
+        alert('수정에 실패했어요. 다시 시도해주세요.');
+      } finally {
+        setIsUploading(false);
+      }
+      return;
+    }
+    // 신규 업로드 모드
     if (!previewUrl || !uploadTitle || !uploadDate) {
       alert('사진과 제목, 날짜를 모두 입력해주세요!');
       return;
@@ -59,6 +83,21 @@ export default function MemoryGalleryV2() {
     }
   };
 
+  // 라이트박스에서 ✏️ 누르면 호출 — 폼 채워서 sheet 열기
+  const handleOpenEdit = (mem: Memory) => {
+    if (mem.id.startsWith('seed-')) {
+      alert('시드 사진은 수정할 수 없어요.');
+      return;
+    }
+    setEditingId(mem.id);
+    setUploadTitle(mem.title || '');
+    setUploadDate(mem.date || new Date().toISOString().split('T')[0]);
+    setUploadDesc(mem.description || '');
+    setPreviewUrl(mem.imageUrl); // 미리보기엔 기존 이미지 표시
+    setSelectedPhotoIndex(null); // 라이트박스 닫고
+    setIsAdding(true);            // sheet 열기
+  };
+
   const closeUploadSheet = () => {
     setIsAdding(false);
     setTimeout(() => {
@@ -66,6 +105,7 @@ export default function MemoryGalleryV2() {
       setUploadTitle('');
       setUploadDesc('');
       setUploadDate(new Date().toISOString().split('T')[0]);
+      setEditingId(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }, 300);
   };
@@ -181,27 +221,34 @@ export default function MemoryGalleryV2() {
               className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[32px] z-50 overflow-hidden flex flex-col max-h-[90vh]"
             >
               <div className="px-6 pt-5 pb-3 flex items-center justify-between bg-white sticky top-0 z-10">
-                <h2 className="text-xl font-bold text-gray-900">새로운 추억 기록</h2>
+                <h2 className="text-xl font-bold text-gray-900">{editingId ? '추억 수정' : '새로운 추억 기록'}</h2>
                 <button onClick={closeUploadSheet} className="p-2 bg-gray-100 rounded-full text-gray-500">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="px-6 pb-8 overflow-y-auto custom-scrollbar">
-                {/* Photo Select */}
+                {/* Photo Select — 수정 모드에선 사진 변경 잠금 (이미지만 표시) */}
                 <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`w-full aspect-[4/3] rounded-[28px] overflow-hidden flex items-center justify-center cursor-pointer transition-colors relative ${
+                  onClick={() => { if (!editingId) fileInputRef.current?.click(); }}
+                  className={`w-full aspect-[4/3] rounded-[28px] overflow-hidden flex items-center justify-center transition-colors relative ${
                     previewUrl ? 'bg-black' : 'bg-[#F7F9F9] border-2 border-dashed border-[#99E6D9]'
-                  }`}
+                  } ${editingId ? 'cursor-default' : 'cursor-pointer'}`}
                 >
                   <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                   {previewUrl ? (
                     <>
                       <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                        <span className="bg-white/90 text-gray-800 px-4 py-2 rounded-full text-sm font-semibold">사진 변경</span>
-                      </div>
+                      {!editingId && (
+                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                          <span className="bg-white/90 text-gray-800 px-4 py-2 rounded-full text-sm font-semibold">사진 변경</span>
+                        </div>
+                      )}
+                      {editingId && (
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/70 text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
+                          사진은 수정 불가
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="flex flex-col items-center text-[#10B981]">
@@ -242,7 +289,11 @@ export default function MemoryGalleryV2() {
                   disabled={isUploading}
                   className="w-full mt-8 py-4 bg-[#10B981] text-white rounded-[24px] font-bold text-lg shadow-[0_8px_24px_rgba(16,185,129,0.25)] disabled:opacity-70 flex items-center justify-center"
                 >
-                  {isUploading ? <span className="animate-pulse">올리는 중...</span> : '추억 저장하기'}
+                  {isUploading ? (
+                    <span className="animate-pulse">{editingId ? '저장 중...' : '올리는 중...'}</span>
+                  ) : (
+                    editingId ? '수정 저장' : '추억 저장하기'
+                  )}
                 </motion.button>
               </div>
             </motion.div>
@@ -262,9 +313,18 @@ export default function MemoryGalleryV2() {
               <button onClick={() => setSelectedPhotoIndex(null)} className="p-2 bg-white/10 rounded-full backdrop-blur-md">
                 <X className="w-6 h-6" />
               </button>
-              <button onClick={() => handleDelete(selectedMemory.id)} className="p-2 bg-white/10 rounded-full backdrop-blur-md text-red-400 hover:text-red-300">
-                <Trash2 className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleOpenEdit(selectedMemory)}
+                  className="p-2 bg-white/10 rounded-full backdrop-blur-md text-white/90 hover:text-white"
+                  aria-label="수정"
+                >
+                  <Pencil className="w-5 h-5" />
+                </button>
+                <button onClick={() => handleDelete(selectedMemory.id)} className="p-2 bg-white/10 rounded-full backdrop-blur-md text-red-400 hover:text-red-300">
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Lightbox Image */}

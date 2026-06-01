@@ -1,6 +1,7 @@
 import { db } from './firebase';
 import {
-  collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, Timestamp,
+  collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp,
+  type DocumentData,
 } from 'firebase/firestore';
 
 export type Memory = {
@@ -31,14 +32,18 @@ export const SEED_MEMORIES: Memory[] = [
   },
 ];
 
-// 실시간 구독 (최신 날짜 순). Firestore 비어있으면 시드 보여줌.
+// 실시간 구독 — 업로드 시각(createdAt) 내림차순. 새로 올린 사진이 항상 맨 위.
+// createdAt 없으면 date 필드를 폴백으로 사용.
 export function subscribeMemories(cb: (memories: Memory[]) => void): () => void {
   return onSnapshot(
     collection(db, 'memories'),
     (snap) => {
-      // doc.data()에 혹시 id 필드가 있어도 Firestore 문서 id가 무조건 우선되도록 spread 순서 보장
       const docs = snap.docs.map((d) => ({ ...(d.data() as Omit<Memory, 'id'>), id: d.id }));
-      docs.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      docs.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() ?? new Date(a.date || 0).getTime();
+        const bTime = b.createdAt?.toMillis?.() ?? new Date(b.date || 0).getTime();
+        return bTime - aTime;
+      });
       cb(docs.length > 0 ? docs : SEED_MEMORIES);
     },
     (err) => {
@@ -65,6 +70,23 @@ export async function deleteMemory(id: string): Promise<void> {
     throw new Error('시드 사진은 삭제할 수 없어요 (코드에 들어있음).');
   }
   await deleteDoc(doc(db, 'memories', id));
+}
+
+// 추억 부분 수정 (title/date/description/by). id·createdAt·imageUrl은 보호.
+export async function updateMemory(
+  id: string,
+  patch: Partial<Pick<Memory, 'title' | 'date' | 'description' | 'by'>>
+): Promise<void> {
+  if (id.startsWith('seed-')) {
+    throw new Error('시드 사진은 수정할 수 없어요.');
+  }
+  const clean: DocumentData = {};
+  if (patch.title !== undefined) clean.title = patch.title;
+  if (patch.date !== undefined) clean.date = patch.date;
+  if (patch.description !== undefined) clean.description = patch.description;
+  if (patch.by !== undefined) clean.by = patch.by;
+  if (Object.keys(clean).length === 0) return;
+  await updateDoc(doc(db, 'memories', id), clean);
 }
 
 /**
