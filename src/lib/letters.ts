@@ -179,15 +179,17 @@ export async function sendLetter(
   };
   if (openAt) data.openAt = Timestamp.fromDate(openAt);
   if (voice && voice.data) data.voice = voice;
-  await addDoc(collection(db, 'letters'), data);
+  const ref = await addDoc(collection(db, 'letters'), data);
 
   // 도착 푸시 — 즉시 편지면 곧바로, 예약 편지면 cron이 도착 시각에 보냄.
-  // 푸시 실패는 편지 전송 자체엔 영향 주지 않음(.catch 흡수).
+  // KST 22-07시(방해 금지)면 서버에서 push 미루고 다음날 07:05 배치로.
+  // letterId 같이 전달해야 서버가 pendingNotify 표시 가능.
   const isScheduled = !!openAt;
   fetch('/api/notify-letter', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      letterId: ref.id,
       to,
       from,
       hasBody: !!body.trim(),
