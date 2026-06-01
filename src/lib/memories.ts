@@ -1,6 +1,7 @@
 import { db } from './firebase';
 import {
   collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp,
+  query, orderBy, increment,
   type DocumentData,
 } from 'firebase/firestore';
 
@@ -12,6 +13,16 @@ export type Memory = {
   description: string;
   by?: string;        // 올린 사람 (꼼이 / 우댕)
   createdAt?: Timestamp | null;
+  hearts?: number;          // 하트 무한 카운터
+  commentCount?: number;    // 댓글 수 (메모리 doc에 캐싱, increment로 유지)
+};
+
+// 추억 댓글
+export type MemoryComment = {
+  id: string;
+  by: '우댕' | '꼼이';
+  text: string;
+  createdAt: Date;
 };
 
 // 시드: public/memories 의 사진 (Firestore가 비어있을 때만 보임)
@@ -87,6 +98,81 @@ export async function updateMemory(
   if (patch.by !== undefined) clean.by = patch.by;
   if (Object.keys(clean).length === 0) return;
   await updateDoc(doc(db, 'memories', id), clean);
+}
+
+// 하트 +1 (시드 사진은 silently skip — 실제 doc이 없어서 increment 불가)
+export async function incrementHearts(id: string): Promise<void> {
+  if (id.startsWith('seed-')) return;
+  try {
+    await updateDoc(doc(db, 'memories', id), { hearts: increment(1) });
+  } catch (e) {
+    console.warn('하트 추가 실패:', e);
+  }
+}
+
+// 댓글 — memories/{id}/comments 서브컬렉션
+export function subscribeMemoryComments(
+  memoryId: string,
+  cb: (comments: MemoryComment[]) => void
+): () => void {
+  if (memoryId.startsWith('seed-')) {
+    cb([]);
+    return () => {};
+  }
+  const q = query(
+    collection(db, 'memories', memoryId, 'comments'),
+    orderBy('createdAt', 'asc')
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const items = snap.docs.map((d) => {
+        const data = d.data() as { by: '우댕' | '꼼이'; text: string; createdAt?: Timestamp | null };
+        return {
+          id: d.id,
+          by: data.by,
+          text: data.text,
+          createdAt: data.createdAt?.toDate?.() ?? new Date(),
+        };
+      });
+      cb(items);
+    },
+    (err) => {
+      console.error('memory comments 구독 오류:', err);
+      cb([]);
+    }
+  );
+}
+
+export async function addMemoryComment(
+  memoryId: string,
+  by: '우댕' | '꼼이',
+  text: string
+): Promise<void> {
+  if (memoryId.startsWith('seed-')) {
+    throw new Error('시드 사진엔 댓글을 못 달아요. 직접 사진 올려보세요!');
+  }
+  const t = text.trim();
+  if (!t) return;
+  await addDoc(collection(db, 'memories', memoryId, 'comments'), {
+    by,
+    text: t,
+    createdAt: serverTimestamp(),
+  });
+  // 메모리 doc의 commentCount 캐시 증가 (UI에 즉시 반영용)
+  try {
+    await updateDoc(doc(db, 'memories', memoryId), { commentCount: increment(1) });
+  } catch {}
+}
+
+export async function deleteMemoryComment(
+  memoryId: string,
+  commentId: string
+): Promise<void> {
+  await deleteDoc(doc(db, 'memories', memoryId, 'comments', commentId));
+  try {
+    await updateDoc(doc(db, 'memories', memoryId), { commentCount: increment(-1) });
+  } catch {}
 }
 
 /**
