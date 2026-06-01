@@ -45,6 +45,7 @@ export default function KkomMorningHome() {
   const [outfit, setOutfit] = useState<OutfitGuide | null>(null);
   const [dailyMessage, setDailyMessage] = useState<string>('');
   const [latestVoice, setLatestVoice] = useState<Voice | null>(null);
+  const [latestLetterAt, setLatestLetterAt] = useState<Date | null>(null);
   const [hasLetter, setHasLetter] = useState(false);
   const [moods, setMoods] = useState<MoodMap>({});
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -83,6 +84,7 @@ export default function KkomMorningHome() {
       setHasLetter(!!letter);
       setDailyMessage(letter?.body || '');
       setLatestVoice(letter?.voice ?? null);
+      setLatestLetterAt(letter?.createdAt?.toDate?.() ?? null);
     });
     const unsubMoods = subscribeTodayMoods(setMoods);
     const unsubMemories = subscribeMemories(setMemories);
@@ -420,9 +422,29 @@ export default function KkomMorningHome() {
         <div className="bg-white rounded-[32px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] relative overflow-hidden">
           <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#99E6D9]" />
           <div className="flex justify-between items-start mb-4">
-            <div className="flex items-center gap-2 text-[#10B981]">
-              <div className="p-1.5 bg-[#EAF8F5] rounded-xl"><PenLine size={16} strokeWidth={2.5} /></div>
-              <span className="text-sm font-bold">{partner}에게서 온 편지</span>
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-2 text-[#10B981]">
+                <div className="p-1.5 bg-[#EAF8F5] rounded-xl"><PenLine size={16} strokeWidth={2.5} /></div>
+                <span className="text-sm font-bold">{partner}에게서 온 편지</span>
+              </div>
+              {latestLetterAt && (
+                <span className="text-[11px] font-medium text-slate-400 ml-10" suppressHydrationWarning>
+                  {(() => {
+                    const d = latestLetterAt;
+                    const now = new Date();
+                    const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+                    const h = d.getHours();
+                    const m = d.getMinutes();
+                    const ampm = h < 12 ? '오전' : '오후';
+                    const h12 = (h % 12) || 12;
+                    const time = `${ampm} ${h12}:${m.toString().padStart(2, '0')}`;
+                    if (diffDays === 0) return `오늘 ${time} 도착`;
+                    if (diffDays === 1) return `어제 ${time} 도착`;
+                    if (diffDays < 7) return `${diffDays}일 전 ${time} 도착`;
+                    return `${d.getMonth() + 1}월 ${d.getDate()}일 ${time} 도착`;
+                  })()}
+                </span>
+              )}
             </div>
             <button onClick={() => router.push('/letters')} className="text-[11px] font-bold text-slate-400 hover:text-slate-600 bg-slate-50 px-3 py-1.5 rounded-full transition-colors">지난 편지</button>
           </div>

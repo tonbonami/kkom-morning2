@@ -30,10 +30,15 @@ type FilterType = 'all' | 'received' | 'sent' | 'scheduled';
 const formatRelative = (d: Date) => {
   const now = new Date();
   const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return '오늘';
-  if (diffDays === 1) return '어제';
-  if (diffDays <= 3) return `${diffDays}일 전`;
-  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h < 12 ? '오전' : '오후';
+  const h12 = (h % 12) || 12;
+  const time = `${ampm} ${h12}:${m.toString().padStart(2, '0')}`;
+  if (diffDays === 0) return `오늘 ${time}`;
+  if (diffDays === 1) return `어제 ${time}`;
+  if (diffDays <= 3) return `${diffDays}일 전 ${time}`;
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${time}`;
 };
 
 const formatFullDate = (d: Date) => {
