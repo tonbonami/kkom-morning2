@@ -16,7 +16,7 @@ const LOCATIONS = {
 type LocKey = keyof typeof LOCATIONS;
 import TodayTomorrowWeather from '@/components/TodayTomorrowWeather';
 import { getInitialData } from '@/lib/api';
-import { subscribeLatestLetterTo, nameFromCode, partnerOf, type Voice } from '@/lib/letters';
+import { subscribeLatestLetterTo, nameFromCode, partnerOf, vocativeOf, type Voice } from '@/lib/letters';
 import { subscribeMemories, type Memory } from '@/lib/memories';
 import { subscribeShareList, type ShareItemView } from '@/lib/share';
 import VoicePlayer from '@/components/VoicePlayer';
@@ -531,7 +531,9 @@ export default function KkomMorningHome() {
               <span className="text-xs font-bold">Share List</span>
             </div>
             <p className="text-sm font-bold text-slate-700">
-              {shares.length === 0 ? '둘이서 가볍게 공유해봐 💚' : `총 ${shares.length}개 · 둘이서 본 거`}
+              {shares.length === 0
+                ? `${vocativeOf(partner)} 이거 봐봐 💚`
+                : `${vocativeOf(partner)} 이거 봐봐 💚 · 총 ${shares.length}개`}
             </p>
           </div>
           <ChevronRight size={20} className="text-slate-400 shrink-0" />

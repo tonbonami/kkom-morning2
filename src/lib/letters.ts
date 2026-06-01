@@ -27,6 +27,15 @@ export function partnerOf(name: string): string {
   return COUPLE.find((u) => u !== name) ?? COUPLE[0];
 }
 
+// 한국어 호격 — 받침 있으면 '아', 없으면 '야' (우댕→우댕아, 꼼이→꼼이야)
+export function vocativeOf(name: string): string {
+  if (!name) return '';
+  const last = name.charCodeAt(name.length - 1);
+  if (last < 0xAC00 || last > 0xD7A3) return name + '야';
+  const hasFinal = (last - 0xAC00) % 28 !== 0;
+  return name + (hasFinal ? '아' : '야');
+}
+
 export type Voice = { mime: string; data: string; duration?: number };
 
 export type Letter = {
