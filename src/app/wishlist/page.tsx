@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import WishlistV1, { type WishItem } from '@/components/WishlistV1';
+import MediaPreviewModal from '@/components/MediaPreviewModal';
 import {
   subscribeWishlist,
   addWish,
@@ -18,6 +19,10 @@ export default function WishlistPage() {
   const [me, setMe] = useState<'우댕' | '꼼이' | ''>('');
   const [items, setItems] = useState<WishItemView[]>([]);
 
+  // 인앱 미디어 미리보기 (YouTube / Instagram / 그 외)
+  const [previewUrl, setPreviewUrl] = useState<string | undefined>();
+  const [previewTitle, setPreviewTitle] = useState<string | undefined>();
+
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
     if (!userStr) { router.push('/login'); return; }
@@ -29,15 +34,27 @@ export default function WishlistPage() {
   if (!me) return <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />;
 
   return (
-    <WishlistV1
-      me={me}
-      items={items as unknown as WishItem[]}
-      onBack={() => router.push('/')}
-      onAdd={async (draft) => { await addWish({ ...draft, by: me }); }}
-      onToggleDone={(id, done) => toggleWishDone(id, done, me)}
-      onDelete={deleteWish}
-      onAddPhoto={() => router.push('/memories')}
-      fetchPreview={fetchOgPreview}
-    />
+    <>
+      <WishlistV1
+        me={me}
+        items={items as unknown as WishItem[]}
+        onBack={() => router.push('/')}
+        onAdd={async (draft) => { await addWish({ ...draft, by: me }); }}
+        onToggleDone={(id, done) => toggleWishDone(id, done, me)}
+        onDelete={deleteWish}
+        onAddPhoto={() => router.push('/memories')}
+        fetchPreview={fetchOgPreview}
+        onOpenLink={(item) => {
+          setPreviewUrl(item.url);
+          setPreviewTitle(item.preview?.title || item.title);
+        }}
+      />
+      <MediaPreviewModal
+        open={!!previewUrl}
+        url={previewUrl}
+        title={previewTitle}
+        onClose={() => setPreviewUrl(undefined)}
+      />
+    </>
   );
 }

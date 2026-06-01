@@ -44,6 +44,38 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'invalid url' }, { status: 400 });
   }
 
+  // YouTube 전용 분기 (SPA라 OG 부실 → oEmbed + 직접 썸네일)
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  if (ytMatch) {
+    const id = ytMatch[1];
+    const thumb = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+    try {
+      const oe = await fetch(
+        `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`,
+        { signal: AbortSignal.timeout(5000) }
+      );
+      if (oe.ok) {
+        const d = await oe.json();
+        return NextResponse.json({
+          title: d.title,
+          description: d.author_name,
+          image: thumb,
+          siteName: 'YouTube',
+        });
+      }
+    } catch {}
+    return NextResponse.json({ title: 'YouTube 영상', image: thumb, siteName: 'YouTube' });
+  }
+
+  // Instagram 분기 (로그인 벽 — 메타 거의 못 긁음. 모달에선 공식 embed.js로 처리.)
+  if (/instagram\.com\/(?:p|reel|tv)\/[a-zA-Z0-9_-]+/.test(url)) {
+    return NextResponse.json({
+      title: 'Instagram 게시물',
+      description: '카드를 누르면 인스타그램 게시물이 떠요',
+      siteName: 'Instagram',
+    });
+  }
+
   try {
     const res = await fetch(target.toString(), {
       headers: {

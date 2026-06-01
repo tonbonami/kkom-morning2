@@ -39,6 +39,8 @@ interface Props {
   onAddPhoto?: (item: WishItem) => void;
   onBack: () => void;
   fetchPreview: (url: string) => Promise<{ title?: string; description?: string; image?: string; siteName?: string } | null>;
+  // (통합 wiring) 사이트 보기 클릭 인터셉트 — YouTube/Instagram은 인앱 모달, 그 외는 외부
+  onOpenLink?: (item: WishItem) => void;
 }
 
 const CATEGORY_COLORS = {
@@ -62,7 +64,7 @@ const TABS: { id: Category; label: string; icon: React.ReactNode; color: string 
   { id: 'done', label: '다녀온 곳', icon: <CheckCircle2 size={14} />, color: CATEGORY_COLORS.done },
 ];
 
-export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, onAddPhoto, onBack, fetchPreview }: Props) {
+export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, onAddPhoto, onBack, fetchPreview, onOpenLink }: Props) {
   const [activeTab, setActiveTab] = useState<Category>('place');
 
   // Bottom Sheet State
@@ -271,7 +273,13 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                   {/* Actions Area */}
                   <div className="mt-3 flex items-center gap-3">
                     {item.url && (
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-[12px] font-bold ${isDone ? 'text-slate-400' : 'text-[#10B981]'}`}>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => { if (onOpenLink) { e.preventDefault(); onOpenLink(item); } }}
+                        className={`inline-flex items-center gap-1 text-[12px] font-bold ${isDone ? 'text-slate-400' : 'text-[#10B981]'}`}
+                      >
                         사이트 보기 <ExternalLink size={12} />
                       </a>
                     )}
