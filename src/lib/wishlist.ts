@@ -33,6 +33,8 @@ export interface WishDoc {
   doneAt?: Timestamp | null;
   doneBy?: '우댕' | '꼼이' | null;
   createdAt?: Timestamp | null;
+  hearts?: number;
+  commentCount?: number;
 }
 
 // UI(WishlistV1)가 받는 형태 — Date 객체
@@ -49,6 +51,8 @@ export interface WishItemView {
   doneAt?: Date | null;
   doneBy?: '우댕' | '꼼이' | null;
   createdAt: Date;
+  hearts?: number;
+  commentCount?: number;
 }
 
 function toView(id: string, d: WishDoc): WishItemView {
@@ -65,6 +69,8 @@ function toView(id: string, d: WishDoc): WishItemView {
     doneAt: d.doneAt?.toDate?.() ?? null,
     doneBy: d.doneBy ?? null,
     createdAt: d.createdAt?.toDate?.() ?? new Date(),
+    hearts: d.hearts,
+    commentCount: d.commentCount,
   };
 }
 

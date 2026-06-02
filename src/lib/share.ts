@@ -21,6 +21,8 @@ export interface ShareDoc {
   by: '우댕' | '꼼이';
   seenBy: ('우댕' | '꼼이')[];
   createdAt?: Timestamp | null;
+  hearts?: number;
+  commentCount?: number;
 }
 
 // UI(ShareListV1)가 받는 형태
@@ -32,6 +34,8 @@ export interface ShareItemView {
   by: '우댕' | '꼼이';
   seenBy: ('우댕' | '꼼이')[];
   createdAt: Date;
+  hearts?: number;
+  commentCount?: number;
 }
 
 function toView(id: string, d: ShareDoc): ShareItemView {
@@ -43,6 +47,8 @@ function toView(id: string, d: ShareDoc): ShareItemView {
     by: d.by,
     seenBy: Array.isArray(d.seenBy) ? d.seenBy : [],
     createdAt: d.createdAt?.toDate?.() ?? new Date(),
+    hearts: d.hearts,
+    commentCount: d.commentCount,
   };
 }
 

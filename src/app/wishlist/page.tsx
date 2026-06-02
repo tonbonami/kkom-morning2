@@ -15,7 +15,17 @@ import {
   type WishItemView,
 } from '@/lib/wishlist';
 import { addAgain } from '@/lib/again';
+import {
+  incrementHeartsAt,
+  subscribeCommentsAt,
+  addCommentAt,
+  deleteCommentAt,
+  type ReactionComment,
+} from '@/lib/reactions';
+import CommentSheet from '@/components/CommentSheet';
 import { nameFromCode } from '@/lib/letters';
+
+const COLLECTION = 'wishlist';
 
 export default function WishlistPage() {
   const router = useRouter();
@@ -26,6 +36,15 @@ export default function WishlistPage() {
   const [previewUrl, setPreviewUrl] = useState<string | undefined>();
   const [previewTitle, setPreviewTitle] = useState<string | undefined>();
   const [toast, setToast] = useState<string | null>(null);
+
+  // 댓글 시트
+  const [commentItem, setCommentItem] = useState<WishItemView | null>(null);
+  const [comments, setComments] = useState<ReactionComment[]>([]);
+  useEffect(() => {
+    if (!commentItem) { setComments([]); return; }
+    const unsub = subscribeCommentsAt(COLLECTION, commentItem.id, setComments);
+    return () => unsub();
+  }, [commentItem]);
 
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
@@ -115,12 +134,23 @@ export default function WishlistPage() {
           setPreviewUrl(item.url);
           setPreviewTitle(item.preview?.title || item.title);
         }}
+        onHeart={(id) => incrementHeartsAt(COLLECTION, id)}
+        onOpenComments={(item) => setCommentItem(item as unknown as WishItemView)}
       />
       <MediaPreviewModal
         open={!!previewUrl}
         url={previewUrl}
         title={previewTitle}
         onClose={() => setPreviewUrl(undefined)}
+      />
+      <CommentSheet
+        open={!!commentItem}
+        me={me}
+        title={commentItem?.title}
+        comments={comments}
+        onClose={() => setCommentItem(null)}
+        onAdd={(text) => addCommentAt(COLLECTION, commentItem!.id, me, text)}
+        onDelete={(commentId) => deleteCommentAt(COLLECTION, commentItem!.id, commentId)}
       />
 
       {/* 토스트 — 또 갈래 이동 등 액션 피드백 */}

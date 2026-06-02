@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
-  ArrowLeft, Plus, Sparkles, X, Loader2, Trash2, Link as LinkIcon, ExternalLink
+  ArrowLeft, Plus, Sparkles, X, Loader2, Trash2, Link as LinkIcon, ExternalLink, MessageCircle
 } from 'lucide-react';
+import HeartButton from '@/components/HeartButton';
 
 export interface ShareItem {
   id: string;
@@ -19,6 +20,8 @@ export interface ShareItem {
   by: '우댕' | '꼼이';
   createdAt: Date;
   seenBy: ('우댕' | '꼼이')[];
+  hearts?: number;
+  commentCount?: number;
 }
 
 interface Props {
@@ -29,6 +32,8 @@ interface Props {
   onOpen: (item: ShareItem) => void;
   onDelete: (id: string) => Promise<void>;
   fetchPreview: (url: string) => Promise<{ title?: string; description?: string; image?: string; siteName?: string } | null>;
+  onHeart?: (id: string) => void;
+  onOpenComments?: (item: ShareItem) => void;
 }
 
 // 상대시간 포맷팅 헬퍼
@@ -49,9 +54,11 @@ function formatRelativeTime(date: Date) {
 
 // 개별 카드 컴포넌트 (제스처, 힌트 로직 캡슐화)
 function ShareCard({
-  item, me, index, onOpen, onDelete
+  item, me, index, onOpen, onDelete, onHeart, onOpenComments
 }: {
-  item: ShareItem; me: '우댕' | '꼼이'; index: number; onOpen: (item: ShareItem) => void; onDelete: (id: string) => void;
+  item: ShareItem; me: '우댕' | '꼼이'; index: number;
+  onOpen: (item: ShareItem) => void; onDelete: (id: string) => void;
+  onHeart?: (id: string) => void; onOpenComments?: (item: ShareItem) => void;
 }) {
   const isFirst = index === 0;
   const isNew = !item.seenBy.includes(me);
@@ -147,10 +154,25 @@ function ShareCard({
             </div>
           )}
 
-          {/* Footer Info */}
+          {/* Footer Info + Reactions */}
           <div className="mt-4 flex items-center justify-between text-[12px] font-medium text-slate-400">
             <span>{item.by} · {formatRelativeTime(item.createdAt)}</span>
-            <ExternalLink size={14} className="opacity-50" />
+            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+              {onHeart && (
+                <HeartButton count={item.hearts} onHeart={() => onHeart(item.id)} />
+              )}
+              {onOpenComments && (
+                <button
+                  onClick={() => onOpenComments(item)}
+                  aria-label="댓글"
+                  className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-700 transition-colors active:scale-90"
+                >
+                  <MessageCircle size={14} />
+                  <span className="text-[12px] font-bold tabular-nums">{item.commentCount || 0}</span>
+                </button>
+              )}
+              <ExternalLink size={14} className="opacity-50" />
+            </div>
           </div>
         </div>
       </motion.div>
@@ -173,7 +195,7 @@ function ShareCard({
 }
 
 export default function ShareListV1({
-  me, items, onBack, onAdd, onOpen, onDelete, fetchPreview
+  me, items, onBack, onAdd, onOpen, onDelete, fetchPreview, onHeart, onOpenComments
 }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -294,6 +316,8 @@ export default function ShareListV1({
                 index={index}
                 onOpen={onOpen}
                 onDelete={onDelete}
+                onHeart={onHeart}
+                onOpenComments={onOpenComments}
               />
             </motion.div>
           ))}

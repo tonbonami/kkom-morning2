@@ -5,8 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Plus, MapPin, ExternalLink, Check,
   Trash2, Camera, X, Utensils, Map, MonitorPlay, CheckCircle2,
-  Loader2
+  Loader2, MessageCircle
 } from 'lucide-react';
+import HeartButton from '@/components/HeartButton';
 
 export type Category = 'food' | 'place' | 'watch' | 'done';
 
@@ -28,6 +29,8 @@ export interface WishItem {
   doneAt?: Date | null;
   doneBy?: '우댕' | '꼼이' | null;
   createdAt: Date;
+  hearts?: number;
+  commentCount?: number;
 }
 
 interface Props {
@@ -41,6 +44,8 @@ interface Props {
   fetchPreview: (url: string) => Promise<{ title?: string; description?: string; image?: string; siteName?: string } | null>;
   // (통합 wiring) 사이트 보기 클릭 인터셉트 — YouTube/Instagram은 인앱 모달, 그 외는 외부
   onOpenLink?: (item: WishItem) => void;
+  onHeart?: (id: string) => void;
+  onOpenComments?: (item: WishItem) => void;
 }
 
 const CATEGORY_COLORS = {
@@ -64,7 +69,7 @@ const TABS: { id: Category; label: string; icon: React.ReactNode; color: string 
   { id: 'watch', label: '볼것', icon: <MonitorPlay size={14} />, color: CATEGORY_COLORS.watch },
 ];
 
-export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, onAddPhoto, onBack, fetchPreview, onOpenLink }: Props) {
+export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, onAddPhoto, onBack, fetchPreview, onOpenLink, onHeart, onOpenComments }: Props) {
   const [activeTab, setActiveTab] = useState<Category>('place');
 
   // Bottom Sheet State
@@ -278,23 +283,40 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                   )}
 
                   {/* Actions Area */}
-                  <div className="mt-3 flex items-center gap-3">
-                    {item.url && (
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => { if (onOpenLink) { e.preventDefault(); onOpenLink(item); } }}
-                        className={`inline-flex items-center gap-1 text-[12px] font-bold ${isDone ? 'text-slate-400' : 'text-[#10B981]'}`}
-                      >
-                        사이트 보기 <ExternalLink size={12} />
-                      </a>
-                    )}
-                    {isDone && onAddPhoto && (
-                      <button onClick={() => onAddPhoto(item)} className="inline-flex items-center gap-1 text-[12px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
-                        <Camera size={12} /> 사진 추가
-                      </button>
-                    )}
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {item.url && (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => { if (onOpenLink) { e.preventDefault(); onOpenLink(item); } }}
+                          className={`inline-flex items-center gap-1 text-[12px] font-bold ${isDone ? 'text-slate-400' : 'text-[#10B981]'}`}
+                        >
+                          사이트 보기 <ExternalLink size={12} />
+                        </a>
+                      )}
+                      {isDone && onAddPhoto && (
+                        <button onClick={() => onAddPhoto(item)} className="inline-flex items-center gap-1 text-[12px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
+                          <Camera size={12} /> 사진 추가
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {onHeart && (
+                        <HeartButton count={item.hearts} onHeart={() => onHeart(item.id)} />
+                      )}
+                      {onOpenComments && (
+                        <button
+                          onClick={() => onOpenComments(item)}
+                          aria-label="댓글"
+                          className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-700 transition-colors active:scale-90"
+                        >
+                          <MessageCircle size={14} />
+                          <span className="text-[12px] font-bold tabular-nums">{item.commentCount || 0}</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 </motion.div>
