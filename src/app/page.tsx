@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
   Wind, Heart, PenLine, BookOpen,
   RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2,
@@ -61,6 +61,9 @@ export default function KkomMorningHome() {
   const [pushState, setPushState] = useState<PushState>('unknown');
   const [locKey, setLocKey] = useState<LocKey>('home'); // 화면 위치 선택
   const [shares, setShares] = useState<ShareItemView[]>([]);
+  // 날씨 카드 onboarding 힌트 (디바이스당 한 번)
+  const [showWeatherHint, setShowWeatherHint] = useState(false);
+  const weatherShake = useAnimation();
 
   const loadData = async (forceRefresh = false) => {
     setIsRefreshing(true);
@@ -102,6 +105,22 @@ export default function KkomMorningHome() {
     // 저장된 위치 선택 복구
     const savedLoc = localStorage.getItem('kkom-loc');
     if (savedLoc === 'home' || savedLoc === 'work') setLocKey(savedLoc);
+
+    // 날씨 카드 onboarding — 처음 한 번만
+    const hintShown = localStorage.getItem('kkom-weather-hint-shown');
+    if (!hintShown) {
+      const t = setTimeout(() => {
+        setShowWeatherHint(true);
+        // 카드 살짝 흔들기
+        weatherShake.start({
+          x: [0, -6, 6, -4, 4, 0],
+          transition: { duration: 0.8, ease: 'easeInOut' },
+        });
+        localStorage.setItem('kkom-weather-hint-shown', '1');
+        setTimeout(() => setShowWeatherHint(false), 3500);
+      }, 1500);
+      return () => clearTimeout(t);
+    }
 
     return () => { unsubLetter(); unsubMoods(); unsubMemories(); unsubShares(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -384,10 +403,11 @@ export default function KkomMorningHome() {
 
       {/* 3. 대시보드 본문 — 하나의 일관된 그리드 */}
       <main className="relative z-10 px-5 flex flex-col gap-4">
-        {/* 날씨 V2 — 오늘 + 내일 통합 풀폭 카드 (Gemini) — 탭하면 상세 페이지 */}
-        <button
+        {/* 날씨 V2 — 탭하면 상세 페이지. 첫 진입 시 살짝 흔들리고 토스트로 알려줌 */}
+        <motion.button
+          animate={weatherShake}
           onClick={() => router.push('/weather')}
-          className="w-full text-left active:scale-[0.99] transition-transform"
+          className="w-full text-left active:scale-[0.99] transition-transform relative"
           aria-label="날씨 상세 보기"
         >
           <TodayTomorrowWeather
@@ -396,7 +416,20 @@ export default function KkomMorningHome() {
             today={(weather as any)?.today || { high: null, low: null, sky: null, pty: null, precipProb: null }}
             tomorrow={(weather as any)?.tomorrow || { high: null, low: null, sky: null, pty: null, precipProb: null }}
           />
-        </button>
+          {/* Onboarding 토스트 — 첫 진입 한 번만 */}
+          <AnimatePresence>
+            {showWeatherHint && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[12px] font-bold px-3 py-1.5 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.2)] whitespace-nowrap z-10"
+              >
+                💡 탭하면 시간대별 날씨가 나와!
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.button>
 
         {/* 옷차림 — 슬림 한 줄 (날씨 카드 아래) */}
         <div className="bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center gap-4">

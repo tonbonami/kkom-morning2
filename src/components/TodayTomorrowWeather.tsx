@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Sun, CloudSun, Cloud, CloudRain, CloudSnow, Droplets, Umbrella, ArrowUp, ArrowDown } from 'lucide-react';
+import { Sun, CloudSun, Cloud, CloudRain, CloudSnow, Droplets, Umbrella, ArrowUp, ArrowDown, ChevronRight } from 'lucide-react';
 
 export interface WeatherCardProps {
   location?: string;
@@ -118,8 +118,9 @@ export default function TodayTomorrowWeather({ location, current, today, tomorro
         </div>
       </div>
 
-      {/* 하단부: 내일 */}
-      <div className="bg-slate-50/50 border-t border-slate-100 px-7 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* 하단부: 내일 — 우측 끝에 작은 ChevronRight로 '탭하면 더 보기' 힌트 */}
+      <div className="bg-slate-50/50 border-t border-slate-100 px-7 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative">
+        <ChevronRight size={18} className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-300" />
         <div className="flex items-center gap-2.5">
           <span className="text-[15px] font-black text-slate-700">내일</span>
           <div className="w-6 h-6 flex items-center justify-center drop-shadow-sm">
@@ -127,7 +128,7 @@ export default function TodayTomorrowWeather({ location, current, today, tomorro
           </div>
         </div>
 
-        <div className="flex items-center flex-wrap gap-3 text-[14px] font-bold">
+        <div className="flex items-center flex-wrap gap-3 text-[14px] font-bold pr-5">
           <div className="flex items-center text-slate-600">
             <ArrowUp className="w-3.5 h-3.5 text-red-400 mr-0.5" /> {tomorrow.high ?? '—'}°
             <span className="w-3" />
