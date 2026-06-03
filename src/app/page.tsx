@@ -234,8 +234,9 @@ export default function KkomMorningHome() {
       if (isExcited) {
         return (
           <motion.div
-            animate={{ y: [0, -8, 0, -4, 0] }}
-            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+            // 더 차분하고 부드러운 호흡: 작은 진폭(3px) + 느린 주기(2.2초)
+            animate={{ y: [0, -3, 0] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
             style={{ width: size, height: size }}
           >
             {img}

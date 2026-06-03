@@ -7,7 +7,7 @@ import { ArrowLeft, Send, Mail, Clock, Mic, Square, Play, Pause, Trash2 } from '
 import { Card, CardContent } from '@/components/ui/card';
 import { sendLetter, uploadVoice, nameFromCode, partnerOf } from '@/lib/letters';
 
-const MAX_REC_SEC = 10;
+const MAX_REC_SEC = 30;
 
 export default function NewLetterPage() {
   const router = useRouter();
@@ -52,7 +52,7 @@ export default function NewLetterPage() {
 
   const partner = me ? partnerOf(me) : '';
 
-  // 녹음 시작 — 10초 자동 중지
+  // 녹음 시작 — 30초 자동 중지
   const startRecording = async () => {
     setError('');
     if (!navigator.mediaDevices || !window.MediaRecorder) {
@@ -181,11 +181,11 @@ export default function NewLetterPage() {
           </Card>
         </motion.div>
 
-        {/* 보이스 편지 (10초) */}
+        {/* 보이스 편지 (30초) */}
         <div className="rounded-2xl bg-white/60 border border-white px-4 py-3 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold text-slate-600 flex items-center gap-2">
-              <Mic size={15} /> 보이스 편지 <span className="text-[10px] text-slate-400 font-medium">(10초)</span>
+              <Mic size={15} /> 보이스 편지 <span className="text-[10px] text-slate-400 font-medium">(30초)</span>
             </span>
             {voiceBlob && (
               <span className="text-[11px] text-emerald-600 font-bold">

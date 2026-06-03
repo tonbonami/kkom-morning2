@@ -7,7 +7,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
   ArrowLeft, MapPin, ExternalLink, Trash2, Utensils, Map, MonitorPlay,
-  CheckCircle2, Camera,
+  CheckCircle2, Camera, Undo2,
 } from 'lucide-react';
 
 export type Category = 'food' | 'place' | 'watch';
@@ -32,6 +32,7 @@ interface Props {
   onOpen?: (item: AgainItem) => void;       // URL 있을 때 미디어 모달
   onDelete: (id: string) => Promise<void>;
   onAddPhoto?: (item: AgainItem) => void;   // 갤러리로 점프
+  onSendBack?: (item: AgainItem) => void;   // 위시리스트로 되돌리기
 }
 
 const CATEGORY_COLORS: Record<Category, string> = {
@@ -61,13 +62,14 @@ function relTime(d: Date) {
 }
 
 function AgainCard({
-  item, isFirst, onOpen, onDelete, onAddPhoto,
+  item, isFirst, onOpen, onDelete, onAddPhoto, onSendBack,
 }: {
   item: AgainItem;
   isFirst: boolean;
   onOpen?: (i: AgainItem) => void;
   onDelete: (id: string) => void;
   onAddPhoto?: (i: AgainItem) => void;
+  onSendBack?: (i: AgainItem) => void;
 }) {
   const controls = useAnimation();
   const [showHint, setShowHint] = useState(isFirst);
@@ -146,6 +148,18 @@ function AgainCard({
                 <Camera size={12} /> 사진 추가
               </button>
             )}
+            {onSendBack && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm('위시리스트로 되돌릴까요?')) onSendBack(item);
+                }}
+                title="위시리스트로 되돌리기"
+                className="inline-flex items-center gap-1 text-[12px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-md transition-colors"
+              >
+                <Undo2 size={12} /> 위시리스트로
+              </button>
+            )}
           </div>
         </div>
       </motion.div>
@@ -164,7 +178,7 @@ function AgainCard({
   );
 }
 
-export default function AgainListV1({ me, items, onBack, onOpen, onDelete, onAddPhoto }: Props) {
+export default function AgainListV1({ me, items, onBack, onOpen, onDelete, onAddPhoto, onSendBack }: Props) {
   const sorted = useMemo(() => [...items].sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime()), [items]);
 
   return (
@@ -212,6 +226,7 @@ export default function AgainListV1({ me, items, onBack, onOpen, onDelete, onAdd
                 onOpen={onOpen}
                 onDelete={(id) => { if (confirm('삭제할까요?')) onDelete(id); }}
                 onAddPhoto={onAddPhoto}
+                onSendBack={onSendBack}
               />
             </motion.div>
           ))}

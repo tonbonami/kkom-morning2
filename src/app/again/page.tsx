@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import AgainListV1, { type AgainItem } from '@/components/AgainListV1';
 import MediaPreviewModal from '@/components/MediaPreviewModal';
 import { subscribeAgain, deleteAgain, type AgainItemView } from '@/lib/again';
+import { addWish } from '@/lib/wishlist';
 import { nameFromCode } from '@/lib/letters';
 
 export default function AgainPage() {
@@ -36,6 +37,23 @@ export default function AgainPage() {
           if (!item.url) return;
           setPreviewUrl(item.url);
           setPreviewTitle(item.preview?.title || item.title);
+        }}
+        onSendBack={async (item) => {
+          // 또갈래 → 위시리스트 복귀: 위시리스트에 다시 추가 + 또갈래에서 삭제
+          try {
+            await addWish({
+              category: item.category,
+              title: item.title,
+              url: item.url,
+              location: item.location,
+              memo: item.memo,
+              by: item.by,
+            });
+            await deleteAgain(item.id);
+          } catch (e) {
+            console.error('위시리스트로 되돌리기 실패:', e);
+            alert('되돌리기에 실패했어요. 다시 시도해주세요.');
+          }
         }}
       />
       <MediaPreviewModal

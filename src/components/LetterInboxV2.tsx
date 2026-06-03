@@ -25,7 +25,7 @@ interface LetterInboxProps {
   onBack?: () => void; // (통합 wiring) 헤더 ← 클릭
 }
 
-type FilterType = 'all' | 'received' | 'sent' | 'scheduled';
+type FilterType = 'all' | 'received' | 'sent' | 'scheduled' | 'voice';
 
 const formatRelative = (d: Date) => {
   const now = new Date();
@@ -63,10 +63,12 @@ export default function LetterInboxV2({
       const isReceived = l.to === me;
       const isSent = l.from === me;
       const isScheduled = l.openAt && l.openAt > now;
+      const hasVoice = !!l.voice;
 
       if (filter === 'received') return isReceived && !isScheduled;
       if (filter === 'sent') return isSent && !isScheduled;
       if (filter === 'scheduled') return isScheduled;
+      if (filter === 'voice') return hasVoice && !isScheduled;
       return true; // all
     });
   }, [letters, filter, me, now]);
@@ -96,6 +98,7 @@ export default function LetterInboxV2({
             { id: 'all', label: '전체' },
             { id: 'received', label: '받은 편지' },
             { id: 'sent', label: '보낸 편지' },
+            { id: 'voice', label: '🎙 보이스' },
             { id: 'scheduled', label: '예약 중' },
           ].map((f) => (
             <motion.button
