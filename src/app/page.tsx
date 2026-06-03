@@ -384,13 +384,19 @@ export default function KkomMorningHome() {
 
       {/* 3. 대시보드 본문 — 하나의 일관된 그리드 */}
       <main className="relative z-10 px-5 flex flex-col gap-4">
-        {/* 날씨 V2 — 오늘 + 내일 통합 풀폭 카드 (Gemini) */}
-        <TodayTomorrowWeather
-          location={air?.location || '호평동'}
-          current={(weather as any)?.current || { temp: null, sky: null, pty: null, humidity: null }}
-          today={(weather as any)?.today || { high: null, low: null, sky: null, pty: null, precipProb: null }}
-          tomorrow={(weather as any)?.tomorrow || { high: null, low: null, sky: null, pty: null, precipProb: null }}
-        />
+        {/* 날씨 V2 — 오늘 + 내일 통합 풀폭 카드 (Gemini) — 탭하면 상세 페이지 */}
+        <button
+          onClick={() => router.push('/weather')}
+          className="w-full text-left active:scale-[0.99] transition-transform"
+          aria-label="날씨 상세 보기"
+        >
+          <TodayTomorrowWeather
+            location={air?.location || '호평동'}
+            current={(weather as any)?.current || { temp: null, sky: null, pty: null, humidity: null }}
+            today={(weather as any)?.today || { high: null, low: null, sky: null, pty: null, precipProb: null }}
+            tomorrow={(weather as any)?.tomorrow || { high: null, low: null, sky: null, pty: null, precipProb: null }}
+          />
+        </button>
 
         {/* 옷차림 — 슬림 한 줄 (날씨 카드 아래) */}
         <div className="bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center gap-4">

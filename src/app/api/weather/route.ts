@@ -66,10 +66,12 @@ export async function GET(req: NextRequest) {
     const now = kstDate();
     const todayStr = ymd(now);
     const tomorrowStr = ymd(kstDate(24 * 3600 * 1000));
+    const dayAfterStr = ymd(kstDate(48 * 3600 * 1000));
     const nowHMM = now.getUTCHours() * 100;
 
     const todayItems = items.filter((i) => i.fcstDate === todayStr);
     const tomorrowItems = items.filter((i) => i.fcstDate === tomorrowStr);
+    const dayAfterItems = items.filter((i) => i.fcstDate === dayAfterStr);
 
     const pickNearest = (cat: string) => {
       const cs = todayItems.filter((i) => i.category === cat);
@@ -118,6 +120,38 @@ export async function GET(req: NextRequest) {
     const tmx2 = num(tomorrowItems.find((i) => i.category === 'TMX')?.fcstValue);
     const tmn2 = num(tomorrowItems.find((i) => i.category === 'TMN')?.fcstValue);
 
+    // 모레 (3일째)
+    const popsDayAfter = popsOf(dayAfterItems);
+    const popMaxDayAfter = popsDayAfter.length ? Math.max(...popsDayAfter) : null;
+    const skyDayAfter = mode(dayAfterItems, 'SKY');
+    const ptyDayAfter = dominantPty(dayAfterItems);
+    const tmx3 = num(dayAfterItems.find((i) => i.category === 'TMX')?.fcstValue);
+    const tmn3 = num(dayAfterItems.find((i) => i.category === 'TMN')?.fcstValue);
+
+    // 시간대별 (지금부터 24시간) — items를 (date,time) 키로 묶어서 카테고리 합치기
+    type HourlySlot = { time: string; temp: number | null; sky: string | null; pty: string | null; precipProb: number | null };
+    const grid = new Map<string, HourlySlot>();
+    for (const it of items) {
+      const key = `${it.fcstDate}_${it.fcstTime}`;
+      if (!grid.has(key)) {
+        const d = it.fcstDate as string;
+        const t = it.fcstTime as string;
+        const iso = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T${t.slice(0, 2)}:${t.slice(2, 4)}:00+09:00`;
+        grid.set(key, { time: iso, temp: null, sky: null, pty: null, precipProb: null });
+      }
+      const slot = grid.get(key)!;
+      if (it.category === 'TMP') slot.temp = num(it.fcstValue);
+      else if (it.category === 'SKY') slot.sky = it.fcstValue;
+      else if (it.category === 'PTY') slot.pty = it.fcstValue;
+      else if (it.category === 'POP') slot.precipProb = num(it.fcstValue);
+    }
+    // 정렬 후 현재 시각 이후의 24시간만
+    const nowIsoHour = `${todayStr.slice(0, 4)}-${todayStr.slice(4, 6)}-${todayStr.slice(6, 8)}T${String(now.getUTCHours()).padStart(2, '0')}`;
+    const hourly = Array.from(grid.values())
+      .filter((s) => s.time.slice(0, 13) >= nowIsoHour)
+      .sort((a, b) => a.time.localeCompare(b.time))
+      .slice(0, 24);
+
     return NextResponse.json({
       current: { temp: tmp, sky, pty, humidity: reh },
       today: {
@@ -132,6 +166,12 @@ export async function GET(req: NextRequest) {
         sky: skyTomorrow, pty: ptyTomorrow,
         precipProb: popMaxTomorrow,
       },
+      dayAfter: {
+        high: tmx3, low: tmn3,
+        sky: skyDayAfter, pty: ptyDayAfter,
+        precipProb: popMaxDayAfter,
+      },
+      hourly,
       baseDate,
       baseTime,
     });
