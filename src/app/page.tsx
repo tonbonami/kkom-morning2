@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { motion } from 'framer-motion';
 import {
   Wind, Heart, PenLine, BookOpen,
   RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2,
@@ -215,11 +216,13 @@ export default function KkomMorningHome() {
   };
 
   // 저장된 키(신규 id 또는 옛날 이모지) → 화면 표시
-  // 표시 사이즈는 크게 (구분이 잘 가도록), 피커 안에서 쓰는 사이즈와 무관
-  const renderMoodFace = (key: string | undefined, size = 60) => {
+  // 표시 사이즈 = 69 (이전 60에서 +15%). 피커 셀(40) 과는 무관.
+  // '신남'(excited) 선택 시 위아래 통통 튀는 모션.
+  const renderMoodFace = (key: string | undefined, size = 69) => {
     const m = moodFromKey(key);
     if (m) {
-      return (
+      const isExcited = m.id === 'excited';
+      const img = (
         <Image
           src={m.image}
           alt={m.label}
@@ -228,6 +231,18 @@ export default function KkomMorningHome() {
           className="drop-shadow-sm"
         />
       );
+      if (isExcited) {
+        return (
+          <motion.div
+            animate={{ y: [0, -8, 0, -4, 0] }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+            style={{ width: size, height: size }}
+          >
+            {img}
+          </motion.div>
+        );
+      }
+      return img;
     }
     // 매칭 실패 — 레거시 이모지든 빈 값이든
     return <span className="text-4xl drop-shadow-sm">{key || '…'}</span>;

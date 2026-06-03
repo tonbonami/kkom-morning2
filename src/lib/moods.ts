@@ -8,7 +8,7 @@ export interface MoodOption {
   emojiFallback: string; // 이미지 못 띄울 때 / 레거시 호환
 }
 
-// 9가지 표정 (3×3 그리드 — pochacco_faces.png 잘라낸 것)
+// 12가지 표정 (3×4 그리드 — pochacco_faces.png + pochacco_faces2.png 마지막 줄)
 export const MOOD_OPTIONS: MoodOption[] = [
   { id: 'happy',   label: '행복',     image: '/pochacco/face_happy.png',   emojiFallback: '😊' },
   { id: 'love',    label: '사랑',     image: '/pochacco/face_love.png',    emojiFallback: '🥰' },
@@ -19,6 +19,9 @@ export const MOOD_OPTIONS: MoodOption[] = [
   { id: 'angry',   label: '화남',     image: '/pochacco/face_angry.png',   emojiFallback: '😠' },
   { id: 'missing', label: '보고싶음',  image: '/pochacco/face_missing.png', emojiFallback: '🥺' },
   { id: 'sick',    label: '아픔',     image: '/pochacco/face_sick.png',    emojiFallback: '🤒' },
+  { id: 'sorry',   label: '미안',     image: '/pochacco/face_sorry.png',   emojiFallback: '🙏' },
+  { id: 'thanks',  label: '고마워',   image: '/pochacco/face_thanks.png',  emojiFallback: '🙇' },
+  { id: 'sulky',   label: '삐짐',     image: '/pochacco/face_sulky.png',   emojiFallback: '😤' },
 ];
 
 // key는 신규 'happy' 같은 id 또는 옛날 '😄' 같은 이모지 둘 다 받음
