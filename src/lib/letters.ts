@@ -45,7 +45,9 @@ export type Letter = {
   body: string;
   createdAt: Timestamp | null;
   openAt?: Timestamp | null; // 예약 도착 시각 (없으면 즉시)
-  voice?: Voice | null;      // 10초 보이스 편지 (base64 — Storage 없이 Firestore 직접)
+  voice?: Voice | null;      // 보이스 편지 (Storage URL 또는 레거시 base64)
+  hearts?: number;           // 무한 카운터
+  commentCount?: number;     // 댓글 수 캐시
 };
 
 function ms(t?: Timestamp | null): number {
@@ -136,6 +138,8 @@ export type InboxLetter = {
   createdAt: Date;
   openAt?: Date | null;
   voice?: { src: string; mime?: string; duration?: number } | null;
+  hearts?: number;
+  commentCount?: number;
 };
 
 export function toInboxLetter(l: Letter): InboxLetter {
@@ -159,6 +163,8 @@ export function toInboxLetter(l: Letter): InboxLetter {
     createdAt,
     openAt,
     voice,
+    hearts: l.hearts,
+    commentCount: l.commentCount,
   };
 }
 
