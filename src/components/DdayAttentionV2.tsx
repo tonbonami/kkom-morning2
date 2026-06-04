@@ -20,18 +20,22 @@ export default function DdayAttentionV2() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const timestamp = parseInt(stored, 10);
-        // 만약 저장된 시간이 있고, 아직 24시간이 지나지 않았다면 숨김 (이미 탭한 것으로 간주)
-        if (!isNaN(timestamp) && Date.now() - timestamp < TTL_MS) {
-          setShow(false);
-          return;
-        }
+      const now = Date.now();
+      if (!stored) {
+        // 처음 본 경우 — 타임스탬프 기록 + 표시
+        localStorage.setItem(STORAGE_KEY, String(now));
+        setShow(true);
+        return;
       }
-      // 기록이 없거나 24시간이 지났으면 보여줌
-      setShow(true);
-    } catch (e) {
-      // localStorage 접근 불가 환경(예: 시크릿 모드) 대비 안전망
+      const timestamp = parseInt(stored, 10);
+      if (!isNaN(timestamp) && now - timestamp < TTL_MS) {
+        // 첫 진입 후 24시간 이내 — 계속 표시
+        setShow(true);
+      } else {
+        // 24시간 지났음 — 영구 숨김
+        setShow(false);
+      }
+    } catch {
       setShow(true);
     }
   }, []);
