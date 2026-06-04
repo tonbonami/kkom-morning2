@@ -42,12 +42,13 @@ export default function DdayHintFinger() {
 
   return (
     <motion.div
-      animate={{ y: [0, -5, 0] }}
-      transition={{ repeat: Infinity, duration: 0.9, ease: 'easeInOut' }}
-      className="absolute -top-10 left-1/2 -translate-x-1/2 pointer-events-none z-10"
+      // 카드 안쪽에서 살랑살랑 (꾹꾹 누르는 모션)
+      animate={{ y: [0, 4, 0] }}
+      transition={{ repeat: Infinity, duration: 0.85, ease: 'easeInOut' }}
+      className="absolute top-7 left-1/2 -translate-x-1/2 pointer-events-none z-10"
       aria-hidden
     >
-      <svg width="28" height="44" viewBox="0 0 28 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg width="18" height="28" viewBox="0 0 28 44" fill="none" xmlns="http://www.w3.org/2000/svg">
         {/* 손바닥(둥근 위) + 검지(아래로 내려옴) */}
         <path
           d="M3 13 Q3 4 14 4 Q25 4 25 13 L25 17 Q25 20 22 20 L17 20 L17 38 Q17 42 14 42 Q11 42 11 38 L11 20 L6 20 Q3 20 3 17 Z"
