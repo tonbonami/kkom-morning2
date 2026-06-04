@@ -21,6 +21,8 @@ import { subscribeLatestLetterTo, nameFromCode, partnerOf, vocativeOf, type Voic
 import { subscribeMemories, type Memory } from '@/lib/memories';
 import { subscribeShareList, type ShareItemView } from '@/lib/share';
 import VoicePlayer from '@/components/VoicePlayer';
+// ⏱ 임시 — 꼼이 D-day 카드 발견 유도 손가락. 24h 후 자동 안 뜸. 코드는 안 지워짐.
+import DdayHintFinger from '@/components/DdayHintFinger';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
 import { touchPresence, subscribePresence, formatPresenceRelative, type Presence } from '@/lib/presence';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
@@ -491,6 +493,8 @@ export default function KkomMorningHome() {
             className="flex-[0.8] p-5 flex flex-col justify-center bg-gradient-to-br from-white to-[#EAF8F5]/30 text-left active:scale-[0.98] transition-transform relative"
             aria-label="우리 D-day 상세 보기"
           >
+            {/* ⏱ 임시 손가락 힌트 — 24h 후 자동 안 뜸. 추후 삭제 */}
+            <DdayHintFinger />
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5 text-rose-300">
                 <Heart size={16} strokeWidth={2.5} fill="currentColor" />
