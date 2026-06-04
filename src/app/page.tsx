@@ -486,13 +486,20 @@ export default function KkomMorningHome() {
             )}
           </div>
 
-          <div className="flex-[0.8] p-5 flex flex-col justify-center bg-gradient-to-br from-white to-[#EAF8F5]/30">
-            <div className="flex items-center gap-1.5 text-rose-300 mb-2">
-              <Heart size={16} strokeWidth={2.5} fill="currentColor" />
-              <span className="text-xs font-bold">함께한 지</span>
+          <button
+            onClick={() => router.push('/dday')}
+            className="flex-[0.8] p-5 flex flex-col justify-center bg-gradient-to-br from-white to-[#EAF8F5]/30 text-left active:scale-[0.98] transition-transform relative"
+            aria-label="우리 D-day 상세 보기"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5 text-rose-300">
+                <Heart size={16} strokeWidth={2.5} fill="currentColor" />
+                <span className="text-xs font-bold">함께한 지</span>
+              </div>
+              <ChevronRight size={14} className="text-slate-300" />
             </div>
             <p className="text-2xl font-extrabold text-slate-800 tracking-tight">D+{dDay}</p>
-          </div>
+          </button>
         </div>
 
         {/* 오늘의 편지 */}
