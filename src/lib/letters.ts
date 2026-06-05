@@ -55,7 +55,9 @@ export type Letter = {
   createdAt: Timestamp | null;
   openAt?: Timestamp | null; // 예약 도착 시각 (없으면 즉시)
   voice?: Voice | null;      // 보이스 편지 (Storage URL 또는 레거시 base64)
-  doodle?: Doodle | null;    // 손글씨 (스트로크 데이터 — Firestore doc에 plain JSON)
+  // Firestore는 '배열 안에 배열' 금지 — points: [[x,y,t],...]가 그 위반이라 JSON 문자열로 저장.
+  // 읽을 때 toInboxLetter가 parse. Doodle 객체로 들어와도 그대로 통과(미래 호환).
+  doodle?: Doodle | string | null;
   hearts?: number;           // 무한 카운터
   commentCount?: number;     // 댓글 수 캐시
 };
@@ -166,6 +168,16 @@ export function toInboxLetter(l: Letter): InboxLetter {
       duration: l.voice.duration,
     };
   }
+  // doodle: 저장된 형태가 JSON 문자열이면 parse, 객체면 그대로 (미래 호환)
+  let doodle: Doodle | null = null;
+  if (l.doodle) {
+    if (typeof l.doodle === 'string') {
+      try { doodle = JSON.parse(l.doodle) as Doodle; } catch { doodle = null; }
+    } else {
+      doodle = l.doodle as Doodle;
+    }
+  }
+
   return {
     id: l.id,
     from: l.from as '우댕' | '꼼이',
@@ -174,7 +186,7 @@ export function toInboxLetter(l: Letter): InboxLetter {
     createdAt,
     openAt,
     voice,
-    doodle: l.doodle ?? null,
+    doodle,
     hearts: l.hearts,
     commentCount: l.commentCount,
   };
@@ -198,7 +210,10 @@ export async function sendLetter(
   };
   if (openAt) data.openAt = Timestamp.fromDate(openAt);
   if (voice && voice.data) data.voice = voice;
-  if (doodle && doodle.strokes && doodle.strokes.length > 0) data.doodle = doodle;
+  // Firestore '배열 안에 배열' 금지 회피 — doodle을 JSON 문자열로 직렬화
+  if (doodle && doodle.strokes && doodle.strokes.length > 0) {
+    data.doodle = JSON.stringify(doodle);
+  }
   const ref = await addDoc(collection(db, 'letters'), data);
 
   // 도착 푸시 — 즉시 편지면 곧바로, 예약 편지면 cron이 도착 시각에 보냄.
