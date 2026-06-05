@@ -38,6 +38,15 @@ export function vocativeOf(name: string): string {
 
 export type Voice = { mime: string; data: string; duration?: number };
 
+// 손글씨 doodle — 캔버스 좌표+시간 스트로크 기록 (재생용)
+export type DoodleStroke = { points: Array<[number, number, number]>; color: string };
+export type Doodle = {
+  strokes: DoodleStroke[];
+  width: number;
+  height: number;
+  duration: number;
+};
+
 export type Letter = {
   id: string;
   from: string;
@@ -46,6 +55,7 @@ export type Letter = {
   createdAt: Timestamp | null;
   openAt?: Timestamp | null; // 예약 도착 시각 (없으면 즉시)
   voice?: Voice | null;      // 보이스 편지 (Storage URL 또는 레거시 base64)
+  doodle?: Doodle | null;    // 손글씨 (스트로크 데이터 — Firestore doc에 plain JSON)
   hearts?: number;           // 무한 카운터
   commentCount?: number;     // 댓글 수 캐시
 };
@@ -138,6 +148,7 @@ export type InboxLetter = {
   createdAt: Date;
   openAt?: Date | null;
   voice?: { src: string; mime?: string; duration?: number } | null;
+  doodle?: Doodle | null;
   hearts?: number;
   commentCount?: number;
 };
@@ -163,18 +174,20 @@ export function toInboxLetter(l: Letter): InboxLetter {
     createdAt,
     openAt,
     voice,
+    doodle: l.doodle ?? null,
     hearts: l.hearts,
     commentCount: l.commentCount,
   };
 }
 
-// 상대에게 편지 전송 (openAt 주면 예약 편지, voice 주면 음성 편지)
+// 상대에게 편지 전송 (openAt 주면 예약 편지, voice 주면 음성 편지, doodle 주면 손글씨)
 // voice.data 에는 base64(레거시) 또는 Storage URL(신규) 둘 다 가능.
 export async function sendLetter(
   from: string,
   body: string,
   openAt?: Date | null,
-  voice?: Voice | null
+  voice?: Voice | null,
+  doodle?: Doodle | null
 ): Promise<void> {
   const to = partnerOf(from);
   const data: Record<string, unknown> = {
@@ -185,6 +198,7 @@ export async function sendLetter(
   };
   if (openAt) data.openAt = Timestamp.fromDate(openAt);
   if (voice && voice.data) data.voice = voice;
+  if (doodle && doodle.strokes && doodle.strokes.length > 0) data.doodle = doodle;
   const ref = await addDoc(collection(db, 'letters'), data);
 
   // 도착 푸시 — 즉시 편지면 곧바로, 예약 편지면 cron이 도착 시각에 보냄.

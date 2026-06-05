@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Send, Mail, Clock, Mic, Square, Play, Pause, Trash2 } from 'lucide-react';
+import { ArrowLeft, Send, Mail, Clock, Mic, Square, Play, Pause, Trash2, Pencil } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { sendLetter, uploadVoice, nameFromCode, partnerOf } from '@/lib/letters';
+import { sendLetter, uploadVoice, nameFromCode, partnerOf, type Doodle } from '@/lib/letters';
+import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
 
 const MAX_REC_SEC = 30;
 
@@ -32,6 +33,10 @@ export default function NewLetterPage() {
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const voice = voiceBlob; // canSend 등에서 사용 (boolean처럼)
+
+  // 손글씨 — DoodlePad compose 모드가 onChange로 데이터 보내옴
+  const [doodle, setDoodle] = useState<DoodleData | null>(null);
+  const [showDoodle, setShowDoodle] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
@@ -118,7 +123,7 @@ export default function NewLetterPage() {
     else { a.play(); setPlaying(true); }
   };
 
-  const canSend = (body.trim().length > 0 || !!voice) && !sending && !recording && (!scheduled || !!openAtStr);
+  const canSend = (body.trim().length > 0 || !!voice || !!doodle) && !sending && !recording && (!scheduled || !!openAtStr);
 
   const handleSend = async () => {
     if (!canSend) return;
@@ -135,7 +140,8 @@ export default function NewLetterPage() {
         me,
         body,
         scheduled && openAtStr ? new Date(openAtStr) : null,
-        voicePayload
+        voicePayload,
+        doodle as Doodle | null
       );
       router.push('/');
     } catch (e) {
@@ -238,6 +244,36 @@ export default function NewLetterPage() {
               >
                 <Trash2 size={15} />
               </button>
+            </div>
+          )}
+        </div>
+
+        {/* 손글씨 첨부 */}
+        <div className="rounded-2xl bg-white/60 border border-white px-4 py-3 space-y-3">
+          <label className="flex items-center justify-between cursor-pointer">
+            <span className="text-sm font-bold text-slate-600 flex items-center gap-2">
+              <Pencil size={15} /> 손글씨 첨부
+              {doodle && <span className="text-[11px] text-emerald-600 font-bold ml-1">· 그림 있음</span>}
+            </span>
+            <input
+              type="checkbox"
+              checked={showDoodle}
+              onChange={(e) => {
+                setShowDoodle(e.target.checked);
+                if (!e.target.checked) setDoodle(null);
+              }}
+              className="w-5 h-5 accent-emerald-500"
+            />
+          </label>
+          {showDoodle && (
+            <div className="pt-1">
+              <DoodlePad
+                mode="compose"
+                onChange={(d) => setDoodle(d)}
+              />
+              <p className="text-[11px] text-slate-400 leading-tight mt-2 px-1">
+                ✏️ 그린 순서·속도 그대로 {partner || '상대'}에게 재생돼요
+              </p>
             </div>
           )}
         </div>

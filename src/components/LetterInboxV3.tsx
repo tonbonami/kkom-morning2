@@ -7,6 +7,7 @@ import {
   Heart, MessageCircle, Trash2, Send, Mic
 } from 'lucide-react';
 import VoicePlayer from '@/components/VoicePlayer';
+import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
 
 export type Letter = {
   id: string;
@@ -16,6 +17,7 @@ export type Letter = {
   createdAt: Date;
   openAt?: Date | null;
   voice?: { src: string; mime?: string; duration?: number } | null;
+  doodle?: DoodleData | null;
   hearts?: number;
   commentCount?: number;
 };
@@ -260,6 +262,11 @@ export default function LetterInboxV3({
                         <VoicePlayer src={letter.voice.src} mime={letter.voice.mime} durationHint={letter.voice.duration} compact accent="emerald" />
                       </div>
                     )}
+                    {letter.doodle && (
+                      <div className="mb-3 inline-flex items-center gap-1 text-[11px] font-bold text-[#10B981] bg-emerald-50 px-2 py-1 rounded-full">
+                        <Pencil size={11} /> 손글씨
+                      </div>
+                    )}
 
                     {/* Heart & Comments Counters */}
                     <div className="flex items-center justify-end gap-3 mt-1">
@@ -421,8 +428,15 @@ function LetterModal({
 
           {/* Voice Player */}
           {letter.voice && (
-            <div className="mb-8">
+            <div className="mb-6">
               <VoicePlayer src={letter.voice.src} mime={letter.voice.mime} durationHint={letter.voice.duration} />
+            </div>
+          )}
+
+          {/* Doodle Replay */}
+          {letter.doodle && (
+            <div className="mb-6">
+              <DoodlePad mode="play" data={letter.doodle} autoPlay />
             </div>
           )}
 
