@@ -23,6 +23,7 @@ import { subscribeShareList, type ShareItemView } from '@/lib/share';
 import VoicePlayer from '@/components/VoicePlayer';
 // ⏱ 임시 — D-day 카드 어텐션 (테두리 펄스 + Tap! 뱃지 + 리플). 24h 후 자동 안 뜸.
 import DdayAttentionV2 from '@/components/DdayAttentionV2';
+import QuickReplyBar from '@/components/QuickReplyBar';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
 import { touchPresence, subscribePresence, formatPresenceRelative, type Presence } from '@/lib/presence';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
@@ -273,7 +274,7 @@ export default function KkomMorningHome() {
   if (!mounted) return <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />;
 
   return (
-    <div className="w-full max-w-md mx-auto bg-[#F7F9F9] min-h-screen text-slate-800 relative overflow-x-hidden pb-12 selection:bg-[#99E6D9]/40">
+    <div className="w-full max-w-md mx-auto bg-[#F7F9F9] min-h-screen text-slate-800 relative overflow-x-hidden pb-32 selection:bg-[#99E6D9]/40">
       {/* 상단 등급색 그라데이션 — 전체를 하나의 흐름으로 */}
       <div className={`absolute top-0 left-0 w-full h-80 bg-gradient-to-b ${theme.gradient} to-[#F7F9F9] -z-0`} />
 
@@ -652,6 +653,9 @@ export default function KkomMorningHome() {
           <ChevronRight size={20} className="text-slate-400" />
         </button>
       </main>
+
+      {/* 하단 고정 퀵메세지 바 — 한 탭 푸시 (보고싶어/사랑해/뽀뽀/잘 자) */}
+      <QuickReplyBar me={userName} partner={partner} />
     </div>
   );
 }

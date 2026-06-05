@@ -1,5 +1,5 @@
-// '보고싶어' 한 번-탭 푸시 (Bump) — 상대 폰에 즉시 발송.
-// body { from, to }
+// '보고싶어/사랑해/뽀뽀/잘자' 한 번-탭 푸시 (Bump) — 상대 폰에 즉시 발송.
+// body { from, to, kind?: 'miss' | 'love' | 'kiss' | 'night' }  (기본 miss)
 // 방해 금지 시간(22-07) 적용 안 함 — 사용자가 명시적으로 누른 거라 즉시 전송.
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -22,17 +22,27 @@ function withSubjectParticle(name: string): string {
   return name + (hasFinal ? '이가' : '가');
 }
 
+type BumpKind = 'miss' | 'love' | 'kiss' | 'night';
+
+const VARIANTS: Record<BumpKind, { emoji: string; verb: string; body: string }> = {
+  miss:  { emoji: '💚', verb: '보고싶대',   body: '꼼모닝에서 인사해줘 ✨' },
+  love:  { emoji: '❤️', verb: '사랑한대',   body: '오늘도 너 덕분에 든든해 💕' },
+  kiss:  { emoji: '😘', verb: '뽀뽀 보냈어', body: '쪽! 🩷' },
+  night: { emoji: '🌙', verb: '잘 자래',    body: '좋은 꿈 꿔 ✨' },
+};
+
 export async function POST(req: NextRequest) {
-  let body: { from?: string; to?: string };
+  let body: { from?: string; to?: string; kind?: BumpKind };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'invalid json' }, { status: 400 });
   }
-  const { from, to } = body;
+  const { from, to, kind = 'miss' } = body;
   if (!to || !from) {
     return NextResponse.json({ error: 'to/from required' }, { status: 400 });
   }
+  const v = VARIANTS[kind] || VARIANTS.miss;
 
   const subSnap = await getDoc(doc(db, 'pushSubscriptions', to));
   if (!subSnap.exists()) {
@@ -41,8 +51,8 @@ export async function POST(req: NextRequest) {
   const s = subSnap.data() as { endpoint: string; keys: { p256dh: string; auth: string } };
 
   const payload = JSON.stringify({
-    title: `💚 ${withSubjectParticle(from)} 보고싶대`,
-    body: '꼼모닝에서 인사해줘 ✨',
+    title: `${v.emoji} ${withSubjectParticle(from)} ${v.verb}`,
+    body: v.body,
     url: '/',
   });
 
