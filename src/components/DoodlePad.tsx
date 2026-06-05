@@ -168,6 +168,14 @@ function ComposePad({ initialData, onChange, onCancel }: Omit<Props, 'mode' | 'd
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // iPadOS Scribble이 Pencil 감지 시 주변 textarea를 자동으로 인식 대상으로 삼음 →
+    // 현재 포커스된 input/textarea를 블러해 Scribble target 제거 (편지 본문 입력창 보호)
+    const ae = document.activeElement as HTMLElement | null;
+    if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT')) ae.blur();
+
+    // 이미 그리는 중에 두 번째 손가락/팜이 들어오면 무시 (multi-touch 보호)
+    if (isDrawingRef.current) return;
+
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     isDrawingRef.current = true;
     setIsActivelyDrawing(true);
@@ -251,6 +259,14 @@ function ComposePad({ initialData, onChange, onCancel }: Omit<Props, 'mode' | 'd
           width={CANVAS_W}
           height={CANVAS_H}
           className="w-full h-full cursor-crosshair block touch-none"
+          // iOS Safari long-press callout(복사/선택) + 텍스트 선택 + 탭 하이라이트 차단
+          style={{
+            WebkitTouchCallout: 'none',
+            WebkitUserSelect: 'none',
+            userSelect: 'none',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+          onContextMenu={(e) => e.preventDefault()}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
