@@ -19,32 +19,31 @@ export interface PraiseSticker {
   color: string;
   sheet?: PraiseStickerSheet;
   image: string;
-  imageIndex: number;
+  imageIndex?: number;
 }
 
 // Claude 참고:
-// 칭찬 스티커는 3x3 스프라이트 시트 한 장에서 imageIndex(0~8)만 바꿔 잘라 보여줍니다.
-// public/praise-classic.png / public/praise-pochacco.png 는 업로드 원본의 체크무늬 배경을 제거한 RGBA 버전입니다.
-// 나중에 직접 자른 PNG 9장을 쓰고 싶으면 image/imageIndex 대신 개별 asset 경로를 추가하면 됩니다.
+// 스티커 시트는 로딩이 느릴 수 있어 public/praise/{classic,pochacco}/N.png 로 잘라 씁니다.
+// 예전 기록에 시트 경로가 남아있어도 normalizeStickerImage가 개별 PNG로 보정합니다.
 export const PRAISE_STICKERS: PraiseSticker[] = [
-  { emoji: '⭐', label: '반짝별', color: 'bg-amber-100 text-amber-700', sheet: 'classic', image: '/praise-classic.png', imageIndex: 0 },
-  { emoji: '💚', label: '초록하트', color: 'bg-emerald-100 text-emerald-700', sheet: 'classic', image: '/praise-classic.png', imageIndex: 1 },
-  { emoji: '🌷', label: '꽃송이', color: 'bg-rose-100 text-rose-700', sheet: 'classic', image: '/praise-classic.png', imageIndex: 2 },
-  { emoji: '🍀', label: '행운잎', color: 'bg-lime-100 text-lime-700', sheet: 'classic', image: '/praise-classic.png', imageIndex: 3 },
-  { emoji: '🫧', label: '몽글버블', color: 'bg-cyan-100 text-cyan-700', sheet: 'classic', image: '/praise-classic.png', imageIndex: 4 },
-  { emoji: '🍯', label: '달콤꿀', color: 'bg-yellow-100 text-yellow-700', sheet: 'classic', image: '/praise-classic.png', imageIndex: 5 },
-  { emoji: '🎀', label: '리본하트', color: 'bg-pink-100 text-pink-700', sheet: 'classic', image: '/praise-classic.png', imageIndex: 6 },
-  { emoji: '🏅', label: '잘했장', color: 'bg-orange-100 text-orange-700', sheet: 'classic', image: '/praise-classic.png', imageIndex: 7 },
-  { emoji: '👑', label: '왕칭찬', color: 'bg-yellow-100 text-yellow-700', sheet: 'classic', image: '/praise-classic.png', imageIndex: 8 },
-  { emoji: '⭐', label: '별안은 포차코', color: 'bg-amber-100 text-amber-700', sheet: 'pochacco', image: '/praise-pochacco.png', imageIndex: 0 },
-  { emoji: '💚', label: '하트 포차코', color: 'bg-emerald-100 text-emerald-700', sheet: 'pochacco', image: '/praise-pochacco.png', imageIndex: 1 },
-  { emoji: '👏', label: '박수 포차코', color: 'bg-rose-100 text-rose-700', sheet: 'pochacco', image: '/praise-pochacco.png', imageIndex: 2 },
-  { emoji: '🏅', label: '메달 포차코', color: 'bg-orange-100 text-orange-700', sheet: 'pochacco', image: '/praise-pochacco.png', imageIndex: 3 },
-  { emoji: '🌷', label: '꽃다발 포차코', color: 'bg-pink-100 text-pink-700', sheet: 'pochacco', image: '/praise-pochacco.png', imageIndex: 4 },
-  { emoji: '🥺', label: '칭찬조름 포차코', color: 'bg-cyan-100 text-cyan-700', sheet: 'pochacco', image: '/praise-pochacco.png', imageIndex: 5 },
-  { emoji: '✨', label: '폴짝 포차코', color: 'bg-lime-100 text-lime-700', sheet: 'pochacco', image: '/praise-pochacco.png', imageIndex: 6 },
-  { emoji: '👑', label: '왕 포차코', color: 'bg-yellow-100 text-yellow-700', sheet: 'pochacco', image: '/praise-pochacco.png', imageIndex: 7 },
-  { emoji: '⭐', label: '꼬옥 포차코', color: 'bg-amber-100 text-amber-700', sheet: 'pochacco', image: '/praise-pochacco.png', imageIndex: 8 },
+  { emoji: '⭐', label: '반짝별', color: 'bg-amber-100 text-amber-700', sheet: 'classic', image: '/praise/classic/1.png' },
+  { emoji: '💚', label: '초록하트', color: 'bg-emerald-100 text-emerald-700', sheet: 'classic', image: '/praise/classic/2.png' },
+  { emoji: '🌷', label: '꽃송이', color: 'bg-rose-100 text-rose-700', sheet: 'classic', image: '/praise/classic/3.png' },
+  { emoji: '🍀', label: '행운잎', color: 'bg-lime-100 text-lime-700', sheet: 'classic', image: '/praise/classic/4.png' },
+  { emoji: '🫧', label: '몽글버블', color: 'bg-cyan-100 text-cyan-700', sheet: 'classic', image: '/praise/classic/5.png' },
+  { emoji: '🍯', label: '달콤꿀', color: 'bg-yellow-100 text-yellow-700', sheet: 'classic', image: '/praise/classic/6.png' },
+  { emoji: '🎀', label: '리본하트', color: 'bg-pink-100 text-pink-700', sheet: 'classic', image: '/praise/classic/7.png' },
+  { emoji: '🏅', label: '잘했장', color: 'bg-orange-100 text-orange-700', sheet: 'classic', image: '/praise/classic/8.png' },
+  { emoji: '👑', label: '왕칭찬', color: 'bg-yellow-100 text-yellow-700', sheet: 'classic', image: '/praise/classic/9.png' },
+  { emoji: '⭐', label: '별안은 포차코', color: 'bg-amber-100 text-amber-700', sheet: 'pochacco', image: '/praise/pochacco/1.png' },
+  { emoji: '💚', label: '하트 포차코', color: 'bg-emerald-100 text-emerald-700', sheet: 'pochacco', image: '/praise/pochacco/2.png' },
+  { emoji: '👏', label: '박수 포차코', color: 'bg-rose-100 text-rose-700', sheet: 'pochacco', image: '/praise/pochacco/3.png' },
+  { emoji: '🏅', label: '메달 포차코', color: 'bg-orange-100 text-orange-700', sheet: 'pochacco', image: '/praise/pochacco/4.png' },
+  { emoji: '🌷', label: '꽃다발 포차코', color: 'bg-pink-100 text-pink-700', sheet: 'pochacco', image: '/praise/pochacco/5.png' },
+  { emoji: '🥺', label: '칭찬조름 포차코', color: 'bg-cyan-100 text-cyan-700', sheet: 'pochacco', image: '/praise/pochacco/6.png' },
+  { emoji: '✨', label: '폴짝 포차코', color: 'bg-lime-100 text-lime-700', sheet: 'pochacco', image: '/praise/pochacco/7.png' },
+  { emoji: '👑', label: '왕 포차코', color: 'bg-yellow-100 text-yellow-700', sheet: 'pochacco', image: '/praise/pochacco/8.png' },
+  { emoji: '⭐', label: '꼬옥 포차코', color: 'bg-amber-100 text-amber-700', sheet: 'pochacco', image: '/praise/pochacco/9.png' },
 ];
 
 export interface PraiseDoc {
@@ -81,9 +80,13 @@ export interface PraiseMonthSummary {
   royalCount: number;
 }
 
-function normalizeStickerImage(image?: string): string | undefined {
-  if (image === '/praise%201.png' || image === '/praise 1.png') return '/praise-classic.png';
-  if (image === '/prase%202.png' || image === '/prase 2.png') return '/praise-pochacco.png';
+function normalizeStickerImage(image?: string, imageIndex?: number): string | undefined {
+  if (image === '/praise%201.png' || image === '/praise 1.png' || image === '/praise-classic.png') {
+    return `/praise/classic/${(imageIndex ?? 0) + 1}.png`;
+  }
+  if (image === '/prase%202.png' || image === '/prase 2.png' || image === '/praise-pochacco.png') {
+    return `/praise/pochacco/${(imageIndex ?? 0) + 1}.png`;
+  }
   return image;
 }
 
@@ -96,8 +99,8 @@ function toView(id: string, d: PraiseDoc): PraiseItemView {
     reason: d.reason || '',
     stickerEmoji: d.stickerEmoji || '⭐',
     stickerLabel: d.stickerLabel || '칭찬',
-    stickerImage: normalizeStickerImage(d.stickerImage),
-    stickerImageIndex: d.stickerImageIndex,
+    stickerImage: normalizeStickerImage(d.stickerImage, d.stickerImageIndex),
+    stickerImageIndex: undefined,
     stickerCount: Math.max(0, d.stickerCount || 0),
     createdAt: d.createdAt?.toDate?.() ?? new Date(),
   };
@@ -134,7 +137,6 @@ export async function addPraise(input: {
     stickerEmoji: input.sticker.emoji,
     stickerLabel: input.sticker.label,
     stickerImage: input.sticker.image,
-    stickerImageIndex: input.sticker.imageIndex,
     stickerCount: count,
     createdAt: serverTimestamp(),
   };

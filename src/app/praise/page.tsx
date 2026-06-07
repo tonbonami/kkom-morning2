@@ -10,6 +10,7 @@ import {
   Gift,
   HeartHandshake,
   Send,
+  Star,
   Sparkles,
   Trophy,
 } from 'lucide-react';
@@ -64,41 +65,43 @@ function formatDate(date: Date): string {
   });
 }
 
-function getSpritePosition(index = 0): string {
-  const col = index % 3;
-  const row = Math.floor(index / 3);
-  return `${col * 50}% ${row * 50}%`;
-}
-
-function StickerSprite({
+function StickerImage({
   sticker,
   image,
-  imageIndex,
   emoji,
   className,
 }: {
   sticker?: PraiseSticker;
   image?: string;
-  imageIndex?: number;
   emoji?: string;
   className?: string;
 }) {
   const src = sticker?.image || image;
-  const index = sticker?.imageIndex ?? imageIndex ?? 0;
+  const [loaded, setLoaded] = useState(false);
 
   if (!src) {
     return <span className={cn('leading-none', className)}>{sticker?.emoji || emoji || '⭐'}</span>;
   }
 
   return (
-    <span
-      className={cn('block bg-no-repeat bg-[length:300%_300%]', className)}
-      style={{
-        backgroundImage: `url("${src}")`,
-        backgroundPosition: getSpritePosition(index),
-      }}
-      aria-hidden="true"
-    />
+    <span className={cn('relative block overflow-hidden bg-emerald-50', className)} aria-hidden="true">
+      {!loaded && (
+        <span className="absolute inset-0 flex items-center justify-center">
+          <Star size={18} className="text-emerald-200 animate-pulse" />
+        </span>
+      )}
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        className={cn(
+          'h-full w-full object-contain transition-opacity duration-300',
+          loaded ? 'opacity-100' : 'opacity-0'
+        )}
+      />
+    </span>
   );
 }
 
@@ -106,13 +109,11 @@ function StickerRow({
   count,
   sticker,
   image,
-  imageIndex,
   emoji,
 }: {
   count: number;
   sticker?: PraiseSticker;
   image?: string;
-  imageIndex?: number;
   emoji?: string;
 }) {
   return (
@@ -125,10 +126,9 @@ function StickerRow({
           transition={{ delay: index * 0.035, type: 'spring', stiffness: 420, damping: 18 }}
           className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5 overflow-hidden"
         >
-          <StickerSprite
+          <StickerImage
             sticker={sticker}
             image={image}
-            imageIndex={imageIndex}
             emoji={emoji}
             className="h-full w-full"
           />
@@ -140,61 +140,86 @@ function StickerRow({
 
 function StickerChip({
   image,
-  imageIndex,
   emoji,
   count,
 }: {
   image?: string;
-  imageIndex?: number;
   emoji?: string;
   count: number;
 }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700 ring-1 ring-emerald-100">
       <span className="h-6 w-6 overflow-hidden rounded-full bg-white shadow-sm">
-        <StickerSprite image={image} imageIndex={imageIndex} emoji={emoji} className="h-full w-full" />
+        <StickerImage image={image} emoji={emoji} className="h-full w-full" />
       </span>
       +{count}
     </span>
   );
 }
 
-function CircleProgress({ progress }: { progress: number }) {
-  const radius = 66;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (circumference * progress) / 100;
+function ComplimentBoard({
+  filledCount,
+  latestStickers,
+}: {
+  filledCount: number;
+  latestStickers: Array<{
+    id: string;
+    image?: string;
+    emoji: string;
+    label: string;
+  }>;
+}) {
+  const clamped = Math.max(0, Math.min(100, filledCount));
+  const stickerPositions = [
+    'right-5 top-5 rotate-12',
+    'left-6 bottom-8 -rotate-12',
+    'right-16 bottom-5 rotate-6',
+  ];
 
   return (
-    <div className="relative mx-auto flex h-40 w-40 items-center justify-center">
-      <svg className="h-full w-full -rotate-90" viewBox="0 0 160 160" aria-hidden="true">
-        <circle
-          cx="80"
-          cy="80"
-          r={radius}
-          fill="transparent"
-          stroke="currentColor"
-          strokeWidth="10"
-          className="text-slate-100"
-        />
-        <motion.circle
-          cx="80"
-          cy="80"
-          r={radius}
-          fill="transparent"
-          stroke="currentColor"
-          strokeWidth="10"
-          strokeLinecap="round"
-          className="text-emerald-500"
-          strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 0.9, ease: 'easeOut' }}
-        />
-      </svg>
-      <div className="absolute flex flex-col items-center">
-        <span className="text-4xl font-black tracking-tight text-slate-900">{progress}</span>
-        <span className="text-xs font-black text-slate-400">/ 100</span>
+    <div className="relative rounded-[30px] bg-[#FFFDF7] border border-amber-100 px-4 py-5 shadow-inner overflow-hidden">
+      <div className="absolute inset-0 opacity-[0.28] bg-[radial-gradient(circle_at_1px_1px,rgba(16,185,129,0.18)_1px,transparent_0)] [background-size:18px_18px]" />
+      <div className="relative grid grid-cols-10 gap-2">
+        {Array.from({ length: 100 }).map((_, index) => {
+          const filled = index < clamped;
+          const milestone = (index + 1) % 10 === 0;
+          return (
+            <motion.div
+              key={index}
+              initial={false}
+              animate={{
+                scale: filled ? 1 : 0.92,
+                opacity: filled ? 1 : 0.55,
+              }}
+              transition={{ duration: 0.2, delay: index < clamped ? Math.min(index, 35) * 0.004 : 0 }}
+              className={cn(
+                'aspect-square rounded-full',
+                filled
+                  ? milestone
+                    ? 'bg-emerald-500 shadow-[0_2px_8px_rgba(16,185,129,0.28)]'
+                    : 'bg-emerald-300'
+                  : 'bg-slate-100 ring-1 ring-slate-200/70'
+              )}
+            />
+          );
+        })}
       </div>
+
+      {latestStickers.slice(0, 3).map((sticker, index) => (
+        <motion.div
+          key={sticker.id}
+          initial={{ scale: 0, y: 12, opacity: 0 }}
+          animate={{ scale: 1, y: 0, opacity: 1 }}
+          transition={{ delay: index * 0.08, type: 'spring', stiffness: 420, damping: 18 }}
+          className={cn(
+            'absolute h-16 w-16 overflow-hidden rounded-[22px] bg-white shadow-lg ring-1 ring-black/5',
+            stickerPositions[index]
+          )}
+          title={sticker.label}
+        >
+          <StickerImage image={sticker.image} emoji={sticker.emoji} className="h-full w-full" />
+        </motion.div>
+      ))}
     </div>
   );
 }
@@ -221,6 +246,14 @@ export default function PraisePage() {
     return () => unsub();
   }, [router]);
 
+  useEffect(() => {
+    // Claude 참고: 스티커 선택 그리드가 빈 카드처럼 보이지 않도록 작은 PNG 18장을 화면 진입 시 미리 로드합니다.
+    PRAISE_STICKERS.forEach((sticker) => {
+      const img = new window.Image();
+      img.src = sticker.image;
+    });
+  }, []);
+
   const partner = me ? (partnerOf(me) as PraiseUser) : '';
   const receivedTotal = useMemo(() => me ? totalPraiseCount(items, me) : 0, [items, me]);
   const sentTotal = useMemo(() => me ? totalPraiseCount(items.filter((item) => item.from === me)) : 0, [items, me]);
@@ -242,7 +275,6 @@ export default function PraisePage() {
     const marks: Array<{
       id: string;
       image?: string;
-      imageIndex?: number;
       emoji: string;
       label: string;
     }> = [];
@@ -252,7 +284,6 @@ export default function PraisePage() {
         marks.push({
           id: `${item.id}-${i}`,
           image: item.stickerImage,
-          imageIndex: item.stickerImageIndex,
           emoji: item.stickerEmoji,
           label: item.stickerLabel,
         });
@@ -266,7 +297,6 @@ export default function PraisePage() {
       key: string;
       count: number;
       image?: string;
-      imageIndex?: number;
       emoji: string;
       label: string;
     }>();
@@ -280,7 +310,6 @@ export default function PraisePage() {
           key,
           count: item.stickerCount,
           image: item.stickerImage,
-          imageIndex: item.stickerImageIndex,
           emoji: item.stickerEmoji,
           label: item.stickerLabel,
         });
@@ -289,6 +318,7 @@ export default function PraisePage() {
     return Array.from(grouped.values()).sort((a, b) => b.count - a.count);
   }, [receivedPraiseItems]);
   const crownSticker = PRAISE_STICKERS.find((sticker) => sticker.label === '왕칭찬') || PRAISE_STICKERS[8];
+  const latestReceivedPraise = receivedPraiseItems[0] || null;
 
   const showToast = (message: string) => {
     setToast(message);
@@ -423,7 +453,7 @@ export default function PraisePage() {
                   className="shrink-0 w-20 rounded-[24px] bg-gradient-to-b from-amber-50 to-white p-2 text-center shadow-sm ring-1 ring-amber-100"
                 >
                   <div className="mx-auto h-14 w-14 overflow-hidden rounded-2xl bg-white shadow-sm">
-                    <StickerSprite sticker={crownSticker} className="h-full w-full" />
+                    <StickerImage sticker={crownSticker} className="h-full w-full" />
                   </div>
                   <p className="mt-1 text-[10px] font-black text-amber-700">왕칭찬 {index + 1}</p>
                 </motion.div>
@@ -435,46 +465,57 @@ export default function PraisePage() {
         <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-5 overflow-hidden">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black text-emerald-500">Next Crown</p>
-              <h2 className="text-lg font-black">다음 왕 칭찬까지</h2>
+              <p className="text-xs font-black text-emerald-500">Compliment Board</p>
+              <h2 className="text-lg font-black">{me}의 {royalCount + 1}번째 칭찬장</h2>
             </div>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
               {nextRoyalLeft}개 남음
             </span>
           </div>
 
-          <div className="relative rounded-[26px] bg-[#FFFDF7] px-4 py-6 border border-amber-100">
-            <CircleProgress progress={royalProgress} />
-            {recentStickerMarks.map((sticker, index) => {
-              const positions = [
-                'left-5 top-6 -rotate-12',
-                'right-6 top-9 rotate-12',
-                'left-9 bottom-8 rotate-6',
-                'right-10 bottom-6 -rotate-6',
-                'left-1/2 top-3 -translate-x-1/2 rotate-3',
-              ];
-              return (
-                <motion.div
-                  key={sticker.id}
-                  initial={{ scale: 0, y: 8, opacity: 0 }}
-                  animate={{ scale: 1, y: 0, opacity: 1 }}
-                  transition={{ delay: index * 0.06, type: 'spring', stiffness: 420, damping: 18 }}
-                  className={cn(
-                    'absolute h-10 w-10 overflow-hidden rounded-full bg-white shadow-md ring-1 ring-black/5',
-                    positions[index]
-                  )}
-                  title={sticker.label}
-                >
-                  <StickerSprite
-                    image={sticker.image}
-                    imageIndex={sticker.imageIndex}
-                    emoji={sticker.emoji}
-                    className="h-full w-full"
-                  />
-                </motion.div>
-              );
-            })}
+          <div className="space-y-3">
+            <ComplimentBoard filledCount={royalProgress} latestStickers={recentStickerMarks} />
+            <div className="flex items-center justify-between rounded-[22px] bg-emerald-50 px-4 py-3">
+              <span className="text-xs font-black text-emerald-700">현재 칭찬장</span>
+              <span className="text-sm font-black text-emerald-700">{royalProgress}/100 스티커</span>
+            </div>
           </div>
+        </section>
+
+        <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-black text-emerald-500">Latest Compliment</p>
+              <h2 className="text-lg font-black">방금 도착한 칭찬</h2>
+            </div>
+            {latestReceivedPraise && (
+              <StickerChip
+                image={latestReceivedPraise.stickerImage}
+                emoji={latestReceivedPraise.stickerEmoji}
+                count={latestReceivedPraise.stickerCount}
+              />
+            )}
+          </div>
+
+          {latestReceivedPraise ? (
+            <motion.div
+              initial={{ rotate: -2, y: 8, opacity: 0 }}
+              animate={{ rotate: -1, y: 0, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+              className="mt-4 rounded-[26px] bg-[#FFF8D9] px-4 py-5 shadow-sm ring-1 ring-amber-100"
+            >
+              <p className="text-[11px] font-black text-amber-600">
+                {formatDate(latestReceivedPraise.createdAt)} · {latestReceivedPraise.from}가 붙여준 칭찬
+              </p>
+              <p className="mt-2 text-[15px] font-bold leading-relaxed text-slate-800">
+                {latestReceivedPraise.reason}
+              </p>
+            </motion.div>
+          ) : (
+            <div className="mt-4 rounded-[26px] bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-400">
+              아직 도착한 칭찬이 없어요
+            </div>
+          )}
         </section>
 
         <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-4">
@@ -503,9 +544,8 @@ export default function PraisePage() {
                   className="rounded-[22px] bg-slate-50 p-2.5 text-center ring-1 ring-slate-100"
                 >
                   <div className="mx-auto h-16 w-16 overflow-hidden rounded-2xl bg-white shadow-sm">
-                    <StickerSprite
+                    <StickerImage
                       image={sticker.image}
-                      imageIndex={sticker.imageIndex}
                       emoji={sticker.emoji}
                       className="h-full w-full"
                     />
@@ -559,7 +599,7 @@ export default function PraisePage() {
                     selected ? `${sticker.color} border-current shadow-sm` : 'bg-slate-50 border-slate-100 text-slate-500'
                   )}
                 >
-                  <StickerSprite sticker={sticker} className="h-16 w-16 drop-shadow-sm" />
+                  <StickerImage sticker={sticker} className="h-16 w-16 drop-shadow-sm rounded-2xl" />
                   <span className="text-[9px] font-black leading-tight px-1">{sticker.label}</span>
                 </motion.button>
               );
@@ -586,7 +626,7 @@ export default function PraisePage() {
                     )}
                     aria-label={`${value}개`}
                   >
-                    <StickerSprite sticker={selectedSticker} className="h-full w-full" />
+                    <StickerImage sticker={selectedSticker} className="h-full w-full" />
                   </motion.button>
                 );
               })}
@@ -603,7 +643,7 @@ export default function PraisePage() {
                   transition={{ type: 'spring', stiffness: 480, damping: 16 }}
                   className="absolute right-4 top-4 h-20 w-20 rounded-full bg-white/90 shadow-lg border border-amber-100 flex items-center justify-center overflow-hidden z-10"
                 >
-                  <StickerSprite sticker={selectedSticker} className="h-full w-full" />
+                  <StickerImage sticker={selectedSticker} className="h-full w-full" />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -703,7 +743,6 @@ export default function PraisePage() {
                   ) : (
                     <StickerChip
                       image={item.stickerImage}
-                      imageIndex={item.stickerImageIndex}
                       emoji={item.stickerEmoji}
                       count={item.stickerCount}
                     />
