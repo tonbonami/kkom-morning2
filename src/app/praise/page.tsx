@@ -34,6 +34,28 @@ const STICKER_SETS: Array<{ id: PraiseStickerSheet; label: string }> = [
   { id: 'pochacco', label: '포차코' },
 ];
 
+function getStoredUserName(raw: string): PraiseUser {
+  const user = JSON.parse(raw) as {
+    로그인코드?: string;
+    code?: string;
+    name?: string;
+    이름?: string;
+  };
+  const code = user.로그인코드 || user.code;
+  if (code) {
+    const codeName = nameFromCode(code);
+    if (codeName === '우댕' || codeName === '꼼이') return codeName;
+  }
+
+  // Claude 참고:
+  // 예전 localStorage에는 로그인코드 없이 이름/name만 남아있는 경우가 있어서
+  // 칭찬 화면만큼은 저장 형태가 조금 달라도 0319=우댕, 0928=꼼이 관계가 뒤집히지 않게 보정합니다.
+  const storedName = String(user.name || user.이름 || '').replace('꼼✌️', '꼼이');
+  if (storedName.includes('우댕')) return '우댕';
+  if (storedName.includes('꼼')) return '꼼이';
+  return '꼼이';
+}
+
 function formatDate(date: Date): string {
   return date.toLocaleDateString('ko-KR', {
     month: 'long',
@@ -133,7 +155,7 @@ export default function PraisePage() {
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
     if (!userStr) { router.push('/login'); return; }
-    setMe(nameFromCode(JSON.parse(userStr).로그인코드) as PraiseUser);
+    setMe(getStoredUserName(userStr));
     const unsub = subscribePraise(setItems);
     return () => unsub();
   }, [router]);
@@ -151,6 +173,21 @@ export default function PraisePage() {
     () => PRAISE_STICKERS.filter((sticker) => sticker.sheet === stickerSet),
     [stickerSet]
   );
+  const receivedStickerBoard = useMemo(() => {
+    if (!me) return [];
+    return items
+      .filter((item) => item.kind === 'praise' && item.to === me)
+      .flatMap((item) =>
+        Array.from({ length: item.stickerCount }).map((_, index) => ({
+          id: `${item.id}-${index}`,
+          image: item.stickerImage,
+          imageIndex: item.stickerImageIndex,
+          emoji: item.stickerEmoji,
+          label: item.stickerLabel,
+          date: item.createdAt,
+        }))
+      );
+  }, [items, me]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -257,6 +294,46 @@ export default function PraisePage() {
           <p className="mt-2 text-[11px] font-bold text-emerald-50">
             다음 왕 칭찬까지 {nextRoyalLeft}개
           </p>
+        </section>
+
+        <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-black text-emerald-500">Sticker Board</p>
+              <h2 className="text-lg font-black">내가 받은 스티커 모음</h2>
+            </div>
+            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
+              {receivedStickerBoard.length}개
+            </span>
+          </div>
+
+          {receivedStickerBoard.length === 0 ? (
+            <div className="rounded-[24px] bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-400">
+              아직 붙은 스티커가 없어요
+            </div>
+          ) : (
+            <div className="max-h-[360px] overflow-y-auto rounded-[24px] bg-[#FFFDF7] border border-amber-100 p-3">
+              <div className="grid grid-cols-6 gap-2">
+                {receivedStickerBoard.map((sticker, index) => (
+                  <motion.div
+                    key={sticker.id}
+                    initial={{ scale: 0, rotate: -10, opacity: 0 }}
+                    animate={{ scale: 1, rotate: index % 2 === 0 ? -3 : 4, opacity: 1 }}
+                    transition={{ delay: Math.min(index, 24) * 0.012, type: 'spring', stiffness: 380, damping: 18 }}
+                    title={`${sticker.label} · ${formatDate(sticker.date)}`}
+                    className="aspect-square rounded-2xl bg-white shadow-sm ring-1 ring-black/5 overflow-hidden"
+                  >
+                    <StickerSprite
+                      image={sticker.image}
+                      imageIndex={sticker.imageIndex}
+                      emoji={sticker.emoji}
+                      className="h-full w-full"
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-4">
