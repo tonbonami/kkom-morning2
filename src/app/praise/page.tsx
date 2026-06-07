@@ -138,6 +138,67 @@ function StickerRow({
   );
 }
 
+function StickerChip({
+  image,
+  imageIndex,
+  emoji,
+  count,
+}: {
+  image?: string;
+  imageIndex?: number;
+  emoji?: string;
+  count: number;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700 ring-1 ring-emerald-100">
+      <span className="h-6 w-6 overflow-hidden rounded-full bg-white shadow-sm">
+        <StickerSprite image={image} imageIndex={imageIndex} emoji={emoji} className="h-full w-full" />
+      </span>
+      +{count}
+    </span>
+  );
+}
+
+function CircleProgress({ progress }: { progress: number }) {
+  const radius = 66;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (circumference * progress) / 100;
+
+  return (
+    <div className="relative mx-auto flex h-40 w-40 items-center justify-center">
+      <svg className="h-full w-full -rotate-90" viewBox="0 0 160 160" aria-hidden="true">
+        <circle
+          cx="80"
+          cy="80"
+          r={radius}
+          fill="transparent"
+          stroke="currentColor"
+          strokeWidth="10"
+          className="text-slate-100"
+        />
+        <motion.circle
+          cx="80"
+          cy="80"
+          r={radius}
+          fill="transparent"
+          stroke="currentColor"
+          strokeWidth="10"
+          strokeLinecap="round"
+          className="text-emerald-500"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 0.9, ease: 'easeOut' }}
+        />
+      </svg>
+      <div className="absolute flex flex-col items-center">
+        <span className="text-4xl font-black tracking-tight text-slate-900">{progress}</span>
+        <span className="text-xs font-black text-slate-400">/ 100</span>
+      </div>
+    </div>
+  );
+}
+
 export default function PraisePage() {
   const router = useRouter();
   const [me, setMe] = useState<PraiseUser | ''>('');
@@ -173,21 +234,61 @@ export default function PraisePage() {
     () => PRAISE_STICKERS.filter((sticker) => sticker.sheet === stickerSet),
     [stickerSet]
   );
-  const receivedStickerBoard = useMemo(() => {
-    if (!me) return [];
-    return items
-      .filter((item) => item.kind === 'praise' && item.to === me)
-      .flatMap((item) =>
-        Array.from({ length: item.stickerCount }).map((_, index) => ({
-          id: `${item.id}-${index}`,
+  const receivedPraiseItems = useMemo(
+    () => items.filter((item) => item.kind === 'praise' && item.to === me),
+    [items, me]
+  );
+  const recentStickerMarks = useMemo(() => {
+    const marks: Array<{
+      id: string;
+      image?: string;
+      imageIndex?: number;
+      emoji: string;
+      label: string;
+    }> = [];
+    for (const item of receivedPraiseItems) {
+      const limit = Math.min(item.stickerCount, 5 - marks.length);
+      for (let i = 0; i < limit; i++) {
+        marks.push({
+          id: `${item.id}-${i}`,
           image: item.stickerImage,
           imageIndex: item.stickerImageIndex,
           emoji: item.stickerEmoji,
           label: item.stickerLabel,
-          date: item.createdAt,
-        }))
-      );
-  }, [items, me]);
+        });
+      }
+      if (marks.length >= 5) break;
+    }
+    return marks;
+  }, [receivedPraiseItems]);
+  const stickerSummary = useMemo(() => {
+    const grouped = new Map<string, {
+      key: string;
+      count: number;
+      image?: string;
+      imageIndex?: number;
+      emoji: string;
+      label: string;
+    }>();
+    for (const item of receivedPraiseItems) {
+      const key = `${item.stickerImage || item.stickerEmoji}-${item.stickerImageIndex ?? 'emoji'}-${item.stickerLabel}`;
+      const current = grouped.get(key);
+      if (current) {
+        current.count += item.stickerCount;
+      } else {
+        grouped.set(key, {
+          key,
+          count: item.stickerCount,
+          image: item.stickerImage,
+          imageIndex: item.stickerImageIndex,
+          emoji: item.stickerEmoji,
+          label: item.stickerLabel,
+        });
+      }
+    }
+    return Array.from(grouped.values()).sort((a, b) => b.count - a.count);
+  }, [receivedPraiseItems]);
+  const crownSticker = PRAISE_STICKERS.find((sticker) => sticker.label === '왕칭찬') || PRAISE_STICKERS[8];
 
   const showToast = (message: string) => {
     setToast(message);
@@ -299,43 +400,123 @@ export default function PraisePage() {
         <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black text-emerald-500">Sticker Board</p>
-              <h2 className="text-lg font-black">내가 받은 스티커 모음</h2>
+              <p className="text-xs font-black text-emerald-500">Trophy Room</p>
+              <h2 className="text-lg font-black">왕 칭찬 보관함</h2>
             </div>
-            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
-              {receivedStickerBoard.length}개
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-700">
+              👑 {royalCount}개
             </span>
           </div>
 
-          {receivedStickerBoard.length === 0 ? (
+          {royalCount === 0 ? (
+            <div className="rounded-[24px] bg-amber-50/70 px-4 py-8 text-center text-sm font-bold text-amber-500">
+              첫 왕 칭찬까지 {nextRoyalLeft}개 남았어요
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {Array.from({ length: royalCount }).map((_, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ scale: 0.8, rotate: -8, opacity: 0 }}
+                  animate={{ scale: 1, rotate: index % 2 === 0 ? -4 : 4, opacity: 1 }}
+                  transition={{ delay: Math.min(index, 8) * 0.04, type: 'spring', stiffness: 360, damping: 18 }}
+                  className="shrink-0 w-20 rounded-[24px] bg-gradient-to-b from-amber-50 to-white p-2 text-center shadow-sm ring-1 ring-amber-100"
+                >
+                  <div className="mx-auto h-14 w-14 overflow-hidden rounded-2xl bg-white shadow-sm">
+                    <StickerSprite sticker={crownSticker} className="h-full w-full" />
+                  </div>
+                  <p className="mt-1 text-[10px] font-black text-amber-700">왕칭찬 {index + 1}</p>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-5 overflow-hidden">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-black text-emerald-500">Next Crown</p>
+              <h2 className="text-lg font-black">다음 왕 칭찬까지</h2>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
+              {nextRoyalLeft}개 남음
+            </span>
+          </div>
+
+          <div className="relative rounded-[26px] bg-[#FFFDF7] px-4 py-6 border border-amber-100">
+            <CircleProgress progress={royalProgress} />
+            {recentStickerMarks.map((sticker, index) => {
+              const positions = [
+                'left-5 top-6 -rotate-12',
+                'right-6 top-9 rotate-12',
+                'left-9 bottom-8 rotate-6',
+                'right-10 bottom-6 -rotate-6',
+                'left-1/2 top-3 -translate-x-1/2 rotate-3',
+              ];
+              return (
+                <motion.div
+                  key={sticker.id}
+                  initial={{ scale: 0, y: 8, opacity: 0 }}
+                  animate={{ scale: 1, y: 0, opacity: 1 }}
+                  transition={{ delay: index * 0.06, type: 'spring', stiffness: 420, damping: 18 }}
+                  className={cn(
+                    'absolute h-10 w-10 overflow-hidden rounded-full bg-white shadow-md ring-1 ring-black/5',
+                    positions[index]
+                  )}
+                  title={sticker.label}
+                >
+                  <StickerSprite
+                    image={sticker.image}
+                    imageIndex={sticker.imageIndex}
+                    emoji={sticker.emoji}
+                    className="h-full w-full"
+                  />
+                </motion.div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-black text-emerald-500">Sticker Book</p>
+              <h2 className="text-lg font-black">내가 받은 스티커북</h2>
+            </div>
+            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
+              {receivedTotal}개
+            </span>
+          </div>
+
+          {stickerSummary.length === 0 ? (
             <div className="rounded-[24px] bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-400">
               아직 붙은 스티커가 없어요
             </div>
           ) : (
-            <div className="max-h-[360px] overflow-y-auto rounded-[24px] bg-[#FFFDF7] border border-amber-100 p-3">
-              <div className="grid grid-cols-6 gap-2">
-                {receivedStickerBoard.map((sticker, index) => (
-                  <motion.div
-                    key={sticker.id}
-                    initial={{ scale: 0, rotate: -10, opacity: 0 }}
-                    animate={{ scale: 1, rotate: index % 2 === 0 ? -3 : 4, opacity: 1 }}
-                    transition={{ delay: Math.min(index, 24) * 0.012, type: 'spring', stiffness: 380, damping: 18 }}
-                    title={`${sticker.label} · ${formatDate(sticker.date)}`}
-                    className="aspect-square rounded-2xl bg-white shadow-sm ring-1 ring-black/5 overflow-hidden"
-                  >
+            <div className="grid grid-cols-3 gap-2">
+              {stickerSummary.slice(0, 12).map((sticker, index) => (
+                <motion.div
+                  key={sticker.key}
+                  initial={{ scale: 0.94, opacity: 0, y: 8 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.025, type: 'spring', stiffness: 320, damping: 22 }}
+                  className="rounded-[22px] bg-slate-50 p-2.5 text-center ring-1 ring-slate-100"
+                >
+                  <div className="mx-auto h-16 w-16 overflow-hidden rounded-2xl bg-white shadow-sm">
                     <StickerSprite
                       image={sticker.image}
                       imageIndex={sticker.imageIndex}
                       emoji={sticker.emoji}
                       className="h-full w-full"
                     />
-                  </motion.div>
-                ))}
-              </div>
+                  </div>
+                  <p className="mt-1.5 truncate text-[10px] font-black text-slate-500">{sticker.label}</p>
+                  <p className="text-sm font-black text-emerald-600">x {sticker.count}</p>
+                </motion.div>
+              ))}
             </div>
           )}
         </section>
-
         <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -520,21 +701,14 @@ export default function PraisePage() {
                       칭찬해주세요
                     </span>
                   ) : (
-                    <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black text-emerald-700">
-                      {item.stickerEmoji} {item.stickerCount}
-                    </span>
-                  )}
-                </div>
-                {item.kind === 'praise' && (
-                  <div className="mt-3">
-                    <StickerRow
-                      emoji={item.stickerEmoji}
+                    <StickerChip
                       image={item.stickerImage}
                       imageIndex={item.stickerImageIndex}
-                      count={Math.min(10, item.stickerCount)}
+                      emoji={item.stickerEmoji}
+                      count={item.stickerCount}
                     />
-                  </div>
-                )}
+                  )}
+                </div>
               </article>
             ))
           )}
