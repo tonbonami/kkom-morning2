@@ -22,12 +22,17 @@ import {
   totalPraiseCount,
   type PraiseItemView,
   type PraiseSticker,
+  type PraiseStickerSheet,
   type PraiseUser,
 } from '@/lib/praise';
 import { nameFromCode, partnerOf, vocativeOf } from '@/lib/letters';
 import { cn } from '@/lib/utils';
 
 const MAX_STICKERS_PER_PRAISE = 10;
+const STICKER_SETS: Array<{ id: PraiseStickerSheet; label: string }> = [
+  { id: 'classic', label: '일반' },
+  { id: 'pochacco', label: '포차코' },
+];
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString('ko-KR', {
@@ -37,18 +42,74 @@ function formatDate(date: Date): string {
   });
 }
 
-function StickerRow({ emoji, count }: { emoji: string; count: number }) {
+function getSpritePosition(index = 0): string {
+  const col = index % 3;
+  const row = Math.floor(index / 3);
+  return `${col * 50}% ${row * 50}%`;
+}
+
+function StickerSprite({
+  sticker,
+  image,
+  imageIndex,
+  emoji,
+  className,
+}: {
+  sticker?: PraiseSticker;
+  image?: string;
+  imageIndex?: number;
+  emoji?: string;
+  className?: string;
+}) {
+  const src = sticker?.image || image;
+  const index = sticker?.imageIndex ?? imageIndex ?? 0;
+
+  if (!src) {
+    return <span className={cn('leading-none', className)}>{sticker?.emoji || emoji || '⭐'}</span>;
+  }
+
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <span
+      className={cn('block bg-no-repeat bg-[length:300%_300%]', className)}
+      style={{
+        backgroundImage: `url("${src}")`,
+        backgroundPosition: getSpritePosition(index),
+      }}
+      aria-hidden="true"
+    />
+  );
+}
+
+function StickerRow({
+  count,
+  sticker,
+  image,
+  imageIndex,
+  emoji,
+}: {
+  count: number;
+  sticker?: PraiseSticker;
+  image?: string;
+  imageIndex?: number;
+  emoji?: string;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
       {Array.from({ length: count }).map((_, index) => (
         <motion.span
           key={index}
           initial={{ scale: 0, rotate: -18, y: 10 }}
           animate={{ scale: 1, rotate: index % 2 === 0 ? -4 : 5, y: 0 }}
           transition={{ delay: index * 0.035, type: 'spring', stiffness: 420, damping: 18 }}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5 text-[18px]"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5 overflow-hidden"
         >
-          {emoji}
+          <StickerSprite
+            sticker={sticker}
+            image={image}
+            imageIndex={imageIndex}
+            emoji={emoji}
+            className="h-full w-full"
+          />
         </motion.span>
       ))}
     </div>
@@ -59,6 +120,7 @@ export default function PraisePage() {
   const router = useRouter();
   const [me, setMe] = useState<PraiseUser | ''>('');
   const [items, setItems] = useState<PraiseItemView[]>([]);
+  const [stickerSet, setStickerSet] = useState<PraiseStickerSheet>('classic');
   const [selectedSticker, setSelectedSticker] = useState<PraiseSticker>(PRAISE_STICKERS[0]);
   const [stickerCount, setStickerCount] = useState(3);
   const [reason, setReason] = useState('');
@@ -85,6 +147,10 @@ export default function PraisePage() {
   const timeline = items.slice(0, 30);
   const royalProgress = receivedTotal % 100;
   const nextRoyalLeft = royalProgress === 0 ? 100 : 100 - royalProgress;
+  const visibleStickers = useMemo(
+    () => PRAISE_STICKERS.filter((sticker) => sticker.sheet === stickerSet),
+    [stickerSet]
+  );
 
   const showToast = (message: string) => {
     setToast(message);
@@ -202,8 +268,28 @@ export default function PraisePage() {
             <Sparkles size={20} className="text-amber-500" />
           </div>
 
-          <div className="grid grid-cols-4 gap-2">
-            {PRAISE_STICKERS.map((sticker) => {
+          <div className="grid grid-cols-2 gap-2 rounded-[22px] bg-slate-50 p-1">
+            {STICKER_SETS.map((set) => (
+              <button
+                key={set.id}
+                onClick={() => {
+                  setStickerSet(set.id);
+                  setSelectedSticker(PRAISE_STICKERS.find((sticker) => sticker.sheet === set.id) || PRAISE_STICKERS[0]);
+                }}
+                className={cn(
+                  'h-10 rounded-[18px] text-xs font-black transition-all',
+                  stickerSet === set.id
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-400'
+                )}
+              >
+                {set.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {visibleStickers.map((sticker) => {
               const selected = selectedSticker.label === sticker.label;
               return (
                 <motion.button
@@ -211,12 +297,12 @@ export default function PraisePage() {
                   whileTap={{ scale: 0.9, rotate: -6 }}
                   onClick={() => setSelectedSticker(sticker)}
                   className={cn(
-                    'h-16 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-all',
+                    'h-[104px] rounded-[22px] border flex flex-col items-center justify-center gap-1.5 transition-all overflow-hidden',
                     selected ? `${sticker.color} border-current shadow-sm` : 'bg-slate-50 border-slate-100 text-slate-500'
                   )}
                 >
-                  <span className="text-2xl leading-none">{sticker.emoji}</span>
-                  <span className="text-[9px] font-black">{sticker.label}</span>
+                  <StickerSprite sticker={sticker} className="h-16 w-16 drop-shadow-sm" />
+                  <span className="text-[9px] font-black leading-tight px-1">{sticker.label}</span>
                 </motion.button>
               );
             })}
@@ -242,7 +328,7 @@ export default function PraisePage() {
                     )}
                     aria-label={`${value}개`}
                   >
-                    {selectedSticker.emoji}
+                    <StickerSprite sticker={selectedSticker} className="h-full w-full" />
                   </motion.button>
                 );
               })}
@@ -257,13 +343,13 @@ export default function PraisePage() {
                   animate={{ scale: 1, rotate: 0, opacity: 1, y: 0 }}
                   exit={{ scale: 0.7, opacity: 0, y: 18 }}
                   transition={{ type: 'spring', stiffness: 480, damping: 16 }}
-                  className="absolute right-4 top-4 h-16 w-16 rounded-full bg-white/90 shadow-lg border border-amber-100 flex items-center justify-center text-4xl z-10"
+                  className="absolute right-4 top-4 h-20 w-20 rounded-full bg-white/90 shadow-lg border border-amber-100 flex items-center justify-center overflow-hidden z-10"
                 >
-                  {selectedSticker.emoji}
+                  <StickerSprite sticker={selectedSticker} className="h-full w-full" />
                 </motion.div>
               )}
             </AnimatePresence>
-            <StickerRow emoji={selectedSticker.emoji} count={stickerCount} />
+            <StickerRow sticker={selectedSticker} count={stickerCount} />
           </div>
 
           <textarea
@@ -364,7 +450,12 @@ export default function PraisePage() {
                 </div>
                 {item.kind === 'praise' && (
                   <div className="mt-3">
-                    <StickerRow emoji={item.stickerEmoji} count={Math.min(10, item.stickerCount)} />
+                    <StickerRow
+                      emoji={item.stickerEmoji}
+                      image={item.stickerImage}
+                      imageIndex={item.stickerImageIndex}
+                      count={Math.min(10, item.stickerCount)}
+                    />
                   </div>
                 )}
               </article>
