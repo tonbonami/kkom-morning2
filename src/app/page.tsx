@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
   Wind, Heart, PenLine, BookOpen,
-  RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2,
+  RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award,
 } from 'lucide-react';
 
 // 화면에서 보는 위치 (알림 cron과 별개로 사용자가 선택)
@@ -639,6 +639,33 @@ export default function KkomMorningHome() {
             <p className="text-sm font-bold text-slate-700">또 가고 싶은 곳 · 단골</p>
           </div>
           <ChevronRight size={20} className="text-slate-400 shrink-0" />
+        </button>
+
+        {/* 칭찬하기 진입 카드
+            Claude 참고: 우리들의 서재 바로 위에 고정된 새 기능 진입점입니다.
+            칭찬 데이터/알림은 src/lib/praise.ts 와 /api/notify-praise 에 분리해 기존 카드들을 건드리지 않습니다. */}
+        <button
+          onClick={() => router.push('/praise')}
+          className="w-full bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[32px] p-5 shadow-[0_10px_30px_rgba(16,185,129,0.22)] flex items-center gap-4 text-left active:scale-[0.98] transition-all text-white overflow-hidden relative"
+        >
+          <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/12" />
+          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0 text-white shadow-inner">
+            <Award size={23} strokeWidth={2.5} />
+          </div>
+          <div className="flex-1 min-w-0 relative">
+            <div className="flex items-center gap-1.5 text-emerald-50/90 mb-1">
+              <span className="text-[11px] font-black tracking-wider uppercase">Praise Stickers</span>
+            </div>
+            <p className="text-[16px] font-black">칭찬하기</p>
+            <p className="text-xs font-bold text-emerald-50/90 mt-0.5 truncate">
+              스티커 붙이고 · 칭찬 조르고 · 달별로 모아보기
+            </p>
+          </div>
+          <div className="relative flex items-center gap-1 text-xl" aria-hidden="true">
+            <span className="-rotate-6">⭐</span>
+            <span className="rotate-6">💚</span>
+          </div>
+          <ChevronRight size={20} className="text-emerald-50/80 shrink-0 relative" />
         </button>
 
         {/* 우리들의 서재 */}
