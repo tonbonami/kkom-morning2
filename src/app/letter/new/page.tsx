@@ -216,10 +216,10 @@ export default function NewLetterPage() {
                       initial={{ opacity: 0, y: 8, scale: 0.9 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       onClick={() => removeSelectedEmoticon(index)}
-                      className="relative w-14 h-14 rounded-2xl bg-white shadow-sm border border-white flex items-center justify-center shrink-0 active:scale-95 transition-transform"
+                      className="relative w-20 h-20 rounded-2xl bg-white shadow-sm border border-white flex items-center justify-center shrink-0 active:scale-95 transition-transform overflow-hidden"
                       aria-label={`${item.label} 이모티콘 빼기`}
                     >
-                      <img src={item.imageUrl} alt={item.label} className="w-11 h-11 object-contain" />
+                      <img src={item.imageUrl} alt={item.label} className="w-[92%] h-[92%] object-contain" />
                       <span className="absolute -right-1 -top-1 w-5 h-5 rounded-full bg-slate-800 text-white flex items-center justify-center shadow-sm">
                         <X size={12} />
                       </span>
@@ -430,17 +430,17 @@ export default function NewLetterPage() {
               </div>
 
               <div className="px-5 pb-5">
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2.5">
                   {activeEmoticons.map((item) => (
                     <motion.button
                       key={item.id}
                       type="button"
                       whileTap={{ scale: 0.9, rotate: -2 }}
                       onClick={() => addEmoticon(item.id)}
-                      className="aspect-square rounded-[26px] bg-white border border-slate-100 shadow-[0_6px_18px_rgba(15,23,42,0.04)] flex flex-col items-center justify-center gap-1.5 active:border-emerald-200 transition-colors"
+                      className="aspect-square rounded-[26px] bg-white border border-slate-100 shadow-[0_6px_18px_rgba(15,23,42,0.04)] flex items-center justify-center active:border-emerald-200 transition-colors overflow-hidden p-1.5"
+                      aria-label={`${item.label} 이모티콘 선택`}
                     >
-                      <img src={item.imageUrl} alt={item.label} className="w-14 h-14 object-contain drop-shadow-sm" />
-                      <span className="text-[12px] font-black text-slate-600">{item.label}</span>
+                      <img src={item.imageUrl} alt={item.label} className="w-full h-full object-contain drop-shadow-sm" />
                     </motion.button>
                   ))}
                 </div>

@@ -87,13 +87,13 @@ function LetterEmoticonStrip({ ids, large = false }: { ids?: string[]; large?: b
           initial={{ opacity: 0, y: 10, rotate: -4 }}
           animate={{ opacity: 1, y: 0, rotate: index % 2 === 0 ? -3 : 3 }}
           transition={{ delay: Math.min(index * 0.05, 0.15) }}
-          className={`${large ? 'w-24 h-24 rounded-[28px]' : 'w-12 h-12 rounded-2xl'} bg-emerald-50/80 border border-emerald-100 flex items-center justify-center shadow-sm`}
+          className={`${large ? 'w-32 h-32 rounded-[30px]' : 'w-14 h-14 rounded-2xl'} bg-emerald-50/80 border border-emerald-100 flex items-center justify-center shadow-sm overflow-hidden`}
           title={item.label}
         >
           <img
             src={item.imageUrl}
             alt={item.label}
-            className={`${large ? 'w-20 h-20' : 'w-10 h-10'} object-contain drop-shadow-sm`}
+            className={`${large ? 'w-[94%] h-[94%]' : 'w-[92%] h-[92%]'} object-contain drop-shadow-sm`}
             loading="lazy"
           />
         </motion.div>
