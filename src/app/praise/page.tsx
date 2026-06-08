@@ -1,39 +1,31 @@
 'use client';
 
+// 칭찬 다이어리 v3 — 우수♥민정 노트 영감.
+// Phase 1: WebP + Firestore limit(30) + prefetch 제거 + 가벼운 motion (성능 가드)
+// Phase 2: 다이어리 톤 (한 줄 = 한 칭찬, picker 18종 + 라벨 제거 + 손글씨 폰트 Gaegu, 조르기 통합, KPI 하단)
+// 옛 데이터 호환: praise.ts의 normalizeStickerImage가 .png → .webp 자동 매핑, 라벨/색상 필드는 표시 안 하지만 모델에 유지.
+
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
-import {
-  ArrowLeft,
-  Award,
-  CalendarDays,
-  Gift,
-  HeartHandshake,
-  Send,
-  Star,
-  Sparkles,
-  Trophy,
-} from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Sparkles, Send, Gift, Crown } from 'lucide-react';
 import {
   PRAISE_STICKERS,
   addPraise,
-  monthlyPraiseSummary,
+  fetchPraiseTotals,
   requestPraise,
   subscribePraise,
   totalPraiseCount,
   type PraiseItemView,
   type PraiseSticker,
-  type PraiseStickerSheet,
   type PraiseUser,
 } from '@/lib/praise';
 import { nameFromCode, partnerOf, vocativeOf } from '@/lib/letters';
 import { cn } from '@/lib/utils';
 
-const MAX_STICKERS_PER_PRAISE = 10;
-const STICKER_SETS: Array<{ id: PraiseStickerSheet; label: string }> = [
-  { id: 'classic', label: '일반' },
-  { id: 'pochacco', label: '포차코' },
-];
+type ViewMode = 'received' | 'sent';
+type ComposerKind = 'praise' | 'request';
+
+const QUICK_COUNTS = [1, 3, 5, 10, 20];
 
 function getStoredUserName(raw: string): PraiseUser {
   const user = JSON.parse(raw) as {
@@ -47,10 +39,6 @@ function getStoredUserName(raw: string): PraiseUser {
     const codeName = nameFromCode(code);
     if (codeName === '우댕' || codeName === '꼼이') return codeName;
   }
-
-  // Claude 참고:
-  // 예전 localStorage에는 로그인코드 없이 이름/name만 남아있는 경우가 있어서
-  // 칭찬 화면만큼은 저장 형태가 조금 달라도 0319=우댕, 0928=꼼이 관계가 뒤집히지 않게 보정합니다.
   const storedName = String(user.name || user.이름 || '').replace('꼼✌️', '꼼이');
   if (storedName.includes('우댕')) return '우댕';
   if (storedName.includes('꼼')) return '꼼이';
@@ -58,325 +46,346 @@ function getStoredUserName(raw: string): PraiseUser {
 }
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString('ko-KR', {
-    month: 'long',
-    day: 'numeric',
-    weekday: 'short',
-  });
+  return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
 }
 
+// Claude 참고: lazy-loading + 작은 placeholder. prefetch 폭탄 (useEffect로 18장 일괄 로드) 제거.
+// 한 줄에 같은 src가 20번 깔려도 브라우저가 알아서 캐시함 → 네트워크 요청은 1번.
 function StickerImage({
-  sticker,
-  image,
+  src,
   emoji,
+  size,
   className,
 }: {
-  sticker?: PraiseSticker;
-  image?: string;
+  src?: string;
   emoji?: string;
+  size: number;
   className?: string;
 }) {
-  const src = sticker?.image || image;
-  const [loaded, setLoaded] = useState(false);
-
   if (!src) {
-    return <span className={cn('leading-none', className)}>{sticker?.emoji || emoji || '⭐'}</span>;
+    return (
+      <span
+        className={cn('inline-flex items-center justify-center leading-none', className)}
+        style={{ width: size, height: size, fontSize: Math.round(size * 0.8) }}
+        aria-hidden="true"
+      >
+        {emoji || '⭐'}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      width={size}
+      height={size}
+      className={cn('object-contain', className)}
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
+// 한 칭찬의 스티커 행 — 개수에 따라 크기 자동 조절 (1개=도장, 2~20개=줄세우기).
+function StickerWrap({ src, emoji, count }: { src?: string; emoji?: string; count: number }) {
+  if (count <= 0) return null;
+  // 1개: 크게 도장. 2~5: 중간. 6~20: 작게 줄.
+  const size = count === 1 ? 84 : count <= 5 ? 40 : 28;
+  const safeCount = Math.min(20, count);
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {Array.from({ length: safeCount }).map((_, i) => (
+        <StickerImage
+          key={i}
+          src={src}
+          emoji={emoji}
+          size={size}
+          className="drop-shadow-sm"
+        />
+      ))}
+      {count > safeCount && (
+        <span className="text-xs font-bold text-slate-400 ml-1">+{count - safeCount}</span>
+      )}
+    </div>
+  );
+}
+
+function PraiseRow({ item, me }: { item: PraiseItemView; me: PraiseUser }) {
+  const isMine = item.from === me;
+  const isRequest = item.kind === 'request';
+
+  // 조르기 카드: 작은 노란 포스트잇 톤
+  if (isRequest) {
+    return (
+      <article className="rounded-[20px] bg-[#FFF8D9] px-4 py-3 ring-1 ring-amber-100 shadow-sm">
+        <p className="text-[11px] font-black text-amber-600">
+          {formatDate(item.createdAt)} · 🥺 {item.from}가 칭찬을 졸랐어
+        </p>
+        <p className="font-handwriting mt-1 text-[17px] leading-relaxed text-slate-800">
+          {item.reason}
+        </p>
+      </article>
+    );
   }
 
   return (
-    <span className={cn('relative block overflow-hidden bg-emerald-50', className)} aria-hidden="true">
-      {!loaded && (
-        <span className="absolute inset-0 flex items-center justify-center">
-          <Star size={18} className="text-emerald-200 animate-pulse" />
-        </span>
-      )}
-      <img
-        src={src}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        onLoad={() => setLoaded(true)}
-        className={cn(
-          'h-full w-full object-contain transition-opacity duration-300',
-          loaded ? 'opacity-100' : 'opacity-0'
-        )}
-      />
-    </span>
+    <article className="rounded-[22px] bg-white px-4 py-4 shadow-[0_4px_18px_rgba(15,23,42,0.05)] border border-white/70">
+      <StickerWrap src={item.stickerImage} emoji={item.stickerEmoji} count={item.stickerCount} />
+      <p className="font-handwriting mt-3 text-[19px] leading-snug text-slate-800">
+        {item.reason}
+      </p>
+      <p className="mt-2 text-[11px] font-bold text-slate-400">
+        {formatDate(item.createdAt)} · {isMine ? `${vocativeOf(item.to)} 보낸 칭찬` : `${item.from}가 보낸 칭찬`}
+      </p>
+    </article>
   );
 }
 
-function StickerRow({
-  count,
-  sticker,
-  image,
-  emoji,
+function Composer({
+  me,
+  partner,
+  onSent,
 }: {
-  count: number;
-  sticker?: PraiseSticker;
-  image?: string;
-  emoji?: string;
+  me: PraiseUser;
+  partner: PraiseUser;
+  onSent: () => void;
 }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {Array.from({ length: count }).map((_, index) => (
-        <motion.span
-          key={index}
-          initial={{ scale: 0, rotate: -18, y: 10 }}
-          animate={{ scale: 1, rotate: index % 2 === 0 ? -4 : 5, y: 0 }}
-          transition={{ delay: index * 0.035, type: 'spring', stiffness: 420, damping: 18 }}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5 overflow-hidden"
-        >
-          <StickerImage
-            sticker={sticker}
-            image={image}
-            emoji={emoji}
-            className="h-full w-full"
-          />
-        </motion.span>
-      ))}
-    </div>
-  );
-}
+  const [kind, setKind] = useState<ComposerKind>('praise');
+  const [reason, setReason] = useState('');
+  const [selectedSticker, setSelectedSticker] = useState<PraiseSticker>(PRAISE_STICKERS[0]);
+  const [stickerCount, setStickerCount] = useState(1);
+  const [sending, setSending] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
-function StickerChip({
-  image,
-  emoji,
-  count,
-}: {
-  image?: string;
-  emoji?: string;
-  count: number;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700 ring-1 ring-emerald-100">
-      <span className="h-6 w-6 overflow-hidden rounded-full bg-white shadow-sm">
-        <StickerImage image={image} emoji={emoji} className="h-full w-full" />
-      </span>
-      +{count}
-    </span>
-  );
-}
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2200);
+  };
 
-function ComplimentBoard({
-  filledCount,
-  latestStickers,
-}: {
-  filledCount: number;
-  latestStickers: Array<{
-    id: string;
-    image?: string;
-    emoji: string;
-    label: string;
-  }>;
-}) {
-  const clamped = Math.max(0, Math.min(100, filledCount));
-  const stickerPositions = [
-    'right-5 top-5 rotate-12',
-    'left-6 bottom-8 -rotate-12',
-    'right-16 bottom-5 rotate-6',
-  ];
+  const handleSend = async () => {
+    if (sending) return;
+    const text = reason.trim();
+    if (!text) {
+      showToast(kind === 'praise' ? '칭찬 이유를 살짝 적어줘' : '뭘 칭찬받고 싶은지 적어줘');
+      return;
+    }
+    setSending(true);
+    try {
+      if (kind === 'praise') {
+        await addPraise({ from: me, reason: text, sticker: selectedSticker, stickerCount });
+        showToast(`${vocativeOf(partner)} 칭찬 보냈어`);
+      } else {
+        await requestPraise({ from: me, reason: text });
+        showToast(`${partner}한테 귀엽게 졸랐어`);
+      }
+      setReason('');
+      setStickerCount(1);
+      setOpen(false);
+      onSent();
+    } catch (e) {
+      console.error(e);
+      showToast('보내기 실패. 다시 해보자.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
-    <div className="relative rounded-[30px] bg-[#FFFDF7] border border-amber-100 px-4 py-5 shadow-inner overflow-hidden">
-      <div className="absolute inset-0 opacity-[0.28] bg-[radial-gradient(circle_at_1px_1px,rgba(16,185,129,0.18)_1px,transparent_0)] [background-size:18px_18px]" />
-      <div className="relative grid grid-cols-10 gap-2">
-        {Array.from({ length: 100 }).map((_, index) => {
-          const filled = index < clamped;
-          const milestone = (index + 1) % 10 === 0;
-          return (
-            <motion.div
-              key={index}
-              initial={false}
-              animate={{
-                scale: filled ? 1 : 0.92,
-                opacity: filled ? 1 : 0.55,
-              }}
-              transition={{ duration: 0.2, delay: index < clamped ? Math.min(index, 35) * 0.004 : 0 }}
+    <section className="rounded-[26px] bg-white shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-5 py-4 active:bg-slate-50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Sparkles size={18} className="text-amber-500" />
+          <span className="font-black text-[15px]">
+            {open ? '닫기' : `${vocativeOf(partner)} 한 줄 적기`}
+          </span>
+        </div>
+        {open ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+      </button>
+
+      {open && (
+        <div className="px-5 pb-5 space-y-3 border-t border-slate-50">
+          {/* kind 토글 */}
+          <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1 mt-3">
+            <button
+              onClick={() => setKind('praise')}
               className={cn(
-                'aspect-square rounded-full',
-                filled
-                  ? milestone
-                    ? 'bg-emerald-500 shadow-[0_2px_8px_rgba(16,185,129,0.28)]'
-                    : 'bg-emerald-300'
-                  : 'bg-slate-100 ring-1 ring-slate-200/70'
+                'h-10 rounded-xl text-xs font-black transition-all',
+                kind === 'praise' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'
               )}
-            />
-          );
-        })}
-      </div>
+            >
+              💝 칭찬해주기
+            </button>
+            <button
+              onClick={() => setKind('request')}
+              className={cn(
+                'h-10 rounded-xl text-xs font-black transition-all',
+                kind === 'request' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-400'
+              )}
+            >
+              🥺 칭찬 조르기
+            </button>
+          </div>
 
-      {latestStickers.slice(0, 3).map((sticker, index) => (
-        <motion.div
-          key={sticker.id}
-          initial={{ scale: 0, y: 12, opacity: 0 }}
-          animate={{ scale: 1, y: 0, opacity: 1 }}
-          transition={{ delay: index * 0.08, type: 'spring', stiffness: 420, damping: 18 }}
-          className={cn(
-            'absolute h-16 w-16 overflow-hidden rounded-[22px] bg-white shadow-lg ring-1 ring-black/5',
-            stickerPositions[index]
+          {/* 본문 */}
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder={
+              kind === 'praise'
+                ? `${vocativeOf(partner)} 어떤 칭찬을 적어줄까`
+                : '나 이런 일 했으니까 칭찬해주세요오...'
+            }
+            className={cn(
+              'font-handwriting w-full min-h-[80px] resize-none rounded-2xl px-4 py-3 text-[18px] leading-snug outline-none focus:ring-2 transition',
+              kind === 'praise'
+                ? 'bg-slate-50 border border-slate-100 focus:ring-emerald-200'
+                : 'bg-pink-50/70 border border-pink-100 focus:ring-pink-200'
+            )}
+            maxLength={160}
+          />
+
+          {/* 칭찬일 때만 스티커/개수 */}
+          {kind === 'praise' && (
+            <>
+              {/* picker — 18장 한 그리드 */}
+              <div className="grid grid-cols-6 gap-1.5">
+                {PRAISE_STICKERS.map((s) => {
+                  const selected = selectedSticker.image === s.image;
+                  return (
+                    <button
+                      key={s.image}
+                      onClick={() => setSelectedSticker(s)}
+                      className={cn(
+                        'aspect-square rounded-xl flex items-center justify-center transition-all',
+                        selected
+                          ? 'bg-emerald-50 ring-2 ring-emerald-400 shadow-sm'
+                          : 'bg-slate-50 hover:bg-slate-100'
+                      )}
+                      aria-label={s.label}
+                    >
+                      <StickerImage src={s.image} emoji={s.emoji} size={36} />
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 개수 빠른 칩 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black text-slate-500">스티커 개수</span>
+                  <span className="text-sm font-black text-emerald-600">{stickerCount}개</span>
+                </div>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {QUICK_COUNTS.map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setStickerCount(n)}
+                      className={cn(
+                        'h-9 rounded-xl text-xs font-black transition-all',
+                        stickerCount === n
+                          ? 'bg-emerald-500 text-white shadow-sm'
+                          : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                      )}
+                    >
+                      {n === 1 ? '도장 1' : `× ${n}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 미리보기 */}
+              <div className="rounded-2xl bg-[#FFFDF7] border border-amber-100 p-3 min-h-[80px] flex items-center justify-center">
+                <StickerWrap src={selectedSticker.image} emoji={selectedSticker.emoji} count={stickerCount} />
+              </div>
+            </>
           )}
-          title={sticker.label}
-        >
-          <StickerImage image={sticker.image} emoji={sticker.emoji} className="h-full w-full" />
-        </motion.div>
-      ))}
-    </div>
+
+          <button
+            onClick={handleSend}
+            disabled={sending}
+            className={cn(
+              'w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 transition',
+              kind === 'praise'
+                ? 'bg-slate-900 text-white'
+                : 'bg-pink-500 text-white'
+            )}
+          >
+            {kind === 'praise' ? <Send size={16} /> : <Gift size={16} />}
+            {kind === 'praise' ? '칭찬 붙여주기' : '귀엽게 조르기'}
+          </button>
+
+          {toast && (
+            <div className="text-center text-xs font-bold text-slate-500 pt-1">{toast}</div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
 export default function PraisePage() {
   const router = useRouter();
   const [me, setMe] = useState<PraiseUser | ''>('');
-  const [items, setItems] = useState<PraiseItemView[]>([]);
-  const [stickerSet, setStickerSet] = useState<PraiseStickerSheet>('classic');
-  const [selectedSticker, setSelectedSticker] = useState<PraiseSticker>(PRAISE_STICKERS[0]);
-  const [stickerCount, setStickerCount] = useState(3);
-  const [reason, setReason] = useState('');
-  const [requestReason, setRequestReason] = useState('');
-  const [toast, setToast] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-  const [requesting, setRequesting] = useState(false);
-  const [stampBurst, setStampBurst] = useState(false);
+  const [feedItems, setFeedItems] = useState<PraiseItemView[]>([]);
+  const [allItems, setAllItems] = useState<PraiseItemView[]>([]); // KPI 집계용
+  const [view, setView] = useState<ViewMode>('received');
 
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
-    if (!userStr) { router.push('/login'); return; }
+    if (!userStr) {
+      router.push('/login');
+      return;
+    }
     setMe(getStoredUserName(userStr));
-    const unsub = subscribePraise(setItems);
+    // 피드: 최신 30개 실시간
+    const unsub = subscribePraise(setFeedItems);
+    // KPI: 1회 fetch (성능 가드 — onSnapshot은 30개만)
+    fetchPraiseTotals().then(setAllItems);
     return () => unsub();
   }, [router]);
 
-  useEffect(() => {
-    // Claude 참고: 스티커 선택 그리드가 빈 카드처럼 보이지 않도록 작은 PNG 18장을 화면 진입 시 미리 로드합니다.
-    PRAISE_STICKERS.forEach((sticker) => {
-      const img = new window.Image();
-      img.src = sticker.image;
-    });
-  }, []);
+  // 칭찬 보낸 후 KPI 갱신을 위한 refresh
+  const refreshTotals = () => {
+    fetchPraiseTotals().then(setAllItems);
+  };
 
   const partner = me ? (partnerOf(me) as PraiseUser) : '';
-  const receivedTotal = useMemo(() => me ? totalPraiseCount(items, me) : 0, [items, me]);
-  const sentTotal = useMemo(() => me ? totalPraiseCount(items.filter((item) => item.from === me)) : 0, [items, me]);
+  const receivedTotal = me ? totalPraiseCount(allItems, me) : 0;
+  const sentTotal = me ? totalPraiseCount(allItems.filter((x) => x.from === me)) : 0;
   const royalCount = Math.floor(receivedTotal / 100);
-  const months = useMemo(() => me ? monthlyPraiseSummary(items, me) : [], [items, me]);
-  const thisMonth = months[0]?.count || 0;
-  const timeline = items.slice(0, 30);
   const royalProgress = receivedTotal % 100;
-  const nextRoyalLeft = royalProgress === 0 ? 100 : 100 - royalProgress;
-  const visibleStickers = useMemo(
-    () => PRAISE_STICKERS.filter((sticker) => sticker.sheet === stickerSet),
-    [stickerSet]
-  );
-  const receivedPraiseItems = useMemo(
-    () => items.filter((item) => item.kind === 'praise' && item.to === me),
-    [items, me]
-  );
-  const recentStickerMarks = useMemo(() => {
-    const marks: Array<{
-      id: string;
-      image?: string;
-      emoji: string;
-      label: string;
-    }> = [];
-    for (const item of receivedPraiseItems) {
-      const limit = Math.min(item.stickerCount, 5 - marks.length);
-      for (let i = 0; i < limit; i++) {
-        marks.push({
-          id: `${item.id}-${i}`,
-          image: item.stickerImage,
-          emoji: item.stickerEmoji,
-          label: item.stickerLabel,
-        });
-      }
-      if (marks.length >= 5) break;
-    }
-    return marks;
-  }, [receivedPraiseItems]);
-  const stickerSummary = useMemo(() => {
-    const grouped = new Map<string, {
-      key: string;
-      count: number;
-      image?: string;
-      emoji: string;
-      label: string;
-    }>();
-    for (const item of receivedPraiseItems) {
-      const key = `${item.stickerImage || item.stickerEmoji}-${item.stickerImageIndex ?? 'emoji'}-${item.stickerLabel}`;
-      const current = grouped.get(key);
-      if (current) {
-        current.count += item.stickerCount;
-      } else {
-        grouped.set(key, {
-          key,
-          count: item.stickerCount,
-          image: item.stickerImage,
-          emoji: item.stickerEmoji,
-          label: item.stickerLabel,
-        });
-      }
-    }
-    return Array.from(grouped.values()).sort((a, b) => b.count - a.count);
-  }, [receivedPraiseItems]);
-  const crownSticker = PRAISE_STICKERS.find((sticker) => sticker.label === '왕칭찬') || PRAISE_STICKERS[8];
-  const latestReceivedPraise = receivedPraiseItems[0] || null;
+  const nextRoyalLeft = royalProgress === 0 && receivedTotal > 0 ? 100 : 100 - royalProgress;
 
-  const showToast = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 2400);
-  };
+  const thisMonthCount = useMemo(() => {
+    if (!me) return 0;
+    const now = new Date();
+    const yKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return allItems
+      .filter((x) => x.kind === 'praise' && x.to === me)
+      .filter((x) => {
+        const k = `${x.createdAt.getFullYear()}-${String(x.createdAt.getMonth() + 1).padStart(2, '0')}`;
+        return k === yKey;
+      })
+      .reduce((sum, x) => sum + x.stickerCount, 0);
+  }, [allItems, me]);
 
-  const handlePraise = async () => {
-    if (!me || sending) return;
-    const text = reason.trim();
-    if (!text) {
-      showToast('칭찬 이유를 살짝 적어줘');
-      return;
-    }
-    setSending(true);
-    setStampBurst(true);
-    setTimeout(() => setStampBurst(false), 700);
-    try {
-      await addPraise({
-        from: me,
-        reason: text,
-        sticker: selectedSticker,
-        stickerCount,
-      });
-      setReason('');
-      showToast(`${vocativeOf(partner)} 칭찬 스티커 붙였어`);
-    } catch (e) {
-      console.error('칭찬 저장 실패:', e);
-      showToast('칭찬 저장에 실패했어. 다시 해보자.');
-    } finally {
-      setSending(false);
-    }
-  };
+  // 다이어리 피드 필터링
+  const diaryItems = useMemo(() => {
+    if (!me) return [];
+    return feedItems.filter((x) => (view === 'received' ? x.to === me : x.from === me));
+  }, [feedItems, me, view]);
 
-  const handleRequest = async () => {
-    if (!me || requesting) return;
-    const text = requestReason.trim();
-    if (!text) {
-      showToast('뭘 칭찬받고 싶은지 적어줘');
-      return;
-    }
-    setRequesting(true);
-    try {
-      await requestPraise({ from: me, reason: text });
-      setRequestReason('');
-      showToast(`${partner}한테 귀엽게 조르고 왔어`);
-    } catch (e) {
-      console.error('칭찬 조르기 실패:', e);
-      showToast('칭찬 조르기 실패. 조금 뒤에 다시 해줘.');
-    } finally {
-      setRequesting(false);
-    }
-  };
-
-  if (!me) return <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />;
+  if (!me) return <div className="min-h-screen bg-[#FFFCF5] max-w-md mx-auto" />;
 
   return (
-    <div className="min-h-screen bg-[#F7F9F9] text-slate-800">
+    <div className="min-h-screen bg-[#FFFCF5] text-slate-800">
       <main className="max-w-md mx-auto px-5 pt-6 pb-12 space-y-5">
+        {/* 헤더 */}
         <header className="flex items-center justify-between">
           <button
             onClick={() => router.push('/')}
@@ -386,387 +395,91 @@ export default function PraisePage() {
             <ArrowLeft size={18} />
           </button>
           <div className="text-center">
-            <p className="text-[10px] font-black tracking-[0.18em] uppercase text-emerald-500">Praise Stickers</p>
-            <h1 className="text-xl font-black tracking-tight">칭찬 스티커</h1>
+            <p className="font-handwriting text-[12px] font-bold text-emerald-500 tracking-wide">
+              우댕 ♥ 꼼이 칭찬 일기
+            </p>
+            <h1 className="font-handwriting text-2xl font-bold tracking-tight text-slate-800">
+              칭찬 다이어리
+            </h1>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-            <Award size={18} />
+          <div className="h-10 w-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+            <Crown size={18} />
           </div>
         </header>
 
-        <section className="rounded-[30px] bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-5 shadow-[0_14px_36px_rgba(16,185,129,0.24)] overflow-hidden relative">
+        {/* 받은/쓴 토글 */}
+        <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1">
+          <button
+            onClick={() => setView('received')}
+            className={cn(
+              'h-10 rounded-xl text-xs font-black transition-all',
+              view === 'received' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'
+            )}
+          >
+            💌 받은 칭찬
+          </button>
+          <button
+            onClick={() => setView('sent')}
+            className={cn(
+              'h-10 rounded-xl text-xs font-black transition-all',
+              view === 'sent' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'
+            )}
+          >
+            ✏️ 내가 쓴 칭찬
+          </button>
+        </div>
+
+        {/* 작성 폼 (접힘) */}
+        <Composer me={me} partner={partner as PraiseUser} onSent={refreshTotals} />
+
+        {/* 다이어리 피드 */}
+        <section className="space-y-3">
+          {diaryItems.length === 0 ? (
+            <div className="rounded-[26px] bg-white p-10 text-center text-sm font-bold text-slate-400 border border-white/70">
+              {view === 'received'
+                ? '아직 받은 칭찬이 없어요'
+                : `${vocativeOf(partner as string)} 첫 칭찬을 보내볼까`}
+            </div>
+          ) : (
+            diaryItems.map((item) => <PraiseRow key={item.id} item={item} me={me} />)
+          )}
+          {feedItems.length >= 30 && (
+            <p className="text-center text-[11px] font-bold text-slate-400 pt-2">
+              최근 30개만 표시 — 더 옛 칭찬은 통계에 합산돼 있어요
+            </p>
+          )}
+        </section>
+
+        {/* KPI 푸터 (강등) */}
+        <section className="rounded-[26px] bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-5 shadow-[0_14px_36px_rgba(16,185,129,0.18)] relative overflow-hidden">
           <div className="absolute -right-7 -top-7 h-28 w-28 rounded-full bg-white/12" />
-          <div className="absolute right-8 bottom-4 text-6xl opacity-20">🏅</div>
-          <p className="text-xs font-bold text-emerald-50">내가 받은 칭찬</p>
-          <div className="mt-2 flex items-end gap-2">
-            <span className="text-4xl font-black leading-none">{receivedTotal}</span>
-            <span className="pb-1 text-sm font-bold text-emerald-50">스티커</span>
+          <p className="text-[11px] font-bold text-emerald-50">{me}가 받은 칭찬</p>
+          <div className="mt-1 flex items-end gap-2">
+            <span className="text-3xl font-black leading-none">{receivedTotal}</span>
+            <span className="pb-0.5 text-xs font-bold text-emerald-50">스티커</span>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            <div className="rounded-2xl bg-white/15 px-3 py-2">
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="rounded-xl bg-white/15 px-3 py-2">
               <p className="text-[10px] font-bold text-emerald-50">이번 달</p>
-              <p className="text-lg font-black">{thisMonth}</p>
+              <p className="text-base font-black">{thisMonthCount}</p>
             </div>
-            <div className="rounded-2xl bg-white/15 px-3 py-2">
-              <p className="text-[10px] font-bold text-emerald-50">왕 칭찬</p>
-              <p className="text-lg font-black">{royalCount}개</p>
+            <div className="rounded-xl bg-white/15 px-3 py-2">
+              <p className="text-[10px] font-bold text-emerald-50">왕칭찬</p>
+              <p className="text-base font-black">{royalCount}👑</p>
             </div>
-            <div className="rounded-2xl bg-white/15 px-3 py-2">
+            <div className="rounded-xl bg-white/15 px-3 py-2">
               <p className="text-[10px] font-bold text-emerald-50">내가 준 것</p>
-              <p className="text-lg font-black">{sentTotal}</p>
+              <p className="text-base font-black">{sentTotal}</p>
             </div>
           </div>
-          <div className="mt-4 h-2 rounded-full bg-white/20 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-white"
-              style={{ width: `${receivedTotal % 100}%` }}
-            />
+          <div className="mt-3 h-1.5 rounded-full bg-white/20 overflow-hidden">
+            <div className="h-full rounded-full bg-white" style={{ width: `${royalProgress}%` }} />
           </div>
-          <p className="mt-2 text-[11px] font-bold text-emerald-50">
-            다음 왕 칭찬까지 {nextRoyalLeft}개
+          <p className="mt-1.5 text-[11px] font-bold text-emerald-50">
+            다음 왕칭찬까지 {nextRoyalLeft}개
           </p>
         </section>
-
-        <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-black text-emerald-500">Trophy Room</p>
-              <h2 className="text-lg font-black">왕 칭찬 보관함</h2>
-            </div>
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-700">
-              👑 {royalCount}개
-            </span>
-          </div>
-
-          {royalCount === 0 ? (
-            <div className="rounded-[24px] bg-amber-50/70 px-4 py-8 text-center text-sm font-bold text-amber-500">
-              첫 왕 칭찬까지 {nextRoyalLeft}개 남았어요
-            </div>
-          ) : (
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {Array.from({ length: royalCount }).map((_, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ scale: 0.8, rotate: -8, opacity: 0 }}
-                  animate={{ scale: 1, rotate: index % 2 === 0 ? -4 : 4, opacity: 1 }}
-                  transition={{ delay: Math.min(index, 8) * 0.04, type: 'spring', stiffness: 360, damping: 18 }}
-                  className="shrink-0 w-20 rounded-[24px] bg-gradient-to-b from-amber-50 to-white p-2 text-center shadow-sm ring-1 ring-amber-100"
-                >
-                  <div className="mx-auto h-14 w-14 overflow-hidden rounded-2xl bg-white shadow-sm">
-                    <StickerImage sticker={crownSticker} className="h-full w-full" />
-                  </div>
-                  <p className="mt-1 text-[10px] font-black text-amber-700">왕칭찬 {index + 1}</p>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-5 overflow-hidden">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-black text-emerald-500">Compliment Board</p>
-              <h2 className="text-lg font-black">{me}의 {royalCount + 1}번째 칭찬장</h2>
-            </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
-              {nextRoyalLeft}개 남음
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            <ComplimentBoard filledCount={royalProgress} latestStickers={recentStickerMarks} />
-            <div className="flex items-center justify-between rounded-[22px] bg-emerald-50 px-4 py-3">
-              <span className="text-xs font-black text-emerald-700">현재 칭찬장</span>
-              <span className="text-sm font-black text-emerald-700">{royalProgress}/100 스티커</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-black text-emerald-500">Latest Compliment</p>
-              <h2 className="text-lg font-black">방금 도착한 칭찬</h2>
-            </div>
-            {latestReceivedPraise && (
-              <StickerChip
-                image={latestReceivedPraise.stickerImage}
-                emoji={latestReceivedPraise.stickerEmoji}
-                count={latestReceivedPraise.stickerCount}
-              />
-            )}
-          </div>
-
-          {latestReceivedPraise ? (
-            <motion.div
-              initial={{ rotate: -2, y: 8, opacity: 0 }}
-              animate={{ rotate: -1, y: 0, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-              className="mt-4 rounded-[26px] bg-[#FFF8D9] px-4 py-5 shadow-sm ring-1 ring-amber-100"
-            >
-              <p className="text-[11px] font-black text-amber-600">
-                {formatDate(latestReceivedPraise.createdAt)} · {latestReceivedPraise.from}가 붙여준 칭찬
-              </p>
-              <p className="mt-2 text-[15px] font-bold leading-relaxed text-slate-800">
-                {latestReceivedPraise.reason}
-              </p>
-            </motion.div>
-          ) : (
-            <div className="mt-4 rounded-[26px] bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-400">
-              아직 도착한 칭찬이 없어요
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-black text-emerald-500">Sticker Book</p>
-              <h2 className="text-lg font-black">내가 받은 스티커북</h2>
-            </div>
-            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
-              {receivedTotal}개
-            </span>
-          </div>
-
-          {stickerSummary.length === 0 ? (
-            <div className="rounded-[24px] bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-400">
-              아직 붙은 스티커가 없어요
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-2">
-              {stickerSummary.slice(0, 12).map((sticker, index) => (
-                <motion.div
-                  key={sticker.key}
-                  initial={{ scale: 0.94, opacity: 0, y: 8 }}
-                  animate={{ scale: 1, opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.025, type: 'spring', stiffness: 320, damping: 22 }}
-                  className="rounded-[22px] bg-slate-50 p-2.5 text-center ring-1 ring-slate-100"
-                >
-                  <div className="mx-auto h-16 w-16 overflow-hidden rounded-2xl bg-white shadow-sm">
-                    <StickerImage
-                      image={sticker.image}
-                      emoji={sticker.emoji}
-                      className="h-full w-full"
-                    />
-                  </div>
-                  <p className="mt-1.5 truncate text-[10px] font-black text-slate-500">{sticker.label}</p>
-                  <p className="text-sm font-black text-emerald-600">x {sticker.count}</p>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </section>
-        <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-black text-emerald-500">붙여주기</p>
-              <h2 className="text-lg font-black">{partner}에게 칭찬 스티커</h2>
-            </div>
-            <Sparkles size={20} className="text-amber-500" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 rounded-[22px] bg-slate-50 p-1">
-            {STICKER_SETS.map((set) => (
-              <button
-                key={set.id}
-                onClick={() => {
-                  setStickerSet(set.id);
-                  setSelectedSticker(PRAISE_STICKERS.find((sticker) => sticker.sheet === set.id) || PRAISE_STICKERS[0]);
-                }}
-                className={cn(
-                  'h-10 rounded-[18px] text-xs font-black transition-all',
-                  stickerSet === set.id
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-400'
-                )}
-              >
-                {set.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            {visibleStickers.map((sticker) => {
-              const selected = selectedSticker.label === sticker.label;
-              return (
-                <motion.button
-                  key={sticker.label}
-                  whileTap={{ scale: 0.9, rotate: -6 }}
-                  onClick={() => setSelectedSticker(sticker)}
-                  className={cn(
-                    'h-[104px] rounded-[22px] border flex flex-col items-center justify-center gap-1.5 transition-all overflow-hidden',
-                    selected ? `${sticker.color} border-current shadow-sm` : 'bg-slate-50 border-slate-100 text-slate-500'
-                  )}
-                >
-                  <StickerImage sticker={sticker} className="h-16 w-16 drop-shadow-sm rounded-2xl" />
-                  <span className="text-[9px] font-black leading-tight px-1">{sticker.label}</span>
-                </motion.button>
-              );
-            })}
-          </div>
-
-          <div className="rounded-[24px] bg-slate-50 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-500">스티커 개수</span>
-              <span className="text-sm font-black text-emerald-600">{stickerCount}개</span>
-            </div>
-            <div className="grid grid-cols-10 gap-1">
-              {Array.from({ length: MAX_STICKERS_PER_PRAISE }).map((_, index) => {
-                const value = index + 1;
-                const active = value <= stickerCount;
-                return (
-                  <motion.button
-                    key={value}
-                    whileTap={{ scale: 0.75, y: 2 }}
-                    onClick={() => setStickerCount(value)}
-                    className={cn(
-                      'aspect-square rounded-xl text-sm transition-all',
-                      active ? 'bg-white shadow-sm ring-1 ring-emerald-100' : 'bg-slate-100 grayscale opacity-45'
-                    )}
-                    aria-label={`${value}개`}
-                  >
-                    <StickerImage sticker={selectedSticker} className="h-full w-full" />
-                  </motion.button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="relative rounded-[26px] bg-[#FFFDF7] border border-amber-100 p-4 min-h-[106px] overflow-hidden">
-            <AnimatePresence>
-              {stampBurst && (
-                <motion.div
-                  initial={{ scale: 1.4, rotate: -12, opacity: 0, y: -16 }}
-                  animate={{ scale: 1, rotate: 0, opacity: 1, y: 0 }}
-                  exit={{ scale: 0.7, opacity: 0, y: 18 }}
-                  transition={{ type: 'spring', stiffness: 480, damping: 16 }}
-                  className="absolute right-4 top-4 h-20 w-20 rounded-full bg-white/90 shadow-lg border border-amber-100 flex items-center justify-center overflow-hidden z-10"
-                >
-                  <StickerImage sticker={selectedSticker} className="h-full w-full" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <StickerRow sticker={selectedSticker} count={stickerCount} />
-          </div>
-
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="칭찬 이유를 적어줘. 예: 오늘 바쁜데도 나 챙겨줘서 고마워"
-            className="w-full min-h-[96px] resize-none rounded-[24px] bg-slate-50 border border-slate-100 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-200"
-            maxLength={160}
-          />
-          <button
-            onClick={handlePraise}
-            disabled={sending}
-            className="w-full h-12 rounded-[24px] bg-slate-900 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 transition"
-          >
-            <Send size={16} />
-            칭찬 붙여주기
-          </button>
-        </section>
-
-        <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-3">
-          <div className="flex items-center gap-2">
-            <HeartHandshake size={18} className="text-pink-500" />
-            <h2 className="text-lg font-black">칭찬 조르기</h2>
-          </div>
-          <textarea
-            value={requestReason}
-            onChange={(e) => setRequestReason(e.target.value)}
-            placeholder="나 이런 일 했으니까 칭찬해주세요오..."
-            className="w-full min-h-[82px] resize-none rounded-[24px] bg-pink-50/70 border border-pink-100 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-pink-200"
-            maxLength={140}
-          />
-          <button
-            onClick={handleRequest}
-            disabled={requesting}
-            className="w-full h-12 rounded-[22px] bg-pink-500 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 transition"
-          >
-            <Gift size={16} />
-            귀엽게 조르기
-          </button>
-        </section>
-
-        <section className="rounded-[30px] bg-white p-5 shadow-[0_8px_26px_rgba(15,23,42,0.05)] border border-white/70 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CalendarDays size={18} className="text-teal-600" />
-              <h2 className="text-lg font-black">달별 칭찬장</h2>
-            </div>
-            <Trophy size={18} className="text-amber-500" />
-          </div>
-          {months.length === 0 ? (
-            <p className="text-sm font-bold text-slate-400 py-6 text-center">
-              아직 받은 칭찬 스티커가 없어요
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {months.slice(0, 8).map((month) => (
-                <div key={month.key} className="rounded-2xl bg-slate-50 px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-black">{month.label}</p>
-                    <p className="text-[11px] font-bold text-slate-400">
-                      왕 칭찬 {month.royalCount}개
-                    </p>
-                  </div>
-                  <p className="text-lg font-black text-emerald-600">{month.count}개</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="space-y-3">
-          <h2 className="px-1 text-lg font-black">최근 칭찬 기록</h2>
-          {timeline.length === 0 ? (
-            <div className="rounded-[28px] bg-white p-8 text-center text-sm font-bold text-slate-400">
-              첫 칭찬 스티커를 붙여보자
-            </div>
-          ) : (
-            timeline.map((item) => (
-              <article key={item.id} className="rounded-[28px] bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.04)] border border-white/70">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-black text-slate-400">
-                      {formatDate(item.createdAt)} · {item.from} → {item.to}
-                    </p>
-                    <p className="mt-1 text-sm font-bold leading-relaxed">
-                      {item.kind === 'request' ? '🥺 ' : ''}{item.reason}
-                    </p>
-                  </div>
-                  {item.kind === 'request' ? (
-                    <span className="shrink-0 rounded-full bg-pink-100 px-3 py-1 text-[10px] font-black text-pink-600">
-                      칭찬해주세요
-                    </span>
-                  ) : (
-                    <StickerChip
-                      image={item.stickerImage}
-                      emoji={item.stickerEmoji}
-                      count={item.stickerCount}
-                    />
-                  )}
-                </div>
-              </article>
-            ))
-          )}
-        </section>
       </main>
-
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ y: 60, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 60, opacity: 0 }}
-            transition={{ type: 'spring', damping: 24, stiffness: 280 }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-full font-bold text-[13px] shadow-[0_10px_28px_rgba(15,23,42,0.25)] z-50 max-w-[calc(100%-2rem)]"
-          >
-            {toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

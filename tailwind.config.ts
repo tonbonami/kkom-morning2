@@ -12,6 +12,7 @@ export default {
         body: ['"PT Sans"', 'sans-serif'],
         headline: ['Poppins', 'sans-serif'],
         code: ['monospace'],
+        handwriting: ['Gaegu', '"PT Sans"', 'sans-serif'],
       },
       colors: {
         background: 'hsl(var(--background))',

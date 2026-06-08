@@ -5,6 +5,10 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  query,
+  orderBy,
+  limit,
+  getDocs,
   type DocumentData,
 } from 'firebase/firestore';
 import { partnerOf } from './letters';
@@ -12,38 +16,46 @@ import { partnerOf } from './letters';
 export type PraiseUser = '우댕' | '꼼이';
 export type PraiseKind = 'praise' | 'request';
 export type PraiseStickerSheet = 'classic' | 'pochacco';
+// Claude 참고: 'line' = 줄지어 N개 깔기 좋은 단순/작은 스티커, 'stamp' = 크게 1장 박는 일러스트형.
+// 다만 강제 분류가 아니라 정렬 힌트일 뿐 — 사용자가 어떤 스티커든 1개(도장)~20개(줄)로 자유롭게 씁니다.
+export type PraiseStickerCategory = 'line' | 'stamp';
 
 export interface PraiseSticker {
   emoji: string;
+  /** @deprecated v2에서 폐기 — 옛 doc 표시 호환용으로만 유지 */
   label: string;
+  /** @deprecated v2에서 폐기 — 옛 picker 카드 배경색이었음. 새 picker는 안 씀 */
   color: string;
-  sheet?: PraiseStickerSheet;
+  sheet: PraiseStickerSheet;
   image: string;
-  imageIndex?: number;
+  category: PraiseStickerCategory;
 }
 
 // Claude 참고:
-// 스티커 시트는 로딩이 느릴 수 있어 public/praise/{classic,pochacco}/N.png 로 잘라 씁니다.
-// 예전 기록에 시트 경로가 남아있어도 normalizeStickerImage가 개별 PNG로 보정합니다.
+// 18종 다 살림. 라벨은 v3에서 화면에 안 표시하지만 옛 doc 호환과 alt 텍스트용으로 남김.
+// image는 WebP (v3 성능 가드 — 75KB PNG → 24KB WebP, 68% 감소).
+// 옛 doc의 .png 경로는 normalizeStickerImage가 .webp로 자동 매핑.
 export const PRAISE_STICKERS: PraiseSticker[] = [
-  { emoji: '⭐', label: '반짝별', color: 'bg-amber-100 text-amber-700', sheet: 'classic', image: '/praise/classic/1.png' },
-  { emoji: '💚', label: '초록하트', color: 'bg-emerald-100 text-emerald-700', sheet: 'classic', image: '/praise/classic/2.png' },
-  { emoji: '🌷', label: '꽃송이', color: 'bg-rose-100 text-rose-700', sheet: 'classic', image: '/praise/classic/3.png' },
-  { emoji: '🍀', label: '행운잎', color: 'bg-lime-100 text-lime-700', sheet: 'classic', image: '/praise/classic/4.png' },
-  { emoji: '🫧', label: '몽글버블', color: 'bg-cyan-100 text-cyan-700', sheet: 'classic', image: '/praise/classic/5.png' },
-  { emoji: '🍯', label: '달콤꿀', color: 'bg-yellow-100 text-yellow-700', sheet: 'classic', image: '/praise/classic/6.png' },
-  { emoji: '🎀', label: '리본하트', color: 'bg-pink-100 text-pink-700', sheet: 'classic', image: '/praise/classic/7.png' },
-  { emoji: '🏅', label: '잘했장', color: 'bg-orange-100 text-orange-700', sheet: 'classic', image: '/praise/classic/8.png' },
-  { emoji: '👑', label: '왕칭찬', color: 'bg-yellow-100 text-yellow-700', sheet: 'classic', image: '/praise/classic/9.png' },
-  { emoji: '⭐', label: '별안은 포차코', color: 'bg-amber-100 text-amber-700', sheet: 'pochacco', image: '/praise/pochacco/1.png' },
-  { emoji: '💚', label: '하트 포차코', color: 'bg-emerald-100 text-emerald-700', sheet: 'pochacco', image: '/praise/pochacco/2.png' },
-  { emoji: '👏', label: '박수 포차코', color: 'bg-rose-100 text-rose-700', sheet: 'pochacco', image: '/praise/pochacco/3.png' },
-  { emoji: '🏅', label: '메달 포차코', color: 'bg-orange-100 text-orange-700', sheet: 'pochacco', image: '/praise/pochacco/4.png' },
-  { emoji: '🌷', label: '꽃다발 포차코', color: 'bg-pink-100 text-pink-700', sheet: 'pochacco', image: '/praise/pochacco/5.png' },
-  { emoji: '🥺', label: '칭찬조름 포차코', color: 'bg-cyan-100 text-cyan-700', sheet: 'pochacco', image: '/praise/pochacco/6.png' },
-  { emoji: '✨', label: '폴짝 포차코', color: 'bg-lime-100 text-lime-700', sheet: 'pochacco', image: '/praise/pochacco/7.png' },
-  { emoji: '👑', label: '왕 포차코', color: 'bg-yellow-100 text-yellow-700', sheet: 'pochacco', image: '/praise/pochacco/8.png' },
-  { emoji: '⭐', label: '꼬옥 포차코', color: 'bg-amber-100 text-amber-700', sheet: 'pochacco', image: '/praise/pochacco/9.png' },
+  // 클래식 — 작은/단순 = line, 메달/왕관 = stamp
+  { emoji: '⭐', label: '반짝별',   color: 'bg-amber-100 text-amber-700',     sheet: 'classic', category: 'line',  image: '/praise/classic/1.webp' },
+  { emoji: '💚', label: '초록하트', color: 'bg-emerald-100 text-emerald-700', sheet: 'classic', category: 'line',  image: '/praise/classic/2.webp' },
+  { emoji: '🌷', label: '꽃송이',   color: 'bg-rose-100 text-rose-700',       sheet: 'classic', category: 'line',  image: '/praise/classic/3.webp' },
+  { emoji: '🍀', label: '행운잎',   color: 'bg-lime-100 text-lime-700',       sheet: 'classic', category: 'line',  image: '/praise/classic/4.webp' },
+  { emoji: '🫧', label: '몽글버블', color: 'bg-cyan-100 text-cyan-700',       sheet: 'classic', category: 'line',  image: '/praise/classic/5.webp' },
+  { emoji: '🍯', label: '달콤꿀',   color: 'bg-yellow-100 text-yellow-700',   sheet: 'classic', category: 'line',  image: '/praise/classic/6.webp' },
+  { emoji: '🎀', label: '리본하트', color: 'bg-pink-100 text-pink-700',       sheet: 'classic', category: 'line',  image: '/praise/classic/7.webp' },
+  { emoji: '🏅', label: '잘했장',   color: 'bg-orange-100 text-orange-700',   sheet: 'classic', category: 'stamp', image: '/praise/classic/8.webp' },
+  { emoji: '👑', label: '왕칭찬',   color: 'bg-yellow-100 text-yellow-700',   sheet: 'classic', category: 'stamp', image: '/praise/classic/9.webp' },
+  // 포차코 — 큰 일러스트는 stamp, 작은 표정은 line
+  { emoji: '⭐', label: '별안은 포차코', color: 'bg-amber-100 text-amber-700',     sheet: 'pochacco', category: 'stamp', image: '/praise/pochacco/1.webp' },
+  { emoji: '💚', label: '하트 포차코',   color: 'bg-emerald-100 text-emerald-700', sheet: 'pochacco', category: 'stamp', image: '/praise/pochacco/2.webp' },
+  { emoji: '👏', label: '박수 포차코',   color: 'bg-rose-100 text-rose-700',       sheet: 'pochacco', category: 'line',  image: '/praise/pochacco/3.webp' },
+  { emoji: '🏅', label: '메달 포차코',   color: 'bg-orange-100 text-orange-700',   sheet: 'pochacco', category: 'stamp', image: '/praise/pochacco/4.webp' },
+  { emoji: '🌷', label: '꽃다발 포차코', color: 'bg-pink-100 text-pink-700',       sheet: 'pochacco', category: 'stamp', image: '/praise/pochacco/5.webp' },
+  { emoji: '🥺', label: '칭찬조름 포차코', color: 'bg-cyan-100 text-cyan-700',     sheet: 'pochacco', category: 'line',  image: '/praise/pochacco/6.webp' },
+  { emoji: '✨', label: '폴짝 포차코',   color: 'bg-lime-100 text-lime-700',       sheet: 'pochacco', category: 'line',  image: '/praise/pochacco/7.webp' },
+  { emoji: '👑', label: '왕 포차코',     color: 'bg-yellow-100 text-yellow-700',   sheet: 'pochacco', category: 'stamp', image: '/praise/pochacco/8.webp' },
+  { emoji: '🤗', label: '꼬옥 포차코',   color: 'bg-amber-100 text-amber-700',     sheet: 'pochacco', category: 'stamp', image: '/praise/pochacco/9.webp' },
 ];
 
 export interface PraiseDoc {
@@ -80,12 +92,21 @@ export interface PraiseMonthSummary {
   royalCount: number;
 }
 
+// Claude 참고: 옛 doc 호환의 핵심.
+// v2 시절 .png 경로로 저장된 stickerImage를 .webp로 자동 매핑.
+// 옛날 스프라이트 경로(`/praise-classic.png` 등)도 imageIndex로 개별 webp로 보정.
 function normalizeStickerImage(image?: string, imageIndex?: number): string | undefined {
+  if (!image) return undefined;
+  // v2 스프라이트 시트 경로 보정
   if (image === '/praise%201.png' || image === '/praise 1.png' || image === '/praise-classic.png') {
-    return `/praise/classic/${(imageIndex ?? 0) + 1}.png`;
+    return `/praise/classic/${(imageIndex ?? 0) + 1}.webp`;
   }
   if (image === '/prase%202.png' || image === '/prase 2.png' || image === '/praise-pochacco.png') {
-    return `/praise/pochacco/${(imageIndex ?? 0) + 1}.png`;
+    return `/praise/pochacco/${(imageIndex ?? 0) + 1}.webp`;
+  }
+  // v2 개별 .png → .webp
+  if (image.endsWith('.png') && (image.startsWith('/praise/classic/') || image.startsWith('/praise/pochacco/'))) {
+    return image.replace(/\.png$/, '.webp');
   }
   return image;
 }
@@ -106,19 +127,40 @@ function toView(id: string, d: PraiseDoc): PraiseItemView {
   };
 }
 
+// Claude 참고: v3 성능 가드 — 피드용 실시간 구독은 최신 30개만.
+// KPI/총합/월별은 별도 fetchPraiseTotals()로 1회 read.
+// 칭찬 양이 1000개를 넘기 전까지는 이 패턴으로 충분. 그 이상은 counts doc 도입.
+const FEED_LIMIT = 30;
+
 export function subscribePraise(cb: (items: PraiseItemView[]) => void): () => void {
-  return onSnapshot(
+  const q = query(
     collection(db, 'praiseStickers'),
+    orderBy('createdAt', 'desc'),
+    limit(FEED_LIMIT)
+  );
+  return onSnapshot(
+    q,
     (snap) => {
       const items = snap.docs.map((d) => toView(d.id, d.data() as PraiseDoc));
-      items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       cb(items);
     },
     (err) => {
-      console.error('칭찬 구독 오류:', err);
+      console.error('칭찬 피드 구독 오류:', err);
       cb([]);
     }
   );
+}
+
+// Claude 참고: 페이지 진입 시 1회만 호출. 총합/월별/스티커북 집계용.
+// onSnapshot 아닌 1회 getDocs이므로 부담 적음. 칭찬 보낼 때 로컬 state로 낙관적 갱신.
+export async function fetchPraiseTotals(): Promise<PraiseItemView[]> {
+  try {
+    const snap = await getDocs(collection(db, 'praiseStickers'));
+    return snap.docs.map((d) => toView(d.id, d.data() as PraiseDoc));
+  } catch (e) {
+    console.error('칭찬 총합 fetch 오류:', e);
+    return [];
+  }
 }
 
 export async function addPraise(input: {
@@ -127,7 +169,7 @@ export async function addPraise(input: {
   sticker: PraiseSticker;
   stickerCount: number;
 }): Promise<string> {
-  const count = Math.min(10, Math.max(1, Math.floor(input.stickerCount)));
+  const count = Math.min(20, Math.max(1, Math.floor(input.stickerCount)));
   const to = partnerOf(input.from) as PraiseUser;
   const payload: DocumentData = {
     kind: 'praise',
@@ -142,8 +184,6 @@ export async function addPraise(input: {
   };
   const ref = await addDoc(collection(db, 'praiseStickers'), payload);
 
-  // 기존 편지/퀵메시지처럼 저장 후 푸시 API만 호출합니다.
-  // Firestore 저장과 알림 전송을 분리해두면 알림 실패가 칭찬 기록을 망치지 않습니다.
   fetch('/api/notify-praise', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
