@@ -36,6 +36,7 @@ export interface WishDoc {
   doneAt?: Timestamp | null;
   doneBy?: '우댕' | '꼼이' | null;
   createdAt?: Timestamp | null;
+  updatedAt?: Timestamp | null; // 사진 추가 등 변경 시각 — NEW 배지 판단용
   hearts?: number;
   commentCount?: number;
 }
@@ -55,6 +56,7 @@ export interface WishItemView {
   doneAt?: Date | null;
   doneBy?: '우댕' | '꼼이' | null;
   createdAt: Date;
+  updatedAt?: Date | null;
   hearts?: number;
   commentCount?: number;
 }
@@ -74,6 +76,7 @@ function toView(id: string, d: WishDoc): WishItemView {
     doneAt: d.doneAt?.toDate?.() ?? null,
     doneBy: d.doneBy ?? null,
     createdAt: d.createdAt?.toDate?.() ?? new Date(),
+    updatedAt: d.updatedAt?.toDate?.() ?? null,
     hearts: d.hearts,
     commentCount: d.commentCount,
   };

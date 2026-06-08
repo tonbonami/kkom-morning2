@@ -30,6 +30,7 @@ export interface WishItem {
   doneAt?: Date | null;
   doneBy?: '우댕' | '꼼이' | null;
   createdAt: Date;
+  updatedAt?: Date | null;
   hearts?: number;
   commentCount?: number;
 }
@@ -223,6 +224,17 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
             const coverImage = item.photoUrls?.[0] || item.preview?.image;
             const photoCount = item.photoUrls?.length || 0;
 
+            // NEW 배지 — 상대가 24시간 이내에 추가/수정한 항목
+            const now = Date.now();
+            const DAY_MS = 24 * 60 * 60 * 1000;
+            const isNewCard = item.by !== me && (now - item.createdAt.getTime() < DAY_MS);
+            // 사진 추가됨 NEW — updatedAt이 createdAt보다 1분 이상 늦고 24시간 이내 + 카드를 안 만든 내가 보는 경우
+            const isPhotosUpdated =
+              !!item.updatedAt &&
+              item.photoUrls && item.photoUrls.length > 0 &&
+              (item.updatedAt.getTime() - item.createdAt.getTime() > 60 * 1000) &&
+              (now - item.updatedAt.getTime() < DAY_MS);
+
             return (
               <motion.div
                 layout
@@ -247,6 +259,12 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                     isDone ? 'opacity-75 bg-slate-50/50' : ''
                   }`}
                 >
+                {/* NEW 배지 — 상대가 24h 이내 추가한 카드 */}
+                {isNewCard && !isDone && (
+                  <span className="absolute -top-2 -right-1 bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md rotate-[8deg] shadow-[2px_2px_0px_rgba(0,0,0,0.08)] z-20 ring-2 ring-white">
+                    ✨ NEW
+                  </span>
+                )}
                 {/* Left: Image or Icon — 사진 있으면 클릭으로 갤러리 모달 열림 */}
                 <div className="shrink-0 flex flex-col items-center">
                   {coverImage ? (
@@ -264,6 +282,10 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                         <span className="absolute -right-1 -bottom-1 rounded-full bg-slate-900 text-white text-[10px] font-black px-1.5 py-0.5 shadow-sm">
                           +{photoCount - 1}
                         </span>
+                      )}
+                      {/* 사진 새로 추가됐을 때 빨간 점 */}
+                      {isPhotosUpdated && !isDone && (
+                        <span className="absolute -top-1 -left-1 h-3 w-3 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
                       )}
                     </button>
                   ) : (
