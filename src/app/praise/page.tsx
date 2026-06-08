@@ -121,6 +121,34 @@ function StickerWrap({ src, emoji, count }: { src?: string; emoji?: string; coun
   );
 }
 
+// 100개 달성 모먼트 — 시각적으로만 일기 맨 위에 박는 가상 카드 (Firestore 데이터 안 건드림)
+function RoyalCard({ index, total }: { index: number; total: number }) {
+  // index = 1, 2, 3... (몇 번째 왕칭찬인지)
+  const ROYAL_SRC = '/praise/classic/9.webp'; // 왕칭찬 도장
+  const tilt = index % 2 === 0 ? '-rotate-2' : 'rotate-2';
+  return (
+    <article className={cn('relative rounded-[24px] bg-gradient-to-br from-amber-100 via-yellow-50 to-amber-50 px-5 py-4 shadow-[0_8px_24px_rgba(217,119,6,0.18)] border-2 border-amber-200', tilt)}>
+      <div className="tape -top-2 left-1/2 -translate-x-1/2 w-16 -rotate-3" />
+      {/* 콘페티 점들 */}
+      <div className="absolute -top-1 left-3 text-xs">🎉</div>
+      <div className="absolute -top-1 right-3 text-xs">✨</div>
+      <div className="absolute -bottom-1 left-6 text-xs">🎊</div>
+      <div className="flex items-center gap-3">
+        <img src={ROYAL_SRC} alt="" width={68} height={68} className="drop-shadow-md" />
+        <div>
+          <p className="text-[11px] font-black text-amber-700 tracking-wider">{index}번째 왕칭찬</p>
+          <p className="font-handwriting text-[20px] text-amber-900 leading-tight">
+            🎉 {total}개 모았어!
+          </p>
+          <p className="font-handwriting text-[14px] text-amber-600 leading-tight mt-0.5">
+            100개마다 자동으로 박혀
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function PraiseRow({ item, me, index }: { item: PraiseItemView; me: PraiseUser; index: number }) {
   const isMine = item.from === me;
   const isRequest = item.kind === 'request';
@@ -141,16 +169,21 @@ function PraiseRow({ item, me, index }: { item: PraiseItemView; me: PraiseUser; 
     );
   }
 
-  // 칭찬 카드 — 모든 카드에 테이프 (색/위치 인덱스 패턴), 살짝 회전 (종이 느낌)
-  const tapeStyles = ['', 'tape-pink', 'tape-mint']; // 노랑/핑크/민트 순환
-  const tapeStyle = tapeStyles[index % tapeStyles.length];
+  // 카드 톤: 보낸 사람으로 테이프 색 차별화 (꼼이=핑크, 우댕=민트)
+  // 받은 vs 쓴 시점에 따라 카드 배경 미세 tint도 다르게.
+  const tapeStyle = item.from === '꼼이' ? 'tape-pink' : 'tape-mint';
   const tapePos = index % 2 === 0 ? 'left-5 -rotate-3' : 'right-6 rotate-3';
   const tilt = index % 4 === 0 ? '-rotate-[0.4deg]' : index % 4 === 2 ? 'rotate-[0.4deg]' : '';
+  // 받은 칭찬은 *상대 색* 살짝, 쓴 칭찬은 *내 색* 살짝 — 매우 옅게
+  const tint = isMine
+    ? (me === '꼼이' ? 'bg-pink-50/40' : 'bg-emerald-50/40')
+    : (item.from === '꼼이' ? 'bg-pink-50/40' : 'bg-emerald-50/40');
 
   return (
     <article
       className={cn(
-        'relative rounded-[20px] bg-white px-4 py-4 shadow-[0_4px_18px_rgba(15,23,42,0.07)] border border-slate-100',
+        'relative rounded-[20px] px-4 py-4 shadow-[0_4px_18px_rgba(15,23,42,0.07)] border border-slate-100',
+        tint,
         tilt
       )}
     >
@@ -225,7 +258,7 @@ function Composer({
         <div className="flex items-center gap-2">
           <Sparkles size={18} className="text-amber-500" />
           <span className="font-black text-[15px]">
-            {open ? '닫기' : `${vocativeOf(partner)} 한 줄 적기`}
+            {open ? '닫기' : `✏️ 새 칭찬 쓰기`}
           </span>
         </div>
         {open ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
@@ -358,6 +391,7 @@ export default function PraisePage() {
   const [feedItems, setFeedItems] = useState<PraiseItemView[]>([]);
   const [allItems, setAllItems] = useState<PraiseItemView[]>([]); // KPI 집계용
   const [view, setView] = useState<ViewMode>('received');
+  const [showMore, setShowMore] = useState(false); // 옛 칭찬 더 보기
 
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
@@ -398,11 +432,22 @@ export default function PraisePage() {
       .reduce((sum, x) => sum + x.stickerCount, 0);
   }, [allItems, me]);
 
-  // 다이어리 피드 필터링
+  // 다이어리 피드 필터링 — showMore면 allItems 전체에서 필터, 아니면 feedItems(30개)
   const diaryItems = useMemo(() => {
     if (!me) return [];
-    return feedItems.filter((x) => (view === 'received' ? x.to === me : x.from === me));
-  }, [feedItems, me, view]);
+    const source = showMore ? allItems : feedItems;
+    return source
+      .filter((x) => (view === 'received' ? x.to === me : x.from === me))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }, [feedItems, allItems, me, view, showMore]);
+
+  // 옛 칭찬이 더 있는지 (allItems가 feedItems보다 많을 때)
+  const hasMore = useMemo(() => {
+    if (!me) return false;
+    const visibleInFeed = feedItems.filter((x) => (view === 'received' ? x.to === me : x.from === me)).length;
+    const totalAll = allItems.filter((x) => (view === 'received' ? x.to === me : x.from === me)).length;
+    return totalAll > visibleInFeed;
+  }, [feedItems, allItems, me, view]);
 
   if (!me) return <div className="min-h-[100dvh] bg-[#FFFCF5] max-w-md mx-auto" />;
 
@@ -419,10 +464,10 @@ export default function PraisePage() {
             <ArrowLeft size={18} />
           </button>
           <div className="text-center">
-            <p className="font-handwriting text-[13px] text-emerald-500 tracking-wide">
+            <p className="font-handwriting text-[18px] text-emerald-600 tracking-wide leading-none">
               우댕 ♥ 꼼이 칭찬 일기
             </p>
-            <h1 className="font-handwriting text-[24px] tracking-tight text-slate-800">
+            <h1 className="font-handwriting text-[26px] tracking-tight text-slate-800 leading-tight">
               칭찬 다이어리
             </h1>
           </div>
@@ -464,6 +509,13 @@ export default function PraisePage() {
 
         {/* 다이어리 피드 — 카드 사이 간격 넓혀서 노트 줄이 잘 보이게 */}
         <section className="space-y-6 pt-2">
+          {/* 100개 달성 모먼트 — 받은 view일 때만, 다이어리 맨 위 */}
+          {view === 'received' && royalCount > 0 && (
+            Array.from({ length: royalCount }).map((_, i) => (
+              <RoyalCard key={`royal-${i}`} index={i + 1} total={(i + 1) * 100} />
+            ))
+          )}
+
           {diaryItems.length === 0 ? (
             // Gemini 리뷰 P2: Empty State를 노란 포스트잇으로 — 글 쓰고 싶게 유도
             <div className="flex justify-center pt-4 pb-2">
@@ -479,9 +531,19 @@ export default function PraisePage() {
           ) : (
             diaryItems.map((item, idx) => <PraiseRow key={item.id} item={item} me={me} index={idx} />)
           )}
-          {feedItems.length >= 30 && (
+
+          {/* 옛 칭찬 더 보기 */}
+          {!showMore && hasMore && (
+            <button
+              onClick={() => setShowMore(true)}
+              className="w-full py-3 rounded-2xl bg-white/80 border border-slate-200 text-slate-500 text-sm font-bold active:scale-[0.98] transition"
+            >
+              📜 옛 칭찬도 펼쳐보기
+            </button>
+          )}
+          {showMore && (
             <p className="text-center text-[11px] font-bold text-slate-400 pt-2">
-              최근 30개만 표시 — 더 옛 칭찬은 통계에 합산돼 있어요
+              ✨ 다 펼쳐졌어
             </p>
           )}
         </section>
