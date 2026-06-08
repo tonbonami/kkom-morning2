@@ -2,11 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Claude 참고: Gaegu가 기본 자간이 넓어서 본문 길어지면 정신 사나움.
-   자간을 -0.04em로 좁히고 line-height도 1.35로 타이트하게 — 손글씨 느낌은 유지하되 가독성 우선. */
+/* Claude 참고: Dongle은 글자가 좀 작게 렌더되는 폰트라
+   text-[20px]가 PT Sans의 14px 정도 체감. 시각 사이즈를 일관되게 보정.
+   font-handwriting 클래스는 자간/줄간만 살짝 정리하고 사이즈 보정은 site-wide로. */
 .font-handwriting {
-  letter-spacing: -0.04em;
-  line-height: 1.35;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  font-weight: 700;
 }
 
 @layer base {
