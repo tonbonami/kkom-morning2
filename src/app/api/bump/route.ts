@@ -58,6 +58,13 @@ export async function POST(req: NextRequest) {
 
   try {
     await webpush.sendNotification(s as any, payload);
+    // 매일매일 꼼모닝 헤더 카운트 — bump를 from별/kind별로 누적 (실패해도 푸시 성공은 유지)
+    if (from === '우댕' || from === '꼼이') {
+      try {
+        const { incrementBump } = await import('@/lib/dailyStats');
+        await incrementBump(from, kind);
+      } catch {}
+    }
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     const status = e?.statusCode;

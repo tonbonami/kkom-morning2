@@ -184,6 +184,11 @@ export async function addPraise(input: {
   };
   const ref = await addDoc(collection(db, 'praiseStickers'), payload);
 
+  // 매일매일 꼼모닝 헤더 카운트
+  import('./dailyStats').then(({ incrementPraiseStickers }) =>
+    incrementPraiseStickers(input.from, count)
+  ).catch(() => {});
+
   fetch('/api/notify-praise', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -214,6 +219,10 @@ export async function requestPraise(input: {
     createdAt: serverTimestamp(),
   };
   const ref = await addDoc(collection(db, 'praiseStickers'), payload);
+
+  import('./dailyStats').then(({ incrementPraiseRequest }) =>
+    incrementPraiseRequest(input.from)
+  ).catch(() => {});
 
   fetch('/api/notify-praise', {
     method: 'POST',

@@ -72,6 +72,11 @@ export async function addMemory(m: Omit<Memory, 'id' | 'createdAt'> & { id?: str
     ...clean,
     createdAt: serverTimestamp(),
   });
+  // 매일매일 꼼모닝 헤더 카운트
+  import('./dailyStats').then(({ incrementMemory }) => {
+    const by = (clean as any).by;
+    if (by === '우댕' || by === '꼼이') incrementMemory(by);
+  }).catch(() => {});
   return ref.id;
 }
 

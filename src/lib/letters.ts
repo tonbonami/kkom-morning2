@@ -224,6 +224,11 @@ export async function sendLetter(
   if (cleanEmoticonIds.length > 0) data.emoticonIds = cleanEmoticonIds;
   const ref = await addDoc(collection(db, 'letters'), data);
 
+  // "매일매일 꼼모닝" 헤더용 카운트 (실패해도 본 기능 망치지 않게 fire-and-forget)
+  import('./dailyStats').then(({ incrementLetter }) => {
+    if (from === '우댕' || from === '꼼이') incrementLetter(from);
+  }).catch(() => {});
+
   // 도착 푸시 — 즉시 편지면 곧바로, 예약 편지면 cron이 도착 시각에 보냄.
   // KST 22-07시(방해 금지)면 서버에서 push 미루고 다음날 07:05 배치로.
   // letterId 같이 전달해야 서버가 pendingNotify 표시 가능.

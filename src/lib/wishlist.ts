@@ -138,6 +138,8 @@ export async function addWish(input: {
   if (input.memo) payload.memo = input.memo.trim();
 
   const ref = await addDoc(collection(db, 'wishlist'), payload);
+  // 매일매일 꼼모닝 헤더 카운트
+  import('./dailyStats').then(({ incrementWish }) => incrementWish(input.by)).catch(() => {});
   return ref.id;
 }
 
