@@ -1,5 +1,6 @@
 'use client';
 
+import type { ChangeEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,6 +10,7 @@ import MediaPreviewModal from '@/components/MediaPreviewModal';
 import {
   subscribeWishlist,
   addWish,
+  addWishPhoto,
   toggleWishDone,
   deleteWish,
   fetchOgPreview,
@@ -36,6 +38,9 @@ export default function WishlistPage() {
   const [previewUrl, setPreviewUrl] = useState<string | undefined>();
   const [previewTitle, setPreviewTitle] = useState<string | undefined>();
   const [toast, setToast] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const [photoTarget, setPhotoTarget] = useState<WishItemView | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   // 댓글 시트
   const [commentItem, setCommentItem] = useState<WishItemView | null>(null);
@@ -120,8 +125,46 @@ export default function WishlistPage() {
     }
   };
 
+  const handleAddPhotoClick = (item: WishItemView) => {
+    setPhotoTarget(item);
+    photoInputRef.current?.click();
+  };
+
+  const handlePhotoSelected = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !photoTarget || photoUploading) return;
+    if (!file.type.startsWith('image/')) {
+      setToast('이미지 파일만 추가할 수 있어요');
+      setTimeout(() => setToast(null), 2500);
+      return;
+    }
+
+    setPhotoUploading(true);
+    setToast('사진 올리는 중...');
+    try {
+      await addWishPhoto(photoTarget.id, file, me);
+      setToast('📷 사진을 추가했어요');
+      setTimeout(() => setToast(null), 2500);
+    } catch (err) {
+      console.error('위시 사진 추가 실패:', err);
+      setToast('사진 추가에 실패했어요. 다시 시도해줘.');
+      setTimeout(() => setToast(null), 2500);
+    } finally {
+      setPhotoUploading(false);
+      setPhotoTarget(null);
+    }
+  };
+
   return (
     <>
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handlePhotoSelected}
+      />
       <WishlistV1
         me={me}
         items={items.filter((i) => !i.done) as unknown as WishItem[]}
@@ -134,6 +177,7 @@ export default function WishlistPage() {
           setPreviewUrl(item.url);
           setPreviewTitle(item.preview?.title || item.title);
         }}
+        onAddPhoto={(item) => handleAddPhotoClick(item as unknown as WishItemView)}
         onHeart={(id) => incrementHeartsAt(COLLECTION, id)}
         onOpenComments={(item) => setCommentItem(item as unknown as WishItemView)}
       />
@@ -164,7 +208,7 @@ export default function WishlistPage() {
             className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#10B981] text-white px-5 py-3 rounded-full font-bold text-[13px] shadow-[0_8px_24px_rgba(16,185,129,0.4)] z-50 flex items-center gap-2"
           >
             <CheckCircle2 size={16} strokeWidth={2.5} fill="white" className="text-[#10B981]" />
-            {toast}
+            {photoUploading ? '사진 올리는 중...' : toast}
           </motion.div>
         )}
       </AnimatePresence>

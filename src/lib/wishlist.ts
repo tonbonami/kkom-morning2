@@ -1,15 +1,17 @@
-import { db } from './firebase';
+import { db, storage } from './firebase';
 import {
   collection,
   addDoc,
   doc,
   updateDoc,
   deleteDoc,
+  arrayUnion,
   onSnapshot,
   serverTimestamp,
   Timestamp,
   type DocumentData,
 } from 'firebase/firestore';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export type WishCategory = 'food' | 'place' | 'watch';
 
@@ -28,6 +30,7 @@ export interface WishDoc {
   preview?: WishPreview;
   location?: string;
   memo?: string;
+  photoUrls?: string[];
   by: '우댕' | '꼼이';
   done: boolean;
   doneAt?: Timestamp | null;
@@ -46,6 +49,7 @@ export interface WishItemView {
   preview?: WishPreview;
   location?: string;
   memo?: string;
+  photoUrls?: string[];
   by: '우댕' | '꼼이';
   done: boolean;
   doneAt?: Date | null;
@@ -64,6 +68,7 @@ function toView(id: string, d: WishDoc): WishItemView {
     preview: d.preview,
     location: d.location,
     memo: d.memo,
+    photoUrls: Array.isArray(d.photoUrls) ? d.photoUrls.filter((url) => typeof url === 'string') : [],
     by: d.by,
     done: !!d.done,
     doneAt: d.doneAt?.toDate?.() ?? null,
@@ -146,6 +151,22 @@ export async function toggleWishDone(id: string, done: boolean, by: '우댕' | '
 
 export async function deleteWish(id: string): Promise<void> {
   await deleteDoc(doc(db, 'wishlist', id));
+}
+
+export async function addWishPhoto(id: string, file: File, by: '우댕' | '꼼이'): Promise<string> {
+  const ext = file.type.includes('png') ? 'png'
+    : file.type.includes('webp') ? 'webp'
+      : 'jpg';
+  const safeName = by.replace(/[^\w가-힣]/g, '_') || 'anon';
+  const path = `wishlist/${id}/${Date.now()}_${safeName}.${ext}`;
+  const ref = storageRef(storage, path);
+  await uploadBytes(ref, file, { contentType: file.type || 'image/jpeg' });
+  const url = await getDownloadURL(ref);
+  await updateDoc(doc(db, 'wishlist', id), {
+    photoUrls: arrayUnion(url),
+    updatedAt: serverTimestamp(),
+  });
+  return url;
 }
 
 // 클라이언트에서 OG 미리보기 직접 호출용 (WishlistV1의 fetchPreview prop)

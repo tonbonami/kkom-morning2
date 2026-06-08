@@ -24,6 +24,7 @@ export interface WishItem {
   };
   location?: string;
   memo?: string;
+  photoUrls?: string[];
   by: '우댕' | '꼼이';
   done: boolean;
   doneAt?: Date | null;
@@ -193,7 +194,9 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
               className="flex flex-col items-center justify-center pt-24 pb-12 text-center"
             >
               <div className={`w-20 h-20 bg-white rounded-full shadow-sm flex items-center justify-center mb-5 ${CATEGORY_TEXT_COLORS[activeTab]}`}>
-                {TABS.find(t => t.id === activeTab)?.icon && React.cloneElement(TABS.find(t => t.id === activeTab)!.icon as React.ReactElement, { size: 36, strokeWidth: 1.5 })}
+                {React.isValidElement(TABS.find(t => t.id === activeTab)?.icon)
+                  ? React.cloneElement(TABS.find(t => t.id === activeTab)!.icon as React.ReactElement<any>, { size: 36, strokeWidth: 1.5 })
+                  : null}
               </div>
               <h3 className="text-lg font-bold text-slate-800 mb-2">아직 비어있어요</h3>
               <p className="text-[14px] text-slate-500 mb-8">우리 같이 해보고 싶은 것을 적어볼까요?</p>
@@ -211,6 +214,8 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
           {filteredItems.map((item) => {
             const isDone = item.done;
             const categoryColor = CATEGORY_COLORS[item.category];
+            const coverImage = item.photoUrls?.[0] || item.preview?.image;
+            const photoCount = item.photoUrls?.length || 0;
 
             return (
               <motion.div
@@ -238,10 +243,17 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                 >
                 {/* Left: Image or Icon */}
                 <div className="shrink-0 flex flex-col items-center">
-                  {item.preview?.image ? (
-                    <img src={item.preview.image} alt="" className={`w-14 h-14 rounded-full object-cover shadow-sm ${isDone ? 'grayscale opacity-80' : ''}`} draggable={false} />
+                  {coverImage ? (
+                    <div className="relative">
+                      <img src={coverImage} alt="" className={`w-16 h-16 rounded-2xl object-cover shadow-sm ${isDone ? 'grayscale opacity-80' : ''}`} draggable={false} />
+                      {photoCount > 1 && (
+                        <span className="absolute -right-1 -bottom-1 rounded-full bg-slate-900 text-white text-[10px] font-black px-1.5 py-0.5 shadow-sm">
+                          +{photoCount - 1}
+                        </span>
+                      )}
+                    </div>
                   ) : (
-                    <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-sm ${isDone ? 'bg-slate-300' : categoryColor}`}>
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-sm ${isDone ? 'bg-slate-300' : categoryColor}`}>
                       {item.category === 'food' ? <Utensils size={24} /> : item.category === 'place' ? <Map size={24} /> : <MonitorPlay size={24} />}
                     </div>
                   )}
@@ -296,9 +308,12 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                           사이트 보기 <ExternalLink size={12} />
                         </a>
                       )}
-                      {isDone && onAddPhoto && (
-                        <button onClick={() => onAddPhoto(item)} className="inline-flex items-center gap-1 text-[12px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
-                          <Camera size={12} /> 사진 추가
+                      {onAddPhoto && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onAddPhoto(item); }}
+                          className="inline-flex items-center gap-1 text-[12px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md active:scale-95 transition-transform"
+                        >
+                          <Camera size={12} /> {photoCount > 0 ? '사진 더하기' : '사진 추가'}
                         </button>
                       )}
                     </div>
@@ -397,9 +412,9 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                     <AnimatePresence>
                       {draftUrl.startsWith('http') && (
                         <motion.div
-                          initial={{ opacity: 0, height: 0, mt: 0 }}
-                          animate={{ opacity: 1, height: 'auto', mt: 12 }}
-                          exit={{ opacity: 0, height: 0, mt: 0 }}
+                          initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                          animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+                          exit={{ opacity: 0, height: 0, marginTop: 0 }}
                           className="overflow-hidden"
                         >
                           <div className="bg-white border border-slate-100 rounded-2xl p-3 flex gap-3 shadow-sm items-center">
