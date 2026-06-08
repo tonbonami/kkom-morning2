@@ -19,30 +19,105 @@ export type Emoticon = {
   animated?: boolean;
 };
 
-// MVP용 임시 세트. 나중에 카톡 이모티콘처럼 직접 그린 PNG/WebP/GIF를 넣으면
-// imageUrl만 교체하고 id/meaning은 유지해서 예전 편지도 깨지지 않게 한다.
+const POCHACCO_LOVE_SET_IDS = [
+  'pochacco_love',
+  'pochacco_mine',
+  'pochacco_hug',
+  'pochacco_miss_you',
+  'pochacco_cheer',
+  'pochacco_can_do',
+  'pochacco_charge',
+  'pochacco_best',
+  'pochacco_my_side',
+];
+
+// 원본 /imoticon/Pochacco_love.png는 3x3 시트라서 개별 칸을 잘라서 연결한다.
+// Claude 참고: 시트 교체 시 public/imoticon/pochacco-love/{1..9}.png만 다시 생성하면 된다.
 export const EMOTICONS: Emoticon[] = [
-  {
-    id: 'pochacco_miss_you',
-    setId: 'pochacco_daily',
-    label: '보고싶어',
-    meaning: '보고싶다',
-    notificationPhrase: '보고싶다고',
-    imageUrl: '/pochacco/face_missing.png',
-    assetType: 'png',
-  },
   {
     id: 'pochacco_love',
     setId: 'pochacco_daily',
     label: '사랑해',
     meaning: '사랑한다',
     notificationPhrase: '사랑한다고',
-    imageUrl: '/imoticon/Pochacco_love.png',
+    imageUrl: '/imoticon/pochacco-love/1.png',
+    assetType: 'png',
+  },
+  {
+    id: 'pochacco_mine',
+    setId: 'pochacco_daily',
+    label: '내꺼야',
+    meaning: '내꺼라고',
+    notificationPhrase: '내꺼라고',
+    imageUrl: '/imoticon/pochacco-love/2.png',
+    assetType: 'png',
+  },
+  {
+    id: 'pochacco_hug',
+    setId: 'pochacco_daily',
+    label: '안아줘',
+    meaning: '안아달라',
+    notificationPhrase: '안아달라고',
+    imageUrl: '/imoticon/pochacco-love/3.png',
+    assetType: 'png',
+  },
+  {
+    id: 'pochacco_miss_you',
+    setId: 'pochacco_daily',
+    label: '보고싶어',
+    meaning: '보고싶다',
+    notificationPhrase: '보고싶다고',
+    imageUrl: '/imoticon/pochacco-love/4.png',
+    assetType: 'png',
+  },
+  {
+    id: 'pochacco_cheer',
+    setId: 'pochacco_daily',
+    label: '빠샤',
+    meaning: '응원한다',
+    notificationPhrase: '빠샤 응원한다고',
+    imageUrl: '/imoticon/pochacco-love/5.png',
+    assetType: 'png',
+  },
+  {
+    id: 'pochacco_can_do',
+    setId: 'pochacco_daily',
+    label: '할수있어',
+    meaning: '할 수 있다',
+    notificationPhrase: '할 수 있다고',
+    imageUrl: '/imoticon/pochacco-love/6.png',
+    assetType: 'png',
+  },
+  {
+    id: 'pochacco_charge',
+    setId: 'pochacco_daily',
+    label: '충전완료',
+    meaning: '충전 완료',
+    notificationPhrase: '충전 완료됐다고',
+    imageUrl: '/imoticon/pochacco-love/7.png',
+    assetType: 'png',
+  },
+  {
+    id: 'pochacco_best',
+    setId: 'pochacco_daily',
+    label: '최고야',
+    meaning: '최고다',
+    notificationPhrase: '최고라고',
+    imageUrl: '/imoticon/pochacco-love/8.png',
+    assetType: 'png',
+  },
+  {
+    id: 'pochacco_my_side',
+    setId: 'pochacco_daily',
+    label: '내편',
+    meaning: '내 편이다',
+    notificationPhrase: '내 편이라고',
+    imageUrl: '/imoticon/pochacco-love/9.png',
     assetType: 'png',
   },
   {
     id: 'pochacco_thanks',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '고마워',
     meaning: '고맙다',
     notificationPhrase: '고맙다고',
@@ -50,17 +125,8 @@ export const EMOTICONS: Emoticon[] = [
     assetType: 'png',
   },
   {
-    id: 'pochacco_cheer',
-    setId: 'pochacco_daily',
-    label: '힘내',
-    meaning: '응원한다',
-    notificationPhrase: '응원한다고',
-    imageUrl: '/pochacco/face_excited.png',
-    assetType: 'png',
-  },
-  {
     id: 'pochacco_pat',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '토닥토닥',
     meaning: '토닥토닥',
     notificationPhrase: '토닥토닥',
@@ -69,7 +135,7 @@ export const EMOTICONS: Emoticon[] = [
   },
   {
     id: 'pochacco_sorry',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '미안해',
     meaning: '미안하다',
     notificationPhrase: '미안하다고',
@@ -78,7 +144,7 @@ export const EMOTICONS: Emoticon[] = [
   },
   {
     id: 'pochacco_sleep',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '잘자',
     meaning: '잘 자라고',
     notificationPhrase: '잘 자라고',
@@ -87,7 +153,7 @@ export const EMOTICONS: Emoticon[] = [
   },
   {
     id: 'pochacco_sad',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '속상해',
     meaning: '속상하다',
     notificationPhrase: '속상하다고',
@@ -96,7 +162,7 @@ export const EMOTICONS: Emoticon[] = [
   },
   {
     id: 'pochacco_sulky',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '삐짐',
     meaning: '삐졌다',
     notificationPhrase: '삐졌다고',
@@ -108,10 +174,10 @@ export const EMOTICONS: Emoticon[] = [
 export const EMOTICON_SETS: EmoticonSet[] = [
   {
     id: 'pochacco_daily',
-    title: '포차코 마음',
-    description: '보고싶음, 고마움, 응원 같은 짧은 마음을 보내요.',
-    thumbnailUrl: '/imoticon/Pochacco_love.png',
-    emoticonIds: EMOTICONS.filter((item) => item.setId === 'pochacco_daily').map((item) => item.id),
+    title: '사랑 빠샤',
+    description: '사랑 고백과 응원을 또렷하게 보내요.',
+    thumbnailUrl: '/imoticon/pochacco-love/1.png',
+    emoticonIds: POCHACCO_LOVE_SET_IDS,
   },
 ];
 

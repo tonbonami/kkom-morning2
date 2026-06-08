@@ -390,7 +390,7 @@ export default function NewLetterPage() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 360, opacity: 0 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="fixed left-1/2 bottom-4 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2 rounded-[32px] bg-[#F7F9F9] border border-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] overflow-hidden"
+              className="fixed inset-x-4 bottom-4 z-50 max-w-md mx-auto rounded-[32px] bg-[#F7F9F9] border border-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] overflow-hidden"
             >
               <div className="px-5 pt-4 pb-3 bg-white/80">
                 <div className="flex items-center justify-between">
