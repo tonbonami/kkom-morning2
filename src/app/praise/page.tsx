@@ -258,7 +258,7 @@ function Composer({
         <div className="flex items-center gap-2">
           <Sparkles size={18} className="text-amber-500" />
           <span className="font-black text-[15px]">
-            {open ? '닫기' : `✏️ 새 칭찬 쓰기`}
+            {open ? '닫기' : `✏️ ${partner === '우댕' ? '우댕이' : '꼼이'} 칭찬하기`}
           </span>
         </div>
         {open ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
