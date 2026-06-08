@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check } from 'lucide-react';
 
@@ -23,6 +23,25 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
   const [toast, setToast] = useState<string | null>(null);
   const [lastSent, setLastSent] = useState(0);
   const [activeKind, setActiveKind] = useState<Kind | null>(null);
+
+  // 키보드 올라오면 hide — iOS Safari PWA fixed bottom이 키보드 영역 위로 떠오르거나 화면 중간에 박히는 버그 회피.
+  // visualViewport API로 viewport 높이 변화 감지 (키보드 = viewport 줄어듦).
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const check = () => {
+      const diff = window.innerHeight - vv.height;
+      setKeyboardOpen(diff > 150); // 150px 이상 줄어들면 키보드 떴다고 판단
+    };
+    vv.addEventListener('resize', check);
+    vv.addEventListener('scroll', check);
+    check();
+    return () => {
+      vv.removeEventListener('resize', check);
+      vv.removeEventListener('scroll', check);
+    };
+  }, []);
 
   const send = async (q: typeof QUICK[number]) => {
     const now = Date.now();
@@ -65,8 +84,13 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
         )}
       </AnimatePresence>
 
-      {/* 하단 고정 바 — 바 높이 그대로 유지하고 포차코만 키움 (사용자 요청) */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 max-w-md w-full px-3 pb-safe pointer-events-none z-40">
+      {/* 하단 고정 바 — transform 제거 (iOS PWA fixed positioning 충돌 회피),
+          키보드 올라오면 hide (중간에 박히는 버그 회피) */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 mx-auto max-w-md px-3 pb-safe pointer-events-none z-40 transition-transform duration-200 ${
+          keyboardOpen ? 'translate-y-full opacity-0' : 'translate-y-0 opacity-100'
+        }`}
+      >
         <div className="bg-white/95 backdrop-blur-xl rounded-[28px] shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-white/60 px-1 py-1.5 mb-3 flex items-center justify-around pointer-events-auto">
           {QUICK.map((q) => {
             const isActive = activeKind === q.kind;

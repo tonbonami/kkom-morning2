@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
-  Wind, Heart, PenLine, BookOpen,
+  Wind, Heart, PenLine, BookOpen, ChefHat,
   RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award,
 } from 'lucide-react';
 
@@ -67,6 +67,8 @@ export default function KkomMorningHome() {
   const [locKey, setLocKey] = useState<LocKey>('home'); // 화면 위치 선택
   const [shares, setShares] = useState<ShareItemView[]>([]);
   const [wishes, setWishes] = useState<{ id: string; createdAt: Date }[]>([]);
+  // 칭찬 다이어리 카드 — 오늘 partner가 칭찬 보냈는지 (스마일 배지용)
+  const [hasNewPraise, setHasNewPraise] = useState(false);
   // 날씨 카드 onboarding 힌트 (디바이스당 한 번)
   const [showWeatherHint, setShowWeatherHint] = useState(false);
   const weatherShake = useAnimation();
@@ -105,6 +107,15 @@ export default function KkomMorningHome() {
     const unsubWishes = subscribeWishlist((items) => {
       setWishes(items.filter((i) => !i.done).map((i) => ({ id: i.id, createdAt: i.createdAt })));
     });
+
+    // 칭찬 — 오늘 partner가 보낸 게 있으면 스마일 배지 (1회 fetch)
+    import('@/lib/dailyStats').then(({ fetchTodayStats }) => fetchTodayStats()).then((s) => {
+      const partner = userName === '우댕' ? '꼼이' : '우댕';
+      const partnerKey = (partner as '우댕' | '꼼이');
+      const got = (s.praiseStickers as any)[partnerKey] || 0;
+      const gotReq = (s.praiseRequests as any)[partnerKey] || 0;
+      if (got > 0 || gotReq > 0) setHasNewPraise(true);
+    }).catch(() => {});
 
     const start = new Date('2023-09-28');
     const today = new Date();
@@ -617,11 +628,17 @@ export default function KkomMorningHome() {
         {/* 칭찬 다이어리 진입 카드 — 옅은 종이 톤 + 핑크 테이프 (Gemini 리뷰 P1) */}
         <button
           onClick={() => router.push('/praise')}
-          className="relative w-full bg-emerald-50 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-emerald-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all overflow-hidden"
+          className="relative w-full bg-emerald-50 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-emerald-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all"
         >
           <div className="tape-pink absolute -top-2 -left-2 w-14 -rotate-12 z-10" />
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-600">
+          <div className="relative w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-600">
             <Award size={22} strokeWidth={2.5} />
+            {/* 새 칭찬 받았을 때 스마일 배지 (숫자 대신) */}
+            {hasNewPraise && (
+              <span className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-amber-300 text-amber-800 flex items-center justify-center shadow-md ring-2 ring-white">
+                <Smile size={14} strokeWidth={2.8} />
+              </span>
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 text-emerald-500 mb-1">
@@ -629,10 +646,8 @@ export default function KkomMorningHome() {
             </div>
             <p className="text-sm font-bold text-emerald-800">칭찬 다이어리</p>
           </div>
-          <div className="flex items-center gap-1 text-base" aria-hidden="true">
-            <span className="-rotate-6">⭐</span>
-            <span className="rotate-6">💚</span>
-          </div>
+          {/* 우측 별/하트 이모지 제거 — 깔끔한 단색 Sparkles SVG로 (사용자 요청) */}
+          <Sparkles size={16} className="text-emerald-500/80 shrink-0" strokeWidth={2.5} />
           <ChevronRight size={20} className="text-emerald-500/70 shrink-0" />
         </button>
 
@@ -702,8 +717,23 @@ export default function KkomMorningHome() {
           <ChevronRight size={20} className="text-slate-400 shrink-0" />
         </button>
 
-        {/* 우리들의 서재 — 검정 라벨 + 노랑 테이프 (Gemini P2, 다크 카드 위에 노랑 테이프가 가장 예쁨) */}
-        <button onClick={() => router.push('/novel')} className="relative w-full flex items-center justify-between p-6 rounded-2xl bg-slate-800 text-white shadow-[2px_3px_0px_rgba(0,0,0,0.12)] border border-slate-700 active:scale-[0.98] transition-transform text-left -rotate-[0.5deg]">
+        {/* 우리의 레시피 — 서재 자리에 새로 박음 (오렌지 톤, ChefHat 아이콘) */}
+        <button onClick={() => router.push('/recipes')} className="relative w-full bg-orange-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-orange-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]">
+          <div className="tape-mint absolute -top-2 right-6 w-14 -rotate-3 z-10" />
+          <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center shrink-0 text-orange-600">
+            <ChefHat size={22} strokeWidth={2.5} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-orange-500 mb-1">
+              <span className="text-xs font-bold tracking-wider uppercase">Our Recipes</span>
+            </div>
+            <p className="text-sm font-bold text-orange-900">우리의 레시피</p>
+          </div>
+          <ChevronRight size={20} className="text-orange-400 shrink-0" />
+        </button>
+
+        {/* 우리들의 서재 — 사용자 요청으로 일단 숨김 (코드 유지) */}
+        {false && (<button onClick={() => router.push('/novel')} className="relative w-full flex items-center justify-between p-6 rounded-2xl bg-slate-800 text-white shadow-[2px_3px_0px_rgba(0,0,0,0.12)] border border-slate-700 active:scale-[0.98] transition-transform text-left -rotate-[0.5deg]">
           <div className="tape absolute -top-2 left-8 w-12 rotate-3 z-10" />
           <div className="flex items-center gap-4">
             <div className="p-3 bg-white/10 rounded-2xl"><BookOpen size={22} className="text-[#99E6D9]" strokeWidth={2} /></div>
@@ -713,7 +743,7 @@ export default function KkomMorningHome() {
             </div>
           </div>
           <ChevronRight size={20} className="text-slate-400" />
-        </button>
+        </button>)}
       </main>
 
       {/* 하단 고정 퀵메세지 바 — 한 탭 푸시 (보고싶어/사랑해/뽀뽀/잘 자) */}
