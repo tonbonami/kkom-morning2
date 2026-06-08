@@ -11,6 +11,32 @@
   font-weight: 700;
 }
 
+/* Claude 참고: 칭찬 다이어리 노트 라인 배경 — 영감 자료의 "줄 노트" 분위기.
+   가로 줄 간격 32px (본문 line-height와 일치). 색상은 매우 옅은 회색.
+   카드 배경을 투명/연하게 만들어 줄 위에 글이 얹혀진 느낌. */
+.notebook-bg {
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 31px,
+    rgba(226, 232, 240, 0.55) 31px,
+    rgba(226, 232, 240, 0.55) 32px
+  );
+}
+
+/* 마스킹 테이프 (각 카드 상단에 살짝 회전된 반투명 띠) */
+.tape {
+  position: absolute;
+  height: 14px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.35) 100%);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  pointer-events: none;
+}
+
+/* iOS Safe Area utility (이미 tailwind에 pb-safe 있지만 명시) */
+.pb-safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 1.5rem);
+}
+
 @layer base {
   :root {
     --background: 210 17% 98%;

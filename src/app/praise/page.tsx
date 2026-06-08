@@ -87,23 +87,33 @@ function StickerImage({
   );
 }
 
-// 한 칭찬의 스티커 행 — 개수에 따라 크기 자동 조절 (1개=도장, 2~20개=줄세우기).
+// 한 칭찬의 스티커 행 — 개수에 따라 크기 자동 + 6개 이상은 겹쳐 찍기 (Gemini 리뷰 P1)
 function StickerWrap({ src, emoji, count }: { src?: string; emoji?: string; count: number }) {
   if (count <= 0) return null;
-  // 1개: 크게 도장. 2~5: 중간. 6~20: 작게 줄.
-  const size = count === 1 ? 84 : count <= 5 ? 40 : 28;
+  const size = count === 1 ? 84 : count <= 5 ? 40 : 32;
   const safeCount = Math.min(20, count);
+  const overlap = count > 5; // 6개 이상이면 도장 겹쳐 찍기 모드
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {Array.from({ length: safeCount }).map((_, i) => (
-        <StickerImage
-          key={i}
-          src={src}
-          emoji={emoji}
-          size={size}
-          className="drop-shadow-sm"
-        />
-      ))}
+    <div className={cn('flex flex-wrap items-center', overlap ? 'gap-y-1' : 'gap-1.5')}>
+      {Array.from({ length: safeCount }).map((_, i) => {
+        // 짝/홀로 회전 갈라 — 손으로 막 찍은 듯
+        const rot = overlap ? (i % 3 === 0 ? '-rotate-12' : i % 3 === 1 ? 'rotate-6' : '-rotate-3') : '';
+        const yShift = overlap ? (i % 2 === 0 ? 'translate-y-0.5' : '-translate-y-0.5') : '';
+        return (
+          <StickerImage
+            key={i}
+            src={src}
+            emoji={emoji}
+            size={size}
+            className={cn(
+              'drop-shadow-sm transition-transform',
+              overlap && i > 0 ? '-ml-2.5' : '',
+              rot,
+              yShift
+            )}
+          />
+        );
+      })}
       {count > safeCount && (
         <span className="text-xs font-bold text-slate-400 ml-1">+{count - safeCount}</span>
       )}
@@ -111,14 +121,16 @@ function StickerWrap({ src, emoji, count }: { src?: string; emoji?: string; coun
   );
 }
 
-function PraiseRow({ item, me }: { item: PraiseItemView; me: PraiseUser }) {
+function PraiseRow({ item, me, index }: { item: PraiseItemView; me: PraiseUser; index: number }) {
   const isMine = item.from === me;
   const isRequest = item.kind === 'request';
 
-  // 조르기 카드: 작은 노란 포스트잇 톤
+  // 조르기 카드: 작은 노란 포스트잇 톤 (살짝 회전 + 테이프)
   if (isRequest) {
+    const tilt = index % 2 === 0 ? '-rotate-1' : 'rotate-1';
     return (
-      <article className="rounded-[20px] bg-[#FFF8D9] px-4 py-3 ring-1 ring-amber-100 shadow-sm">
+      <article className={cn('relative rounded-[18px] bg-[#FFF8D9] px-4 py-3 ring-1 ring-amber-100 shadow-md', tilt)}>
+        <div className="tape -top-2 left-1/2 -translate-x-1/2 w-14 -rotate-3 rounded-sm" />
         <p className="text-[11px] font-black text-amber-600">
           {formatDate(item.createdAt)} · 🥺 {item.from}가 칭찬을 졸랐어
         </p>
@@ -129,8 +141,13 @@ function PraiseRow({ item, me }: { item: PraiseItemView; me: PraiseUser }) {
     );
   }
 
+  // 칭찬 카드: 흰 배경 80% + 노트 줄이 살짝 비침. 일부 카드에만 마스킹 테이프.
+  const showTape = index % 3 === 0;
+  const tapeSide = index % 2 === 0 ? 'left-4 -rotate-2' : 'right-5 rotate-2';
+
   return (
-    <article className="rounded-[22px] bg-white px-4 py-4 shadow-[0_4px_18px_rgba(15,23,42,0.05)] border border-white/70">
+    <article className="relative rounded-[20px] bg-white/85 backdrop-blur-[2px] px-4 py-4 shadow-[0_3px_14px_rgba(15,23,42,0.04)] border border-white/60">
+      {showTape && <div className={cn('tape -top-1.5 w-12 rounded-sm', tapeSide)} />}
       <StickerWrap src={item.stickerImage} emoji={item.stickerEmoji} count={item.stickerCount} />
       <p className="font-handwriting mt-3 text-[20px] leading-snug text-slate-800">
         {item.reason}
@@ -380,11 +397,11 @@ export default function PraisePage() {
     return feedItems.filter((x) => (view === 'received' ? x.to === me : x.from === me));
   }, [feedItems, me, view]);
 
-  if (!me) return <div className="min-h-screen bg-[#FFFCF5] max-w-md mx-auto" />;
+  if (!me) return <div className="min-h-[100dvh] bg-[#FFFCF5] max-w-md mx-auto" />;
 
   return (
-    <div className="min-h-screen bg-[#FFFCF5] text-slate-800">
-      <main className="max-w-md mx-auto px-5 pt-6 pb-12 space-y-5">
+    <div className="min-h-[100dvh] bg-[#FFFCF5] text-slate-800 notebook-bg">
+      <main className="max-w-md mx-auto px-5 pt-6 pb-safe-bottom space-y-5">
         {/* 헤더 */}
         <header className="flex items-center justify-between">
           <button
@@ -402,9 +419,15 @@ export default function PraisePage() {
               칭찬 다이어리
             </h1>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
-            <Crown size={18} />
-          </div>
+          {/* Gemini 리뷰 P1: 우측 왕관을 마이크로 KPI 배지로 교체 — 보상 루프 살림 */}
+          <a
+            href="#stats"
+            className="h-10 px-2.5 rounded-2xl bg-amber-50 border border-amber-100 flex items-center gap-1 text-amber-700 active:scale-95 transition"
+            aria-label="통계 보기"
+          >
+            <Crown size={14} />
+            <span className="text-[11px] font-black">{receivedTotal}</span>
+          </a>
         </header>
 
         {/* 받은/쓴 토글 */}
@@ -433,15 +456,21 @@ export default function PraisePage() {
         <Composer me={me} partner={partner as PraiseUser} onSent={refreshTotals} />
 
         {/* 다이어리 피드 */}
-        <section className="space-y-3">
+        <section className="space-y-4">
           {diaryItems.length === 0 ? (
-            <div className="rounded-[26px] bg-white p-10 text-center text-sm font-bold text-slate-400 border border-white/70">
-              {view === 'received'
-                ? '아직 받은 칭찬이 없어요'
-                : `${vocativeOf(partner as string)} 첫 칭찬을 보내볼까`}
+            // Gemini 리뷰 P2: Empty State를 노란 포스트잇으로 — 글 쓰고 싶게 유도
+            <div className="flex justify-center pt-4 pb-2">
+              <div className="relative w-[260px] rotate-2 bg-[#FFF8D9] p-6 shadow-[0_8px_20px_rgba(180,140,0,0.12)] ring-1 ring-amber-100">
+                <div className="tape -top-2 left-1/2 -translate-x-1/2 w-16 -rotate-3 rounded-sm" />
+                <p className="font-handwriting text-[20px] text-amber-800 text-center leading-snug">
+                  {view === 'received'
+                    ? `오늘 ${partner}한테 칭찬받았으면 좋겠다 🥺`
+                    : `${vocativeOf(partner as string)} 첫 칭찬을\n적어볼까 ✏️`}
+                </p>
+              </div>
             </div>
           ) : (
-            diaryItems.map((item) => <PraiseRow key={item.id} item={item} me={me} />)
+            diaryItems.map((item, idx) => <PraiseRow key={item.id} item={item} me={me} index={idx} />)
           )}
           {feedItems.length >= 30 && (
             <p className="text-center text-[11px] font-bold text-slate-400 pt-2">
@@ -450,8 +479,8 @@ export default function PraisePage() {
           )}
         </section>
 
-        {/* KPI 푸터 (강등) */}
-        <section className="rounded-[26px] bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-5 shadow-[0_14px_36px_rgba(16,185,129,0.18)] relative overflow-hidden">
+        {/* KPI 푸터 (강등) — 헤더 마이크로 KPI에서 스크롤 anchor */}
+        <section id="stats" className="scroll-mt-4 rounded-[26px] bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-5 shadow-[0_14px_36px_rgba(16,185,129,0.18)] relative overflow-hidden">
           <div className="absolute -right-7 -top-7 h-28 w-28 rounded-full bg-white/12" />
           <p className="text-[11px] font-bold text-emerald-50">{me}가 받은 칭찬</p>
           <div className="mt-1 flex items-end gap-2">
