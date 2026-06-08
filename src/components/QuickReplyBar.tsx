@@ -65,9 +65,9 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
         )}
       </AnimatePresence>
 
-      {/* 하단 고정 바 */}
+      {/* 하단 고정 바 — 바 높이 그대로 유지하고 포차코만 키움 (사용자 요청) */}
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 max-w-md w-full px-3 pb-safe pointer-events-none z-40">
-        <div className="bg-white/95 backdrop-blur-xl rounded-[28px] shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-white/60 px-2 py-2 mb-3 flex items-center justify-around pointer-events-auto">
+        <div className="bg-white/95 backdrop-blur-xl rounded-[28px] shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-white/60 px-1 py-1.5 mb-3 flex items-center justify-around pointer-events-auto">
           {QUICK.map((q) => {
             const isActive = activeKind === q.kind;
             return (
@@ -77,18 +77,18 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
                 onClick={() => send(q)}
                 animate={isActive ? { scale: [1, 1.25, 1] } : { scale: 1 }}
                 transition={{ duration: 0.5 }}
-                className="flex flex-col items-center gap-0.5 px-1.5 py-1.5 rounded-2xl active:bg-slate-50 transition-colors flex-1"
+                className="flex flex-col items-center gap-0 px-0.5 py-1 rounded-2xl active:bg-slate-50 transition-colors flex-1"
               >
                 <img
                   src={q.image}
                   alt={q.label}
-                  width={40}
-                  height={40}
+                  width={52}
+                  height={52}
                   loading="lazy"
                   decoding="async"
                   className="drop-shadow-sm"
                 />
-                <span className="text-[10px] font-bold text-slate-500 mt-0.5 whitespace-nowrap">{q.label}</span>
+                <span className="text-[9px] font-black text-slate-600 whitespace-nowrap leading-none">{q.label}</span>
               </motion.button>
             );
           })}
