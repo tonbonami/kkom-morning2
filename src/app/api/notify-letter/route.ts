@@ -1,5 +1,5 @@
 // 즉시 편지가 전송된 직후 sendLetter()가 호출하는 경량 POST.
-// body { to, from, hasBody, hasVoice, isScheduled, letterId? }
+// body { to, from, hasBody, hasVoice, hasEmoticons, emoticonIds, isScheduled, letterId? }
 // 예약 편지(isScheduled=true)는 도착 시각이 되면 cron이 보냄.
 // KST 22:00 ~ 06:59 (방해 금지 시간)이면 즉시 push 안 보내고 letter doc에
 // pendingNotify=true 표시 → 다음 날 07:05 KST notify-letters-batch가 정리해서 발송.
@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { buildEmoticonNotificationTitle, subjectName } from '@/lib/emoticons';
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
 const PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY!;
@@ -21,13 +22,22 @@ function kstHour(): number {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { to?: string; from?: string; hasBody?: boolean; hasVoice?: boolean; isScheduled?: boolean; letterId?: string };
+  let body: {
+    to?: string;
+    from?: string;
+    hasBody?: boolean;
+    hasVoice?: boolean;
+    hasEmoticons?: boolean;
+    emoticonIds?: string[];
+    isScheduled?: boolean;
+    letterId?: string;
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'invalid json' }, { status: 400 });
   }
-  const { to, from, hasBody, hasVoice, isScheduled, letterId } = body;
+  const { to, from, hasBody, hasVoice, hasEmoticons, emoticonIds, isScheduled, letterId } = body;
   if (!to || !from) {
     return NextResponse.json({ error: 'to/from required' }, { status: 400 });
   }
@@ -56,9 +66,17 @@ export async function POST(req: NextRequest) {
   const s = subSnap.data() as { endpoint: string; keys: { p256dh: string; auth: string } };
 
   const emoji = hasVoice ? '🎙' : '💌';
-  const teaser = hasBody && hasVoice ? '글 + 보이스' : hasVoice ? '보이스 편지' : '편지';
+  const teaser =
+    hasBody && hasVoice && hasEmoticons ? '글 + 보이스 + 이모티콘'
+      : hasBody && hasVoice ? '글 + 보이스'
+      : hasVoice && hasEmoticons ? '보이스와 이모티콘'
+      : hasVoice ? '보이스 편지'
+      : '편지';
+  const title = hasEmoticons && !hasVoice
+    ? buildEmoticonNotificationTitle(from, hasBody ? '편지 있음' : '', emoticonIds)
+    : `${emoji} ${subjectName(from)} ${teaser} 보냈어`;
   const payload = JSON.stringify({
-    title: `${emoji} ${from}이(가) ${teaser} 보냈어`,
+    title,
     body: '꼼모닝에서 열어봐 💚',
     url: '/',
   });

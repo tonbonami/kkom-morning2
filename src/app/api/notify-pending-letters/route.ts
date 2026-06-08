@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { db } from '@/lib/firebase';
+import { buildEmoticonNotificationTitle } from '@/lib/emoticons';
 import {
   collection, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc,
   serverTimestamp, Timestamp,
@@ -60,10 +61,17 @@ export async function GET(req: NextRequest) {
     const s = subSnap.data() as { endpoint: string; keys: { p256dh: string; auth: string } };
 
     const hasVoice = !!data.voice?.data;
+    const emoticonIds = Array.isArray(data.emoticonIds) ? data.emoticonIds.filter((id: unknown) => typeof id === 'string') : [];
+    const hasEmoticons = emoticonIds.length > 0;
     const emoji = hasVoice ? '🎙' : '💌';
-    const teaser = hasVoice ? '예약 보이스 편지' : '예약 편지';
+    const teaser =
+      hasVoice && hasEmoticons ? '예약 보이스 편지와 이모티콘'
+        : hasVoice ? '예약 보이스 편지'
+        : '예약 편지';
     const payload = JSON.stringify({
-      title: `${emoji} ${from}의 ${teaser}가 도착했어`,
+      title: hasEmoticons && !hasVoice
+        ? buildEmoticonNotificationTitle(from, data.body || '', emoticonIds)
+        : `${emoji} ${from}의 ${teaser}가 도착했어`,
       body: '꼼모닝에서 열어봐 💚',
       url: '/letters',
     });

@@ -58,6 +58,9 @@ export type Letter = {
   // Firestore는 '배열 안에 배열' 금지 — points: [[x,y,t],...]가 그 위반이라 JSON 문자열로 저장.
   // 읽을 때 toInboxLetter가 parse. Doodle 객체로 들어와도 그대로 통과(미래 호환).
   doodle?: Doodle | string | null;
+  // 이모티콘 편지는 에셋 URL 대신 안정적인 id만 저장한다.
+  // 나중에 세트 그림을 교체해도 과거 편지가 새 이미지로 자연스럽게 렌더링된다.
+  emoticonIds?: string[];
   hearts?: number;           // 무한 카운터
   commentCount?: number;     // 댓글 수 캐시
 };
@@ -151,6 +154,7 @@ export type InboxLetter = {
   openAt?: Date | null;
   voice?: { src: string; mime?: string; duration?: number } | null;
   doodle?: Doodle | null;
+  emoticonIds?: string[];
   hearts?: number;
   commentCount?: number;
 };
@@ -187,6 +191,7 @@ export function toInboxLetter(l: Letter): InboxLetter {
     openAt,
     voice,
     doodle,
+    emoticonIds: Array.isArray(l.emoticonIds) ? l.emoticonIds.filter((id) => typeof id === 'string') : [],
     hearts: l.hearts,
     commentCount: l.commentCount,
   };
@@ -199,9 +204,11 @@ export async function sendLetter(
   body: string,
   openAt?: Date | null,
   voice?: Voice | null,
-  doodle?: Doodle | null
+  doodle?: Doodle | null,
+  emoticonIds: string[] = []
 ): Promise<void> {
   const to = partnerOf(from);
+  const cleanEmoticonIds = emoticonIds.filter((id) => typeof id === 'string' && id.trim().length > 0);
   const data: Record<string, unknown> = {
     from,
     to,
@@ -214,6 +221,7 @@ export async function sendLetter(
   if (doodle && doodle.strokes && doodle.strokes.length > 0) {
     data.doodle = JSON.stringify(doodle);
   }
+  if (cleanEmoticonIds.length > 0) data.emoticonIds = cleanEmoticonIds;
   const ref = await addDoc(collection(db, 'letters'), data);
 
   // 도착 푸시 — 즉시 편지면 곧바로, 예약 편지면 cron이 도착 시각에 보냄.
@@ -229,6 +237,8 @@ export async function sendLetter(
       from,
       hasBody: !!body.trim(),
       hasVoice: !!(voice && voice.data),
+      hasEmoticons: cleanEmoticonIds.length > 0,
+      emoticonIds: cleanEmoticonIds,
       isScheduled,
     }),
   }).catch(() => {});

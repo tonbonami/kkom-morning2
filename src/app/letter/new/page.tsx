@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Send, Mail, Clock, Mic, Square, Play, Pause, Trash2, Pencil } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowLeft, Send, Mail, Clock, Mic, Square, Play, Pause, Trash2, Pencil, Smile, X, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { sendLetter, uploadVoice, nameFromCode, partnerOf, type Doodle } from '@/lib/letters';
+import { EMOTICON_SETS, getEmoticonsByIds } from '@/lib/emoticons';
 import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
 
 const MAX_REC_SEC = 30;
+const MAX_EMOTICONS_PER_LETTER = 3;
 
 export default function NewLetterPage() {
   const router = useRouter();
@@ -37,6 +39,9 @@ export default function NewLetterPage() {
   // 손글씨 — DoodlePad compose 모드가 onChange로 데이터 보내옴
   const [doodle, setDoodle] = useState<DoodleData | null>(null);
   const [showDoodle, setShowDoodle] = useState(false);
+  const [showEmoticonSheet, setShowEmoticonSheet] = useState(false);
+  const [activeEmoticonSetId, setActiveEmoticonSetId] = useState(EMOTICON_SETS[0]?.id ?? '');
+  const [selectedEmoticonIds, setSelectedEmoticonIds] = useState<string[]>([]);
 
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
@@ -123,7 +128,26 @@ export default function NewLetterPage() {
     else { a.play(); setPlaying(true); }
   };
 
-  const canSend = (body.trim().length > 0 || !!voice || !!doodle) && !sending && !recording && (!scheduled || !!openAtStr);
+  const selectedEmoticons = getEmoticonsByIds(selectedEmoticonIds);
+  const activeEmoticonSet = EMOTICON_SETS.find((set) => set.id === activeEmoticonSetId) ?? EMOTICON_SETS[0];
+  const activeEmoticons = activeEmoticonSet ? getEmoticonsByIds(activeEmoticonSet.emoticonIds) : [];
+
+  const addEmoticon = (id: string) => {
+    setError('');
+    setSelectedEmoticonIds((prev) => {
+      if (prev.length >= MAX_EMOTICONS_PER_LETTER) {
+        setError(`이모티콘은 한 편지에 ${MAX_EMOTICONS_PER_LETTER}개까지 보낼 수 있어요.`);
+        return prev;
+      }
+      return [...prev, id];
+    });
+  };
+
+  const removeSelectedEmoticon = (index: number) => {
+    setSelectedEmoticonIds((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const canSend = (body.trim().length > 0 || !!voice || !!doodle || selectedEmoticonIds.length > 0) && !sending && !recording && (!scheduled || !!openAtStr);
 
   const handleSend = async () => {
     if (!canSend) return;
@@ -141,7 +165,8 @@ export default function NewLetterPage() {
         body,
         scheduled && openAtStr ? new Date(openAtStr) : null,
         voicePayload,
-        doodle as Doodle | null
+        doodle as Doodle | null,
+        selectedEmoticonIds
       );
       router.push('/');
     } catch (e) {
@@ -182,6 +207,38 @@ export default function NewLetterPage() {
                 autoFocus
                 className="w-full resize-none bg-transparent outline-none text-slate-700 leading-relaxed text-sm placeholder:text-slate-400"
               />
+              {selectedEmoticons.length > 0 && (
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar rounded-2xl bg-emerald-50/70 border border-emerald-100 px-3 py-2">
+                  {selectedEmoticons.map((item, index) => (
+                    <motion.button
+                      key={`${item.id}-${index}`}
+                      type="button"
+                      initial={{ opacity: 0, y: 8, scale: 0.9 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      onClick={() => removeSelectedEmoticon(index)}
+                      className="relative w-14 h-14 rounded-2xl bg-white shadow-sm border border-white flex items-center justify-center shrink-0 active:scale-95 transition-transform"
+                      aria-label={`${item.label} 이모티콘 빼기`}
+                    >
+                      <img src={item.imageUrl} alt={item.label} className="w-11 h-11 object-contain" />
+                      <span className="absolute -right-1 -top-1 w-5 h-5 rounded-full bg-slate-800 text-white flex items-center justify-center shadow-sm">
+                        <X size={12} />
+                      </span>
+                    </motion.button>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowEmoticonSheet(true)}
+                  className="inline-flex items-center gap-2 rounded-full bg-white border border-emerald-100 px-3 py-2 text-[13px] font-bold text-emerald-700 shadow-sm active:scale-95 transition-all"
+                >
+                  <Smile size={15} /> 이모티콘
+                </button>
+                <span className="text-[11px] font-bold text-slate-400">
+                  {selectedEmoticonIds.length}/{MAX_EMOTICONS_PER_LETTER}
+                </span>
+              </div>
               {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
             </CardContent>
           </Card>
@@ -315,6 +372,86 @@ export default function NewLetterPage() {
           {sending ? '보내는 중…' : scheduled ? '예약 편지 보내기' : '편지 보내기'}
         </button>
       </div>
+
+      <AnimatePresence>
+        {showEmoticonSheet && (
+          <>
+            <motion.button
+              type="button"
+              aria-label="이모티콘 닫기"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowEmoticonSheet(false)}
+              className="fixed inset-0 z-40 bg-slate-900/25 backdrop-blur-[2px]"
+            />
+            <motion.div
+              initial={{ y: 360, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 360, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="fixed left-1/2 bottom-4 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2 rounded-[32px] bg-[#F7F9F9] border border-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] overflow-hidden"
+            >
+              <div className="px-5 pt-4 pb-3 bg-white/80">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[12px] font-black text-emerald-500 flex items-center gap-1">
+                      <Sparkles size={13} /> Emoticon Letter
+                    </p>
+                    <h2 className="text-lg font-black text-slate-900 mt-0.5">마음 하나 톡 붙이기</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowEmoticonSheet(false)}
+                    className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center active:scale-95 transition-transform"
+                    aria-label="이모티콘 닫기"
+                  >
+                    <X size={17} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="px-5 py-3 flex items-center gap-2 overflow-x-auto no-scrollbar">
+                {EMOTICON_SETS.map((set) => (
+                  <button
+                    key={set.id}
+                    type="button"
+                    onClick={() => setActiveEmoticonSetId(set.id)}
+                    className={`flex items-center gap-2 shrink-0 rounded-full px-3 py-2 text-[12px] font-black border transition-all ${
+                      activeEmoticonSetId === set.id
+                        ? 'bg-white border-emerald-200 text-emerald-700 shadow-sm'
+                        : 'bg-white/50 border-transparent text-slate-500'
+                    }`}
+                  >
+                    <img src={set.thumbnailUrl} alt="" className="w-7 h-7 object-contain" />
+                    {set.title}
+                  </button>
+                ))}
+              </div>
+
+              <div className="px-5 pb-5">
+                <div className="grid grid-cols-3 gap-3">
+                  {activeEmoticons.map((item) => (
+                    <motion.button
+                      key={item.id}
+                      type="button"
+                      whileTap={{ scale: 0.9, rotate: -2 }}
+                      onClick={() => addEmoticon(item.id)}
+                      className="aspect-square rounded-[26px] bg-white border border-slate-100 shadow-[0_6px_18px_rgba(15,23,42,0.04)] flex flex-col items-center justify-center gap-1.5 active:border-emerald-200 transition-colors"
+                    >
+                      <img src={item.imageUrl} alt={item.label} className="w-14 h-14 object-contain drop-shadow-sm" />
+                      <span className="text-[12px] font-black text-slate-600">{item.label}</span>
+                    </motion.button>
+                  ))}
+                </div>
+                <p className="mt-3 text-center text-[11px] font-bold text-slate-400">
+                  글 없이 이모티콘만 보내도 알림에 마음이 같이 전해져요.
+                </p>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

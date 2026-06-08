@@ -4,10 +4,11 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Pencil, Lock, MailOpen, Clock, X, Mail,
-  Heart, MessageCircle, Trash2, Send, Mic
+  Heart, MessageCircle, Trash2, Send, Mic, Smile
 } from 'lucide-react';
 import VoicePlayer from '@/components/VoicePlayer';
 import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
+import { getEmoticonsByIds } from '@/lib/emoticons';
 
 export type Letter = {
   id: string;
@@ -18,6 +19,7 @@ export type Letter = {
   openAt?: Date | null;
   voice?: { src: string; mime?: string; duration?: number } | null;
   doodle?: DoodleData | null;
+  emoticonIds?: string[];
   hearts?: number;
   commentCount?: number;
 };
@@ -72,6 +74,38 @@ const formatCount = (n?: number) => {
 };
 
 const avatarColor = (person: string) => person === '우댕' ? 'bg-[#10B981]' : 'bg-[#FCA5A5]';
+
+function LetterEmoticonStrip({ ids, large = false }: { ids?: string[]; large?: boolean }) {
+  const emoticons = getEmoticonsByIds(ids);
+  if (emoticons.length === 0) return null;
+
+  return (
+    <div className={`flex items-center gap-2 ${large ? 'flex-wrap mb-6' : 'mb-3'}`}>
+      {emoticons.map((item, index) => (
+        <motion.div
+          key={`${item.id}-${index}`}
+          initial={{ opacity: 0, y: 10, rotate: -4 }}
+          animate={{ opacity: 1, y: 0, rotate: index % 2 === 0 ? -3 : 3 }}
+          transition={{ delay: Math.min(index * 0.05, 0.15) }}
+          className={`${large ? 'w-24 h-24 rounded-[28px]' : 'w-12 h-12 rounded-2xl'} bg-emerald-50/80 border border-emerald-100 flex items-center justify-center shadow-sm`}
+          title={item.label}
+        >
+          <img
+            src={item.imageUrl}
+            alt={item.label}
+            className={`${large ? 'w-20 h-20' : 'w-10 h-10'} object-contain drop-shadow-sm`}
+            loading="lazy"
+          />
+        </motion.div>
+      ))}
+      {!large && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-black text-emerald-600">
+          <Smile size={11} /> 이모티콘 {emoticons.length}개
+        </span>
+      )}
+    </div>
+  );
+}
 
 // -----------------------------------------------------------------
 // Floating Heart Button
@@ -219,6 +253,7 @@ export default function LetterInboxV3({
             const isMeReceiving = letter.to === me;
             const isLocked = isMeReceiving && letter.openAt && letter.openAt > now;
             const isScheduledSent = !isMeReceiving && letter.openAt && letter.openAt > now;
+            const hasEmoticons = (letter.emoticonIds?.length ?? 0) > 0;
 
             return (
               <motion.div
@@ -254,9 +289,16 @@ export default function LetterInboxV3({
                   </div>
                 ) : (
                   <>
-                    <p className="text-[15px] leading-relaxed text-slate-700 line-clamp-2 mb-3">
-                      {letter.body}
-                    </p>
+                    {letter.body ? (
+                      <p className="text-[15px] leading-relaxed text-slate-700 line-clamp-2 mb-3">
+                        {letter.body}
+                      </p>
+                    ) : hasEmoticons ? (
+                      <p className="text-[15px] leading-relaxed text-slate-500 font-bold mb-3">
+                        이모티콘 편지가 도착했어요
+                      </p>
+                    ) : null}
+                    <LetterEmoticonStrip ids={letter.emoticonIds} />
                     {letter.voice && (
                       <div className="mb-3" onClick={(e) => e.stopPropagation()}>
                         <VoicePlayer src={letter.voice.src} mime={letter.voice.mime} durationHint={letter.voice.duration} compact accent="emerald" />
@@ -422,9 +464,17 @@ function LetterModal({
           </div>
 
           {/* Body */}
-          <div className="text-[16px] text-slate-700 leading-[1.7] whitespace-pre-wrap mb-6">
-            {letter.body}
-          </div>
+          {letter.body ? (
+            <div className="text-[16px] text-slate-700 leading-[1.7] whitespace-pre-wrap mb-6">
+              {letter.body}
+            </div>
+          ) : (letter.emoticonIds?.length ?? 0) > 0 ? (
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-[13px] font-black text-emerald-700">
+              <Smile size={14} /> 이모티콘만 살짝 보낸 편지
+            </div>
+          ) : null}
+
+          <LetterEmoticonStrip ids={letter.emoticonIds} large />
 
           {/* Voice Player */}
           {letter.voice && (
