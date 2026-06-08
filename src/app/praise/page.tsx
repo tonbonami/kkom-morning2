@@ -122,7 +122,7 @@ function PraiseRow({ item, me }: { item: PraiseItemView; me: PraiseUser }) {
         <p className="text-[11px] font-black text-amber-600">
           {formatDate(item.createdAt)} · 🥺 {item.from}가 칭찬을 졸랐어
         </p>
-        <p className="font-handwriting mt-1 text-[22px] leading-snug text-slate-800">
+        <p className="font-handwriting mt-1 text-[17px] leading-snug text-slate-800">
           {item.reason}
         </p>
       </article>
@@ -132,7 +132,7 @@ function PraiseRow({ item, me }: { item: PraiseItemView; me: PraiseUser }) {
   return (
     <article className="rounded-[22px] bg-white px-4 py-4 shadow-[0_4px_18px_rgba(15,23,42,0.05)] border border-white/70">
       <StickerWrap src={item.stickerImage} emoji={item.stickerEmoji} count={item.stickerCount} />
-      <p className="font-handwriting mt-3 text-[26px] leading-snug text-slate-800">
+      <p className="font-handwriting mt-3 text-[20px] leading-snug text-slate-800">
         {item.reason}
       </p>
       <p className="mt-2 text-[11px] font-bold text-slate-400">
@@ -241,7 +241,7 @@ function Composer({
                 : '나 이런 일 했으니까 칭찬해주세요오...'
             }
             className={cn(
-              'font-handwriting w-full min-h-[90px] resize-none rounded-2xl px-4 py-3 text-[24px] leading-snug outline-none focus:ring-2 transition',
+              'font-handwriting w-full min-h-[80px] resize-none rounded-2xl px-4 py-3 text-[19px] leading-snug outline-none focus:ring-2 transition',
               kind === 'praise'
                 ? 'bg-slate-50 border border-slate-100 focus:ring-emerald-200'
                 : 'bg-pink-50/70 border border-pink-100 focus:ring-pink-200'
@@ -395,10 +395,10 @@ export default function PraisePage() {
             <ArrowLeft size={18} />
           </button>
           <div className="text-center">
-            <p className="font-handwriting text-[16px] text-emerald-500 tracking-wide">
+            <p className="font-handwriting text-[13px] text-emerald-500 tracking-wide">
               우댕 ♥ 꼼이 칭찬 일기
             </p>
-            <h1 className="font-handwriting text-[30px] tracking-tight text-slate-800">
+            <h1 className="font-handwriting text-[24px] tracking-tight text-slate-800">
               칭찬 다이어리
             </h1>
           </div>
