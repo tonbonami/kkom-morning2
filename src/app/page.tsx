@@ -513,9 +513,9 @@ export default function KkomMorningHome() {
           </button>
         </div>
 
-        {/* 오늘의 편지 */}
-        <div className="bg-white rounded-[32px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] relative overflow-hidden">
-          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#99E6D9]" />
+        {/* 오늘의 편지 — 다이어리 핑크 메모지 톤 (Gemini 리뷰 P0) */}
+        <div className="relative bg-rose-50/60 rounded-2xl p-6 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-rose-100/60 -rotate-[0.5deg] overflow-hidden">
+          <div className="tape-mint absolute -top-2 left-8 w-14 rotate-2 z-10" />
           <div className="flex justify-between items-start mb-4">
             <div className="flex flex-col gap-0.5">
               <div className="flex items-center gap-2 text-[#10B981]">
@@ -571,13 +571,14 @@ export default function KkomMorningHome() {
           </button>
         </div>
 
-        {/* 우리의 추억 — 진입 카드 (전체 갤러리는 /memories) */}
+        {/* 우리의 추억 — 폴라로이드 톤 (Gemini 리뷰 P0) */}
         {memories.length > 0 && (
           <button
             onClick={() => router.push('/memories')}
-            className="w-full bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center gap-4 text-left active:scale-[0.98] transition-all"
+            className="relative w-full bg-white rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-slate-100 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]"
           >
-            <div className="relative w-16 h-16 rounded-2xl overflow-hidden shrink-0 bg-slate-100">
+            <div className="tape absolute -top-2 right-6 w-12 -rotate-6 z-10" />
+            <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-slate-100">
               <img src={memories[0].imageUrl} alt={memories[0].title} className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
@@ -592,35 +593,35 @@ export default function KkomMorningHome() {
           </button>
         )}
 
-        {/* 칭찬하기 진입 카드 — 우리의 추억 바로 아래 (사용자 요청)
-            Claude 참고: 칭찬 데이터/알림은 src/lib/praise.ts 와 /api/notify-praise 에 분리되어 있어 기존 카드들을 안 건드림. */}
+        {/* 칭찬 다이어리 진입 카드 — 옅은 종이 톤 + 핑크 테이프 (Gemini 리뷰 P1) */}
         <button
           onClick={() => router.push('/praise')}
-          className="w-full bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[32px] p-4 shadow-[0_8px_24px_rgba(16,185,129,0.18)] flex items-center gap-4 text-left active:scale-[0.98] transition-all text-white overflow-hidden relative"
+          className="relative w-full bg-emerald-50 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-emerald-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all overflow-hidden"
         >
-          <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/12" />
-          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0 text-white shadow-inner">
+          <div className="tape-pink absolute -top-2 -left-2 w-14 -rotate-12 z-10" />
+          <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-600">
             <Award size={22} strokeWidth={2.5} />
           </div>
-          <div className="flex-1 min-w-0 relative">
-            <div className="flex items-center gap-1.5 text-emerald-50/90 mb-1">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-emerald-500 mb-1">
               <span className="text-xs font-bold tracking-wider uppercase">Praise Diary</span>
             </div>
-            <p className="text-sm font-bold">칭찬 다이어리</p>
+            <p className="text-sm font-bold text-emerald-800">칭찬 다이어리</p>
           </div>
-          <div className="relative flex items-center gap-1 text-base" aria-hidden="true">
+          <div className="flex items-center gap-1 text-base" aria-hidden="true">
             <span className="-rotate-6">⭐</span>
             <span className="rotate-6">💚</span>
           </div>
-          <ChevronRight size={20} className="text-emerald-50/80 shrink-0 relative" />
+          <ChevronRight size={20} className="text-emerald-500/70 shrink-0" />
         </button>
 
-        {/* Share List 진입 카드 */}
+        {/* Share List — amber 종이 + 민트 테이프 (Gemini P1) */}
         <button
           onClick={() => router.push('/share')}
-          className="w-full bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center gap-4 text-left active:scale-[0.98] transition-all"
+          className="relative w-full bg-amber-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-amber-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all -rotate-[0.5deg]"
         >
-          <div className="w-12 h-12 rounded-2xl bg-yellow-50 flex items-center justify-center shrink-0 text-[#FCD34D]">
+          <div className="tape-mint absolute -top-2 left-1/2 -translate-x-1/2 w-14 -rotate-2 z-10" />
+          <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center shrink-0 text-[#FCD34D]">
             <Sparkles size={22} strokeWidth={2.5} fill="currentColor" />
           </div>
           <div className="flex-1 min-w-0">
@@ -636,12 +637,13 @@ export default function KkomMorningHome() {
           <ChevronRight size={20} className="text-slate-400 shrink-0" />
         </button>
 
-        {/* 위시리스트 진입 카드 */}
+        {/* 위시리스트 — 흰 종이 + 핑크 테이프 (Gemini P1) */}
         <button
           onClick={() => router.push('/wishlist')}
-          className="w-full bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center gap-4 text-left active:scale-[0.98] transition-all"
+          className="relative w-full bg-white rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-slate-100 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]"
         >
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 text-[#10B981]">
+          <div className="tape-pink absolute -top-2 left-1/2 -translate-x-1/2 w-14 rotate-2 z-10" />
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 text-[#10B981]">
             <Sparkles size={22} strokeWidth={2.5} />
           </div>
           <div className="flex-1 min-w-0">
@@ -653,12 +655,13 @@ export default function KkomMorningHome() {
           <ChevronRight size={20} className="text-slate-400 shrink-0" />
         </button>
 
-        {/* 또 갈래 진입 카드 */}
+        {/* 또 갈래 — 옅은 teal 종이 + 노랑 테이프 (Gemini P2) */}
         <button
           onClick={() => router.push('/again')}
-          className="w-full bg-white rounded-[32px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center gap-4 text-left active:scale-[0.98] transition-all"
+          className="relative w-full bg-teal-50/40 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-teal-100/50 flex items-center gap-4 text-left active:scale-[0.98] transition-all"
         >
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 text-[#10B981]">
+          <div className="tape absolute -top-2 right-8 w-12 rotate-6 z-10" />
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 text-[#10B981]">
             <CheckCircle2 size={22} strokeWidth={2.5} />
           </div>
           <div className="flex-1 min-w-0">
@@ -670,8 +673,9 @@ export default function KkomMorningHome() {
           <ChevronRight size={20} className="text-slate-400 shrink-0" />
         </button>
 
-        {/* 우리들의 서재 */}
-        <button onClick={() => router.push('/novel')} className="w-full flex items-center justify-between p-6 rounded-[32px] bg-slate-800 text-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-transform text-left">
+        {/* 우리들의 서재 — 검정 라벨 + 노랑 테이프 (Gemini P2, 다크 카드 위에 노랑 테이프가 가장 예쁨) */}
+        <button onClick={() => router.push('/novel')} className="relative w-full flex items-center justify-between p-6 rounded-2xl bg-slate-800 text-white shadow-[2px_3px_0px_rgba(0,0,0,0.12)] border border-slate-700 active:scale-[0.98] transition-transform text-left -rotate-[0.5deg]">
+          <div className="tape absolute -top-2 left-8 w-12 rotate-3 z-10" />
           <div className="flex items-center gap-4">
             <div className="p-3 bg-white/10 rounded-2xl"><BookOpen size={22} className="text-[#99E6D9]" strokeWidth={2} /></div>
             <div>

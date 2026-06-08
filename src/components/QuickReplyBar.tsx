@@ -6,14 +6,15 @@ import { Check } from 'lucide-react';
 
 // Claude 참고: 'night'(잘자) 제거 + 'hug'(안아줘), 'whitening'(우댕꼼이 암호) 추가.
 // 화이트닝 = 꼼이가 치아미백 약 발라서 하얘짐 → 둘만의 화이팅 구호.
+// emoji → 포차코 일러스트 5종으로 교체 (public/quickbar/{kind}.webp, 평균 3.5KB).
 type Kind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening';
 
-const QUICK: { kind: Kind; emoji: string; label: string }[] = [
-  { kind: 'miss',      emoji: '💚', label: '보고싶어' },
-  { kind: 'love',      emoji: '❤️', label: '사랑해' },
-  { kind: 'hug',       emoji: '🤗', label: '안아줘' },
-  { kind: 'kiss',      emoji: '😘', label: '뽀뽀' },
-  { kind: 'whitening', emoji: '😬', label: '화이트닝' },
+const QUICK: { kind: Kind; image: string; emoji: string; label: string }[] = [
+  { kind: 'miss',      image: '/quickbar/miss.webp',      emoji: '💚', label: '보고싶어' },
+  { kind: 'love',      image: '/quickbar/love.webp',      emoji: '❤️', label: '사랑해' },
+  { kind: 'hug',       image: '/quickbar/hug.webp',       emoji: '🤗', label: '안아줘' },
+  { kind: 'kiss',      image: '/quickbar/kiss.webp',      emoji: '😘', label: '뽀뽀' },
+  { kind: 'whitening', image: '/quickbar/whitening.webp', emoji: '😬', label: '화이트닝' },
 ];
 
 const COOLDOWN_MS = 2500; // 클라이언트 스팸 가드
@@ -76,10 +77,18 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
                 onClick={() => send(q)}
                 animate={isActive ? { scale: [1, 1.25, 1] } : { scale: 1 }}
                 transition={{ duration: 0.5 }}
-                className="flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl active:bg-slate-50 transition-colors flex-1"
+                className="flex flex-col items-center gap-0.5 px-1.5 py-1.5 rounded-2xl active:bg-slate-50 transition-colors flex-1"
               >
-                <span className="text-[24px] leading-none">{q.emoji}</span>
-                <span className="text-[10px] font-bold text-slate-500 mt-1 whitespace-nowrap">{q.label}</span>
+                <img
+                  src={q.image}
+                  alt={q.label}
+                  width={40}
+                  height={40}
+                  loading="lazy"
+                  decoding="async"
+                  className="drop-shadow-sm"
+                />
+                <span className="text-[10px] font-bold text-slate-500 mt-0.5 whitespace-nowrap">{q.label}</span>
               </motion.button>
             );
           })}
