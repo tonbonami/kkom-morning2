@@ -104,7 +104,7 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
   const pReq = stats.praiseRequests[partner];
   if (pReq > 0) chips.push({
     emoji: '🥺',
-    text: `${partner}가 칭찬 졸랐어`,
+    text: `칭찬 졸랐어`,
     highlight: false,
     tone: 'pink',
   });
@@ -171,7 +171,7 @@ export default function DailyPiecesHeader({ me }: { me: Sender }) {
         </p>
       ) : (
         <p className="font-handwriting text-[19px] text-slate-800 leading-relaxed break-keep">
-          <span className="text-slate-500 mr-1">오늘 {partner}이</span>
+          <span className="text-slate-500 mr-1">오늘 {partner === '우댕' ? '우댕이가' : '꼼이가'}</span>
           {chips.map((chip, i) => (
             <span
               key={i}
