@@ -37,7 +37,7 @@ export const EMOTICONS: Emoticon[] = [
     label: '사랑해',
     meaning: '사랑한다',
     notificationPhrase: '사랑한다고',
-    imageUrl: '/pochacco/face_love.png',
+    imageUrl: '/imoticon/Pochacco_love.png',
     assetType: 'png',
   },
   {
@@ -110,7 +110,7 @@ export const EMOTICON_SETS: EmoticonSet[] = [
     id: 'pochacco_daily',
     title: '포차코 마음',
     description: '보고싶음, 고마움, 응원 같은 짧은 마음을 보내요.',
-    thumbnailUrl: '/pochacco/face_love.png',
+    thumbnailUrl: '/imoticon/Pochacco_love.png',
     emoticonIds: EMOTICONS.filter((item) => item.setId === 'pochacco_daily').map((item) => item.id),
   },
 ];
