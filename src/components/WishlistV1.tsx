@@ -37,7 +37,7 @@ export interface WishItem {
 interface Props {
   me: '우댕' | '꼼이';
   items: WishItem[];
-  onAdd: (draft: { category: 'food' | 'place' | 'watch'; title: string; url?: string; location?: string; memo?: string }) => Promise<void>;
+  onAdd: (draft: { category: 'food' | 'place' | 'watch'; title: string; url?: string; location?: string; memo?: string; photos?: File[] }) => Promise<void>;
   onToggleDone: (id: string, done: boolean) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onAddPhoto?: (item: WishItem) => void;
@@ -82,6 +82,8 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
   const [draftUrl, setDraftUrl] = useState('');
   const [draftLocation, setDraftLocation] = useState('');
   const [draftMemo, setDraftMemo] = useState('');
+  // 신규 위시 생성 시 같이 올릴 사진 (선택)
+  const [draftPhotos, setDraftPhotos] = useState<File[]>([]);
 
   // URL Preview State
   const [previewData, setPreviewData] = useState<{ title?: string; description?: string; image?: string; siteName?: string } | null>(null);
@@ -122,6 +124,7 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
     setDraftUrl('');
     setDraftLocation('');
     setDraftMemo('');
+    setDraftPhotos([]);
     setPreviewData(null);
     setIsAdding(true);
   };
@@ -136,7 +139,9 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
         url: draftUrl || undefined,
         location: draftLocation || undefined,
         memo: draftMemo || undefined,
+        photos: draftPhotos.length > 0 ? draftPhotos : undefined,
       });
+      setDraftPhotos([]);
       setIsAdding(false);
     } catch (e) {
       alert('추가에 실패했어요.');
@@ -474,6 +479,47 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                       onChange={(e) => setDraftMemo(e.target.value)}
                       className="w-full bg-[#F7F9F9] rounded-[20px] px-5 py-4 min-h-[100px] resize-none text-[15px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 transition-shadow"
                     />
+                  </div>
+
+                  {/* Photos (선택) — 신규 위시에 사진 같이 올리기 */}
+                  <div>
+                    <label className="block text-[13px] font-bold text-slate-500 mb-1.5 ml-1">사진 (선택)</label>
+                    <div className="flex flex-wrap gap-2">
+                      {draftPhotos.map((file, i) => {
+                        const url = URL.createObjectURL(file);
+                        return (
+                          <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden bg-slate-100 shadow-sm">
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setDraftPhotos((prev) => prev.filter((_, j) => j !== i))}
+                              className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-black/70 text-white text-xs leading-none flex items-center justify-center active:scale-90"
+                              aria-label="사진 빼기"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        );
+                      })}
+                      <label className="w-20 h-20 rounded-xl bg-[#F7F9F9] border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 cursor-pointer active:scale-95 transition-transform">
+                        <Camera size={20} />
+                        <span className="text-[10px] font-bold mt-1">사진 추가</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files || []).filter((f) => f.type.startsWith('image/'));
+                            if (files.length > 0) setDraftPhotos((prev) => [...prev, ...files]);
+                            e.currentTarget.value = '';
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {draftPhotos.length > 0 && (
+                      <p className="text-[11px] text-slate-400 mt-1.5 ml-1">사진 {draftPhotos.length}장 — 추가하기 누르면 같이 올라가요</p>
+                    )}
                   </div>
                 </div>
 

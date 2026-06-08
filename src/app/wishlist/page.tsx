@@ -175,7 +175,16 @@ export default function WishlistPage() {
         me={me}
         items={items.filter((i) => !i.done) as unknown as WishItem[]}
         onBack={() => router.push('/')}
-        onAdd={async (draft) => { await addWish({ ...draft, by: me }); }}
+        onAdd={async (draft) => {
+          const { photos, ...rest } = draft as typeof draft & { photos?: File[] };
+          const id = await addWish({ ...rest, by: me });
+          // 새 위시에 첨부한 사진들 순차 업로드 (실패해도 본 doc은 살아있음)
+          if (photos && photos.length > 0) {
+            for (const file of photos) {
+              try { await addWishPhoto(id, file, me); } catch (e) { console.error('위시 사진 업로드 실패:', e); }
+            }
+          }
+        }}
         onToggleDone={handleToggleDone}
         onDelete={deleteWish}
         fetchPreview={fetchOgPreview}
