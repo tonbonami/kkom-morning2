@@ -31,7 +31,7 @@ const TONE_CLASS: Record<Tone, string> = {
 // - 5+ (또는 종류별 임계) 시 highlight (폰트 키움)
 // - 상위 4개만 (문장 길어지지 않게)
 // 칩 텍스트에 주어를 명시 — 합산 칩은 주어 없음, partner/내 활동은 명시
-function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
+function buildChips(stats: DailyStats, me: Sender, partner: Sender, todayWishOverride?: number): Chip[] {
   const chips: Chip[] = [];
 
   // partner의 애정 표현 (가장 감동적)
@@ -119,7 +119,9 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
     tone: 'amber',
   });
 
-  const wishes = stats.wishItems.우댕 + stats.wishItems.꼼이;
+  // Claude 참고: dailyStats.wishItems는 또갈래 되돌리기 등으로 잘못 누적될 수 있어
+  // 실제 wishlist 컬렉션의 오늘 createdAt count를 props로 받아서 우선 사용.
+  const wishes = todayWishOverride !== undefined ? todayWishOverride : (stats.wishItems.우댕 + stats.wishItems.꼼이);
   if (wishes > 0) chips.push({
     emoji: '🛒',
     text: `위시 ${wishes}개`,
@@ -139,7 +141,7 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
   return chips.slice(0, 4);
 }
 
-export default function DailyPiecesHeader({ me }: { me: Sender }) {
+export default function DailyPiecesHeader({ me, todayWishCount }: { me: Sender; todayWishCount?: number }) {
   const [stats, setStats] = useState<DailyStats | null>(null);
   const partner: Sender = me === '우댕' ? '꼼이' : '우댕';
 
@@ -151,7 +153,7 @@ export default function DailyPiecesHeader({ me }: { me: Sender }) {
   // 첫 로드 placeholder (높이 유지하지 않음 — 데이터 빨리 옴)
   if (!stats) return null;
 
-  const chips = buildChips(stats, me, partner);
+  const chips = buildChips(stats, me, partner, todayWishCount);
   const isEmpty = chips.length === 0;
 
   return (
