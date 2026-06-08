@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Claude 참고: Gaegu가 기본 자간이 넓어서 본문 길어지면 정신 사나움.
+   자간을 -0.04em로 좁히고 line-height도 1.35로 타이트하게 — 손글씨 느낌은 유지하되 가독성 우선. */
+.font-handwriting {
+  letter-spacing: -0.04em;
+  line-height: 1.35;
+}
+
 @layer base {
   :root {
     --background: 210 17% 98%;
