@@ -30,6 +30,7 @@ const TONE_CLASS: Record<Tone, string> = {
 // - 우선순위: partner의 애정 표현(보고싶다/사랑해/뽀뽀) > 편지 > 칭찬 > 추억 > 위시 > 내 활동
 // - 5+ (또는 종류별 임계) 시 highlight (폰트 키움)
 // - 상위 4개만 (문장 길어지지 않게)
+// 칩 텍스트에 주어를 명시 — 합산 칩은 주어 없음, partner/내 활동은 명시
 function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
   const chips: Chip[] = [];
 
@@ -37,7 +38,7 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
   const pMiss = stats.bumps.miss[partner];
   if (pMiss > 0) chips.push({
     emoji: '💚',
-    text: `${pMiss}번 보고싶댔어`,
+    text: `${partner}가 ${pMiss}번 보고싶댔어`,
     highlight: pMiss >= 5,
     tone: 'emerald',
   });
@@ -45,7 +46,7 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
   const pLove = stats.bumps.love[partner];
   if (pLove > 0) chips.push({
     emoji: '❤️',
-    text: `${pLove}번 사랑한대`,
+    text: `${partner}가 ${pLove}번 사랑한대`,
     highlight: pLove >= 5,
     tone: 'rose',
   });
@@ -53,7 +54,7 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
   const pHug = stats.bumps.hug[partner];
   if (pHug > 0) chips.push({
     emoji: '🤗',
-    text: `안아달랬어 ${pHug}번`,
+    text: `${partner}가 안아달랬어 ${pHug}번`,
     highlight: pHug >= 3,
     tone: 'rose',
   });
@@ -61,7 +62,7 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
   const pKiss = stats.bumps.kiss[partner];
   if (pKiss > 0) chips.push({
     emoji: '😘',
-    text: `뽀뽀 ${pKiss}번`,
+    text: `${partner}가 뽀뽀 ${pKiss}번`,
     highlight: pKiss >= 3,
     tone: 'pink',
   });
@@ -69,7 +70,7 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
   const pWhitening = stats.bumps.whitening[partner];
   if (pWhitening > 0) chips.push({
     emoji: '😬',
-    text: `화이트닝 ${pWhitening}번`,
+    text: `${partner}가 화이트닝 ${pWhitening}번`,
     highlight: false,
     tone: 'amber',
   });
@@ -78,7 +79,7 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
   const pNight = stats.bumps.night[partner];
   if (pNight > 0) chips.push({
     emoji: '🌙',
-    text: `잘 자 ${pNight}번`,
+    text: `${partner}가 잘 자 ${pNight}번`,
     highlight: false,
     tone: 'pink',
   });
@@ -87,7 +88,7 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
   const pLetter = stats.letters[partner];
   if (pLetter > 0) chips.push({
     emoji: '💌',
-    text: `편지 ${pLetter}통`,
+    text: `${partner}가 편지 ${pLetter}통`,
     highlight: pLetter >= 2,
     tone: 'amber',
   });
@@ -96,7 +97,7 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
   const pPraise = stats.praiseStickers[partner];
   if (pPraise > 0) chips.push({
     emoji: '✨',
-    text: `칭찬 ${pPraise}개`,
+    text: `${partner}가 칭찬 ${pPraise}개`,
     highlight: pPraise >= 5,
     tone: 'emerald',
   });
@@ -104,12 +105,12 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
   const pReq = stats.praiseRequests[partner];
   if (pReq > 0) chips.push({
     emoji: '🥺',
-    text: `칭찬 졸랐어`,
+    text: `${partner}가 칭찬 졸랐어`,
     highlight: false,
     tone: 'pink',
   });
 
-  // 둘이 합친 거
+  // 합산 칩 (주어 없음 — 누가 올렸든 둘이 같이 모은 거)
   const memories = stats.memories.우댕 + stats.memories.꼼이;
   if (memories > 0) chips.push({
     emoji: '📸',
@@ -126,7 +127,7 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
     tone: 'emerald',
   });
 
-  // 내가 보낸 거 (자랑) — partner 항목들로 다 채워졌으면 안 들어감
+  // 내가 보낸 보고싶다 (자랑) — partner 항목들로 다 채워졌으면 안 들어감
   const myMiss = stats.bumps.miss[me];
   if (myMiss > 0 && chips.length < 4) chips.push({
     emoji: '💚',
@@ -171,7 +172,7 @@ export default function DailyPiecesHeader({ me }: { me: Sender }) {
         </p>
       ) : (
         <p className="font-handwriting text-[19px] text-slate-800 leading-relaxed break-keep">
-          <span className="text-slate-500 mr-1">오늘 {partner === '우댕' ? '우댕이가' : '꼼이가'}</span>
+          <span className="text-slate-500 mr-1">오늘</span>
           {chips.map((chip, i) => (
             <span
               key={i}
