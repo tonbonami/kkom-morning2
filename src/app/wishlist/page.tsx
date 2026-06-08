@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
 import WishlistV1, { type WishItem } from '@/components/WishlistV1';
 import MediaPreviewModal from '@/components/MediaPreviewModal';
+import PhotoGalleryModal from '@/components/PhotoGalleryModal';
 import {
   subscribeWishlist,
   addWish,
@@ -41,6 +42,11 @@ export default function WishlistPage() {
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const [photoTarget, setPhotoTarget] = useState<WishItemView | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+
+  // 사진 갤러리 모달
+  const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
+  const [galleryStart, setGalleryStart] = useState(0);
+  const [galleryTitle, setGalleryTitle] = useState<string | undefined>();
 
   // 댓글 시트
   const [commentItem, setCommentItem] = useState<WishItemView | null>(null);
@@ -178,6 +184,13 @@ export default function WishlistPage() {
           setPreviewTitle(item.preview?.title || item.title);
         }}
         onAddPhoto={(item) => handleAddPhotoClick(item as unknown as WishItemView)}
+        onViewPhotos={(item, startIdx = 0) => {
+          const v = item as unknown as WishItemView;
+          if (!v.photoUrls || v.photoUrls.length === 0) return;
+          setGalleryPhotos(v.photoUrls);
+          setGalleryStart(startIdx);
+          setGalleryTitle(v.title);
+        }}
         onHeart={(id) => incrementHeartsAt(COLLECTION, id)}
         onOpenComments={(item) => setCommentItem(item as unknown as WishItemView)}
       />
@@ -186,6 +199,13 @@ export default function WishlistPage() {
         url={previewUrl}
         title={previewTitle}
         onClose={() => setPreviewUrl(undefined)}
+      />
+      <PhotoGalleryModal
+        open={galleryPhotos.length > 0}
+        photos={galleryPhotos}
+        startIndex={galleryStart}
+        title={galleryTitle}
+        onClose={() => setGalleryPhotos([])}
       />
       <CommentSheet
         open={!!commentItem}

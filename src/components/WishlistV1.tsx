@@ -41,6 +41,7 @@ interface Props {
   onToggleDone: (id: string, done: boolean) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onAddPhoto?: (item: WishItem) => void;
+  onViewPhotos?: (item: WishItem, startIndex?: number) => void;
   onBack: () => void;
   fetchPreview: (url: string) => Promise<{ title?: string; description?: string; image?: string; siteName?: string } | null>;
   // (통합 wiring) 사이트 보기 클릭 인터셉트 — YouTube/Instagram은 인앱 모달, 그 외는 외부
@@ -70,7 +71,7 @@ const TABS: { id: Category; label: string; icon: React.ReactNode; color: string 
   { id: 'watch', label: '볼것', icon: <MonitorPlay size={14} />, color: CATEGORY_COLORS.watch },
 ];
 
-export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, onAddPhoto, onBack, fetchPreview, onOpenLink, onHeart, onOpenComments }: Props) {
+export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, onAddPhoto, onViewPhotos, onBack, fetchPreview, onOpenLink, onHeart, onOpenComments }: Props) {
   const [activeTab, setActiveTab] = useState<Category>('place');
 
   // Bottom Sheet State
@@ -241,17 +242,25 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                     isDone ? 'opacity-75 bg-slate-50/50' : ''
                   }`}
                 >
-                {/* Left: Image or Icon */}
+                {/* Left: Image or Icon — 사진 있으면 클릭으로 갤러리 모달 열림 */}
                 <div className="shrink-0 flex flex-col items-center">
                   {coverImage ? (
-                    <div className="relative">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (photoCount > 0 && onViewPhotos) onViewPhotos(item, 0);
+                      }}
+                      className="relative active:scale-95 transition-transform"
+                      aria-label={`사진 ${photoCount}장 보기`}
+                    >
                       <img src={coverImage} alt="" className={`w-16 h-16 rounded-2xl object-cover shadow-sm ${isDone ? 'grayscale opacity-80' : ''}`} draggable={false} />
                       {photoCount > 1 && (
                         <span className="absolute -right-1 -bottom-1 rounded-full bg-slate-900 text-white text-[10px] font-black px-1.5 py-0.5 shadow-sm">
                           +{photoCount - 1}
                         </span>
                       )}
-                    </div>
+                    </button>
                   ) : (
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-sm ${isDone ? 'bg-slate-300' : categoryColor}`}>
                       {item.category === 'food' ? <Utensils size={24} /> : item.category === 'place' ? <Map size={24} /> : <MonitorPlay size={24} />}
