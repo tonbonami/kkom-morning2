@@ -40,6 +40,7 @@ export default function AgainPage() {
         }}
         onSendBack={async (item) => {
           // 또갈래 → 위시리스트 복귀: 위시리스트에 다시 추가 + 또갈래에서 삭제
+          // skipDailyStats=true — 신규 추가 아닌 복귀라 매일매일 꼼모닝 카운트에 잡히면 안 됨
           try {
             await addWish({
               category: item.category,
@@ -48,6 +49,7 @@ export default function AgainPage() {
               location: item.location,
               memo: item.memo,
               by: item.by,
+              skipDailyStats: true,
             });
             await deleteAgain(item.id);
           } catch (e) {

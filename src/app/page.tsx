@@ -580,6 +580,11 @@ export default function KkomMorningHome() {
             <div className="tape absolute -top-2 right-6 w-12 -rotate-6 z-10" />
             <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-slate-100">
               <img src={memories[0].imageUrl} alt={memories[0].title} className="w-full h-full object-cover" />
+              {memories.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-slate-800 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+                  {memories.length > 99 ? '99+' : memories.length}
+                </span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 text-slate-400 mb-1">
@@ -587,7 +592,7 @@ export default function KkomMorningHome() {
                 <span className="text-xs font-bold">우리의 추억</span>
               </div>
               <p className="text-sm font-bold text-slate-700 truncate">{memories[0].title || '소중한 순간'}</p>
-              <p className="text-[11px] text-slate-400">총 {memories.length}장 · 모두 보기</p>
+              <p className="text-[11px] text-slate-400">모두 보기</p>
             </div>
             <ChevronRight size={20} className="text-slate-400 shrink-0" />
           </button>
@@ -621,17 +626,20 @@ export default function KkomMorningHome() {
           className="relative w-full bg-amber-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-amber-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all -rotate-[0.5deg]"
         >
           <div className="tape-mint absolute -top-2 left-1/2 -translate-x-1/2 w-14 -rotate-2 z-10" />
-          <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center shrink-0 text-[#FCD34D]">
+          <div className="relative w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center shrink-0 text-[#FCD34D]">
             <Sparkles size={22} strokeWidth={2.5} fill="currentColor" />
+            {shares.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-500 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+                {shares.length > 99 ? '99+' : shares.length}
+              </span>
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 text-slate-400 mb-1">
               <span className="text-xs font-bold">Share List</span>
             </div>
             <p className="text-sm font-bold text-slate-700">
-              {shares.length === 0
-                ? `${vocativeOf(userName)} 이거 봐봐 💚`
-                : `${vocativeOf(userName)} 이거 봐봐 💚 · 총 ${shares.length}개`}
+              {`${vocativeOf(userName)} 이거 봐봐 💚`}
             </p>
           </div>
           <ChevronRight size={20} className="text-slate-400 shrink-0" />

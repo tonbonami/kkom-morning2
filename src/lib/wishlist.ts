@@ -100,6 +100,8 @@ export function subscribeWishlist(cb: (items: WishItemView[]) => void): () => vo
 }
 
 // 추가 — URL 있으면 OG 프리뷰까지 같이 저장
+// Claude 참고: skipDailyStats=true는 '또갈래 → 위시 되돌리기'처럼 *원래 있던* 항목을 복귀시킬 때 쓰는 옵션.
+// 매일매일 꼼모닝 헤더의 '오늘 추가된 위시' 카운트가 잘못 +1되는 걸 막음.
 export async function addWish(input: {
   category: WishCategory;
   title: string;
@@ -107,6 +109,7 @@ export async function addWish(input: {
   location?: string;
   memo?: string;
   by: '우댕' | '꼼이';
+  skipDailyStats?: boolean;
 }): Promise<string> {
   // URL 주어지면 OG 미리보기 fetch
   let preview: WishPreview | undefined;
@@ -141,8 +144,10 @@ export async function addWish(input: {
   if (input.memo) payload.memo = input.memo.trim();
 
   const ref = await addDoc(collection(db, 'wishlist'), payload);
-  // 매일매일 꼼모닝 헤더 카운트
-  import('./dailyStats').then(({ incrementWish }) => incrementWish(input.by)).catch(() => {});
+  // 매일매일 꼼모닝 헤더 카운트 — 복귀(skipDailyStats)일 땐 카운트 안 함
+  if (!input.skipDailyStats) {
+    import('./dailyStats').then(({ incrementWish }) => incrementWish(input.by)).catch(() => {});
+  }
   return ref.id;
 }
 
