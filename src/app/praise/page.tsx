@@ -141,13 +141,20 @@ function PraiseRow({ item, me, index }: { item: PraiseItemView; me: PraiseUser; 
     );
   }
 
-  // 칭찬 카드: 흰 배경 80% + 노트 줄이 살짝 비침. 일부 카드에만 마스킹 테이프.
-  const showTape = index % 3 === 0;
-  const tapeSide = index % 2 === 0 ? 'left-4 -rotate-2' : 'right-5 rotate-2';
+  // 칭찬 카드 — 모든 카드에 테이프 (색/위치 인덱스 패턴), 살짝 회전 (종이 느낌)
+  const tapeStyles = ['', 'tape-pink', 'tape-mint']; // 노랑/핑크/민트 순환
+  const tapeStyle = tapeStyles[index % tapeStyles.length];
+  const tapePos = index % 2 === 0 ? 'left-5 -rotate-3' : 'right-6 rotate-3';
+  const tilt = index % 4 === 0 ? '-rotate-[0.4deg]' : index % 4 === 2 ? 'rotate-[0.4deg]' : '';
 
   return (
-    <article className="relative rounded-[20px] bg-white/85 backdrop-blur-[2px] px-4 py-4 shadow-[0_3px_14px_rgba(15,23,42,0.04)] border border-white/60">
-      {showTape && <div className={cn('tape -top-1.5 w-12 rounded-sm', tapeSide)} />}
+    <article
+      className={cn(
+        'relative rounded-[20px] bg-white px-4 py-4 shadow-[0_4px_18px_rgba(15,23,42,0.07)] border border-slate-100',
+        tilt
+      )}
+    >
+      <div className={cn('tape -top-2 w-14', tapeStyle, tapePos)} />
       <StickerWrap src={item.stickerImage} emoji={item.stickerEmoji} count={item.stickerCount} />
       <p className="font-handwriting mt-3 text-[20px] leading-snug text-slate-800">
         {item.reason}
@@ -455,8 +462,8 @@ export default function PraisePage() {
         {/* 작성 폼 (접힘) */}
         <Composer me={me} partner={partner as PraiseUser} onSent={refreshTotals} />
 
-        {/* 다이어리 피드 */}
-        <section className="space-y-4">
+        {/* 다이어리 피드 — 카드 사이 간격 넓혀서 노트 줄이 잘 보이게 */}
+        <section className="space-y-6 pt-2">
           {diaryItems.length === 0 ? (
             // Gemini 리뷰 P2: Empty State를 노란 포스트잇으로 — 글 쓰고 싶게 유도
             <div className="flex justify-center pt-4 pb-2">
