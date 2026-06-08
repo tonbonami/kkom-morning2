@@ -22,13 +22,17 @@ function withSubjectParticle(name: string): string {
   return name + (hasFinal ? '이가' : '가');
 }
 
-type BumpKind = 'miss' | 'love' | 'kiss' | 'night';
+// Claude 참고: 'night' 기존 데이터 호환 위해 유지 (옛 푸시/통계에 남아있음).
+// 새 종류 'hug'(안아줘), 'whitening'(우댕꼼이 암호 — 꼼이 치아미백 화이팅) 추가.
+type BumpKind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening' | 'night';
 
 const VARIANTS: Record<BumpKind, { emoji: string; verb: string; body: string }> = {
-  miss:  { emoji: '💚', verb: '보고싶대',   body: '꼼모닝에서 인사해줘 ✨' },
-  love:  { emoji: '❤️', verb: '사랑한대',   body: '오늘도 너 덕분에 든든해 💕' },
-  kiss:  { emoji: '😘', verb: '뽀뽀 보냈어', body: '쪽! 🩷' },
-  night: { emoji: '🌙', verb: '잘 자래',    body: '좋은 꿈 꿔 ✨' },
+  miss:      { emoji: '💚', verb: '보고싶대',      body: '꼼모닝에서 인사해줘 ✨' },
+  love:      { emoji: '❤️', verb: '사랑한대',      body: '오늘도 너 덕분에 든든해 💕' },
+  hug:       { emoji: '🤗', verb: '안아달래',      body: '꼭 안아줄게 💗' },
+  kiss:      { emoji: '😘', verb: '뽀뽀 보냈어',   body: '쪽! 🩷' },
+  whitening: { emoji: '😬', verb: '화이트닝!',     body: '치아 환하게 빛나게 화이팅 ✨' },
+  night:     { emoji: '🌙', verb: '잘 자래',       body: '좋은 꿈 꿔 ✨' },
 };
 
 export async function POST(req: NextRequest) {

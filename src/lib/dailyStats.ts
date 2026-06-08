@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 
 export type Sender = '우댕' | '꼼이';
-export type BumpKind = 'miss' | 'love' | 'kiss' | 'night';
+export type BumpKind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening' | 'night';
 
 type Pair = { 우댕: number; 꼼이: number };
 
@@ -45,7 +45,9 @@ export function emptyStats(): DailyStats {
     bumps: {
       miss: { ...ZERO_PAIR },
       love: { ...ZERO_PAIR },
+      hug: { ...ZERO_PAIR },
       kiss: { ...ZERO_PAIR },
+      whitening: { ...ZERO_PAIR },
       night: { ...ZERO_PAIR },
     },
   };
@@ -88,7 +90,9 @@ function normalizeStats(data: any): DailyStats {
     bumps: {
       miss: { ...ZERO_PAIR, ...(data?.bumps?.miss || {}) },
       love: { ...ZERO_PAIR, ...(data?.bumps?.love || {}) },
+      hug: { ...ZERO_PAIR, ...(data?.bumps?.hug || {}) },
       kiss: { ...ZERO_PAIR, ...(data?.bumps?.kiss || {}) },
+      whitening: { ...ZERO_PAIR, ...(data?.bumps?.whitening || {}) },
       night: { ...ZERO_PAIR, ...(data?.bumps?.night || {}) },
     },
   };

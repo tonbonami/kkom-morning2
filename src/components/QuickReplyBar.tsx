@@ -4,13 +4,16 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check } from 'lucide-react';
 
-type Kind = 'miss' | 'love' | 'kiss' | 'night';
+// Claude 참고: 'night'(잘자) 제거 + 'hug'(안아줘), 'whitening'(우댕꼼이 암호) 추가.
+// 화이트닝 = 꼼이가 치아미백 약 발라서 하얘짐 → 둘만의 화이팅 구호.
+type Kind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening';
 
 const QUICK: { kind: Kind; emoji: string; label: string }[] = [
-  { kind: 'miss',  emoji: '💚', label: '보고싶어' },
-  { kind: 'love',  emoji: '❤️', label: '사랑해' },
-  { kind: 'kiss',  emoji: '😘', label: '뽀뽀' },
-  { kind: 'night', emoji: '🌙', label: '잘 자' },
+  { kind: 'miss',      emoji: '💚', label: '보고싶어' },
+  { kind: 'love',      emoji: '❤️', label: '사랑해' },
+  { kind: 'hug',       emoji: '🤗', label: '안아줘' },
+  { kind: 'kiss',      emoji: '😘', label: '뽀뽀' },
+  { kind: 'whitening', emoji: '😬', label: '화이트닝' },
 ];
 
 const COOLDOWN_MS = 2500; // 클라이언트 스팸 가드
@@ -73,10 +76,10 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
                 onClick={() => send(q)}
                 animate={isActive ? { scale: [1, 1.25, 1] } : { scale: 1 }}
                 transition={{ duration: 0.5 }}
-                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-2xl active:bg-slate-50 transition-colors"
+                className="flex flex-col items-center gap-0.5 px-2 py-2 rounded-2xl active:bg-slate-50 transition-colors flex-1"
               >
-                <span className="text-[26px] leading-none">{q.emoji}</span>
-                <span className="text-[10px] font-bold text-slate-500 mt-1">{q.label}</span>
+                <span className="text-[24px] leading-none">{q.emoji}</span>
+                <span className="text-[10px] font-bold text-slate-500 mt-1 whitespace-nowrap">{q.label}</span>
               </motion.button>
             );
           })}

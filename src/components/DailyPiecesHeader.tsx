@@ -50,6 +50,14 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
     tone: 'rose',
   });
 
+  const pHug = stats.bumps.hug[partner];
+  if (pHug > 0) chips.push({
+    emoji: '🤗',
+    text: `안아달랬어 ${pHug}번`,
+    highlight: pHug >= 3,
+    tone: 'rose',
+  });
+
   const pKiss = stats.bumps.kiss[partner];
   if (pKiss > 0) chips.push({
     emoji: '😘',
@@ -58,6 +66,15 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender): Chip[] {
     tone: 'pink',
   });
 
+  const pWhitening = stats.bumps.whitening[partner];
+  if (pWhitening > 0) chips.push({
+    emoji: '😬',
+    text: `화이트닝 ${pWhitening}번`,
+    highlight: false,
+    tone: 'amber',
+  });
+
+  // 'night'(잘자)는 v3에서 QuickReplyBar에서 제거됐지만 옛 데이터 호환 위해 표시 유지
   const pNight = stats.bumps.night[partner];
   if (pNight > 0) chips.push({
     emoji: '🌙',
