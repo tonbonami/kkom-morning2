@@ -40,11 +40,14 @@ function buildChips(
 ): Chip[] {
   const chips: Chip[] = [];
 
+  // 한글 주격 조사 — 받침 있는 '우댕' → '우댕이가', 받침 없는 이로 끝나는 '꼼이' → '꼼이가'
+  const partnerSubj = partner === '우댕' ? '우댕이가' : '꼼이가';
+
   // partner의 애정 표현 (가장 감동적)
   const pMiss = stats.bumps.miss[partner];
   if (pMiss > 0) chips.push({
     emoji: '💚',
-    text: `${partner}가 ${pMiss}번 보고싶댔어`,
+    text: `${partnerSubj} ${pMiss}번 보고싶댔어`,
     highlight: pMiss >= 5,
     tone: 'emerald',
   });
@@ -52,7 +55,7 @@ function buildChips(
   const pLove = stats.bumps.love[partner];
   if (pLove > 0) chips.push({
     emoji: '❤️',
-    text: `${partner}가 ${pLove}번 사랑한대`,
+    text: `${partnerSubj} ${pLove}번 사랑한대`,
     highlight: pLove >= 5,
     tone: 'rose',
   });
@@ -60,7 +63,7 @@ function buildChips(
   const pHug = stats.bumps.hug[partner];
   if (pHug > 0) chips.push({
     emoji: '🤗',
-    text: `${partner}가 안아달랬어 ${pHug}번`,
+    text: `${partnerSubj} 안아달랬어 ${pHug}번`,
     highlight: pHug >= 3,
     tone: 'rose',
   });
@@ -68,7 +71,7 @@ function buildChips(
   const pKiss = stats.bumps.kiss[partner];
   if (pKiss > 0) chips.push({
     emoji: '😘',
-    text: `${partner}가 뽀뽀 ${pKiss}번`,
+    text: `${partnerSubj} 뽀뽀 ${pKiss}번`,
     highlight: pKiss >= 3,
     tone: 'pink',
   });
@@ -76,7 +79,7 @@ function buildChips(
   const pWhitening = stats.bumps.whitening[partner];
   if (pWhitening > 0) chips.push({
     emoji: '😬',
-    text: `${partner}가 화이트닝 ${pWhitening}번`,
+    text: `${partnerSubj} 화이트닝 ${pWhitening}번`,
     highlight: false,
     tone: 'amber',
   });
@@ -85,7 +88,7 @@ function buildChips(
   const pNight = stats.bumps.night[partner];
   if (pNight > 0) chips.push({
     emoji: '🌙',
-    text: `${partner}가 잘 자 ${pNight}번`,
+    text: `${partnerSubj} 잘 자 ${pNight}번`,
     highlight: false,
     tone: 'pink',
   });
@@ -94,7 +97,7 @@ function buildChips(
   const pLetter = stats.letters[partner];
   if (pLetter > 0) chips.push({
     emoji: '💌',
-    text: `${partner}가 편지 ${pLetter}통`,
+    text: `${partnerSubj} 편지 ${pLetter}통`,
     highlight: pLetter >= 2,
     tone: 'amber',
   });
@@ -103,7 +106,7 @@ function buildChips(
   const pPraise = stats.praiseStickers[partner];
   if (pPraise > 0) chips.push({
     emoji: '✨',
-    text: `${partner}가 칭찬 ${pPraise}개`,
+    text: `${partnerSubj} 칭찬 ${pPraise}개`,
     highlight: pPraise >= 5,
     tone: 'emerald',
   });
@@ -111,7 +114,7 @@ function buildChips(
   const pReq = stats.praiseRequests[partner];
   if (pReq > 0) chips.push({
     emoji: '🥺',
-    text: `${partner}가 칭찬 졸랐어`,
+    text: `${partnerSubj} 칭찬 졸랐어`,
     highlight: false,
     tone: 'pink',
   });
