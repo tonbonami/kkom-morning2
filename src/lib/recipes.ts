@@ -15,6 +15,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { partnerOf } from './letters';
 
 export interface RecipeDoc {
   title: string;
@@ -86,6 +87,13 @@ export async function addRecipe(input: {
   if (input.youtubeUrl?.trim()) payload.youtubeUrl = input.youtubeUrl.trim();
 
   const ref = await addDoc(collection(db, 'recipes'), payload);
+  // 새 레시피 푸시 — 만든 사람의 partner에게
+  const to = partnerOf(input.by) as '우댕' | '꼼이';
+  fetch('/api/notify-recipe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: input.by, to, title: input.title.trim() }),
+  }).catch(() => {});
   return ref.id;
 }
 

@@ -269,6 +269,13 @@ export async function addPraiseReply(praiseId: string, by: PraiseUser, text: str
   } catch (e) {
     console.warn('latestReply 캐시 실패:', e);
   }
+  // 답글 푸시 — 답글 단 사람의 partner에게
+  const to = partnerOf(by) as PraiseUser;
+  fetch('/api/notify-praise-reply', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: by, to, reply: t }),
+  }).catch(() => {});
 }
 
 export function monthlyPraiseSummary(items: PraiseItemView[], to?: PraiseUser): PraiseMonthSummary[] {
