@@ -2,6 +2,8 @@ import { db } from './firebase';
 import {
   collection,
   addDoc,
+  doc,
+  updateDoc,
   onSnapshot,
   serverTimestamp,
   Timestamp,
@@ -12,6 +14,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { partnerOf } from './letters';
+import { addCommentAt } from './reactions';
 
 export type PraiseUser = '우댕' | '꼼이';
 export type PraiseKind = 'praise' | 'request';
@@ -69,6 +72,10 @@ export interface PraiseDoc {
   stickerImageIndex?: number;
   stickerCount: number;
   createdAt?: Timestamp | null;
+  // Phase 3 답글 — reactions.ts가 addCommentAt 시 commentCount를 자동 ++.
+  // latestReply는 헤더 미리보기용 (인라인 한 줄). reactions.ts에 별도 update가 필요 (현재는 캐시 안 함).
+  commentCount?: number;
+  latestReply?: string;
 }
 
 export interface PraiseItemView {
@@ -83,6 +90,8 @@ export interface PraiseItemView {
   stickerImageIndex?: number;
   stickerCount: number;
   createdAt: Date;
+  commentCount?: number;
+  latestReply?: string;
 }
 
 export interface PraiseMonthSummary {
@@ -124,6 +133,8 @@ function toView(id: string, d: PraiseDoc): PraiseItemView {
     stickerImageIndex: undefined,
     stickerCount: Math.max(0, d.stickerCount || 0),
     createdAt: d.createdAt?.toDate?.() ?? new Date(),
+    commentCount: d.commentCount,
+    latestReply: d.latestReply,
   };
 }
 
@@ -242,6 +253,22 @@ export function totalPraiseCount(items: PraiseItemView[], to?: PraiseUser): numb
   return items
     .filter((item) => item.kind === 'praise' && (!to || item.to === to))
     .reduce((sum, item) => sum + item.stickerCount, 0);
+}
+
+// Phase 3 답글 — reactions.ts의 일반 comment 패턴 위에 latestReply 캐시까지 박는 wrapper.
+// 영감 자료의 '→ 답글 한 줄 미리보기' 인라인 표시를 위해 *마지막 답글*을 praise doc에 캐시.
+// 답글 N개여도 카드에선 *가장 최근 한 줄*만 인라인, 더 보려면 시트 열기.
+export async function addPraiseReply(praiseId: string, by: PraiseUser, text: string): Promise<void> {
+  const t = text.trim();
+  if (!t || !praiseId) return;
+  await addCommentAt('praiseStickers', praiseId, by, t);
+  try {
+    await updateDoc(doc(db, 'praiseStickers', praiseId), {
+      latestReply: t.length > 60 ? t.slice(0, 60) + '…' : t,
+    });
+  } catch (e) {
+    console.warn('latestReply 캐시 실패:', e);
+  }
 }
 
 export function monthlyPraiseSummary(items: PraiseItemView[], to?: PraiseUser): PraiseMonthSummary[] {

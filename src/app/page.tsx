@@ -21,6 +21,8 @@ import { subscribeLatestLetterTo, nameFromCode, partnerOf, vocativeOf, type Voic
 import { subscribeMemories, type Memory } from '@/lib/memories';
 import { subscribeShareList, type ShareItemView } from '@/lib/share';
 import { subscribeWishlist } from '@/lib/wishlist';
+import { subscribeAgain } from '@/lib/again';
+import { subscribeRecipes, type RecipeItemView } from '@/lib/recipes';
 import VoicePlayer from '@/components/VoicePlayer';
 // ⏱ 임시 — D-day 카드 어텐션 (테두리 펄스 + Tap! 뱃지 + 리플). 24h 후 자동 안 뜸.
 import DdayAttentionV2 from '@/components/DdayAttentionV2';
@@ -67,6 +69,8 @@ export default function KkomMorningHome() {
   const [locKey, setLocKey] = useState<LocKey>('home'); // 화면 위치 선택
   const [shares, setShares] = useState<ShareItemView[]>([]);
   const [wishes, setWishes] = useState<{ id: string; createdAt: Date }[]>([]);
+  const [agains, setAgains] = useState<{ id: string; createdAt: Date }[]>([]);
+  const [recipes, setRecipes] = useState<RecipeItemView[]>([]);
   // 칭찬 다이어리 카드 — 오늘 partner가 칭찬 보냈는지 (스마일 배지용)
   const [hasNewPraise, setHasNewPraise] = useState(false);
   // 날씨 카드 onboarding 힌트 (디바이스당 한 번)
@@ -107,6 +111,12 @@ export default function KkomMorningHome() {
     const unsubWishes = subscribeWishlist((items) => {
       setWishes(items.filter((i) => !i.done).map((i) => ({ id: i.id, createdAt: i.createdAt })));
     });
+    // 또갈래 — 카드 배지용
+    const unsubAgains = subscribeAgain((items) => {
+      setAgains(items.map((i) => ({ id: i.id, createdAt: i.createdAt })));
+    });
+    // 레시피 — 카드 NEW 배지 + 매일매일 꼼모닝 헤더 정확한 오늘 카운트용
+    const unsubRecipes = subscribeRecipes(setRecipes);
 
     // 칭찬 — 오늘 partner가 보낸 게 있으면 스마일 배지 (1회 fetch)
     import('@/lib/dailyStats').then(({ fetchTodayStats }) => fetchTodayStats()).then((s) => {
@@ -143,7 +153,7 @@ export default function KkomMorningHome() {
       return () => clearTimeout(t);
     }
 
-    return () => { unsubLetter(); unsubMoods(); unsubMemories(); unsubShares(); unsubWishes(); };
+    return () => { unsubLetter(); unsubMoods(); unsubMemories(); unsubShares(); unsubWishes(); unsubAgains(); unsubRecipes(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
@@ -429,11 +439,18 @@ export default function KkomMorningHome() {
           // dailyStats.wishItems 대신 실제 wishlist의 오늘 createdAt count 사용 (또갈래 되돌리기 등 잘못 누적 회피)
           const now = new Date();
           const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
-          const todayWishCount = wishes.filter((w) => {
-            const d = w.createdAt;
-            return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` === todayKey;
-          }).length;
-          return <DailyPiecesHeader me={userName as '우댕' | '꼼이'} todayWishCount={todayWishCount} />;
+          const isSameDay = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` === todayKey;
+          const todayWishCount = wishes.filter((w) => isSameDay(w.createdAt)).length;
+          const todayRecipes = recipes
+            .filter((r) => isSameDay(r.createdAt))
+            .map((r) => ({ by: r.by, createdAt: r.createdAt }));
+          return (
+            <DailyPiecesHeader
+              me={userName as '우댕' | '꼼이'}
+              todayWishCount={todayWishCount}
+              todayRecipes={todayRecipes}
+            />
+          );
         })()}
 
         {/* 날씨 V2 — 탭하면 상세 페이지. 첫 진입 시 살짝 흔들리고 토스트로 알려줌 */}
@@ -705,8 +722,13 @@ export default function KkomMorningHome() {
           className="relative w-full bg-teal-50/40 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-teal-100/50 flex items-center gap-4 text-left active:scale-[0.98] transition-all"
         >
           <div className="tape absolute -top-2 right-8 w-12 rotate-6 z-10" />
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 text-[#10B981]">
+          <div className="relative w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 text-[#10B981]">
             <CheckCircle2 size={22} strokeWidth={2.5} />
+            {agains.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-teal-500 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+                {agains.length > 99 ? '99+' : agains.length}
+              </span>
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 text-slate-400 mb-1">
@@ -720,8 +742,22 @@ export default function KkomMorningHome() {
         {/* 우리의 레시피 — 서재 자리에 새로 박음 (오렌지 톤, ChefHat 아이콘) */}
         <button onClick={() => router.push('/recipes')} className="relative w-full bg-orange-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-orange-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]">
           <div className="tape-mint absolute -top-2 right-6 w-14 -rotate-3 z-10" />
-          <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center shrink-0 text-orange-600">
+          <div className="relative w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center shrink-0 text-orange-600">
             <ChefHat size={22} strokeWidth={2.5} />
+            {recipes.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-orange-500 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+                {recipes.length > 99 ? '99+' : recipes.length}
+              </span>
+            )}
+            {/* 상대가 24h 이내 추가한 레시피 있으면 작은 NEW 점 */}
+            {(() => {
+              const now = Date.now();
+              const DAY = 24 * 60 * 60 * 1000;
+              const hasNew = recipes.some((r) => r.by !== userName && (now - r.createdAt.getTime() < DAY));
+              return hasNew ? (
+                <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
+              ) : null;
+            })()}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 text-orange-500 mb-1">

@@ -31,7 +31,13 @@ const TONE_CLASS: Record<Tone, string> = {
 // - 5+ (또는 종류별 임계) 시 highlight (폰트 키움)
 // - 상위 4개만 (문장 길어지지 않게)
 // 칩 텍스트에 주어를 명시 — 합산 칩은 주어 없음, partner/내 활동은 명시
-function buildChips(stats: DailyStats, me: Sender, partner: Sender, todayWishOverride?: number): Chip[] {
+function buildChips(
+  stats: DailyStats,
+  me: Sender,
+  partner: Sender,
+  todayWishOverride?: number,
+  todayRecipes?: { by: Sender; createdAt: Date }[],
+): Chip[] {
   const chips: Chip[] = [];
 
   // partner의 애정 표현 (가장 감동적)
@@ -129,6 +135,15 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender, todayWishOve
     tone: 'emerald',
   });
 
+  // 오늘 추가된 레시피 (props로 받음 — 실시간 정확한 count)
+  const recipeCount = todayRecipes?.length || 0;
+  if (recipeCount > 0) chips.push({
+    emoji: '🍳',
+    text: `레시피 ${recipeCount}개`,
+    highlight: false,
+    tone: 'amber',
+  });
+
   // 내가 보낸 보고싶다 (자랑) — partner 항목들로 다 채워졌으면 안 들어감
   const myMiss = stats.bumps.miss[me];
   if (myMiss > 0 && chips.length < 4) chips.push({
@@ -141,7 +156,15 @@ function buildChips(stats: DailyStats, me: Sender, partner: Sender, todayWishOve
   return chips.slice(0, 4);
 }
 
-export default function DailyPiecesHeader({ me, todayWishCount }: { me: Sender; todayWishCount?: number }) {
+export default function DailyPiecesHeader({
+  me,
+  todayWishCount,
+  todayRecipes,
+}: {
+  me: Sender;
+  todayWishCount?: number;
+  todayRecipes?: { by: Sender; createdAt: Date }[];
+}) {
   const [stats, setStats] = useState<DailyStats | null>(null);
   const partner: Sender = me === '우댕' ? '꼼이' : '우댕';
 
@@ -153,7 +176,7 @@ export default function DailyPiecesHeader({ me, todayWishCount }: { me: Sender; 
   // 첫 로드 placeholder (높이 유지하지 않음 — 데이터 빨리 옴)
   if (!stats) return null;
 
-  const chips = buildChips(stats, me, partner, todayWishCount);
+  const chips = buildChips(stats, me, partner, todayWishCount, todayRecipes);
   const isEmpty = chips.length === 0;
 
   return (

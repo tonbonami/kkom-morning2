@@ -63,6 +63,17 @@
   padding-bottom: max(env(safe-area-inset-bottom), 1.5rem);
 }
 
+/* Claude 참고: iOS Safari/PWA에서 input/textarea focus 시 폰트 16px 미만이면
+   가독성 위해 자동으로 줌인(110~125%)됨. 핀치로 줄여야 풀림 — 사용자 신고 버그.
+   모바일에선 폼 요소 font-size 16px 강제로 줌 트리거 차단. */
+@media (max-width: 768px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 @layer base {
   :root {
     --background: 210 17% 98%;

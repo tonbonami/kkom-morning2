@@ -7,10 +7,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronDown, ChevronUp, Sparkles, Send, Gift, Crown } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Sparkles, Send, Gift, Crown, MessageCircle } from 'lucide-react';
 import {
   PRAISE_STICKERS,
   addPraise,
+  addPraiseReply,
   fetchPraiseTotals,
   requestPraise,
   subscribePraise,
@@ -19,6 +20,12 @@ import {
   type PraiseSticker,
   type PraiseUser,
 } from '@/lib/praise';
+import {
+  subscribeCommentsAt,
+  deleteCommentAt,
+  type ReactionComment,
+} from '@/lib/reactions';
+import CommentSheet from '@/components/CommentSheet';
 import { nameFromCode, partnerOf, vocativeOf } from '@/lib/letters';
 import { cn } from '@/lib/utils';
 
@@ -149,9 +156,20 @@ function RoyalCard({ index, total }: { index: number; total: number }) {
   );
 }
 
-function PraiseRow({ item, me, index }: { item: PraiseItemView; me: PraiseUser; index: number }) {
+function PraiseRow({
+  item,
+  me,
+  index,
+  onOpenReplies,
+}: {
+  item: PraiseItemView;
+  me: PraiseUser;
+  index: number;
+  onOpenReplies: (item: PraiseItemView) => void;
+}) {
   const isMine = item.from === me;
   const isRequest = item.kind === 'request';
+  const replyCount = item.commentCount || 0;
 
   // 조르기 카드: 작은 노란 포스트잇 톤 (살짝 회전 + 테이프)
   if (isRequest) {
@@ -165,6 +183,12 @@ function PraiseRow({ item, me, index }: { item: PraiseItemView; me: PraiseUser; 
         <p className="font-handwriting mt-1 text-[17px] leading-snug text-slate-800">
           {item.reason}
         </p>
+        <button
+          onClick={() => onOpenReplies(item)}
+          className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-amber-600/80 active:scale-95"
+        >
+          <MessageCircle size={12} /> {replyCount > 0 ? `답글 ${replyCount}` : '답글 달기'}
+        </button>
       </article>
     );
   }
@@ -195,6 +219,22 @@ function PraiseRow({ item, me, index }: { item: PraiseItemView; me: PraiseUser; 
       <p className="mt-2 text-[11px] font-bold text-slate-400">
         {formatDate(item.createdAt)} · {isMine ? `${vocativeOf(item.to)} 보낸 칭찬` : `${item.from}가 보낸 칭찬`}
       </p>
+
+      {/* Phase 3 인라인 답글 미리보기 (영감 자료 핵심) */}
+      {item.latestReply && (
+        <p className="font-handwriting mt-2 ml-2 text-[15px] text-pink-500/90 leading-snug">
+          → {item.latestReply}
+        </p>
+      )}
+
+      {/* 답글 버튼 — 카드 하단 작은 액션 */}
+      <button
+        onClick={() => onOpenReplies(item)}
+        className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 active:scale-95 hover:text-pink-500 transition-colors"
+      >
+        <MessageCircle size={12} />
+        {replyCount > 0 ? `답글 ${replyCount}` : '답글 달기'}
+      </button>
     </article>
   );
 }
@@ -393,6 +433,15 @@ export default function PraisePage() {
   const [view, setView] = useState<ViewMode>('received');
   const [showMore, setShowMore] = useState(false); // 옛 칭찬 더 보기
 
+  // Phase 3 답글 시트
+  const [commentItem, setCommentItem] = useState<PraiseItemView | null>(null);
+  const [comments, setComments] = useState<ReactionComment[]>([]);
+  useEffect(() => {
+    if (!commentItem) { setComments([]); return; }
+    const unsub = subscribeCommentsAt('praiseStickers', commentItem.id, setComments);
+    return () => unsub();
+  }, [commentItem]);
+
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
     if (!userStr) {
@@ -529,7 +578,15 @@ export default function PraisePage() {
               </div>
             </div>
           ) : (
-            diaryItems.map((item, idx) => <PraiseRow key={item.id} item={item} me={me} index={idx} />)
+            diaryItems.map((item, idx) => (
+              <PraiseRow
+                key={item.id}
+                item={item}
+                me={me}
+                index={idx}
+                onOpenReplies={(it) => setCommentItem(it)}
+              />
+            ))
           )}
 
           {/* 옛 칭찬 더 보기 */}
@@ -578,6 +635,17 @@ export default function PraisePage() {
           </p>
         </section>
       </main>
+
+      {/* Phase 3 답글 시트 — 어떤 칭찬이든 양쪽 다 답글 달 수 있음 */}
+      <CommentSheet
+        open={!!commentItem}
+        me={me}
+        title={commentItem?.reason}
+        comments={comments}
+        onClose={() => setCommentItem(null)}
+        onAdd={(text) => addPraiseReply(commentItem!.id, me, text)}
+        onDelete={(commentId) => deleteCommentAt('praiseStickers', commentItem!.id, commentId)}
+      />
     </div>
   );
 }
