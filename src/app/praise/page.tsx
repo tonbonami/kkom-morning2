@@ -11,6 +11,7 @@ import { ArrowLeft, ChevronDown, ChevronUp, Sparkles, Send, Gift, Crown, Message
 import {
   PRAISE_STICKERS,
   addPraise,
+  addMemo,
   addPraiseReply,
   fetchPraiseTotals,
   requestPraise,
@@ -30,7 +31,7 @@ import { nameFromCode, partnerOf, vocativeOf } from '@/lib/letters';
 import { cn } from '@/lib/utils';
 
 type ViewMode = 'received' | 'sent';
-type ComposerKind = 'praise' | 'request';
+type ComposerKind = 'praise' | 'request' | 'memo';
 
 const QUICK_COUNTS = [1, 3, 5, 10, 20];
 
@@ -169,6 +170,7 @@ function PraiseRow({
 }) {
   const isMine = item.from === me;
   const isRequest = item.kind === 'request';
+  const isMemo = item.kind === 'memo';
   const replyCount = item.commentCount || 0;
 
   // 조르기 카드: 작은 노란 포스트잇 톤 (살짝 회전 + 테이프)
@@ -189,6 +191,26 @@ function PraiseRow({
         >
           <MessageCircle size={12} /> {replyCount > 0 ? `답글 ${replyCount}` : '답글 달기'}
         </button>
+      </article>
+    );
+  }
+
+  // Phase 4 메모 — 노란 포스트잇 (작고 자유롭게 회전, 색은 from에 따라 살짝 다름)
+  if (isMemo) {
+    const tilt = index % 3 === 0 ? '-rotate-2' : index % 3 === 1 ? 'rotate-2' : '-rotate-1';
+    const bg = item.from === '꼼이' ? 'bg-pink-100' : 'bg-[#FFF8D9]';
+    const ring = item.from === '꼼이' ? 'ring-pink-200' : 'ring-amber-200';
+    const tapeColor = item.from === '꼼이' ? 'tape-mint' : 'tape-pink';
+    // 메모는 다이어리에 자유롭게 떠다니는 분위기로 — 사이즈 작게, 살짝 그림자
+    return (
+      <article className={cn('relative max-w-[80%] rounded-[16px] px-4 py-3 ring-1 shadow-[3px_5px_0px_rgba(0,0,0,0.06)]', bg, ring, tilt, index % 2 === 0 ? 'self-start mr-auto ml-2' : 'self-end ml-auto mr-2')}>
+        <div className={cn('tape -top-2 left-1/2 -translate-x-1/2 w-12 rotate-3 rounded-sm', tapeColor)} />
+        <p className="font-handwriting text-[18px] leading-snug text-slate-800 whitespace-pre-wrap">
+          {item.reason}
+        </p>
+        <p className="mt-2 text-[10px] font-black text-slate-400">
+          {formatDate(item.createdAt)} · 📝 {item.from}의 메모
+        </p>
       </article>
     );
   }
@@ -265,7 +287,11 @@ function Composer({
     if (sending) return;
     const text = reason.trim();
     if (!text) {
-      showToast(kind === 'praise' ? '칭찬 이유를 살짝 적어줘' : '뭘 칭찬받고 싶은지 적어줘');
+      showToast(
+        kind === 'praise' ? '칭찬 이유를 살짝 적어줘'
+        : kind === 'request' ? '뭘 칭찬받고 싶은지 적어줘'
+        : '포스트잇에 뭐 적을지...'
+      );
       return;
     }
     setSending(true);
@@ -273,9 +299,12 @@ function Composer({
       if (kind === 'praise') {
         await addPraise({ from: me, reason: text, sticker: selectedSticker, stickerCount });
         showToast(`${vocativeOf(partner)} 칭찬 보냈어`);
-      } else {
+      } else if (kind === 'request') {
         await requestPraise({ from: me, reason: text });
         showToast(`${partner}한테 귀엽게 졸랐어`);
+      } else {
+        await addMemo({ from: me, text });
+        showToast('📝 포스트잇 붙였어');
       }
       setReason('');
       setStickerCount(1);
@@ -306,25 +335,34 @@ function Composer({
 
       {open && (
         <div className="px-5 pb-5 space-y-3 border-t border-slate-50">
-          {/* kind 토글 */}
-          <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1 mt-3">
+          {/* kind 토글 — Phase 4: 메모 추가 */}
+          <div className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1 mt-3">
             <button
               onClick={() => setKind('praise')}
               className={cn(
-                'h-10 rounded-xl text-xs font-black transition-all',
+                'h-10 rounded-xl text-[11px] font-black transition-all',
                 kind === 'praise' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'
               )}
             >
-              💝 칭찬해주기
+              💝 칭찬
             </button>
             <button
               onClick={() => setKind('request')}
               className={cn(
-                'h-10 rounded-xl text-xs font-black transition-all',
+                'h-10 rounded-xl text-[11px] font-black transition-all',
                 kind === 'request' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-400'
               )}
             >
-              🥺 칭찬 조르기
+              🥺 조르기
+            </button>
+            <button
+              onClick={() => setKind('memo')}
+              className={cn(
+                'h-10 rounded-xl text-[11px] font-black transition-all',
+                kind === 'memo' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-400'
+              )}
+            >
+              📝 메모
             </button>
           </div>
 
@@ -335,13 +373,17 @@ function Composer({
             placeholder={
               kind === 'praise'
                 ? `${vocativeOf(partner)} 어떤 칭찬을 적어줄까`
-                : '나 이런 일 했으니까 칭찬해주세요오...'
+              : kind === 'request'
+                ? '나 이런 일 했으니까 칭찬해주세요오...'
+              : '짧은 메모, 약속, 다짐... 자유롭게'
             }
             className={cn(
               'font-handwriting w-full min-h-[80px] resize-none rounded-2xl px-4 py-3 text-[19px] leading-snug outline-none focus:ring-2 transition',
               kind === 'praise'
                 ? 'bg-slate-50 border border-slate-100 focus:ring-emerald-200'
-                : 'bg-pink-50/70 border border-pink-100 focus:ring-pink-200'
+              : kind === 'request'
+                ? 'bg-pink-50/70 border border-pink-100 focus:ring-pink-200'
+              : 'bg-[#FFF8D9] border border-amber-200 focus:ring-amber-200'
             )}
             maxLength={160}
           />
@@ -407,13 +449,13 @@ function Composer({
             disabled={sending}
             className={cn(
               'w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 transition',
-              kind === 'praise'
-                ? 'bg-slate-900 text-white'
-                : 'bg-pink-500 text-white'
+              kind === 'praise' ? 'bg-slate-900 text-white'
+              : kind === 'request' ? 'bg-pink-500 text-white'
+              : 'bg-amber-500 text-white'
             )}
           >
-            {kind === 'praise' ? <Send size={16} /> : <Gift size={16} />}
-            {kind === 'praise' ? '칭찬 붙여주기' : '귀엽게 조르기'}
+            {kind === 'praise' ? <Send size={16} /> : kind === 'request' ? <Gift size={16} /> : <Sparkles size={16} />}
+            {kind === 'praise' ? '칭찬 붙여주기' : kind === 'request' ? '귀엽게 조르기' : '포스트잇 붙이기'}
           </button>
 
           {toast && (
@@ -482,11 +524,12 @@ export default function PraisePage() {
   }, [allItems, me]);
 
   // 다이어리 피드 필터링 — showMore면 allItems 전체에서 필터, 아니면 feedItems(30개)
+  // Phase 4: 메모는 둘이 같이 쓰는 자유 노트 — 양쪽 view에 다 보임
   const diaryItems = useMemo(() => {
     if (!me) return [];
     const source = showMore ? allItems : feedItems;
     return source
-      .filter((x) => (view === 'received' ? x.to === me : x.from === me))
+      .filter((x) => x.kind === 'memo' || (view === 'received' ? x.to === me : x.from === me))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }, [feedItems, allItems, me, view, showMore]);
 

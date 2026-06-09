@@ -17,7 +17,8 @@ import { partnerOf } from './letters';
 import { addCommentAt } from './reactions';
 
 export type PraiseUser = '우댕' | '꼼이';
-export type PraiseKind = 'praise' | 'request';
+// Phase 4: 'memo' — 칭찬/조르기와 별개 짧은 자유 메모. 영감 자료의 노란 포스트잇 패턴.
+export type PraiseKind = 'praise' | 'request' | 'memo';
 export type PraiseStickerSheet = 'classic' | 'pochacco';
 // Claude 참고: 'line' = 줄지어 N개 깔기 좋은 단순/작은 스티커, 'stamp' = 크게 1장 박는 일러스트형.
 // 다만 강제 분류가 아니라 정렬 힌트일 뿐 — 사용자가 어떤 스티커든 1개(도장)~20개(줄)로 자유롭게 씁니다.
@@ -213,6 +214,25 @@ export async function addPraise(input: {
     }),
   }).catch(() => {});
 
+  return ref.id;
+}
+
+// Phase 4: 자유 메모 추가 — 칭찬과 별개로 다이어리에 떠다니는 노란 포스트잇.
+// from = 본인. 메모는 to 개념 없지만 partner를 to에 박아 호환성 유지 (피드 filter용).
+export async function addMemo(input: {
+  from: PraiseUser;
+  text: string;
+}): Promise<string> {
+  const to = partnerOf(input.from) as PraiseUser;
+  const payload: DocumentData = {
+    kind: 'memo',
+    from: input.from,
+    to,
+    reason: input.text.trim(),
+    stickerCount: 0,
+    createdAt: serverTimestamp(),
+  };
+  const ref = await addDoc(collection(db, 'praiseStickers'), payload);
   return ref.id;
 }
 
