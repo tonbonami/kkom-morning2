@@ -131,24 +131,38 @@ function StickerWrap({ src, emoji, count }: { src?: string; emoji?: string; coun
 
 // 100개 달성 모먼트 — 시각적으로만 일기 맨 위에 박는 가상 카드 (Firestore 데이터 안 건드림)
 function RoyalCard({ index, total }: { index: number; total: number }) {
-  // index = 1, 2, 3... (몇 번째 왕칭찬인지)
-  const ROYAL_SRC = '/praise/classic/9.webp'; // 왕칭찬 도장
+  const ROYAL_SRC = '/praise/classic/9.webp';
   const tilt = index % 2 === 0 ? '-rotate-2' : 'rotate-2';
+  // 콘페티 — 카드 안에 흩뿌리기 (위치 + 회전 + 살짝 떨림 애니메이션)
+  const confetti = [
+    { e: '🎉', pos: 'top-1 left-3', rot: '-rotate-12', size: 'text-2xl', delay: '0s' },
+    { e: '✨', pos: 'top-2 right-4', rot: 'rotate-12', size: 'text-xl', delay: '0.2s' },
+    { e: '🎊', pos: 'top-1/2 -right-1', rot: '-rotate-6', size: 'text-2xl', delay: '0.4s' },
+    { e: '⭐', pos: 'bottom-3 left-2', rot: 'rotate-12', size: 'text-lg', delay: '0.1s' },
+    { e: '💫', pos: 'bottom-1 right-8', rot: '-rotate-6', size: 'text-lg', delay: '0.3s' },
+    { e: '🌟', pos: 'top-6 left-1/2', rot: 'rotate-12', size: 'text-lg', delay: '0.5s' },
+  ];
   return (
-    <article className={cn('relative rounded-[24px] bg-gradient-to-br from-amber-100 via-yellow-50 to-amber-50 px-5 py-4 shadow-[0_8px_24px_rgba(217,119,6,0.18)] border-2 border-amber-200', tilt)}>
-      <div className="tape -top-2 left-1/2 -translate-x-1/2 w-16 -rotate-3" />
-      {/* 콘페티 점들 */}
-      <div className="absolute -top-1 left-3 text-xs">🎉</div>
-      <div className="absolute -top-1 right-3 text-xs">✨</div>
-      <div className="absolute -bottom-1 left-6 text-xs">🎊</div>
-      <div className="flex items-center gap-3">
-        <img src={ROYAL_SRC} alt="" width={68} height={68} className="drop-shadow-md" />
-        <div>
+    <article className={cn('relative rounded-[24px] bg-gradient-to-br from-amber-100 via-yellow-50 to-amber-50 px-5 py-5 shadow-[0_10px_28px_rgba(217,119,6,0.22)] border-2 border-amber-200 overflow-visible', tilt)}>
+      <div className="tape -top-2 left-1/2 -translate-x-1/2 w-16 -rotate-3 z-10" />
+      {/* 콘페티 — 카드 안 흩뿌리기 + bounce 애니메이션 */}
+      {confetti.map((c, i) => (
+        <span
+          key={i}
+          className={cn('absolute pointer-events-none drop-shadow-sm', c.pos, c.rot, c.size)}
+          style={{ animation: `bounce 1.4s ${c.delay} ease-in-out infinite alternate` }}
+        >
+          {c.e}
+        </span>
+      ))}
+      <div className="flex items-center gap-3 relative z-[1]">
+        <img src={ROYAL_SRC} alt="" width={72} height={72} className="drop-shadow-md shrink-0" />
+        <div className="flex-1 min-w-0">
           <p className="text-[11px] font-black text-amber-700 tracking-wider">{index}번째 왕칭찬</p>
-          <p className="font-handwriting text-[20px] text-amber-900 leading-tight">
+          <p className="font-handwriting text-[22px] text-amber-900 leading-tight">
             🎉 {total}개 모았어!
           </p>
-          <p className="font-handwriting text-[14px] text-amber-600 leading-tight mt-0.5">
+          <p className="font-handwriting text-[15px] text-amber-700/80 leading-tight mt-0.5">
             100개마다 자동으로 박혀
           </p>
         </div>
