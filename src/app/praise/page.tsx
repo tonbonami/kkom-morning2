@@ -506,7 +506,19 @@ export default function PraisePage() {
   const partner = me ? (partnerOf(me) as PraiseUser) : '';
   const receivedTotal = me ? totalPraiseCount(allItems, me) : 0;
   const sentTotal = me ? totalPraiseCount(allItems.filter((x) => x.from === me)) : 0;
-  const royalCount = Math.floor(receivedTotal / 100);
+  const realRoyalCount = Math.floor(receivedTotal / 100);
+  // ?preview=royal[:N]으로 100개 달성 모먼트 미리 체험 — 실제 royalCount와 max로 합침
+  const [previewRoyal, setPreviewRoyal] = useState(0);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const v = new URLSearchParams(window.location.search).get('preview') || '';
+    if (v === 'royal') setPreviewRoyal(1);
+    else if (v.startsWith('royal:')) {
+      const n = parseInt(v.split(':')[1] || '1');
+      setPreviewRoyal(Number.isFinite(n) ? Math.max(1, Math.min(9, n)) : 1);
+    }
+  }, []);
+  const royalCount = Math.max(realRoyalCount, previewRoyal);
   const royalProgress = receivedTotal % 100;
   const nextRoyalLeft = royalProgress === 0 && receivedTotal > 0 ? 100 : 100 - royalProgress;
 
