@@ -419,6 +419,44 @@ export default function NewLetterPage() {
                 </div>
               </div>
 
+              {/* 선택된 이모티콘 미리보기 — 모달 안에서 항상 보이게 (사용자 신고: 가려져서 안 보였음) */}
+              <div className="px-5 py-2.5 bg-emerald-50/40 border-y border-emerald-100/60">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-bold text-slate-500">담은 이모티콘</span>
+                  <span className={`text-[11px] font-black ${selectedEmoticonIds.length >= MAX_EMOTICONS_PER_LETTER ? 'text-rose-500' : 'text-emerald-600'}`}>
+                    {selectedEmoticonIds.length} / {MAX_EMOTICONS_PER_LETTER}
+                  </span>
+                </div>
+                {selectedEmoticonIds.length > 0 ? (
+                  <div className="flex gap-1.5 overflow-x-auto pb-1">
+                    <AnimatePresence>
+                      {selectedEmoticonIds.map((id, idx) => {
+                        const it = getEmoticonsByIds([id])[0];
+                        if (!it) return null;
+                        return (
+                          <motion.button
+                            key={`${id}-${idx}`}
+                            type="button"
+                            initial={{ scale: 0.4, opacity: 0, rotate: -15 }}
+                            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                            exit={{ scale: 0.4, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 18, stiffness: 320 }}
+                            onClick={() => removeSelectedEmoticon(idx)}
+                            className="relative shrink-0 w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center"
+                            aria-label={`${it.label} 빼기`}
+                          >
+                            <img src={it.imageUrl} alt="" className="w-full h-full object-contain p-1" />
+                            <span className="absolute -top-1 -right-1 bg-slate-800 text-white w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-black">×</span>
+                          </motion.button>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-400 py-1">탭하면 여기 담겨요</p>
+                )}
+              </div>
+
               <div className="px-5 py-3 flex items-center gap-2 overflow-x-auto no-scrollbar">
                 {EMOTICON_SETS.map((set) => (
                   <button
@@ -437,25 +475,40 @@ export default function NewLetterPage() {
                 ))}
               </div>
 
-              <div className="px-5 pb-5">
-                <div className="grid grid-cols-3 gap-2.5">
-                  {activeEmoticons.map((item) => (
-                    <motion.button
-                      key={item.id}
-                      type="button"
-                      whileTap={{ scale: 0.9, rotate: -2 }}
-                      onClick={() => addEmoticon(item.id)}
-                      className="aspect-square rounded-[26px] bg-white border border-slate-100 shadow-[0_6px_18px_rgba(15,23,42,0.04)] flex items-center justify-center active:border-emerald-200 transition-colors overflow-hidden p-1.5"
-                      aria-label={`${item.label} 이모티콘 선택`}
-                    >
-                      <img src={item.imageUrl} alt={item.label} className="w-full h-full object-contain drop-shadow-sm" />
-                    </motion.button>
-                  ))}
-                </div>
-                <p className="mt-3 text-center text-[11px] font-bold text-slate-400">
-                  글 없이 이모티콘만 보내도 알림에 마음이 같이 전해져요.
-                </p>
-              </div>
+              {(() => {
+                const maxed = selectedEmoticonIds.length >= MAX_EMOTICONS_PER_LETTER;
+                return (
+                  <div className="px-5 pb-5">
+                    <div className={`grid grid-cols-3 gap-2.5 ${maxed ? 'opacity-50 pointer-events-none' : ''}`}>
+                      {activeEmoticons.map((item) => {
+                        const usedCount = selectedEmoticonIds.filter((id) => id === item.id).length;
+                        return (
+                          <motion.button
+                            key={item.id}
+                            type="button"
+                            whileTap={{ scale: 0.88, rotate: -3 }}
+                            animate={usedCount > 0 ? { scale: [1, 1.05, 1] } : { scale: 1 }}
+                            transition={{ duration: 0.3 }}
+                            onClick={() => addEmoticon(item.id)}
+                            className="relative aspect-square rounded-[26px] bg-white border border-slate-100 shadow-[0_6px_18px_rgba(15,23,42,0.04)] flex items-center justify-center active:border-emerald-200 transition-colors overflow-hidden p-1.5"
+                            aria-label={`${item.label} 이모티콘 선택`}
+                          >
+                            <img src={item.imageUrl} alt={item.label} className="w-full h-full object-contain drop-shadow-sm" />
+                            {usedCount > 0 && (
+                              <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[11px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-md ring-2 ring-white">
+                                {usedCount}
+                              </span>
+                            )}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-3 text-center text-[11px] font-bold text-slate-400">
+                      {maxed ? '꽉 찼어요. 이모티콘을 빼면 더 담을 수 있어요.' : '글 없이 이모티콘만 보내도 알림에 마음이 같이 전해져요.'}
+                    </p>
+                  </div>
+                );
+              })()}
             </motion.div>
           </>
         )}
