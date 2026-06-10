@@ -53,9 +53,10 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
     setLastSent(now);
     setActiveKind(q.kind);
     haptic(40);
-    setToast(`${q.emoji} ${q.label} — ${partner}한테 보냈어!`);
-    setTimeout(() => setToast(null), 2000);
-    setTimeout(() => setActiveKind(null), 600);
+    setToast(`${partner}한테 보냈어`);
+    setTimeout(() => setToast(null), 1800);
+    // 중앙 confirmation 애니메이션 시간(0.95s)에 맞춰 늘림
+    setTimeout(() => setActiveKind(null), 950);
 
     try {
       await fetch('/api/bump', {
@@ -70,7 +71,40 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
 
   return (
     <>
-      {/* 상단 토스트 */}
+      {/* 화면 중앙 confirmation — 보낸 직후 큰 포차코 떠올라 사라짐 (사용자 요청: 시선 이동 없이 바로 확인) */}
+      <AnimatePresence>
+        {activeKind && (() => {
+          const item = QUICK.find((q) => q.kind === activeKind);
+          if (!item) return null;
+          return (
+            <motion.div
+              initial={{ scale: 0.4, opacity: 0, y: 80 }}
+              animate={{ scale: [0.4, 1.15, 1, 1], opacity: [0, 1, 1, 0], y: [80, 0, -10, -40] }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.95, times: [0, 0.25, 0.7, 1], ease: 'easeOut' }}
+              className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none"
+            >
+              <div className="flex flex-col items-center gap-3">
+                <img
+                  src={item.image}
+                  alt=""
+                  width={168}
+                  height={168}
+                  className="drop-shadow-[0_20px_40px_rgba(0,0,0,0.18)]"
+                />
+                <div className="bg-white/95 backdrop-blur-md px-5 py-2.5 rounded-full shadow-[0_10px_30px_rgba(15,23,42,0.18)] border border-white">
+                  <p className="font-black text-[16px] text-slate-800 flex items-center gap-1.5">
+                    <Check size={15} strokeWidth={3.5} className="text-emerald-500" />
+                    {item.label} 보냈어!
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* 상단 보조 토스트 — partner 이름 함께 (작게 유지) */}
       <AnimatePresence>
         {toast && (
           <motion.div
@@ -78,9 +112,9 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ type: 'spring', damping: 24, stiffness: 280 }}
-            className="fixed top-6 left-1/2 -translate-x-1/2 bg-[#10B981] text-white px-4 py-2.5 rounded-full font-bold text-[13px] shadow-[0_8px_24px_rgba(16,185,129,0.35)] z-50 flex items-center gap-2 max-w-[calc(100%-2rem)]"
+            className="fixed top-6 left-1/2 -translate-x-1/2 bg-[#10B981] text-white px-4 py-2 rounded-full font-bold text-[12px] shadow-[0_8px_24px_rgba(16,185,129,0.35)] z-50 flex items-center gap-2 max-w-[calc(100%-2rem)]"
           >
-            <Check size={14} strokeWidth={3} />
+            <Check size={12} strokeWidth={3} />
             <span className="truncate">{toast}</span>
           </motion.div>
         )}
