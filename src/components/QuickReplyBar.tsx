@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check } from 'lucide-react';
+import { haptic } from '@/lib/feedback';
 
 // Claude 참고: 'night'(잘자) 제거 + 'hug'(안아줘), 'whitening'(우댕꼼이 암호) 추가.
 // 화이트닝 = 꼼이가 치아미백 약 발라서 하얘짐 → 둘만의 화이팅 구호.
@@ -51,6 +52,7 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
     }
     setLastSent(now);
     setActiveKind(q.kind);
+    haptic(40);
     setToast(`${q.emoji} ${q.label} — ${partner}한테 보냈어!`);
     setTimeout(() => setToast(null), 2000);
     setTimeout(() => setActiveKind(null), 600);

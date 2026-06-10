@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Send, Mail, Clock, Mic, Square, Play, Pause, Trash2, Pencil, Smile, X, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { sendLetter, uploadVoice, nameFromCode, partnerOf, type Doodle } from '@/lib/letters';
+import { feedback } from '@/lib/feedback';
 import { EMOTICON_SETS, getEmoticonsByIds } from '@/lib/emoticons';
 import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
 
@@ -168,9 +169,12 @@ export default function NewLetterPage() {
         doodle as Doodle | null,
         selectedEmoticonIds
       );
+      const partner = partnerOf(me);
+      feedback(scheduled ? `⏳ ${partner}한테 예약 편지 보냈어` : `📨 ${partner}한테 편지 보냈어`);
       router.push('/');
     } catch (e) {
       console.error('편지 전송 실패:', e);
+      feedback('편지 전송 실패. 다시 해보자', 'error');
       setError('편지를 보내지 못했어요. 잠시 후 다시 시도해 주세요.');
       setSending(false);
     }

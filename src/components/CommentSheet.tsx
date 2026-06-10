@@ -55,6 +55,12 @@ export default function CommentSheet({ open, title, me, comments, onClose, onAdd
     try {
       await onAdd(t);
       setText('');
+      const { feedback } = await import('@/lib/feedback');
+      feedback('💬 댓글 달았어');
+    } catch (err) {
+      console.error('댓글 추가 실패:', err);
+      const { feedback } = await import('@/lib/feedback');
+      feedback('댓글 실패. 다시 해줘', 'error');
     } finally {
       setSending(false);
     }

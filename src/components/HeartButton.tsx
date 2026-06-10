@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { haptic } from '@/lib/feedback';
 
 // 카드 코너에 들어가는 작은 하트 카운터 (탭마다 +1, 작은 ❤️가 위로 튀어오름)
 // 999까지 풀 표시, 1000+은 'k+'로 압축.
@@ -26,6 +27,7 @@ export default function HeartButton({ count, onHeart, variant = 'light', size = 
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    haptic([15, 30, 15]); // 따단닥 — 하트 톡톡 느낌
     setBursts((prev) => [...prev, { id: Date.now() + Math.random(), x: (Math.random() - 0.5) * 30 }]);
     onHeart();
   };

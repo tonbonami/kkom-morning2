@@ -29,6 +29,7 @@ import {
 import CommentSheet from '@/components/CommentSheet';
 import { nameFromCode, partnerOf, vocativeOf } from '@/lib/letters';
 import { cn } from '@/lib/utils';
+import { haptic } from '@/lib/feedback';
 
 type ViewMode = 'received' | 'sent';
 type ComposerKind = 'praise' | 'request' | 'memo';
@@ -293,6 +294,7 @@ function Composer({
   const [open, setOpen] = useState(false);
 
   const showToast = (msg: string) => {
+    haptic(30);
     setToast(msg);
     setTimeout(() => setToast(null), 2200);
   };

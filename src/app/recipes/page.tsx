@@ -80,7 +80,11 @@ export default function RecipesPage() {
 
   if (!me) return <div className="min-h-screen bg-[#FFFCF5] max-w-md mx-auto" />;
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
+  const showToast = (msg: string) => {
+    if (typeof navigator !== 'undefined') { try { (navigator as any).vibrate?.(30); } catch {} }
+    setToast(msg);
+    setTimeout(() => setToast(null), 2200);
+  };
 
   const openSheet = () => {
     setDraftTitle('');
