@@ -137,14 +137,18 @@ export default function NewLetterPage() {
     setError('');
     setSelectedEmoticonIds((prev) => {
       if (prev.length >= MAX_EMOTICONS_PER_LETTER) {
+        feedback(`이모티콘은 ${MAX_EMOTICONS_PER_LETTER}개까지`, 'error');
         setError(`이모티콘은 한 편지에 ${MAX_EMOTICONS_PER_LETTER}개까지 보낼 수 있어요.`);
         return prev;
       }
+      // 햅틱 — 톡 짧게
+      import('@/lib/feedback').then(({ haptic }) => haptic(20)).catch(() => {});
       return [...prev, id];
     });
   };
 
   const removeSelectedEmoticon = (index: number) => {
+    import('@/lib/feedback').then(({ haptic }) => haptic(15)).catch(() => {});
     setSelectedEmoticonIds((prev) => prev.filter((_, i) => i !== index));
   };
 
