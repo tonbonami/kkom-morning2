@@ -165,7 +165,15 @@ export default function LetterInboxV3({
   onHeart, subscribeComments, addComment, deleteComment
 }: Props) {
   const [filter, setFilter] = useState<FilterType>('all');
-  const [selectedLetter, setSelectedLetter] = useState<Letter | null>(null);
+  // Claude 참고: selectedLetter를 직접 state로 가지면 letters prop 갱신 시 stale snapshot이 되어
+  // 모달 안 hearts/commentCount가 안 올라가 보임 (사용자 신고 — 11/24 하트 카운트 안 올라감 버그).
+  // id만 저장하고 letters에서 항상 최신을 derive.
+  const [selectedLetterId, setSelectedLetterId] = useState<string | null>(null);
+  const selectedLetter = useMemo(
+    () => (selectedLetterId ? letters.find((l) => l.id === selectedLetterId) || null : null),
+    [selectedLetterId, letters]
+  );
+  const setSelectedLetter = (l: Letter | null) => setSelectedLetterId(l?.id ?? null);
   const now = new Date();
 
   const filteredLetters = useMemo(() => {
