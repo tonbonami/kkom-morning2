@@ -34,6 +34,7 @@ export interface Comment {
 export interface Props {
   me: '우댕' | '꼼이';
   letters: Letter[];
+  initialOpenLetterId?: string | null;
   hasMore: boolean;
   onLoadMore: () => void;
   loading: boolean;
@@ -161,7 +162,7 @@ function HeartButton({
 // Main Component
 // -----------------------------------------------------------------
 export default function LetterInboxV3({
-  me, letters, hasMore, onLoadMore, loading, onWriteLetter, onBack,
+  me, letters, initialOpenLetterId, hasMore, onLoadMore, loading, onWriteLetter, onBack,
   onHeart, subscribeComments, addComment, deleteComment
 }: Props) {
   const [filter, setFilter] = useState<FilterType>('all');
@@ -169,6 +170,12 @@ export default function LetterInboxV3({
   // 모달 안 hearts/commentCount가 안 올라가 보임 (사용자 신고 — 11/24 하트 카운트 안 올라감 버그).
   // id만 저장하고 letters에서 항상 최신을 derive.
   const [selectedLetterId, setSelectedLetterId] = useState<string | null>(null);
+  // /letters?open={id}로 진입하면 자동으로 해당 편지 모달 열기 (홈에서 편지 카드 클릭 진입용)
+  useEffect(() => {
+    if (initialOpenLetterId && letters.some((l) => l.id === initialOpenLetterId)) {
+      setSelectedLetterId(initialOpenLetterId);
+    }
+  }, [initialOpenLetterId, letters]);
   const selectedLetter = useMemo(
     () => (selectedLetterId ? letters.find((l) => l.id === selectedLetterId) || null : null),
     [selectedLetterId, letters]

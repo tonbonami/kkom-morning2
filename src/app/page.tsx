@@ -18,6 +18,7 @@ type LocKey = keyof typeof LOCATIONS;
 import TodayTomorrowWeather from '@/components/TodayTomorrowWeather';
 import { getInitialData } from '@/lib/api';
 import { subscribeLatestLetterTo, nameFromCode, partnerOf, vocativeOf, type Voice } from '@/lib/letters';
+import { getEmoticonsByIds } from '@/lib/emoticons';
 import { subscribeMemories, type Memory } from '@/lib/memories';
 import { subscribeShareList, type ShareItemView } from '@/lib/share';
 import { subscribeWishlist } from '@/lib/wishlist';
@@ -55,6 +56,9 @@ export default function KkomMorningHome() {
   const [dailyMessage, setDailyMessage] = useState<string>('');
   const [latestVoice, setLatestVoice] = useState<Voice | null>(null);
   const [latestLetterAt, setLatestLetterAt] = useState<Date | null>(null);
+  const [latestLetterId, setLatestLetterId] = useState<string | null>(null);
+  const [latestLetterHasDoodle, setLatestLetterHasDoodle] = useState(false);
+  const [latestLetterEmoticonIds, setLatestLetterEmoticonIds] = useState<string[]>([]);
   const [hasLetter, setHasLetter] = useState(false);
   const [moods, setMoods] = useState<MoodMap>({});
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -103,6 +107,9 @@ export default function KkomMorningHome() {
       setDailyMessage(letter?.body || '');
       setLatestVoice(letter?.voice ?? null);
       setLatestLetterAt(letter?.createdAt?.toDate?.() ?? null);
+      setLatestLetterId(letter?.id || null);
+      setLatestLetterHasDoodle(!!letter?.doodle);
+      setLatestLetterEmoticonIds(Array.isArray(letter?.emoticonIds) ? letter.emoticonIds : []);
     });
     const unsubMoods = subscribeTodayMoods(setMoods);
     const unsubMemories = subscribeMemories(setMemories);
@@ -585,12 +592,16 @@ export default function KkomMorningHome() {
             <button onClick={() => router.push('/letters')} className="text-[11px] font-bold text-slate-400 hover:text-slate-600 bg-slate-50 px-3 py-1.5 rounded-full transition-colors">지난 편지</button>
           </div>
           {hasLetter ? (
-            <div className="mb-5 px-1 space-y-3">
+            <button
+              type="button"
+              onClick={() => latestLetterId && router.push(`/letters?open=${latestLetterId}`)}
+              className="block w-full text-left mb-5 px-1 space-y-3 active:scale-[0.99] transition-transform"
+              aria-label="편지 자세히 보기"
+            >
               {dailyMessage.trim() && (
                 <p className="text-[15px] font-medium text-slate-700 leading-relaxed tracking-tight whitespace-pre-wrap">&ldquo;{dailyMessage}&rdquo;</p>
               )}
               {latestVoice && (() => {
-                // Storage URL이면 그대로, 옛날 base64면 data: URL로 감쌈
                 const isUrl = /^https?:\/\//i.test(latestVoice.data);
                 const src = isUrl ? latestVoice.data : `data:${latestVoice.mime};base64,${latestVoice.data}`;
                 return (
@@ -603,7 +614,37 @@ export default function KkomMorningHome() {
                   />
                 );
               })()}
-            </div>
+              {/* 손글씨/이모티콘 미리보기 — 사용자 신고: 미리보기에 안 보여 포함 여부 몰랐음 */}
+              {(latestLetterHasDoodle || latestLetterEmoticonIds.length > 0) && (
+                <div className="flex items-center gap-2 flex-wrap pt-1">
+                  {latestLetterHasDoodle && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-rose-500 bg-white/70 px-2.5 py-1 rounded-full">
+                      ✏️ 손글씨 포함
+                    </span>
+                  )}
+                  {latestLetterEmoticonIds.length > 0 && (() => {
+                    const items = getEmoticonsByIds(latestLetterEmoticonIds).slice(0, 3);
+                    return items.length > 0 ? (
+                      <div className="flex items-center gap-1">
+                        {items.map((it, i) => (
+                          <img
+                            key={`${it.id}-${i}`}
+                            src={it.imageUrl}
+                            alt={it.label}
+                            className="w-9 h-9 object-contain drop-shadow-sm"
+                          />
+                        ))}
+                        {latestLetterEmoticonIds.length > 3 && (
+                          <span className="text-[11px] font-black text-slate-400 ml-0.5">
+                            +{latestLetterEmoticonIds.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
+            </button>
           ) : (
             <p className="text-center text-[14px] text-slate-400 py-3 mb-2">아직 도착한 편지가 없어요 💌</p>
           )}

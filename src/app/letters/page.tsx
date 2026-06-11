@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import LetterInboxV3, { type Comment as ViewComment, type Letter as ViewLetter } from '@/components/LetterInboxV3';
 import {
   subscribeRecentLetters,
@@ -20,7 +20,17 @@ const PAGE_STEP = 20;
 const COLLECTION = 'letters';
 
 export default function LettersPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />}>
+      <LettersPageInner />
+    </Suspense>
+  );
+}
+
+function LettersPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const openParam = searchParams.get('open');
   const [me, setMe] = useState<'우댕' | '꼼이' | ''>('');
   const [raw, setRaw] = useState<FsLetter[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -53,6 +63,7 @@ export default function LettersPage() {
     <LetterInboxV3
       me={me}
       letters={letters as unknown as ViewLetter[]}
+      initialOpenLetterId={openParam}
       hasMore={hasMore}
       loading={loading && raw.length === 0}
       onLoadMore={() => setPageSize((p) => p + PAGE_STEP)}
