@@ -1,10 +1,10 @@
 'use client';
 
-// 우리의 시집 — 시 한 편 = 사진(선택) + 텍스트(선택, 둘 중 최소 1개) + 제목 + 작성자
-// 디자인은 임시 — 칭찬 다이어리/레시피 톤 따라감. Gemini 리뷰 후 다듬을 예정.
+// 우리의 시집 — Gemini 디자인 리뷰 적용 (한지 톤 + 인화지 프레임 + 인용선 + 풀스크린 시 엮기 모달)
+// 시 한 편 = 사진(선택) + 텍스트(선택, 둘 중 최소 1개) + 제목 + 작성자
 
 import type { ChangeEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, Camera, Loader2, MessageCircle, X, BookText, Trash2 } from 'lucide-react';
@@ -34,7 +34,7 @@ export default function PoemsPage() {
   const [me, setMe] = useState<'우댕' | '꼼이' | ''>('');
   const [items, setItems] = useState<PoemItemView[]>([]);
 
-  // 추가 시트
+  // 작성 모달 (풀스크린)
   const [isAdding, setIsAdding] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
@@ -74,7 +74,7 @@ export default function PoemsPage() {
 
   const handleSubmit = async () => {
     if (!draftTitle.trim()) { feedback('제목은 적어줘', 'error'); return; }
-    if (!draftBody.trim() && !draftPhoto) { feedback('사진이나 글 둘 중 하나는 있어야 해', 'error'); return; }
+    if (!draftBody.trim() && !draftPhoto) { feedback('사진이나 시 본문 둘 중 하나는 있어야 해', 'error'); return; }
     setIsSubmitting(true);
     try {
       await addPoem({
@@ -83,7 +83,7 @@ export default function PoemsPage() {
         photoFile: draftPhoto,
         by: me,
       });
-      feedback('📜 시 한 편 올렸어');
+      feedback('📜 시 한 편 엮었어');
       setIsAdding(false);
     } catch (e) {
       console.error(e);
@@ -94,74 +94,111 @@ export default function PoemsPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#FFFCF5] notebook-bg text-slate-800">
-      <main className="max-w-md mx-auto px-5 pt-6 pb-32">
-        <header className="flex items-center justify-between mb-5">
-          <button
-            onClick={() => router.push('/')}
-            className="h-10 w-10 rounded-2xl bg-white shadow-sm border border-white/70 flex items-center justify-center text-slate-500 active:scale-95"
-            aria-label="홈으로"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div className="text-center">
-            <p className="text-[11px] font-black tracking-[0.18em] uppercase text-purple-500">Our Poems</p>
-            <h1 className="text-xl font-black tracking-tight">우리의 시집</h1>
-          </div>
-          <div className="h-10 w-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
-            <BookText size={18} />
-          </div>
-        </header>
+    <div className="min-h-[100dvh] bg-[#FFFCF5] text-slate-800">
+      {/* 책 표지 톤 헤더 (Gemini P1) — 상단 보라 라인 + Volume + 손글씨 타이틀 */}
+      <header className="relative pt-12 pb-7 border-b border-purple-100">
+        <div className="absolute top-0 inset-x-0 h-1.5 bg-purple-300" />
+        <button
+          onClick={() => router.push('/')}
+          className="absolute top-5 left-5 h-10 w-10 rounded-2xl bg-white shadow-sm border border-white/70 flex items-center justify-center text-slate-500 active:scale-95"
+          aria-label="홈으로"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div className="px-5 flex flex-col items-center text-center">
+          <span className="text-[11px] font-bold text-purple-400 tracking-[0.2em] uppercase mb-1.5">
+            Volume. 1
+          </span>
+          <h1 className="font-handwriting text-[36px] text-purple-900 leading-none mb-2">
+            우리의 시집
+          </h1>
+          <p className="text-[12px] text-slate-400">
+            서로를 향해 적어내린 마음들
+          </p>
+        </div>
+      </header>
 
+      <main className="max-w-md mx-auto px-5 pt-8 pb-32">
+        {/* 새 시 쓰기 — 더 차분한 보라 outline 톤 */}
         <button
           onClick={openSheet}
-          className="w-full mb-5 h-14 rounded-2xl bg-purple-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(168,85,247,0.22)] active:scale-[0.98] transition"
+          className="w-full mb-10 h-14 rounded-2xl bg-purple-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(168,85,247,0.22)] active:scale-[0.98] transition"
         >
-          <Plus size={18} /> 새 시 올리기
+          <Plus size={18} /> 새 시 엮기
         </button>
 
-        <section className="space-y-5">
+        <section className="space-y-12">
           {items.length === 0 ? (
-            <div className="rounded-2xl bg-white p-10 text-center text-sm font-bold text-slate-400 border border-slate-100 shadow-[2px_3px_0px_rgba(0,0,0,0.04)]">
-              아직 올린 시가 없어요 📜<br/>첫 시를 적어볼까?
+            // Gemini P2: 시적 빈 페이지
+            <div className="flex flex-col items-center justify-center mt-10 px-6 opacity-80">
+              <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mb-6">
+                <BookText className="text-purple-300" size={32} />
+              </div>
+              <p className="font-handwriting text-[24px] text-purple-800/70 text-center leading-[1.55]">
+                아직 쓰이지 않은 백지네요.<br/>
+                오늘 우리 마음은<br/>어떤 시인가요?
+              </p>
             </div>
           ) : (
             items.map((item, idx) => {
               const now = Date.now();
               const DAY_MS = 24*60*60*1000;
               const isNew = item.by !== me && (now - item.createdAt.getTime() < DAY_MS);
-              const tilt = idx % 3 === 0 ? '-rotate-[0.5deg]' : idx % 3 === 1 ? 'rotate-[0.5deg]' : '';
+              const photoTilt = idx % 2 === 0 ? 'rotate-1' : '-rotate-1';
               return (
-                <article key={item.id} className={`relative bg-white rounded-2xl p-5 shadow-[2px_3px_0px_rgba(0,0,0,0.06)] border border-slate-100 ${tilt}`}>
+                <article
+                  key={item.id}
+                  className="relative bg-[#FDFBF7] p-6 shadow-[0_4px_24px_rgba(107,33,168,0.04)] border border-purple-900/5"
+                >
+                  {/* 상단 핀 — 보라 톤 옆 노란 와시 테이프 보색 */}
+                  <div className="tape absolute -top-2 left-1/2 -translate-x-1/2 w-16 -rotate-2 z-10 opacity-90" />
+
+                  {/* NEW 배지 */}
                   {isNew && (
                     <span className="absolute -top-2 -right-1 bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md rotate-[8deg] shadow-md z-20 ring-2 ring-white">
                       ✨ NEW
                     </span>
                   )}
 
-                  {/* 사진 (있으면) */}
+                  {/* 사진 (있으면) — 인화지 프레임 + 살짝 회전 */}
                   {item.photoUrl && (
                     <button
                       type="button"
                       onClick={() => { setGalleryPhoto(item.photoUrl!); setGalleryTitle(item.title); }}
-                      className="block w-full mb-3 relative rounded-xl overflow-hidden bg-slate-100 active:scale-[0.99] transition"
+                      className={`block w-full mb-7 active:scale-[0.99] transition`}
                     >
-                      <img src={item.photoUrl} alt={item.title} className="w-full max-h-[420px] object-contain bg-slate-50" />
+                      <div className={`p-2.5 bg-white shadow-[1px_2px_8px_rgba(0,0,0,0.06)] ${photoTilt}`}>
+                        <img
+                          src={item.photoUrl}
+                          alt={item.title}
+                          className="w-full max-h-[440px] object-contain bg-slate-50"
+                        />
+                      </div>
                     </button>
                   )}
 
-                  <h3 className="text-[18px] font-black text-slate-800 mb-1 leading-tight">{item.title}</h3>
-                  <p className="text-[11px] font-bold text-slate-400 mb-3">
-                    {item.by} · {item.createdAt.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
+                  {/* 본문 — 좌측 보라 인용선 + 여백 + 손글씨 + 넉넉한 줄간격 */}
+                  <div className="pl-4 border-l-2 border-purple-200/60">
+                    <h2 className="font-handwriting text-[26px] text-purple-900 mb-2 leading-tight">
+                      {item.title}
+                    </h2>
+                    {item.body && (
+                      <p
+                        className="font-handwriting text-[22px] text-slate-700 break-keep whitespace-pre-wrap"
+                        style={{ lineHeight: 1.8, letterSpacing: '0.005em' }}
+                      >
+                        {item.body}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* 메타 — 우측 하단 작게 */}
+                  <p className="mt-6 text-right text-[11px] text-slate-400">
+                    {item.by} 씀 · {item.createdAt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
                   </p>
 
-                  {item.body && (
-                    <p className="font-handwriting text-[19px] text-slate-700 leading-relaxed whitespace-pre-wrap mb-3">
-                      {item.body}
-                    </p>
-                  )}
-
-                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                  {/* 액션 */}
+                  <div className="mt-4 pt-3 flex items-center justify-between gap-3 border-t border-purple-100/70">
                     <div className="flex items-center gap-3">
                       <HeartButton count={item.hearts} onHeart={() => incrementHeartsAt(COLLECTION, item.id)} />
                       <button
@@ -189,89 +226,81 @@ export default function PoemsPage() {
         </section>
       </main>
 
-      {/* 추가 시트 */}
+      {/* 풀스크린 시 엮기 모달 (Gemini P1: 의식적인 글쓰기) */}
       <AnimatePresence>
         {isAdding && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => !isSubmitting && setIsAdding(false)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 max-w-md mx-auto"
-            />
-            <motion.div
-              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md bg-white rounded-t-[28px] p-6 pb-safe-bottom max-h-[90dvh] overflow-y-auto"
-            >
-              <div className="flex justify-between items-center mb-5">
-                <h2 className="text-xl font-black">새 시 올리기</h2>
-                <button onClick={() => setIsAdding(false)} className="text-slate-400 active:scale-90"><X size={20} /></button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[13px] font-bold text-slate-500 mb-1.5 ml-1">제목 (필수)</label>
-                  <input
-                    value={draftTitle}
-                    onChange={(e) => setDraftTitle(e.target.value)}
-                    placeholder="예: 첫눈"
-                    className="w-full bg-[#F7F9F9] rounded-[20px] px-5 py-4 outline-none focus:ring-2 focus:ring-purple-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[13px] font-bold text-slate-500 mb-1.5 ml-1">사진 (선택)</label>
-                  {draftPhoto ? (
-                    <div className="relative w-full rounded-2xl overflow-hidden bg-slate-100 shadow-sm">
-                      <img src={URL.createObjectURL(draftPhoto)} alt="" className="w-full max-h-[260px] object-contain bg-slate-50" />
-                      <button
-                        type="button"
-                        onClick={() => setDraftPhoto(null)}
-                        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/70 text-white flex items-center justify-center"
-                        aria-label="사진 빼기"
-                      ><X size={14} /></button>
-                    </div>
-                  ) : (
-                    <label className="w-full h-28 rounded-2xl bg-[#F7F9F9] border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-500 cursor-pointer active:scale-[0.99]">
-                      <Camera size={22} />
-                      <span className="text-[12px] font-bold mt-1">사진으로 시 찍어 올리기</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                          const f = e.target.files?.[0];
-                          if (f && f.type.startsWith('image/')) setDraftPhoto(f);
-                          e.currentTarget.value = '';
-                        }}
-                      />
-                    </label>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-[13px] font-bold text-slate-500 mb-1.5 ml-1">시 본문 (선택, 타이핑)</label>
-                  <textarea
-                    value={draftBody}
-                    onChange={(e) => setDraftBody(e.target.value)}
-                    placeholder="사진만 올려도 되고, 타이핑한 시를 같이 적어도 돼"
-                    className="font-handwriting w-full bg-[#F7F9F9] rounded-[20px] px-5 py-4 min-h-[180px] resize-none text-[19px] leading-relaxed outline-none focus:ring-2 focus:ring-purple-200"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1.5 ml-1">
-                    Tip: 사진 + 본문 둘 다 채우면 시 카드가 더 풍부해요
-                  </p>
-                </div>
-              </div>
-
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-[#FFFCF5] notebook-bg flex flex-col"
+          >
+            <div className="flex justify-between items-center px-4 py-3 pt-safe-bottom max-w-md mx-auto w-full" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
+              <button
+                onClick={() => setIsAdding(false)}
+                className="text-slate-400 px-2 text-[13px] font-bold active:scale-95"
+              >
+                닫기
+              </button>
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="w-full mt-7 h-14 rounded-2xl bg-purple-500 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 transition"
+                className="bg-purple-500 text-white font-bold text-[13px] px-5 py-2 rounded-full shadow-sm active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
               >
-                {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : '시 올리기'}
+                {isSubmitting && <Loader2 size={13} className="animate-spin" />}
+                시 엮기
               </button>
-            </motion.div>
-          </>
+            </div>
+
+            <div className="flex-1 max-w-md mx-auto w-full px-6 py-6 flex flex-col overflow-y-auto">
+              {/* 사진 첨부 (선택) */}
+              {draftPhoto ? (
+                <div className="relative mb-6 mx-auto max-w-[280px] p-2.5 bg-white shadow-md rotate-1">
+                  <img src={URL.createObjectURL(draftPhoto)} alt="" className="w-full object-contain" />
+                  <button
+                    type="button"
+                    onClick={() => setDraftPhoto(null)}
+                    className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-slate-800 text-white flex items-center justify-center shadow-lg"
+                    aria-label="사진 빼기"
+                  ><X size={15} /></button>
+                </div>
+              ) : (
+                <label className="mb-6 mx-auto w-28 h-28 rounded-full bg-purple-50/60 border-2 border-dashed border-purple-200 flex flex-col items-center justify-center text-purple-400 cursor-pointer active:scale-95 shadow-sm">
+                  <Camera size={22} />
+                  <span className="text-[10px] font-bold mt-1 leading-tight text-center px-2">사진 첨부<br/>(선택)</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                      const f = e.target.files?.[0];
+                      if (f && f.type.startsWith('image/')) setDraftPhoto(f);
+                      e.currentTarget.value = '';
+                    }}
+                  />
+                </label>
+              )}
+
+              {/* 제목 — 가운데 정렬, 테두리 없음 */}
+              <input
+                value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                placeholder="제목"
+                className="bg-transparent border-none focus:outline-none focus:ring-0 text-center font-handwriting text-[32px] text-purple-900 placeholder:text-purple-200 mb-6 w-full"
+              />
+
+              {/* 본문 — 가운데 정렬, 넉넉한 줄간격 */}
+              <textarea
+                value={draftBody}
+                onChange={(e) => setDraftBody(e.target.value)}
+                placeholder="여기에 마음을 적어주세요..."
+                className="bg-transparent border-none focus:outline-none focus:ring-0 text-center font-handwriting text-[22px] text-slate-700 placeholder:text-slate-300 flex-1 resize-none w-full"
+                style={{ lineHeight: 1.9 }}
+              />
+
+              <p className="text-[11px] text-slate-400 text-center mt-4">
+                사진만 있어도, 글만 있어도 시가 될 수 있어
+              </p>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
