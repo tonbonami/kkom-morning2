@@ -7,7 +7,7 @@ import type { ChangeEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Camera, Loader2, MessageCircle, X, BookText, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Camera, Loader2, MessageCircle, X, BookText, Trash2, Sparkles } from 'lucide-react';
 import {
   subscribePoems,
   addPoem,
@@ -40,6 +40,8 @@ export default function PoemsPage() {
   const [draftTitle, setDraftTitle] = useState('');
   const [draftBody, setDraftBody] = useState('');
   const [draftPhoto, setDraftPhoto] = useState<File | null>(null);
+  const [isOcr, setIsOcr] = useState(false);
+  const [ocrUsed, setOcrUsed] = useState(false); // 같은 사진에 OCR 여러 번 안 부르도록
 
   // 갤러리 모달 (시 사진 확대)
   const [galleryPhoto, setGalleryPhoto] = useState<string | null>(null);
@@ -69,7 +71,46 @@ export default function PoemsPage() {
     setDraftTitle('');
     setDraftBody('');
     setDraftPhoto(null);
+    setOcrUsed(false);
     setIsAdding(true);
+  };
+
+  // 사진을 base64로 변환해서 /api/ocr-poem 호출. 결과를 본문에 채워줌(사용자가 편집 가능).
+  const runOcr = async () => {
+    if (!draftPhoto || isOcr) return;
+    setIsOcr(true);
+    try {
+      const buf = await draftPhoto.arrayBuffer();
+      // 큰 파일은 chunk로 변환 (스택 오버플로 회피)
+      let binary = '';
+      const bytes = new Uint8Array(buf);
+      const CHUNK = 0x8000;
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+      }
+      const base64 = btoa(binary);
+      const r = await fetch('/api/ocr-poem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, mimeType: draftPhoto.type || 'image/jpeg' }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || 'OCR failed');
+      const text = (data.text || '').trim();
+      if (!text) {
+        feedback('글자를 못 읽었어. 직접 적어줘', 'info');
+        return;
+      }
+      // 본문이 비어있으면 그대로 채움, 이미 글이 있으면 줄바꿈 후 덧붙임
+      setDraftBody((prev) => prev.trim() ? `${prev.trim()}\n\n${text}` : text);
+      setOcrUsed(true);
+      feedback('✨ 시를 옮겨왔어 — 다듬어줘');
+    } catch (e: any) {
+      console.error(e);
+      feedback('OCR 실패. 직접 적어줘', 'error');
+    } finally {
+      setIsOcr(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -251,16 +292,28 @@ export default function PoemsPage() {
             </div>
 
             <div className="flex-1 max-w-md mx-auto w-full px-6 py-6 flex flex-col overflow-y-auto">
-              {/* 사진 첨부 (선택) */}
+              {/* 사진 첨부 (선택) + OCR */}
               {draftPhoto ? (
-                <div className="relative mb-6 mx-auto max-w-[280px] p-2.5 bg-white shadow-md rotate-1">
-                  <img src={URL.createObjectURL(draftPhoto)} alt="" className="w-full object-contain" />
+                <div className="mb-6 flex flex-col items-center gap-3">
+                  <div className="relative mx-auto max-w-[280px] p-2.5 bg-white shadow-md rotate-1">
+                    <img src={URL.createObjectURL(draftPhoto)} alt="" className="w-full object-contain" />
+                    <button
+                      type="button"
+                      onClick={() => { setDraftPhoto(null); setOcrUsed(false); }}
+                      className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-slate-800 text-white flex items-center justify-center shadow-lg"
+                      aria-label="사진 빼기"
+                    ><X size={15} /></button>
+                  </div>
+                  {/* OCR 버튼 — 사진에 적힌 시를 본문으로 옮김 (Claude Haiku Vision) */}
                   <button
                     type="button"
-                    onClick={() => setDraftPhoto(null)}
-                    className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-slate-800 text-white flex items-center justify-center shadow-lg"
-                    aria-label="사진 빼기"
-                  ><X size={15} /></button>
+                    onClick={runOcr}
+                    disabled={isOcr}
+                    className="inline-flex items-center gap-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-[12px] font-black active:scale-95 disabled:opacity-60 transition"
+                  >
+                    {isOcr ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                    {isOcr ? '사진에서 글 읽는 중...' : ocrUsed ? '한 번 더 읽기' : '✨ 사진에서 글 읽어와'}
+                  </button>
                 </div>
               ) : (
                 <label className="mb-6 mx-auto w-28 h-28 rounded-full bg-purple-50/60 border-2 border-dashed border-purple-200 flex flex-col items-center justify-center text-purple-400 cursor-pointer active:scale-95 shadow-sm">
@@ -272,7 +325,7 @@ export default function PoemsPage() {
                     className="hidden"
                     onChange={(e: ChangeEvent<HTMLInputElement>) => {
                       const f = e.target.files?.[0];
-                      if (f && f.type.startsWith('image/')) setDraftPhoto(f);
+                      if (f && f.type.startsWith('image/')) { setDraftPhoto(f); setOcrUsed(false); }
                       e.currentTarget.value = '';
                     }}
                   />
