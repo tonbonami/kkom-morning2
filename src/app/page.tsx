@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
-  Wind, Heart, PenLine, BookOpen, ChefHat,
+  Wind, Heart, PenLine, BookOpen, ChefHat, BookText,
   RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award,
 } from 'lucide-react';
 
@@ -809,7 +809,22 @@ export default function KkomMorningHome() {
           <ChevronRight size={20} className="text-orange-400 shrink-0" />
         </button>
 
-        {/* 우리들의 서재 — 사용자 요청으로 일단 숨김 (코드 유지) */}
+        {/* 우리의 시집 — 신규 (서재 자리 옆) */}
+        <button onClick={() => router.push('/poems')} className="relative w-full bg-purple-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-purple-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all -rotate-[0.5deg]">
+          <div className="tape-pink absolute -top-2 left-8 w-14 rotate-3 z-10" />
+          <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center shrink-0 text-purple-600">
+            <BookText size={22} strokeWidth={2.5} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-purple-500 mb-1">
+              <span className="text-xs font-bold tracking-wider uppercase">Our Poems</span>
+            </div>
+            <p className="text-sm font-bold text-purple-900">우리의 시집</p>
+          </div>
+          <ChevronRight size={20} className="text-purple-400 shrink-0" />
+        </button>
+
+        {/* 우리들의 서재 — memory project-novel-hidden.md 참고. 코드 유지, 카드만 숨김 */}
         {false && (<button onClick={() => router.push('/novel')} className="relative w-full flex items-center justify-between p-6 rounded-2xl bg-slate-800 text-white shadow-[2px_3px_0px_rgba(0,0,0,0.12)] border border-slate-700 active:scale-[0.98] transition-transform text-left -rotate-[0.5deg]">
           <div className="tape absolute -top-2 left-8 w-12 rotate-3 z-10" />
           <div className="flex items-center gap-4">
