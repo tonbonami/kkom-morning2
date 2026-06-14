@@ -836,6 +836,21 @@ export default function KkomMorningHome() {
           </div>
           <ChevronRight size={20} className="text-slate-400" />
         </button>)}
+
+        {/* 로그아웃 — 페이지 맨 아래 우측에 작고 옅게 (실수로 꼼이 계정 들어갔을 때만 쓰는 안전망) */}
+        <div className="flex justify-end pt-2 pb-1">
+          <button
+            onClick={() => {
+              if (!confirm(`현재 ${userName} 계정으로 로그인됨. 로그아웃할까?`)) return;
+              try { localStorage.removeItem('kkom-user'); } catch {}
+              router.push('/login');
+            }}
+            className="text-[10px] font-bold text-slate-300 hover:text-slate-500 active:text-slate-600 transition-colors px-2 py-1"
+            aria-label="로그아웃"
+          >
+            {userName} 로그아웃
+          </button>
+        </div>
       </main>
 
       {/* 하단 고정 퀵메세지 바 — 한 탭 푸시 (보고싶어/사랑해/뽀뽀/잘 자) */}
