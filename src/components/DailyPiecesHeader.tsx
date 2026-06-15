@@ -43,7 +43,62 @@ function buildChips(
   // 한글 주격 조사 — 받침 있는 '우댕' → '우댕이가', 받침 없는 이로 끝나는 '꼼이' → '꼼이가'
   const partnerSubj = partner === '우댕' ? '우댕이가' : '꼼이가';
 
-  // partner의 애정 표현 (가장 감동적)
+  // Claude 참고: 순서가 우선순위 (slice 상위 6개만 표시).
+  // 사용자 신고(11/25): bump가 자주 일어나면 slot 차서 편지/레시피 잘림 → 콘텐츠를 위로.
+  // 또 메시지/편지처럼 '보낸 것'의 요약이 가장 위에 와야 한다는 요청.
+
+  // 1. partner가 보낸 편지 (가장 무게감 큰 콘텐츠)
+  const pLetter = stats.letters[partner];
+  if (pLetter > 0) chips.push({
+    emoji: '💌',
+    text: `${partnerSubj} 편지 ${pLetter}통`,
+    highlight: pLetter >= 2,
+    tone: 'amber',
+  });
+
+  // 2. partner가 준 칭찬
+  const pPraise = stats.praiseStickers[partner];
+  if (pPraise > 0) chips.push({
+    emoji: '✨',
+    text: `${partnerSubj} 칭찬 ${pPraise}개`,
+    highlight: pPraise >= 5,
+    tone: 'emerald',
+  });
+
+  const pReq = stats.praiseRequests[partner];
+  if (pReq > 0) chips.push({
+    emoji: '🥺',
+    text: `${partnerSubj} 칭찬 졸랐어`,
+    highlight: false,
+    tone: 'pink',
+  });
+
+  // 3. 합산 콘텐츠 (추억/위시/레시피)
+  const memories = stats.memories.우댕 + stats.memories.꼼이;
+  if (memories > 0) chips.push({
+    emoji: '📸',
+    text: `추억 ${memories}장`,
+    highlight: false,
+    tone: 'amber',
+  });
+
+  const recipeCount = todayRecipes?.length || 0;
+  if (recipeCount > 0) chips.push({
+    emoji: '🍳',
+    text: `레시피 ${recipeCount}개`,
+    highlight: false,
+    tone: 'amber',
+  });
+
+  const wishes = todayWishOverride !== undefined ? todayWishOverride : (stats.wishItems.우댕 + stats.wishItems.꼼이);
+  if (wishes > 0) chips.push({
+    emoji: '🛒',
+    text: `위시 ${wishes}개`,
+    highlight: false,
+    tone: 'emerald',
+  });
+
+  // 4. partner의 애정 표현 bump (메시지) — 콘텐츠 다음
   const pMiss = stats.bumps.miss[partner];
   if (pMiss > 0) chips.push({
     emoji: '💚',
@@ -93,70 +148,17 @@ function buildChips(
     tone: 'pink',
   });
 
-  // partner가 보낸 편지
-  const pLetter = stats.letters[partner];
-  if (pLetter > 0) chips.push({
-    emoji: '💌',
-    text: `${partnerSubj} 편지 ${pLetter}통`,
-    highlight: pLetter >= 2,
-    tone: 'amber',
-  });
-
-  // partner가 준 칭찬
-  const pPraise = stats.praiseStickers[partner];
-  if (pPraise > 0) chips.push({
-    emoji: '✨',
-    text: `${partnerSubj} 칭찬 ${pPraise}개`,
-    highlight: pPraise >= 5,
-    tone: 'emerald',
-  });
-
-  const pReq = stats.praiseRequests[partner];
-  if (pReq > 0) chips.push({
-    emoji: '🥺',
-    text: `${partnerSubj} 칭찬 졸랐어`,
-    highlight: false,
-    tone: 'pink',
-  });
-
-  // 합산 칩 (주어 없음 — 누가 올렸든 둘이 같이 모은 거)
-  const memories = stats.memories.우댕 + stats.memories.꼼이;
-  if (memories > 0) chips.push({
-    emoji: '📸',
-    text: `추억 ${memories}장`,
-    highlight: false,
-    tone: 'amber',
-  });
-
-  // Claude 참고: dailyStats.wishItems는 또갈래 되돌리기 등으로 잘못 누적될 수 있어
-  // 실제 wishlist 컬렉션의 오늘 createdAt count를 props로 받아서 우선 사용.
-  const wishes = todayWishOverride !== undefined ? todayWishOverride : (stats.wishItems.우댕 + stats.wishItems.꼼이);
-  if (wishes > 0) chips.push({
-    emoji: '🛒',
-    text: `위시 ${wishes}개`,
-    highlight: false,
-    tone: 'emerald',
-  });
-
-  // 오늘 추가된 레시피 (props로 받음 — 실시간 정확한 count)
-  const recipeCount = todayRecipes?.length || 0;
-  if (recipeCount > 0) chips.push({
-    emoji: '🍳',
-    text: `레시피 ${recipeCount}개`,
-    highlight: false,
-    tone: 'amber',
-  });
-
-  // 내가 보낸 보고싶다 (자랑) — partner 항목들로 다 채워졌으면 안 들어감
+  // 5. 내가 보낸 보고싶다 (자랑) — 가장 뒤
   const myMiss = stats.bumps.miss[me];
-  if (myMiss > 0 && chips.length < 4) chips.push({
+  if (myMiss > 0 && chips.length < 6) chips.push({
     emoji: '💚',
     text: `나도 ${myMiss}번 보고싶었어`,
     highlight: false,
     tone: 'emerald',
   });
 
-  return chips.slice(0, 4);
+  // 4 → 6개 (bump 종류 많아서 콘텐츠 잘리는 거 방지)
+  return chips.slice(0, 6);
 }
 
 export default function DailyPiecesHeader({
