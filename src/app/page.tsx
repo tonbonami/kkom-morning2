@@ -30,6 +30,7 @@ import VoicePlayer from '@/components/VoicePlayer';
 import DdayAttentionV2 from '@/components/DdayAttentionV2';
 import QuickReplyBar from '@/components/QuickReplyBar';
 import DailyPiecesHeader from '@/components/DailyPiecesHeader';
+import LiveHeartLayer from '@/components/LiveHeartLayer';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
 import { touchPresence, subscribePresence, formatPresenceRelative, type Presence } from '@/lib/presence';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
@@ -862,6 +863,15 @@ export default function KkomMorningHome() {
           </button>
         </div>
       </main>
+
+      {/* 라이브 하트 — 둘 다 접속 중일 때만 중앙 큰 하트 + 양방향 폭탄 */}
+      {(userName === '우댕' || userName === '꼼이') && (() => {
+        // presence '지금 함께' 판정 재사용 — active + 최근 90초. presenceTick으로 매분 재평가.
+        const fresh = partnerPresence.active
+          && partnerPresence.lastSeenAt
+          && (Date.now() - partnerPresence.lastSeenAt.getTime()) < 90_000;
+        return <LiveHeartLayer me={userName} partnerActive={!!fresh} />;
+      })()}
 
       {/* 하단 고정 퀵메세지 바 — 한 탭 푸시 (보고싶어/사랑해/뽀뽀/잘 자) */}
       <QuickReplyBar me={userName} partner={partner} />
