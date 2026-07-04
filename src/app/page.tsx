@@ -127,9 +127,10 @@ export default function KkomMorningHome() {
     const unsubRecipes = subscribeRecipes(setRecipes);
 
     // 칭찬 — 오늘 partner가 보낸 게 있으면 스마일 배지 (1회 fetch)
+    // Claude 참고(코드리뷰 #5): 지역변수 me 사용. userName은 setUserName 직후라 클로저에서 초기값('꼼이') 고정 →
+    // 우댕 로그인 시 partner를 '우댕'으로 잘못 계산해 자기 칭찬으로 배지 켜지던 버그.
     import('@/lib/dailyStats').then(({ fetchTodayStats }) => fetchTodayStats()).then((s) => {
-      const partner = userName === '우댕' ? '꼼이' : '우댕';
-      const partnerKey = (partner as '우댕' | '꼼이');
+      const partnerKey = (me === '우댕' ? '꼼이' : '우댕') as '우댕' | '꼼이';
       const got = (s.praiseStickers as any)[partnerKey] || 0;
       const gotReq = (s.praiseRequests as any)[partnerKey] || 0;
       if (got > 0 || gotReq > 0) setHasNewPraise(true);
@@ -146,11 +147,13 @@ export default function KkomMorningHome() {
     if (savedLoc === 'home' || savedLoc === 'work') setLocKey(savedLoc);
 
     // 날씨 카드 onboarding — 처음 한 번만
+    // Claude 참고(코드리뷰 #4): 예전엔 여기서 return () => clearTimeout(t)로 조기 반환해서
+    // 아래 구독 7개 cleanup이 등록 안 됐음 (첫 방문·StrictMode마다 리스너 누수). hintTimer도 같은 cleanup에서 정리.
+    let hintTimer: ReturnType<typeof setTimeout> | null = null;
     const hintShown = localStorage.getItem('kkom-weather-hint-shown');
     if (!hintShown) {
-      const t = setTimeout(() => {
+      hintTimer = setTimeout(() => {
         setShowWeatherHint(true);
-        // 카드 살짝 흔들기
         weatherShake.start({
           x: [0, -6, 6, -4, 4, 0],
           transition: { duration: 0.8, ease: 'easeInOut' },
@@ -158,10 +161,13 @@ export default function KkomMorningHome() {
         localStorage.setItem('kkom-weather-hint-shown', '1');
         setTimeout(() => setShowWeatherHint(false), 3500);
       }, 1500);
-      return () => clearTimeout(t);
     }
 
-    return () => { unsubLetter(); unsubMoods(); unsubMemories(); unsubShares(); unsubWishes(); unsubAgains(); unsubRecipes(); };
+    return () => {
+      if (hintTimer) clearTimeout(hintTimer);
+      unsubLetter(); unsubMoods(); unsubMemories(); unsubShares();
+      unsubWishes(); unsubAgains(); unsubRecipes();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 

@@ -254,7 +254,7 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                   drag="x"
                   dragConstraints={{ left: -80, right: 0 }}
                   dragElastic={0.2}
-                  onDragEnd={(_, info) => { if (info.offset.x < -60) onDelete(item.id); }}
+                  onDragEnd={(_, info) => { if (info.offset.x < -60 && confirm('이 위시를 지울까요?')) onDelete(item.id); }}
                   className={`relative z-10 bg-white rounded-[28px] p-4 flex gap-4 cursor-pointer transition-opacity ${
                     isDone ? 'opacity-75 bg-slate-50/50' : ''
                   }`}

@@ -33,6 +33,7 @@ export default function NewLetterPage() {
   const [playing, setPlaying] = useState(false);
   const mrRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const recStartRef = useRef<number>(0); // 녹음 시작 시각(ms) — duration 정확 계산용
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -87,7 +88,11 @@ export default function NewLetterPage() {
         stream.getTracks().forEach((t) => t.stop());
         const finalMime = mime || 'audio/webm';
         const blob = new Blob(chunksRef.current, { type: finalMime });
-        const duration = Math.max(1, MAX_REC_SEC - secLeft);
+        // Claude 참고(코드리뷰 #12): 예전엔 MAX_REC_SEC - secLeft로 계산했는데
+        // 이 클로저의 secLeft가 시작값(30) 고정이라 항상 duration=1이 됐음.
+        // 실제 경과 시간(ms 차이)으로 정확하게.
+        const elapsedSec = Math.round((Date.now() - recStartRef.current) / 1000);
+        const duration = Math.min(MAX_REC_SEC, Math.max(1, elapsedSec));
         // 이전 미리듣기 URL 해제
         if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
         const url = URL.createObjectURL(blob);
@@ -102,6 +107,7 @@ export default function NewLetterPage() {
       };
       mr.start();
       mrRef.current = mr;
+      recStartRef.current = Date.now();
       setRecording(true);
       setSecLeft(MAX_REC_SEC);
       tickRef.current = setInterval(() => setSecLeft((s) => (s > 0 ? s - 1 : 0)), 1000);

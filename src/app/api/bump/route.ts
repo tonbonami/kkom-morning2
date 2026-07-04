@@ -118,12 +118,28 @@ export async function POST(req: NextRequest) {
   if (!to || !from) {
     return NextResponse.json({ error: 'to/from required' }, { status: 400 });
   }
+
+  // Claude 참고(코드리뷰 #3): bump 기록을 푸시 성공 여부와 분리.
+  // 이전엔 상대 구독 없으면 skip으로 조기 return → 애정 표현이 dailyStats에 안 남고 증발했음.
+  // 기록은 '보냈다'는 사실이므로 푸시 결과와 무관하게 항상 increment.
+  let counted = false;
+  if (from === '우댕' || from === '꼼이') {
+    try {
+      const { incrementBump } = await import('@/lib/dailyStats');
+      await incrementBump(from, kind);
+      counted = true;
+    } catch (e) {
+      console.warn('bump 기록 실패:', e);
+    }
+  }
+
   const templates = TEMPLATES[kind] || TEMPLATES.miss;
   const picked = pickRandom(templates);
 
   const subSnap = await getDoc(doc(db, 'pushSubscriptions', to));
   if (!subSnap.exists()) {
-    return NextResponse.json({ ok: false, skipped: 'no subscription for ' + to });
+    // 기록은 됐고 푸시만 못 감 — 클라이언트가 구분할 수 있게 pushSkipped 표시
+    return NextResponse.json({ ok: true, counted, pushSkipped: 'no subscription for ' + to });
   }
   const s = subSnap.data() as { endpoint: string; keys: { p256dh: string; auth: string } };
 
@@ -135,18 +151,13 @@ export async function POST(req: NextRequest) {
 
   try {
     await webpush.sendNotification(s as any, payload);
-    if (from === '우댕' || from === '꼼이') {
-      try {
-        const { incrementBump } = await import('@/lib/dailyStats');
-        await incrementBump(from, kind);
-      } catch {}
-    }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, counted });
   } catch (e: any) {
     const status = e?.statusCode;
     if (status === 404 || status === 410) {
       try { await deleteDoc(subSnap.ref); } catch {}
     }
-    return NextResponse.json({ ok: false, status, err: String(e?.body || e) }, { status: 200 });
+    // 기록은 됐으므로 ok:true 유지, 푸시 실패만 별도 표시
+    return NextResponse.json({ ok: true, counted, pushError: status || String(e?.body || e) });
   }
 }

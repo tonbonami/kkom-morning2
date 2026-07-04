@@ -118,7 +118,10 @@ export default function MemoryGalleryV3({
   me, memories, onUpload, onUpdate, onDelete, onHeart,
   subscribeComments, addComment, deleteComment, compressImage
 }: Props) {
-  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
+  // Claude 참고: 선택을 index 대신 id로 저장 — 상대가 사진 올려서 배열 재정렬되면
+  // index가 다른 사진을 가리켜 '엉뚱한 추억이 수정/표시'되는 버그(코드리뷰 #1) 방지.
+  const [selectedMemoryId, setSelectedMemoryId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Sheet States
   const [isAdding, setIsAdding] = useState(false);
@@ -144,6 +147,7 @@ export default function MemoryGalleryV3({
   };
 
   const openEditSheet = (memory: Memory) => {
+    setEditingId(memory.id);
     setPreviewUrl(memory.imageUrl);
     setUploadTitle(memory.title);
     setUploadDate(memory.date);
@@ -172,8 +176,8 @@ export default function MemoryGalleryV3({
     if (!previewUrl || !uploadTitle || !uploadDate) return;
     setIsSubmitting(true);
     try {
-      if (isEditing && selectedPhotoIndex !== null) {
-        await onUpdate(memories[selectedPhotoIndex].id, {
+      if (isEditing && editingId) {
+        await onUpdate(editingId, {
           title: uploadTitle,
           date: uploadDate,
           description: uploadDesc,
@@ -199,14 +203,16 @@ export default function MemoryGalleryV3({
     if (!confirm('이 소중한 추억을 지울까요?')) return;
     try {
       await onDelete(id);
-      setSelectedPhotoIndex(null);
+      setSelectedMemoryId(null);
     } catch (error) {
       alert('앗! 삭제할 수 없는 사진이에요 🥲');
     }
   };
 
   const hasMemories = memories.length > 0;
-  const selectedMemory = selectedPhotoIndex !== null ? memories[selectedPhotoIndex] : null;
+  // id로 항상 최신 파생 — 배열 재정렬돼도 보던 사진 유지
+  const selectedMemory = selectedMemoryId ? memories.find((m) => m.id === selectedMemoryId) ?? null : null;
+  const selectedIndex = selectedMemoryId ? memories.findIndex((m) => m.id === selectedMemoryId) : -1;
 
   return (
     <div className="relative min-h-screen bg-[#F7F9F9] max-w-md mx-auto overflow-hidden font-sans pb-24">
@@ -250,7 +256,7 @@ export default function MemoryGalleryV3({
                 <motion.div
                   key={memory.id}
                   layoutId={`memory-card-${memory.id}`}
-                  onClick={() => setSelectedPhotoIndex(i)}
+                  onClick={() => setSelectedMemoryId(memory.id)}
                   whileTap={{ scale: 0.98 }}
                   className={`group relative overflow-hidden bg-white cursor-pointer shadow-[0_4px_20px_rgba(0,0,0,0.04)] ${
                     isHero ? 'col-span-2 aspect-[4/5] rounded-[32px]' : 'col-span-1 aspect-square rounded-[28px]'
@@ -383,15 +389,15 @@ export default function MemoryGalleryV3({
 
       {/* Lightbox */}
       <AnimatePresence>
-        {selectedPhotoIndex !== null && selectedMemory && (
+        {selectedMemory && selectedIndex >= 0 && (
           <LightboxOverlay
             me={me}
             memory={selectedMemory}
             memories={memories}
-            currentIndex={selectedPhotoIndex}
-            onClose={() => setSelectedPhotoIndex(null)}
-            onNext={() => setSelectedPhotoIndex(Math.min(selectedPhotoIndex + 1, memories.length - 1))}
-            onPrev={() => setSelectedPhotoIndex(Math.max(selectedPhotoIndex - 1, 0))}
+            currentIndex={selectedIndex}
+            onClose={() => setSelectedMemoryId(null)}
+            onNext={() => { const nx = memories[Math.min(selectedIndex + 1, memories.length - 1)]; if (nx) setSelectedMemoryId(nx.id); }}
+            onPrev={() => { const pv = memories[Math.max(selectedIndex - 1, 0)]; if (pv) setSelectedMemoryId(pv.id); }}
             onDelete={handleDelete}
             onEdit={openEditSheet}
             onHeart={() => onHeart(selectedMemory.id)}

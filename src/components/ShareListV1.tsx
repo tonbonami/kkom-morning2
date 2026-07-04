@@ -92,8 +92,12 @@ function ShareCard({
         dragConstraints={{ left: -80, right: 0 }}
         dragElastic={0.2}
         onDragEnd={(e, info) => {
+          // 코드리뷰: 스와이프 즉시 hard delete는 실수 위험 → confirm 한 번
           if (info.offset.x < -60) {
-            onDelete(item.id);
+            if (confirm('이 공유를 지울까요?')) onDelete(item.id);
+            else controls.start({ x: 0 });
+          } else {
+            controls.start({ x: 0 });
           }
         }}
         onClick={() => onOpen(item)}
