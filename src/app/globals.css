@@ -63,6 +63,25 @@
   padding-bottom: max(env(safe-area-inset-bottom), 1.5rem);
 }
 
+/* Claude 참고: 사랑해(love) 포차코 '두근두근' 상시 댄스 — 통째 흔들기 방식.
+   진짜 프레임 애니(팔다리 움직임)는 AI 영상으로 별도 제작 예정. 그 전까지 임시.
+   두근두근 커졌다 작아지며 살짝 떠오름. prefers-reduced-motion 존중. */
+@keyframes pochacco-heartbeat {
+  0%, 100% { transform: scale(1) translateY(0); }
+  14% { transform: scale(1.13) translateY(-1.5px); }
+  28% { transform: scale(1) translateY(0); }
+  42% { transform: scale(1.13) translateY(-2px); }
+  60% { transform: scale(1) translateY(0); }
+}
+.pochacco-dance-heart {
+  animation: pochacco-heartbeat 1.1s ease-in-out infinite;
+  transform-origin: 50% 90%;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pochacco-dance-heart { animation: none; }
+}
+
 /* Claude 참고: iOS Safari/PWA에서 input/textarea focus 시 폰트 16px 미만이면
    가독성 위해 자동으로 줌인(110~125%)됨. 핀치로 줄여야 풀림 — 사용자 신고 버그.
    모바일에선 폼 요소 font-size 16px 강제로 줌 트리거 차단. */

@@ -146,7 +146,7 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
                   height={52}
                   loading="lazy"
                   decoding="async"
-                  className="drop-shadow-sm"
+                  className={q.kind === 'love' ? 'drop-shadow-sm pochacco-dance-heart' : 'drop-shadow-sm'}
                 />
                 <span className="text-[9px] font-black text-slate-600 whitespace-nowrap leading-none">{q.label}</span>
               </motion.button>
