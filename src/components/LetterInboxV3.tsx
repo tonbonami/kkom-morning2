@@ -9,6 +9,7 @@ import {
 import VoicePlayer from '@/components/VoicePlayer';
 import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
 import { getEmoticonsByIds } from '@/lib/emoticons';
+import { getAnimatedSticker } from '@/lib/animatedStickers';
 
 export type Letter = {
   id: string;
@@ -20,6 +21,7 @@ export type Letter = {
   voice?: { src: string; mime?: string; duration?: number } | null;
   doodle?: DoodleData | null;
   emoticonIds?: string[];
+  animatedSticker?: string | null;
   hearts?: number;
   commentCount?: number;
 };
@@ -324,6 +326,11 @@ export default function LetterInboxV3({
                         <Pencil size={11} /> 손글씨
                       </div>
                     )}
+                    {letter.animatedSticker && (
+                      <div className="mb-3 inline-flex items-center gap-1 text-[11px] font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+                        🐶 움직이는 포차코
+                      </div>
+                    )}
 
                     {/* Heart & Comments Counters */}
                     <div className="flex items-center justify-end gap-3 mt-1">
@@ -504,6 +511,25 @@ function LetterModal({
               <DoodlePad mode="play" data={letter.doodle} autoPlay />
             </div>
           )}
+
+          {/* 움직이는 포차코 스티커 재생 */}
+          {letter.animatedSticker && (() => {
+            const st = getAnimatedSticker(letter.animatedSticker);
+            if (!st) return null;
+            return (
+              <div className="mb-6 flex justify-center">
+                <video
+                  src={st.videoUrl}
+                  poster={st.posterUrl}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-52 h-52 rounded-[28px] object-cover bg-white shadow-[0_8px_28px_rgba(147,51,234,0.15)] border border-purple-100"
+                />
+              </div>
+            );
+          })()}
 
           {/* Interactive Action Row */}
           <div className="flex items-center justify-between border-t border-slate-100 pt-5 mb-5">

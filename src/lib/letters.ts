@@ -61,6 +61,8 @@ export type Letter = {
   // 이모티콘 편지는 에셋 URL 대신 안정적인 id만 저장한다.
   // 나중에 세트 그림을 교체해도 과거 편지가 새 이미지로 자연스럽게 렌더링된다.
   emoticonIds?: string[];
+  // 움직이는 포차코 스티커 — animatedStickers.ts의 id 하나. (에셋 URL 대신 안정적 id 저장)
+  animatedSticker?: string | null;
   hearts?: number;           // 무한 카운터
   commentCount?: number;     // 댓글 수 캐시
 };
@@ -155,6 +157,7 @@ export type InboxLetter = {
   voice?: { src: string; mime?: string; duration?: number } | null;
   doodle?: Doodle | null;
   emoticonIds?: string[];
+  animatedSticker?: string | null;
   hearts?: number;
   commentCount?: number;
 };
@@ -192,6 +195,7 @@ export function toInboxLetter(l: Letter): InboxLetter {
     voice,
     doodle,
     emoticonIds: Array.isArray(l.emoticonIds) ? l.emoticonIds.filter((id) => typeof id === 'string') : [],
+    animatedSticker: typeof l.animatedSticker === 'string' ? l.animatedSticker : null,
     hearts: l.hearts,
     commentCount: l.commentCount,
   };
@@ -205,7 +209,8 @@ export async function sendLetter(
   openAt?: Date | null,
   voice?: Voice | null,
   doodle?: Doodle | null,
-  emoticonIds: string[] = []
+  emoticonIds: string[] = [],
+  animatedSticker?: string | null
 ): Promise<void> {
   const to = partnerOf(from);
   const cleanEmoticonIds = emoticonIds.filter((id) => typeof id === 'string' && id.trim().length > 0);
@@ -222,6 +227,7 @@ export async function sendLetter(
     data.doodle = JSON.stringify(doodle);
   }
   if (cleanEmoticonIds.length > 0) data.emoticonIds = cleanEmoticonIds;
+  if (animatedSticker && typeof animatedSticker === 'string') data.animatedSticker = animatedSticker;
   const ref = await addDoc(collection(db, 'letters'), data);
 
   // "매일매일 꼼모닝" 헤더용 카운트 (실패해도 본 기능 망치지 않게 fire-and-forget)

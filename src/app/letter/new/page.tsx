@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { sendLetter, uploadVoice, nameFromCode, partnerOf, type Doodle } from '@/lib/letters';
 import { feedback } from '@/lib/feedback';
 import { EMOTICON_SETS, getEmoticonsByIds } from '@/lib/emoticons';
+import { ANIMATED_STICKERS, getAnimatedSticker } from '@/lib/animatedStickers';
 import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
 
 const MAX_REC_SEC = 30;
@@ -43,6 +44,8 @@ export default function NewLetterPage() {
   const [showEmoticonSheet, setShowEmoticonSheet] = useState(false);
   const [activeEmoticonSetId, setActiveEmoticonSetId] = useState(EMOTICON_SETS[0]?.id ?? '');
   const [selectedEmoticonIds, setSelectedEmoticonIds] = useState<string[]>([]);
+  // 움직이는 포차코 스티커 — 선택된 id 하나 (없으면 null)
+  const [animatedSticker, setAnimatedSticker] = useState<string | null>(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
@@ -152,7 +155,7 @@ export default function NewLetterPage() {
     setSelectedEmoticonIds((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const canSend = (body.trim().length > 0 || !!voice || !!doodle || selectedEmoticonIds.length > 0) && !sending && !recording && (!scheduled || !!openAtStr);
+  const canSend = (body.trim().length > 0 || !!voice || !!doodle || selectedEmoticonIds.length > 0 || !!animatedSticker) && !sending && !recording && (!scheduled || !!openAtStr);
 
   const handleSend = async () => {
     if (!canSend) return;
@@ -171,7 +174,8 @@ export default function NewLetterPage() {
         scheduled && openAtStr ? new Date(openAtStr) : null,
         voicePayload,
         doodle as Doodle | null,
-        selectedEmoticonIds
+        selectedEmoticonIds,
+        animatedSticker
       );
       const partner = partnerOf(me);
       feedback(scheduled ? `⏳ ${partner}한테 예약 편지 보냈어` : `📨 ${partner}한테 편지 보냈어`);
@@ -235,15 +239,62 @@ export default function NewLetterPage() {
                   ))}
                 </div>
               )}
-              <div className="flex items-center justify-between gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowEmoticonSheet(true)}
-                  className="inline-flex items-center gap-2 rounded-full bg-white border border-emerald-100 px-3 py-2 text-[13px] font-bold text-emerald-700 shadow-sm active:scale-95 transition-all"
-                >
-                  <Smile size={15} /> 이모티콘
-                </button>
-                <span className="text-[11px] font-bold text-slate-400">
+              {/* 움직이는 포차코 스티커 선택 시 프리뷰 (탭하면 빼기) */}
+              {animatedSticker && (() => {
+                const st = getAnimatedSticker(animatedSticker);
+                if (!st) return null;
+                return (
+                  <div className="flex items-center gap-3 rounded-2xl bg-purple-50/70 border border-purple-100 px-3 py-2.5">
+                    <video
+                      src={st.videoUrl}
+                      poster={st.posterUrl}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="w-20 h-20 rounded-2xl object-cover bg-white shadow-sm"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-black text-purple-700">🐶 움직이는 포차코</p>
+                      <p className="text-[11px] text-purple-400 font-bold">{st.label} · 편지에 붙어서 재생돼요</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAnimatedSticker(null)}
+                      className="w-7 h-7 rounded-full bg-white text-slate-400 flex items-center justify-center shadow-sm active:scale-90"
+                      aria-label="움직이는 포차코 빼기"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                );
+              })()}
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEmoticonSheet(true)}
+                    className="inline-flex items-center gap-2 rounded-full bg-white border border-emerald-100 px-3 py-2 text-[13px] font-bold text-emerald-700 shadow-sm active:scale-95 transition-all"
+                  >
+                    <Smile size={15} /> 이모티콘
+                  </button>
+                  {/* 움직이는 포차코 토글 — 지금은 1종이라 바로 on/off */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      import('@/lib/feedback').then(({ haptic }) => haptic(20)).catch(() => {});
+                      setAnimatedSticker((prev) => (prev ? null : ANIMATED_STICKERS[0].id));
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-[13px] font-bold shadow-sm active:scale-95 transition-all ${
+                      animatedSticker
+                        ? 'bg-purple-500 border-purple-500 text-white'
+                        : 'bg-white border-purple-100 text-purple-700'
+                    }`}
+                  >
+                    🐶 움직이는 포차코
+                  </button>
+                </div>
+                <span className="text-[11px] font-bold text-slate-400 shrink-0">
                   {selectedEmoticonIds.length}/{MAX_EMOTICONS_PER_LETTER}
                 </span>
               </div>
