@@ -20,7 +20,7 @@ import { getInitialData } from '@/lib/api';
 import { subscribeLatestLetterTo, nameFromCode, partnerOf, vocativeOf, type Voice } from '@/lib/letters';
 import { getEmoticonsByIds } from '@/lib/emoticons';
 import { formatKstTime, formatKstMonthDay, kstDayKey } from '@/lib/kst';
-import { subscribeMemories, type Memory } from '@/lib/memories';
+import { subscribeLatestMemory, fetchMemoryCount, type Memory } from '@/lib/memories';
 import { subscribeShareList, type ShareItemView } from '@/lib/share';
 import { subscribeWishlist } from '@/lib/wishlist';
 import { subscribeAgain } from '@/lib/again';
@@ -62,7 +62,9 @@ export default function KkomMorningHome() {
   const [latestLetterEmoticonIds, setLatestLetterEmoticonIds] = useState<string[]>([]);
   const [hasLetter, setHasLetter] = useState(false);
   const [moods, setMoods] = useState<MoodMap>({});
-  const [memories, setMemories] = useState<Memory[]>([]);
+  // 홈은 커버 1장 + 개수만 필요 (전체 배열 X — 코드리뷰 #8)
+  const [latestMemory, setLatestMemory] = useState<Memory | null>(null);
+  const [memoryCount, setMemoryCount] = useState(0);
   const [moodOpen, setMoodOpen] = useState(false);
   const [userName, setUserName] = useState('꼼이');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -113,7 +115,11 @@ export default function KkomMorningHome() {
       setLatestLetterEmoticonIds(Array.isArray(letter?.emoticonIds) ? letter.emoticonIds : []);
     });
     const unsubMoods = subscribeTodayMoods(setMoods);
-    const unsubMemories = subscribeMemories(setMemories);
+    // 최신 1장만 실시간, 개수는 getCountFromServer(문서 다운로드 없음). 새 사진 오면 개수 재조회.
+    const unsubMemories = subscribeLatestMemory((m) => {
+      setLatestMemory(m);
+      fetchMemoryCount().then(setMemoryCount);
+    });
     const unsubShares = subscribeShareList(setShares);
     // 위시리스트 — 카드 배지 + 매일매일 꼼모닝 헤더 정확한 오늘 카운트용 (dailyStats 대신)
     const unsubWishes = subscribeWishlist((items) => {
@@ -658,7 +664,7 @@ export default function KkomMorningHome() {
         </div>
 
         {/* 우리의 추억 — 폴라로이드 톤 (Gemini 리뷰 P0) */}
-        {memories.length > 0 && (
+        {latestMemory && (
           <button
             onClick={() => router.push('/memories')}
             className="relative w-full bg-white rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-slate-100 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]"
@@ -667,11 +673,11 @@ export default function KkomMorningHome() {
             {/* 배지가 overflow-hidden에 잘리지 않게 relative wrapper로 빼냄 */}
             <div className="relative shrink-0">
               <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100">
-                <img src={memories[0].imageUrl} alt={memories[0].title} className="w-full h-full object-cover" />
+                <img src={latestMemory.imageUrl} alt={latestMemory.title} className="w-full h-full object-cover" />
               </div>
-              {memories.length > 0 && (
+              {memoryCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-slate-800 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white z-10">
-                  {memories.length > 99 ? '99+' : memories.length}
+                  {memoryCount > 99 ? '99+' : memoryCount}
                 </span>
               )}
             </div>
@@ -680,7 +686,7 @@ export default function KkomMorningHome() {
                 <Camera size={14} strokeWidth={2.5} />
                 <span className="text-xs font-bold">우리의 추억</span>
               </div>
-              <p className="text-sm font-bold text-slate-700 truncate">{memories[0].title || '소중한 순간'}</p>
+              <p className="text-sm font-bold text-slate-700 truncate">{latestMemory.title || '소중한 순간'}</p>
               <p className="text-[11px] text-slate-400">모두 보기</p>
             </div>
             <ChevronRight size={20} className="text-slate-400 shrink-0" />

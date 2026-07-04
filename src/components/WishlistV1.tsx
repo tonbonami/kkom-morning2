@@ -8,6 +8,7 @@ import {
   Loader2, MessageCircle
 } from 'lucide-react';
 import HeartButton from '@/components/HeartButton';
+import { useObjectUrls } from '@/lib/useObjectUrl';
 
 export type Category = 'food' | 'place' | 'watch' | 'done';
 
@@ -85,6 +86,7 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
   const [draftMemo, setDraftMemo] = useState('');
   // 신규 위시 생성 시 같이 올릴 사진 (선택)
   const [draftPhotos, setDraftPhotos] = useState<File[]>([]);
+  const draftPhotoUrls = useObjectUrls(draftPhotos);
 
   // URL Preview State
   const [previewData, setPreviewData] = useState<{ title?: string; description?: string; image?: string; siteName?: string } | null>(null);
@@ -508,10 +510,10 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
                     <label className="block text-[13px] font-bold text-slate-500 mb-1.5 ml-1">사진 (선택)</label>
                     <div className="flex flex-wrap gap-2">
                       {draftPhotos.map((file, i) => {
-                        const url = URL.createObjectURL(file);
+                        const url = draftPhotoUrls[i];
                         return (
                           <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden bg-slate-100 shadow-sm">
-                            <img src={url} alt="" className="w-full h-full object-cover" />
+                            {url && <img src={url} alt="" className="w-full h-full object-cover" />}
                             <button
                               type="button"
                               onClick={() => setDraftPhotos((prev) => prev.filter((_, j) => j !== i))}

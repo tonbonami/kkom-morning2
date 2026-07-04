@@ -26,6 +26,7 @@ import PhotoGalleryModal from '@/components/PhotoGalleryModal';
 import HeartButton from '@/components/HeartButton';
 import { nameFromCode } from '@/lib/letters';
 import { feedback } from '@/lib/feedback';
+import { useObjectUrl } from '@/lib/useObjectUrl';
 
 const COLLECTION = 'poems';
 
@@ -40,6 +41,7 @@ export default function PoemsPage() {
   const [draftTitle, setDraftTitle] = useState('');
   const [draftBody, setDraftBody] = useState('');
   const [draftPhoto, setDraftPhoto] = useState<File | null>(null);
+  const draftPhotoUrl = useObjectUrl(draftPhoto);
   const [isOcr, setIsOcr] = useState(false);
   const [ocrUsed, setOcrUsed] = useState(false); // 같은 사진에 OCR 여러 번 안 부르도록
 
@@ -296,7 +298,7 @@ export default function PoemsPage() {
               {draftPhoto ? (
                 <div className="mb-6 flex flex-col items-center gap-3">
                   <div className="relative mx-auto max-w-[280px] p-2.5 bg-white shadow-md rotate-1">
-                    <img src={URL.createObjectURL(draftPhoto)} alt="" className="w-full object-contain" />
+                    {draftPhotoUrl && <img src={draftPhotoUrl} alt="" className="w-full object-contain" />}
                     <button
                       type="button"
                       onClick={() => { setDraftPhoto(null); setOcrUsed(false); }}

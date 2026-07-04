@@ -1,7 +1,7 @@
 import { db } from './firebase';
 import {
   collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp,
-  query, orderBy, increment,
+  query, orderBy, increment, limit, getCountFromServer,
   type DocumentData,
 } from 'firebase/firestore';
 
@@ -43,8 +43,34 @@ export const SEED_MEMORIES: Memory[] = [
   },
 ];
 
+// Claude 참고(코드리뷰 #8): 홈은 커버 1장 + 개수 배지만 쓰는데
+// subscribeMemories는 base64 이미지(문서당 ~900KB) 전체를 매번 내려받음.
+// 홈 전용 경량 구독 — 최신 1장만 실시간 + 개수는 getCountFromServer(문서 다운로드 없음).
+export function subscribeLatestMemory(cb: (latest: Memory | null) => void): () => void {
+  const q = query(collection(db, 'memories'), orderBy('createdAt', 'desc'), limit(1));
+  return onSnapshot(
+    q,
+    (snap) => {
+      if (snap.empty) { cb(SEED_MEMORIES[0] ?? null); return; }
+      const d = snap.docs[0];
+      cb({ ...(d.data() as Omit<Memory, 'id'>), id: d.id });
+    },
+    (err) => { console.error('latest memory 구독 오류:', err); cb(SEED_MEMORIES[0] ?? null); }
+  );
+}
+
+export async function fetchMemoryCount(): Promise<number> {
+  try {
+    const snap = await getCountFromServer(collection(db, 'memories'));
+    const n = snap.data().count;
+    return n > 0 ? n : SEED_MEMORIES.length;
+  } catch {
+    return SEED_MEMORIES.length;
+  }
+}
+
 // 실시간 구독 — 업로드 시각(createdAt) 내림차순. 새로 올린 사진이 항상 맨 위.
-// createdAt 없으면 date 필드를 폴백으로 사용.
+// createdAt 없으면 date 필드를 폴백으로 사용. (전체 갤러리 /memories 전용)
 export function subscribeMemories(cb: (memories: Memory[]) => void): () => void {
   return onSnapshot(
     collection(db, 'memories'),
