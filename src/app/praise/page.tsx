@@ -55,7 +55,8 @@ function getStoredUserName(raw: string): PraiseUser {
 }
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+  // KST 고정 — 디바이스 타임존 무관
+  return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', timeZone: 'Asia/Seoul' });
 }
 
 // Claude 참고: lazy-loading + 작은 placeholder. prefetch 폭탄 (useEffect로 18장 일괄 로드) 제거.

@@ -10,6 +10,7 @@ import VoicePlayer from '@/components/VoicePlayer';
 import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
 import { getEmoticonsByIds } from '@/lib/emoticons';
 import { getAnimatedSticker } from '@/lib/animatedStickers';
+import { kstParts, formatKstFull, formatKstMonthDay } from '@/lib/kst';
 
 export type Letter = {
   id: string;
@@ -53,6 +54,8 @@ type FilterType = 'all' | 'received' | 'sent' | 'voice' | 'scheduled';
 // -----------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------
+// Claude 참고: 시간 표시는 전부 KST 고정 (lib/kst.ts).
+// 디바이스 타임존 의존(getHours 등)이면 폰 설정이 서울이 아닐 때 다 틀어짐 — 실제 버그였음.
 const formatRelative = (d: Date) => {
   const now = new Date();
   const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
@@ -63,12 +66,10 @@ const formatRelative = (d: Date) => {
   }
   if (diffDays === 1) return '어제';
   if (diffDays <= 3) return `${diffDays}일 전`;
-  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  return formatKstMonthDay(d);
 };
 
-const formatFullDate = (d: Date) => {
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${d.getHours() < 12 ? '오전' : '오후'} ${d.getHours() % 12 || 12}:${d.getMinutes().toString().padStart(2, '0')}`;
-};
+const formatFullDate = (d: Date) => formatKstFull(d);
 
 const formatCount = (n?: number) => {
   const cnt = n || 0;
@@ -301,7 +302,7 @@ export default function LetterInboxV3({
                   <div className="py-6 flex flex-col items-center justify-center text-slate-400 gap-3 bg-slate-50/50 rounded-2xl border border-slate-100 border-dashed">
                     <Lock size={24} className="text-slate-300" />
                     <p className="text-[14px] font-bold text-slate-500">
-                      {letter.openAt?.getMonth()! + 1}월 {letter.openAt?.getDate()}일 {letter.openAt?.getHours()}시에 도착해요
+                      {(() => { const p = kstParts(letter.openAt!); return `${p.month}월 ${p.day}일 ${p.hour}시에 도착해요`; })()}
                     </p>
                   </div>
                 ) : (

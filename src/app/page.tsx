@@ -19,6 +19,7 @@ import TodayTomorrowWeather from '@/components/TodayTomorrowWeather';
 import { getInitialData } from '@/lib/api';
 import { subscribeLatestLetterTo, nameFromCode, partnerOf, vocativeOf, type Voice } from '@/lib/letters';
 import { getEmoticonsByIds } from '@/lib/emoticons';
+import { formatKstTime, formatKstMonthDay, kstDayKey } from '@/lib/kst';
 import { subscribeMemories, type Memory } from '@/lib/memories';
 import { subscribeShareList, type ShareItemView } from '@/lib/share';
 import { subscribeWishlist } from '@/lib/wishlist';
@@ -138,7 +139,7 @@ export default function KkomMorningHome() {
     const today = new Date();
     start.setHours(0, 0, 0, 0); today.setHours(0, 0, 0, 0);
     setDDay(Math.floor((today.getTime() - start.getTime()) / 86400000) + 1);
-    setDateText(new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' }));
+    setDateText(new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Seoul' }));
 
     // 저장된 위치 선택 복구
     const savedLoc = localStorage.getItem('kkom-loc');
@@ -445,8 +446,8 @@ export default function KkomMorningHome() {
         {(userName === '우댕' || userName === '꼼이') && (() => {
           // dailyStats.wishItems 대신 실제 wishlist의 오늘 createdAt count 사용 (또갈래 되돌리기 등 잘못 누적 회피)
           const now = new Date();
-          const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
-          const isSameDay = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` === todayKey;
+          const todayKey = kstDayKey(now);
+          const isSameDay = (d: Date) => kstDayKey(d) === todayKey;
           const todayWishCount = wishes.filter((w) => isSameDay(w.createdAt)).length;
           const todayRecipes = recipes
             .filter((r) => isSameDay(r.createdAt))
@@ -573,18 +574,15 @@ export default function KkomMorningHome() {
               {latestLetterAt && (
                 <span className="text-[11px] font-medium text-slate-400 ml-10" suppressHydrationWarning>
                   {(() => {
+                    // KST 고정 표시 (디바이스 타임존 무관) — lib/kst.ts
                     const d = latestLetterAt;
                     const now = new Date();
                     const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
-                    const h = d.getHours();
-                    const m = d.getMinutes();
-                    const ampm = h < 12 ? '오전' : '오후';
-                    const h12 = (h % 12) || 12;
-                    const time = `${ampm} ${h12}:${m.toString().padStart(2, '0')}`;
+                    const time = formatKstTime(d);
                     if (diffDays === 0) return `오늘 ${time} 도착`;
                     if (diffDays === 1) return `어제 ${time} 도착`;
                     if (diffDays < 7) return `${diffDays}일 전 ${time} 도착`;
-                    return `${d.getMonth() + 1}월 ${d.getDate()}일 ${time} 도착`;
+                    return `${formatKstMonthDay(d)} ${time} 도착`;
                   })()}
                 </span>
               )}

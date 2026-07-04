@@ -235,7 +235,7 @@ export default function PoemsPage() {
 
                   {/* 메타 — 우측 하단 작게 */}
                   <p className="mt-6 text-right text-[11px] text-slate-400">
-                    {item.by} 씀 · {item.createdAt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    {item.by} 씀 · {item.createdAt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Seoul' })}
                   </p>
 
                   {/* 액션 */}

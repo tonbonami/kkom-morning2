@@ -217,7 +217,7 @@ export default function RecipesPage() {
 
                     {/* 메타: 누가, 언제 */}
                     <p className="text-[11px] font-bold text-slate-400 mb-2">
-                      {item.by} · {item.createdAt.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
+                      {item.by} · {item.createdAt.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', timeZone: 'Asia/Seoul' })}
                     </p>
 
                     {/* 설명 */}
