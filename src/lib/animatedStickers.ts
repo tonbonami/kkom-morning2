@@ -16,6 +16,12 @@ export const ANIMATED_STICKERS: AnimatedSticker[] = [
     videoUrl: '/letter-stickers/pochacco-heart.mp4',
     posterUrl: '/letter-stickers/pochacco-heart-poster.webp',
   },
+  {
+    id: 'pochacco-rose',
+    label: '장미 포차코',
+    videoUrl: '/letter-stickers/pochacco-rose.mp4',
+    posterUrl: '/letter-stickers/pochacco-rose-poster.webp',
+  },
 ];
 
 export function getAnimatedSticker(id?: string | null): AnimatedSticker | undefined {

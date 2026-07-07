@@ -45,8 +45,9 @@ export default function NewLetterPage() {
   const [showEmoticonSheet, setShowEmoticonSheet] = useState(false);
   const [activeEmoticonSetId, setActiveEmoticonSetId] = useState(EMOTICON_SETS[0]?.id ?? '');
   const [selectedEmoticonIds, setSelectedEmoticonIds] = useState<string[]>([]);
-  // 움직이는 포차코 스티커 — 선택된 id 하나 (없으면 null)
+  // 움직이는 포차코 스티커 — 선택된 id 하나 (없으면 null) + 선택 시트
   const [animatedSticker, setAnimatedSticker] = useState<string | null>(null);
+  const [showAnimSheet, setShowAnimSheet] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
@@ -284,12 +285,12 @@ export default function NewLetterPage() {
                   >
                     <Smile size={15} /> 이모티콘
                   </button>
-                  {/* 움직이는 포차코 토글 — 지금은 1종이라 바로 on/off */}
+                  {/* 움직이는 포차코 — 2종 이상이라 선택 시트 열기 */}
                   <button
                     type="button"
                     onClick={() => {
                       import('@/lib/feedback').then(({ haptic }) => haptic(20)).catch(() => {});
-                      setAnimatedSticker((prev) => (prev ? null : ANIMATED_STICKERS[0].id));
+                      setShowAnimSheet(true);
                     }}
                     className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-[13px] font-bold shadow-sm active:scale-95 transition-all ${
                       animatedSticker
@@ -437,6 +438,74 @@ export default function NewLetterPage() {
           {sending ? '보내는 중…' : scheduled ? '예약 편지 보내기' : '편지 보내기'}
         </button>
       </div>
+
+      {/* 움직이는 포차코 선택 시트 */}
+      <AnimatePresence>
+        {showAnimSheet && (
+          <>
+            <motion.button
+              type="button"
+              aria-label="닫기"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowAnimSheet(false)}
+              className="fixed inset-0 z-40 bg-slate-900/25 backdrop-blur-[2px]"
+            />
+            <motion.div
+              initial={{ y: 360, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 360, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="fixed inset-x-4 bottom-4 z-50 max-w-md mx-auto rounded-[32px] bg-[#F7F9F9] border border-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] overflow-hidden"
+            >
+              <div className="px-5 pt-4 pb-3 bg-white/80 flex items-center justify-between">
+                <div>
+                  <p className="text-[12px] font-black text-purple-500 flex items-center gap-1">
+                    <Sparkles size={13} /> Moving Pochacco
+                  </p>
+                  <h2 className="text-lg font-black text-slate-900 mt-0.5">움직이는 포차코 붙이기</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAnimSheet(false)}
+                  className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center active:scale-95"
+                  aria-label="닫기"
+                ><X size={17} /></button>
+              </div>
+              <div className="px-5 pb-6 pt-3 grid grid-cols-2 gap-3">
+                {ANIMATED_STICKERS.map((st) => {
+                  const selected = animatedSticker === st.id;
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => {
+                        import('@/lib/feedback').then(({ haptic }) => haptic(20)).catch(() => {});
+                        setAnimatedSticker(selected ? null : st.id);
+                        setShowAnimSheet(false);
+                      }}
+                      className={`relative rounded-[22px] p-2 border-2 transition-all ${
+                        selected ? 'border-purple-400 bg-purple-50 shadow-sm' : 'border-slate-100 bg-white'
+                      }`}
+                    >
+                      <video
+                        src={st.videoUrl}
+                        poster={st.posterUrl}
+                        autoPlay loop muted playsInline
+                        className="w-full aspect-square rounded-2xl object-cover bg-white"
+                      />
+                      <p className="mt-1.5 text-[12px] font-black text-slate-700">{st.label}</p>
+                      {selected && (
+                        <span className="absolute top-1 right-1 w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center shadow-md">✓</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="px-5 pb-5 -mt-2 text-center text-[11px] font-bold text-slate-400">
+                편지에 붙으면 상대 화면에서 재생돼요
+              </p>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showEmoticonSheet && (
