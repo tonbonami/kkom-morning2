@@ -54,7 +54,7 @@ export default function CalendarPage() {
   }, [router]);
 
   const weeks = useMemo(() => buildMonthGrid(year, month, events), [year, month, events]);
-  const upcoming = useMemo(() => upcomingEvents(events, 6), [events]);
+  const upcoming = useMemo(() => upcomingEvents(events, 15), [events]);
 
   const prevMonth = () => { const m = month - 1; if (m < 1) { setYear(year - 1); setMonth(12); } else setMonth(m); };
   const nextMonth = () => { const m = month + 1; if (m > 12) { setYear(year + 1); setMonth(1); } else setMonth(m); };
@@ -132,7 +132,7 @@ export default function CalendarPage() {
               for (let c = b.colStart; c < b.colStart + b.span; c++) overflowByCol[c] = (overflowByCol[c] || 0) + 1;
             });
             return (
-              <div key={wi} className={`relative grid grid-cols-7 ${wi > 0 ? 'border-t border-dashed border-slate-200/70' : ''}`} style={{ minHeight: 78 }}>
+              <div key={wi} className={`relative grid grid-cols-7 ${wi > 0 ? 'border-t border-dashed border-slate-200/70' : ''}`} style={{ minHeight: 82 }}>
                 {/* 날짜 칸 (탭 타겟) */}
                 {week.cells.map((cell, ci) => {
                   const singles = singleDayEventsOn(cell.date, events);
@@ -161,23 +161,25 @@ export default function CalendarPage() {
                   );
                 })}
 
-                {/* 멀티데이 바 — 형광펜 마커(mix-blend-multiply)로 아래 선/글씨와 겹쳐 보임 */}
+                {/* 멀티데이 선형 바 — 솔리드 채움 + 시작쪽 왼쪽 액센트 (구글캘린더 톤) */}
                 {visibleBars.map((bar, bi) => {
                   const meta = OWNER_META[bar.event.owner];
                   return (
                     <div
                       key={`${bar.event.id}-${bi}`}
-                      className="absolute pointer-events-none px-[1px]"
+                      className="absolute pointer-events-none"
                       style={{
-                        top: 46 + bar.slot * 15,
-                        left: `${(bar.colStart / 7) * 100}%`,
-                        width: `${(bar.span / 7) * 100}%`,
+                        top: 44 + bar.slot * 17,
+                        left: `calc(${(bar.colStart / 7) * 100}% + 2px)`,
+                        width: `calc(${(bar.span / 7) * 100}% - 4px)`,
                       }}
                     >
-                      <div className={`h-[14px] flex items-center px-1 mix-blend-multiply ${meta.hl} ${
-                        bar.continuesLeft ? '' : 'rounded-l-[3px]'
-                      } ${bar.continuesRight ? '' : 'rounded-r-[3px]'}`}>
-                        <span className={`text-[8px] font-black truncate ${meta.barText}`}>{bar.event.title}</span>
+                      <div className={`h-[16px] flex items-center pr-1 shadow-sm ${meta.barFill} ${
+                        bar.continuesLeft ? 'rounded-l-none pl-1' : `rounded-l-md border-l-[3px] pl-1 ${meta.barAccent}`
+                      } ${bar.continuesRight ? 'rounded-r-none' : 'rounded-r-md'}`}>
+                        <span className={`text-[9px] font-black truncate ${meta.barText}`}>
+                          {bar.continuesLeft ? '↳ ' : ''}{bar.event.title}
+                        </span>
                       </div>
                     </div>
                   );

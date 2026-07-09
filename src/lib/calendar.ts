@@ -42,11 +42,11 @@ export interface CalendarEvent {
 }
 
 // 종류별 표시 메타 (색/라벨/도형) — 접근성 위해 색 외에 도형/패턴도 병행
-// hl = 형광펜 톤(mix-blend-multiply용 반투명). barBg는 레거시(안 씀).
-export const OWNER_META: Record<EventOwner, { label: string; barBg: string; hl: string; barText: string; dot: string; chip: string; solid: string }> = {
-  kkomi:    { label: '꼼이', barBg: 'bg-rose-100 border border-rose-300',       hl: 'bg-rose-300/60',   barText: 'text-rose-800',   dot: 'bg-rose-400',   chip: 'bg-rose-50 text-rose-600 border-rose-200',    solid: 'bg-rose-400' },
-  udaeng:   { label: '우댕', barBg: 'bg-blue-100 border border-blue-300',       hl: 'bg-blue-300/55',   barText: 'text-blue-800',   dot: 'bg-blue-400',   chip: 'bg-blue-50 text-blue-600 border-blue-200',    solid: 'bg-blue-400' },
-  together: { label: '함께', barBg: 'bg-purple-200 border-2 border-purple-400', hl: 'bg-purple-300/60', barText: 'text-purple-900', dot: 'bg-purple-500', chip: 'bg-purple-100 text-purple-700 border-purple-300', solid: 'bg-purple-500' },
+// barFill = 멀티데이 선형 바 채움색(솔리드), barAccent = 바 시작쪽 왼쪽 액센트 보더.
+export const OWNER_META: Record<EventOwner, { label: string; barFill: string; barAccent: string; barText: string; dot: string; chip: string; solid: string }> = {
+  kkomi:    { label: '꼼이', barFill: 'bg-rose-100',   barAccent: 'border-rose-400',   barText: 'text-rose-700',   dot: 'bg-rose-400',   chip: 'bg-rose-50 text-rose-600 border-rose-200',    solid: 'bg-rose-400' },
+  udaeng:   { label: '우댕', barFill: 'bg-blue-100',   barAccent: 'border-blue-400',   barText: 'text-blue-700',   dot: 'bg-blue-400',   chip: 'bg-blue-50 text-blue-600 border-blue-200',    solid: 'bg-blue-400' },
+  together: { label: '함께', barFill: 'bg-purple-100', barAccent: 'border-purple-500', barText: 'text-purple-800', dot: 'bg-purple-500', chip: 'bg-purple-100 text-purple-700 border-purple-300', solid: 'bg-purple-500' },
 };
 
 function toEvent(id: string, d: CalendarEventDoc): CalendarEvent {
