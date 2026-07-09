@@ -73,7 +73,7 @@ export default function CalendarPage() {
   if (!me) return <div className="min-h-screen bg-[#FFFCF5] max-w-md mx-auto" />;
 
   return (
-    <div className="min-h-[100dvh] bg-[#FFFCF5] text-slate-800 notebook-bg">
+    <div className="min-h-[100dvh] bg-[#FFFCF5] text-slate-800">
       <main className="max-w-md mx-auto px-4 pt-6 pb-28">
         {/* 헤더 */}
         <header className="flex items-center justify-between mb-4 px-1">
@@ -110,8 +110,8 @@ export default function CalendarPage() {
           ))}
         </div>
 
-        {/* 캘린더 그리드 */}
-        <div className="rounded-2xl bg-white/60 border border-slate-200/60 overflow-hidden shadow-[2px_3px_0px_rgba(0,0,0,0.04)]">
+        {/* 캘린더 그리드 — 흰 배경 + 선명한 격자선 */}
+        <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[2px_3px_0px_rgba(0,0,0,0.05)]">
           {weeks.map((week, wi) => {
             const visibleBars = week.bars.filter((b) => b.slot < 2); // 최대 2슬롯
             const overflowByCol: Record<number, number> = {};
@@ -119,38 +119,36 @@ export default function CalendarPage() {
               for (let c = b.colStart; c < b.colStart + b.span; c++) overflowByCol[c] = (overflowByCol[c] || 0) + 1;
             });
             return (
-              <div key={wi} className="relative border-t border-slate-100 first:border-t-0" style={{ minHeight: 74 }}>
+              <div key={wi} className={`relative grid grid-cols-7 ${wi > 0 ? 'border-t border-slate-200' : ''}`} style={{ minHeight: 78 }}>
                 {/* 날짜 칸 (탭 타겟) */}
-                <div className="grid grid-cols-7 h-full">
-                  {week.cells.map((cell) => {
-                    const singles = singleDayEventsOn(cell.date, events);
-                    const ov = overflowByCol[cell.date === week.cells[0].date ? 0 : week.cells.findIndex((c) => c.date === cell.date)] || 0;
-                    return (
-                      <button
-                        key={cell.date}
-                        onClick={() => setDaySheet(cell.date)}
-                        className={`relative flex flex-col items-center pt-1 min-h-[74px] border-l border-slate-50 first:border-l-0 active:bg-slate-50/60 transition-colors ${!cell.inMonth ? 'opacity-35' : ''}`}
-                      >
-                        <span className={`text-[12px] font-bold w-6 h-6 flex items-center justify-center rounded-full ${
-                          cell.isToday ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-600'
-                        }`}>{cell.day}</span>
-                        {/* 하루짜리 점 (바 아래 공간) */}
-                        {singles.length > 0 && (
-                          <span className="absolute bottom-1.5 flex gap-0.5">
-                            {singles.slice(0, 4).map((e) => (
-                              <span key={e.id} className={`w-1.5 h-1.5 ${OWNER_META[e.owner].dot} ${DOT_SHAPE[e.owner]}`} />
-                            ))}
-                          </span>
-                        )}
-                        {ov > 0 && (
-                          <span className="absolute bottom-0.5 right-1 text-[8px] font-black text-slate-400">+{ov}</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                {week.cells.map((cell, ci) => {
+                  const singles = singleDayEventsOn(cell.date, events);
+                  const ov = overflowByCol[ci] || 0;
+                  return (
+                    <button
+                      key={cell.date}
+                      onClick={() => setDaySheet(cell.date)}
+                      className={`relative flex flex-col items-center pt-1.5 ${ci > 0 ? 'border-l border-slate-200' : ''} active:bg-purple-50/50 transition-colors ${!cell.inMonth ? 'bg-slate-50/60' : ''}`}
+                    >
+                      <span className={`text-[12px] font-bold w-6 h-6 flex items-center justify-center rounded-full ${
+                        cell.isToday ? 'bg-emerald-500 text-white shadow-sm' : cell.inMonth ? 'text-slate-700' : 'text-slate-300'
+                      }`}>{cell.day}</span>
+                      {/* 하루짜리 점 — 날짜 숫자 바로 아래 */}
+                      {singles.length > 0 && (
+                        <span className="flex gap-0.5 mt-1">
+                          {singles.slice(0, 4).map((e) => (
+                            <span key={e.id} className={`w-1.5 h-1.5 ${OWNER_META[e.owner].dot} ${DOT_SHAPE[e.owner]}`} />
+                          ))}
+                        </span>
+                      )}
+                      {ov > 0 && (
+                        <span className="absolute bottom-0.5 right-1 text-[8px] font-black text-slate-400">+{ov}</span>
+                      )}
+                    </button>
+                  );
+                })}
 
-                {/* 멀티데이 바 오버레이 (pointer-events-none — 날짜 칸이 탭됨) */}
+                {/* 멀티데이 바 오버레이 (pointer-events-none — 날짜 칸이 탭됨) — 날짜/점 아래 밴드에 배치 */}
                 {visibleBars.map((bar, bi) => {
                   const meta = OWNER_META[bar.event.owner];
                   return (
@@ -158,17 +156,15 @@ export default function CalendarPage() {
                       key={`${bar.event.id}-${bi}`}
                       className="absolute pointer-events-none px-[1px]"
                       style={{
-                        top: 26 + bar.slot * 16,
+                        top: 46 + bar.slot * 15,
                         left: `${(bar.colStart / 7) * 100}%`,
                         width: `${(bar.span / 7) * 100}%`,
                       }}
                     >
-                      <div className={`h-[14px] flex items-center px-1 ${meta.barBg} ${
+                      <div className={`h-[13px] flex items-center px-1 ${meta.barBg} ${
                         bar.continuesLeft ? '' : 'rounded-l-md'
                       } ${bar.continuesRight ? '' : 'rounded-r-md'}`}>
-                        <span className={`text-[8px] font-black truncate ${meta.barText}`}>
-                          {!bar.continuesLeft && (bar.event.title.startsWith('✈') ? '' : '')}{bar.event.title}
-                        </span>
+                        <span className={`text-[8px] font-black truncate ${meta.barText}`}>{bar.event.title}</span>
                       </div>
                     </div>
                   );
