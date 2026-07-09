@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
   Wind, Heart, PenLine, BookOpen, ChefHat, BookText,
-  RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award,
+  RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award, CalendarDays,
 } from 'lucide-react';
 
 // 화면에서 보는 위치 (알림 cron과 별개로 사용자가 선택)
@@ -341,13 +341,23 @@ export default function KkomMorningHome() {
             <span className="hidden">{presenceTick}</span>
           </p>
         </div>
-        <button
-          onClick={() => loadData(true)}
-          className="p-2 bg-white/50 backdrop-blur-md rounded-full text-slate-400 hover:text-slate-600 transition-colors"
-          aria-label="새로고침"
-        >
-          <RefreshCcw size={20} className={isRefreshing ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* 공유 캘린더 진입 (새로고침 왼쪽) */}
+          <button
+            onClick={() => router.push('/calendar')}
+            className="p-2 bg-white/50 backdrop-blur-md rounded-full text-purple-500 hover:text-purple-600 transition-colors"
+            aria-label="공유 캘린더"
+          >
+            <CalendarDays size={20} />
+          </button>
+          <button
+            onClick={() => loadData(true)}
+            className="p-2 bg-white/50 backdrop-blur-md rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+            aria-label="새로고침"
+          >
+            <RefreshCcw size={20} className={isRefreshing ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </header>
 
       {/* Share List 알림 바 — 미확인 카드 있을 때만 (홈 only) */}
