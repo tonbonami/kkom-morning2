@@ -156,3 +156,28 @@ export function eventsOnDate(date: string, events: CalendarEvent[]): CalendarEve
       return (a.startTime || '99').localeCompare(b.startTime || '99');
     });
 }
+
+// 요약탭용 — 오늘 이후 다가오는 일정 (이미 진행중인 멀티데이 포함), 시작일 순.
+// D-day = 시작일까지 남은 날 (오늘 시작이면 0, 이미 시작했으면 진행중).
+export interface UpcomingEvent {
+  event: CalendarEvent;
+  dday: number;        // 시작일까지 남은 일수 (음수면 이미 시작)
+  ongoing: boolean;    // 오늘이 기간 안(멀티데이 진행중)
+}
+export function upcomingEvents(events: CalendarEvent[], limit = 6): UpcomingEvent[] {
+  const today = todayYmd();
+  return events
+    // 끝나지 않은 일정만 (오늘 이후 시작 OR 오늘 진행중)
+    .filter((e) => e.endDate >= today)
+    .map((e) => ({
+      event: e,
+      dday: diffDays(today, e.startDate),
+      ongoing: e.startDate <= today && e.endDate >= today,
+    }))
+    .sort((a, b) => {
+      // 진행중 먼저, 그다음 가까운 시작일 순
+      if (a.ongoing !== b.ongoing) return a.ongoing ? -1 : 1;
+      return a.event.startDate.localeCompare(b.event.startDate);
+    })
+    .slice(0, limit);
+}

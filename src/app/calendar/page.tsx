@@ -13,7 +13,8 @@ import {
   OWNER_META, type CalendarEvent, type EventOwner,
 } from '@/lib/calendar';
 import {
-  buildMonthGrid, todayYmd, eventsOnDate, singleDayEventsOn, parseYmd,
+  buildMonthGrid, todayYmd, eventsOnDate, singleDayEventsOn, parseYmd, upcomingEvents,
+  type UpcomingEvent,
 } from '@/lib/calendarLayout';
 import { nameFromCode } from '@/lib/letters';
 import { feedback } from '@/lib/feedback';
@@ -53,6 +54,7 @@ export default function CalendarPage() {
   }, [router]);
 
   const weeks = useMemo(() => buildMonthGrid(year, month, events), [year, month, events]);
+  const upcoming = useMemo(() => upcomingEvents(events, 6), [events]);
 
   const prevMonth = () => { const m = month - 1; if (m < 1) { setYear(year - 1); setMonth(12); } else setMonth(m); };
   const nextMonth = () => { const m = month + 1; if (m > 12) { setYear(year + 1); setMonth(1); } else setMonth(m); };
@@ -96,6 +98,17 @@ export default function CalendarPage() {
           ><Plus size={20} /></button>
         </header>
 
+        {/* 다가오는 일정 요약탭 — 가로 스크롤 포스트잇 (Gemini P0) */}
+        {upcoming.length > 0 && (
+          <div className="mb-3 -mx-1">
+            <h2 className="font-handwriting text-[22px] text-slate-700 mb-1.5 px-2">다가오는 우리 🗓️</h2>
+            {/* 좌우 padding으로 iOS 엣지 스와이프 충돌 회피 */}
+            <div className="flex overflow-x-auto no-scrollbar gap-3 pb-2 px-2">
+              {upcoming.map((u, i) => <UpcomingCard key={u.event.id} u={u} tilt={i % 2 === 0 ? 'rotate-1' : '-rotate-1'} onTap={() => setDaySheet(u.event.startDate <= today && u.event.endDate >= today ? today : u.event.startDate)} />)}
+            </div>
+          </div>
+        )}
+
         {/* 범례 */}
         <div className="flex items-center justify-center gap-3 mb-3 text-[11px] font-bold">
           <span className="flex items-center gap-1 text-rose-500"><span className="w-2.5 h-2.5 bg-rose-400 rotate-45 rounded-[1px]" /> 꼼이</span>
@@ -110,8 +123,8 @@ export default function CalendarPage() {
           ))}
         </div>
 
-        {/* 캘린더 그리드 — 흰 배경 + 선명한 격자선 */}
-        <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-[2px_3px_0px_rgba(0,0,0,0.05)]">
+        {/* 캘린더 그리드 — 흰 컨테이너 + 점선 모눈 (다이어리 속지 톤) */}
+        <div className="rounded-3xl bg-white border border-slate-100 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-1.5">
           {weeks.map((week, wi) => {
             const visibleBars = week.bars.filter((b) => b.slot < 2); // 최대 2슬롯
             const overflowByCol: Record<number, number> = {};
@@ -119,7 +132,7 @@ export default function CalendarPage() {
               for (let c = b.colStart; c < b.colStart + b.span; c++) overflowByCol[c] = (overflowByCol[c] || 0) + 1;
             });
             return (
-              <div key={wi} className={`relative grid grid-cols-7 ${wi > 0 ? 'border-t border-slate-200' : ''}`} style={{ minHeight: 78 }}>
+              <div key={wi} className={`relative grid grid-cols-7 ${wi > 0 ? 'border-t border-dashed border-slate-200/70' : ''}`} style={{ minHeight: 78 }}>
                 {/* 날짜 칸 (탭 타겟) */}
                 {week.cells.map((cell, ci) => {
                   const singles = singleDayEventsOn(cell.date, events);
@@ -128,16 +141,16 @@ export default function CalendarPage() {
                     <button
                       key={cell.date}
                       onClick={() => setDaySheet(cell.date)}
-                      className={`relative flex flex-col items-center pt-1.5 ${ci > 0 ? 'border-l border-slate-200' : ''} active:bg-purple-50/50 transition-colors ${!cell.inMonth ? 'bg-slate-50/60' : ''}`}
+                      className={`relative flex flex-col items-center pt-1.5 ${ci > 0 ? 'border-l border-dashed border-slate-200/70' : ''} active:bg-purple-50/50 transition-colors ${!cell.inMonth ? 'opacity-40' : ''}`}
                     >
-                      <span className={`text-[12px] font-bold w-6 h-6 flex items-center justify-center rounded-full ${
+                      <span className={`text-[12px] font-bold w-6 h-6 flex items-center justify-center rounded-full z-10 ${
                         cell.isToday ? 'bg-emerald-500 text-white shadow-sm' : cell.inMonth ? 'text-slate-700' : 'text-slate-300'
                       }`}>{cell.day}</span>
                       {/* 하루짜리 점 — 날짜 숫자 바로 아래 */}
                       {singles.length > 0 && (
-                        <span className="flex gap-0.5 mt-1">
+                        <span className="flex gap-0.5 mt-1 z-10">
                           {singles.slice(0, 4).map((e) => (
-                            <span key={e.id} className={`w-1.5 h-1.5 ${OWNER_META[e.owner].dot} ${DOT_SHAPE[e.owner]}`} />
+                            <span key={e.id} className={`w-1.5 h-1.5 ${OWNER_META[e.owner].dot} ${DOT_SHAPE[e.owner]} shadow-sm`} />
                           ))}
                         </span>
                       )}
@@ -148,7 +161,7 @@ export default function CalendarPage() {
                   );
                 })}
 
-                {/* 멀티데이 바 오버레이 (pointer-events-none — 날짜 칸이 탭됨) — 날짜/점 아래 밴드에 배치 */}
+                {/* 멀티데이 바 — 형광펜 마커(mix-blend-multiply)로 아래 선/글씨와 겹쳐 보임 */}
                 {visibleBars.map((bar, bi) => {
                   const meta = OWNER_META[bar.event.owner];
                   return (
@@ -161,9 +174,9 @@ export default function CalendarPage() {
                         width: `${(bar.span / 7) * 100}%`,
                       }}
                     >
-                      <div className={`h-[13px] flex items-center px-1 ${meta.barBg} ${
-                        bar.continuesLeft ? '' : 'rounded-l-md'
-                      } ${bar.continuesRight ? '' : 'rounded-r-md'}`}>
+                      <div className={`h-[14px] flex items-center px-1 mix-blend-multiply ${meta.hl} ${
+                        bar.continuesLeft ? '' : 'rounded-l-[3px]'
+                      } ${bar.continuesRight ? '' : 'rounded-r-[3px]'}`}>
                         <span className={`text-[8px] font-black truncate ${meta.barText}`}>{bar.event.title}</span>
                       </div>
                     </div>
@@ -207,12 +220,30 @@ export default function CalendarPage() {
   );
 }
 
-// ── 날짜별 바텀시트 ──
+// ── 다가오는 일정 요약 카드 (가로 스크롤 포스트잇) ──
+function UpcomingCard({ u, tilt, onTap }: { u: UpcomingEvent; tilt: string; onTap: () => void }) {
+  const meta = OWNER_META[u.event.owner];
+  const badge = u.ongoing ? '진행중' : u.dday === 0 ? '오늘' : u.dday === 1 ? '내일' : `D-${u.dday}`;
+  const bg = u.event.owner === 'kkomi' ? 'bg-rose-50/80 border-rose-200/60' : u.event.owner === 'udaeng' ? 'bg-blue-50/80 border-blue-100' : 'bg-purple-50/80 border-purple-200/50';
+  return (
+    <button onClick={onTap} className={`relative shrink-0 w-36 text-left rounded-2xl p-3.5 border shadow-[2px_3px_0px_rgba(0,0,0,0.06)] ${bg} ${tilt} active:scale-[0.97] transition`}>
+      {u.event.owner === 'together' && <div className="tape-mint absolute -top-1.5 left-1/2 -translate-x-1/2 w-10 -rotate-2 z-10" />}
+      <span className={`inline-block ${meta.solid} text-white font-black text-[10px] px-2 py-0.5 rounded-full mb-1`}>{badge}</span>
+      <h3 className="text-[14px] font-black leading-snug truncate text-slate-800">{u.event.title}</h3>
+      <p className="text-[11px] font-bold text-slate-400 mt-1">{fmtRange(u.event)}</p>
+    </button>
+  );
+}
+
+// ── 날짜별 바텀시트 (시간순 타임라인) ──
 function DaySheet({ date, events, me, onClose, onAdd, onEdit }: {
   date: string; events: CalendarEvent[]; me: '우댕' | '꼼이';
   onClose: () => void; onAdd: () => void; onEdit: (e: CalendarEvent) => void;
 }) {
   const p = parseYmd(date);
+  // 종일/멀티데이(위 고정) vs 시간 있는 일정(타임라인)
+  const allDayish = events.filter((e) => e.allDay || e.startDate !== e.endDate || !e.startTime);
+  const timed = events.filter((e) => !e.allDay && e.startDate === e.endDate && e.startTime);
   return (
     <>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -228,29 +259,51 @@ function DaySheet({ date, events, me, onClose, onAdd, onEdit }: {
         {events.length === 0 ? (
           <p className="text-center text-sm font-bold text-slate-400 py-8">이 날은 아직 비어있어요</p>
         ) : (
-          <div className="space-y-2.5">
-            {events.map((e) => {
-              const meta = OWNER_META[e.owner];
-              return (
-                <button key={e.id} onClick={() => onEdit(e)}
-                  className={`w-full text-left rounded-2xl px-4 py-3 border ${meta.chip} active:scale-[0.99] transition`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[15px] font-black truncate">{e.title}</span>
-                    <span className="text-[10px] font-black shrink-0">{meta.label}</span>
-                  </div>
-                  <p className="text-[12px] font-bold opacity-80 mt-0.5">{fmtRange(e)}</p>
-                  {e.location && <p className="text-[11px] font-medium opacity-70 mt-0.5 flex items-center gap-1"><MapPin size={11} /> {e.location}</p>}
-                  {e.memo && <p className="text-[12px] font-medium opacity-70 mt-1 whitespace-pre-wrap">{e.memo}</p>}
-                  {e.remindDaysBefore.length > 0 && (
-                    <p className="text-[10px] font-bold opacity-70 mt-1 flex items-center gap-1"><Bell size={10} /> {e.remindDaysBefore.map((d) => d === 1 ? '1일 전' : `${d}일 전`).join(', ')} 알림</p>
-                  )}
-                </button>
-              );
-            })}
+          <div className="space-y-4">
+            {/* 종일/여행 — 위 고정 */}
+            {allDayish.length > 0 && (
+              <div className="space-y-2">
+                {allDayish.map((e) => <EventRow key={e.id} e={e} onEdit={onEdit} />)}
+              </div>
+            )}
+            {/* 시간순 타임라인 */}
+            {timed.length > 0 && (
+              <div className="relative pl-14">
+                {/* 세로 타임라인 선 */}
+                <div className="absolute left-[42px] top-1 bottom-1 w-px bg-slate-200" />
+                <div className="space-y-2.5">
+                  {timed.map((e) => (
+                    <div key={e.id} className="relative">
+                      <span className="absolute -left-14 top-2 text-[12px] font-black text-slate-500 tabular-nums w-10 text-right">{e.startTime}</span>
+                      <span className={`absolute -left-[26px] top-2.5 w-2.5 h-2.5 rounded-full ${OWNER_META[e.owner].solid} ring-2 ring-[#FFFCF5]`} />
+                      <EventRow e={e} onEdit={onEdit} compact />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </motion.div>
     </>
+  );
+}
+
+function EventRow({ e, onEdit, compact }: { e: CalendarEvent; onEdit: (e: CalendarEvent) => void; compact?: boolean }) {
+  const meta = OWNER_META[e.owner];
+  return (
+    <button onClick={() => onEdit(e)} className={`w-full text-left rounded-2xl px-4 py-3 border ${meta.chip} active:scale-[0.99] transition`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[15px] font-black truncate">{e.title}</span>
+        <span className="text-[10px] font-black shrink-0">{meta.label}</span>
+      </div>
+      {!compact && <p className="text-[12px] font-bold opacity-80 mt-0.5">{fmtRange(e)}</p>}
+      {e.location && <p className="text-[11px] font-medium opacity-70 mt-0.5 flex items-center gap-1"><MapPin size={11} /> {e.location}</p>}
+      {e.memo && <p className="text-[12px] font-medium opacity-70 mt-1 whitespace-pre-wrap">{e.memo}</p>}
+      {e.remindDaysBefore.length > 0 && (
+        <p className="text-[10px] font-bold opacity-70 mt-1 flex items-center gap-1"><Bell size={10} /> {e.remindDaysBefore.map((d) => d === 1 ? '1일 전' : `${d}일 전`).join(', ')} 알림</p>
+      )}
+    </button>
   );
 }
 
