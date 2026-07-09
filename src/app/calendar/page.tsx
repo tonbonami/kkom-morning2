@@ -75,7 +75,7 @@ export default function CalendarPage() {
   if (!me) return <div className="min-h-screen bg-[#FFFCF5] max-w-md mx-auto" />;
 
   return (
-    <div className="min-h-[100dvh] bg-[#FFFCF5] text-slate-800">
+    <div className="min-h-[100dvh] bg-[#FFFCF5] text-slate-800 font-pretendard">
       <main className="max-w-md mx-auto px-4 pt-6 pb-28">
         {/* 헤더 */}
         <header className="flex items-center justify-between mb-4 px-1">
@@ -87,7 +87,7 @@ export default function CalendarPage() {
           <div className="flex flex-col items-center gap-1.5">
             <div className="flex items-center gap-1">
               <button onClick={prevMonth} className="p-1.5 text-slate-400 active:scale-90" aria-label="이전 달"><ChevronLeft size={20} /></button>
-              <h1 className="font-handwriting text-[30px] leading-none text-slate-800 min-w-[104px] text-center">
+              <h1 className="text-[22px] font-extrabold tracking-tight leading-none text-slate-800 min-w-[104px] text-center">
                 {year}년 {month}월
               </h1>
               <button onClick={nextMonth} className="p-1.5 text-slate-400 active:scale-90" aria-label="다음 달"><ChevronRight size={20} /></button>
@@ -260,7 +260,7 @@ function DaySheet({ date, events, me, onClose, onAdd, onEdit }: {
         className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md bg-[#FFFCF5] rounded-t-[28px] p-6 pb-safe-bottom max-h-[80dvh] overflow-y-auto">
         <div className="tape absolute -top-2 left-1/2 -translate-x-1/2 w-14 -rotate-2 z-10" />
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-handwriting text-[26px] text-slate-800">{p.m}월 {p.d}일</h2>
+          <h2 className="text-[20px] font-extrabold tracking-tight text-slate-800">{p.m}월 {p.d}일</h2>
           <button onClick={onAdd} className="inline-flex items-center gap-1 bg-purple-500 text-white text-[12px] font-black px-3 py-2 rounded-full active:scale-95"><Plus size={14} /> 추가</button>
         </div>
         {events.length === 0 ? (
@@ -385,7 +385,7 @@ function EventForm({ me, initial, presetDate, onClose, onSaved }: {
         className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md bg-[#FFFCF5] rounded-t-[32px] p-6 pb-safe-bottom max-h-[92dvh] overflow-y-auto">
         <div className="tape absolute -top-3 left-1/2 -translate-x-1/2 w-16 -rotate-2 z-10" />
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-handwriting text-[28px] text-slate-800">{initial ? '일정 고치기' : '새 일정'}</h2>
+          <h2 className="text-[21px] font-extrabold tracking-tight text-slate-800">{initial ? '일정 고치기' : '새 일정'}</h2>
           <button onClick={onClose} className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center active:scale-95"><X size={17} /></button>
         </div>
 
