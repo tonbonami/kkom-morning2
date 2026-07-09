@@ -25,10 +25,7 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&family=PT+Sans:wght@400;700&family=Dongle:wght@400;700&display=swap" rel="stylesheet" />
-        {/* Pretendard — 애플 SD 산돌고딕 대체 무료 폰트 (가변·동적 서브셋: 쓴 글자만 로드) */}
-        <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet" />
       </head>
       <body className={cn("font-body antialiased")}>
         {children}

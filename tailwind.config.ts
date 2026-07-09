@@ -13,8 +13,6 @@ export default {
         headline: ['Poppins', 'sans-serif'],
         code: ['monospace'],
         handwriting: ['Dongle', '"PT Sans"', 'sans-serif'],
-        // 깔끔한 산돌고딕 톤 — Pretendard 우선, 없으면 애플/시스템 한글 폰트
-        pretendard: ['"Pretendard Variable"', 'Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', '"Apple SD Gothic Neo"', 'Roboto', 'sans-serif'],
       },
       colors: {
         background: 'hsl(var(--background))',
