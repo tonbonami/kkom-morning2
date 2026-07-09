@@ -164,20 +164,26 @@ export interface UpcomingEvent {
   dday: number;        // 시작일까지 남은 일수 (음수면 이미 시작)
   ongoing: boolean;    // 오늘이 기간 안(멀티데이 진행중)
 }
-export function upcomingEvents(events: CalendarEvent[], limit = 6): UpcomingEvent[] {
+export function upcomingEvents(events: CalendarEvent[], withinDays = 15, limit = 8): UpcomingEvent[] {
   const today = todayYmd();
   return events
-    // 끝나지 않은 일정만 (오늘 이후 시작 OR 오늘 진행중)
-    .filter((e) => e.endDate >= today)
+    // 끝나지 않았고, 시작이 오늘~D+withinDays 이내(진행중 포함)만
+    .filter((e) => e.endDate >= today && diffDays(today, e.startDate) <= withinDays)
     .map((e) => ({
       event: e,
       dday: diffDays(today, e.startDate),
       ongoing: e.startDate <= today && e.endDate >= today,
     }))
     .sort((a, b) => {
-      // 진행중 먼저, 그다음 가까운 시작일 순
       if (a.ongoing !== b.ongoing) return a.ongoing ? -1 : 1;
       return a.event.startDate.localeCompare(b.event.startDate);
     })
     .slice(0, limit);
+}
+
+// '8/8(토)' 짧은 날짜
+const WD = ['일', '월', '화', '수', '목', '금', '토'];
+export function shortDateLabel(ymd: string): string {
+  const { m, d } = parseYmd(ymd);
+  return `${m}/${d}(${WD[weekdayOf(ymd)]})`;
 }

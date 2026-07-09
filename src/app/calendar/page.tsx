@@ -13,7 +13,7 @@ import {
   OWNER_META, type CalendarEvent, type EventOwner,
 } from '@/lib/calendar';
 import {
-  buildMonthGrid, todayYmd, eventsOnDate, singleDayEventsOn, parseYmd, upcomingEvents,
+  buildMonthGrid, todayYmd, eventsOnDate, singleDayEventsOn, parseYmd, upcomingEvents, shortDateLabel,
   type UpcomingEvent,
 } from '@/lib/calendarLayout';
 import { nameFromCode } from '@/lib/letters';
@@ -84,12 +84,20 @@ export default function CalendarPage() {
             className="h-10 w-10 rounded-2xl bg-white shadow-sm border border-white/70 flex items-center justify-center text-slate-500 active:scale-95"
             aria-label="홈으로"
           ><ArrowLeft size={18} /></button>
-          <div className="flex items-center gap-2">
-            <button onClick={prevMonth} className="p-2 text-slate-400 active:scale-90" aria-label="이전 달"><ChevronLeft size={20} /></button>
-            <h1 className="font-handwriting text-[30px] leading-none text-slate-800 min-w-[110px] text-center">
-              {year}년 {month}월
-            </h1>
-            <button onClick={nextMonth} className="p-2 text-slate-400 active:scale-90" aria-label="다음 달"><ChevronRight size={20} /></button>
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="flex items-center gap-1">
+              <button onClick={prevMonth} className="p-1.5 text-slate-400 active:scale-90" aria-label="이전 달"><ChevronLeft size={20} /></button>
+              <h1 className="font-handwriting text-[30px] leading-none text-slate-800 min-w-[104px] text-center">
+                {year}년 {month}월
+              </h1>
+              <button onClick={nextMonth} className="p-1.5 text-slate-400 active:scale-90" aria-label="다음 달"><ChevronRight size={20} /></button>
+            </div>
+            {/* 범례 — 유리 캡슐 (월 밑) */}
+            <div className="flex items-center gap-2.5 bg-white/60 backdrop-blur-md border border-white/80 rounded-full px-3 py-1 shadow-sm text-[10px] font-black">
+              <span className="flex items-center gap-1 text-rose-500"><span className="w-2 h-2 bg-rose-400 rotate-45 rounded-[1px]" /> 꼼이</span>
+              <span className="flex items-center gap-1 text-blue-500"><span className="w-2 h-2 bg-blue-400 rounded-full" /> 우댕</span>
+              <span className="flex items-center gap-1 text-purple-600"><span className="w-2 h-2 bg-purple-500 rounded-full ring-1 ring-purple-600" /> 함께</span>
+            </div>
           </div>
           <button
             onClick={() => openAdd()}
@@ -98,23 +106,15 @@ export default function CalendarPage() {
           ><Plus size={20} /></button>
         </header>
 
-        {/* 다가오는 일정 요약탭 — 가로 스크롤 포스트잇 (Gemini P0) */}
+        {/* 다가오는 일정 요약 — 슬림 2줄 (D-15 이내만) */}
         {upcoming.length > 0 && (
-          <div className="mb-3 -mx-1">
-            <h2 className="font-handwriting text-[22px] text-slate-700 mb-1.5 px-2">다가오는 우리 🗓️</h2>
-            {/* 좌우 padding으로 iOS 엣지 스와이프 충돌 회피 */}
-            <div className="flex overflow-x-auto no-scrollbar gap-3 pb-2 px-2">
-              {upcoming.map((u, i) => <UpcomingCard key={u.event.id} u={u} tilt={i % 2 === 0 ? 'rotate-1' : '-rotate-1'} onTap={() => setDaySheet(u.event.startDate <= today && u.event.endDate >= today ? today : u.event.startDate)} />)}
+          <div className="mb-3">
+            <h2 className="text-[13px] font-black text-slate-500 mb-1.5 px-1">다가오는 일정</h2>
+            <div className="flex overflow-x-auto no-scrollbar gap-2 pb-1 px-1">
+              {upcoming.map((u) => <UpcomingCard key={u.event.id} u={u} onTap={() => setDaySheet(u.ongoing ? today : u.event.startDate)} />)}
             </div>
           </div>
         )}
-
-        {/* 범례 */}
-        <div className="flex items-center justify-center gap-3 mb-3 text-[11px] font-bold">
-          <span className="flex items-center gap-1 text-rose-500"><span className="w-2.5 h-2.5 bg-rose-400 rotate-45 rounded-[1px]" /> 꼼이</span>
-          <span className="flex items-center gap-1 text-blue-500"><span className="w-2.5 h-2.5 bg-blue-400 rounded-full" /> 우댕</span>
-          <span className="flex items-center gap-1 text-purple-600"><span className="w-2.5 h-2.5 bg-purple-500 rounded-full ring-1 ring-purple-600" /> 함께</span>
-        </div>
 
         {/* 요일 헤더 */}
         <div className="grid grid-cols-7 text-center mb-1">
@@ -220,17 +220,22 @@ export default function CalendarPage() {
   );
 }
 
-// ── 다가오는 일정 요약 카드 (가로 스크롤 포스트잇) ──
-function UpcomingCard({ u, tilt, onTap }: { u: UpcomingEvent; tilt: string; onTap: () => void }) {
+// ── 다가오는 일정 요약 카드 (슬림 2줄) ──
+function UpcomingCard({ u, onTap }: { u: UpcomingEvent; onTap: () => void }) {
   const meta = OWNER_META[u.event.owner];
-  const badge = u.ongoing ? '진행중' : u.dday === 0 ? '오늘' : u.dday === 1 ? '내일' : `D-${u.dday}`;
-  const bg = u.event.owner === 'kkomi' ? 'bg-rose-50/80 border-rose-200/60' : u.event.owner === 'udaeng' ? 'bg-blue-50/80 border-blue-100' : 'bg-purple-50/80 border-purple-200/50';
+  const badge = u.ongoing ? '진행중' : u.dday === 0 ? 'D-DAY' : `D-${u.dday}`;
+  const bg = u.event.owner === 'kkomi' ? 'bg-rose-50 border-rose-100' : u.event.owner === 'udaeng' ? 'bg-blue-50 border-blue-100' : 'bg-purple-50 border-purple-100';
   return (
-    <button onClick={onTap} className={`relative shrink-0 w-36 text-left rounded-2xl p-3.5 border shadow-[2px_3px_0px_rgba(0,0,0,0.06)] ${bg} ${tilt} active:scale-[0.97] transition`}>
-      {u.event.owner === 'together' && <div className="tape-mint absolute -top-1.5 left-1/2 -translate-x-1/2 w-10 -rotate-2 z-10" />}
-      <span className={`inline-block ${meta.solid} text-white font-black text-[10px] px-2 py-0.5 rounded-full mb-1`}>{badge}</span>
-      <h3 className="text-[14px] font-black leading-snug truncate text-slate-800">{u.event.title}</h3>
-      <p className="text-[11px] font-bold text-slate-400 mt-1">{fmtRange(u.event)}</p>
+    <button onClick={onTap} className={`shrink-0 text-left rounded-xl px-3 py-2 border ${bg} active:scale-[0.97] transition`}>
+      {/* 1줄: D-day 배지 + 날짜 */}
+      <div className="flex items-center gap-1.5 mb-0.5">
+        <span className={`${meta.solid} text-white font-black text-[9px] px-1.5 py-[1px] rounded-full leading-none`}>{badge}</span>
+        <span className="text-[10px] font-bold text-slate-400 tabular-nums">
+          {shortDateLabel(u.event.startDate)}{u.event.startDate !== u.event.endDate ? `~${shortDateLabel(u.event.endDate)}` : ''}
+        </span>
+      </div>
+      {/* 2줄: 제목 */}
+      <p className="text-[13px] font-black text-slate-700 truncate max-w-[150px]">{u.event.title}</p>
     </button>
   );
 }
