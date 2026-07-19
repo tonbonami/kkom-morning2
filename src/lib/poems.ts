@@ -8,6 +8,8 @@ import {
   addDoc,
   doc,
   deleteDoc,
+  updateDoc,
+  deleteField,
   onSnapshot,
   serverTimestamp,
   Timestamp,
@@ -20,6 +22,7 @@ export interface PoemDoc {
   title: string;
   body?: string;        // 타이핑 또는 OCR로 채운 시 본문 (옵션)
   photoUrl?: string;    // 시를 찍은 사진 URL (옵션)
+  artUrl?: string;      // 시화(詩畵) — 시와 어울리는 그림. 정사각형으로 상단에 노출 (옵션)
   by: '우댕' | '꼼이';
   createdAt?: Timestamp | null;
   updatedAt?: Timestamp | null;
@@ -32,6 +35,7 @@ export interface PoemItemView {
   title: string;
   body?: string;
   photoUrl?: string;
+  artUrl?: string;
   by: '우댕' | '꼼이';
   createdAt: Date;
   updatedAt?: Date | null;
@@ -45,12 +49,23 @@ function toView(id: string, d: PoemDoc): PoemItemView {
     title: d.title,
     body: d.body,
     photoUrl: d.photoUrl,
+    artUrl: d.artUrl,
     by: d.by,
     createdAt: d.createdAt?.toDate?.() ?? new Date(),
     updatedAt: d.updatedAt?.toDate?.() ?? null,
     hearts: d.hearts,
     commentCount: d.commentCount,
   };
+}
+
+// 이미지 1장 Storage 업로드 → 다운로드 URL. (시 사진 / 시화 공용)
+async function uploadImage(file: File, kind: 'photo' | 'art', by: string): Promise<string> {
+  const ext = file.type.includes('png') ? 'png' : file.type.includes('webp') ? 'webp' : 'jpg';
+  const safeBy = by.replace(/[^\w가-힣]/g, '_') || 'anon';
+  const path = `poems/${kind}_${Date.now()}_${safeBy}.${ext}`;
+  const sref = storageRef(storage, path);
+  await uploadBytes(sref, file, { contentType: file.type || 'image/jpeg' });
+  return getDownloadURL(sref);
 }
 
 export function subscribePoems(cb: (items: PoemItemView[]) => void): () => void {
@@ -68,23 +83,18 @@ export function subscribePoems(cb: (items: PoemItemView[]) => void): () => void 
   );
 }
 
-// 사진 1장 업로드 + Firestore 시 doc 생성. 사진은 옵션 — 텍스트만으로도 가능.
+// 사진/시화 업로드 + Firestore 시 doc 생성. 둘 다 옵션 — 텍스트만으로도 가능.
 export async function addPoem(input: {
   title: string;
   body?: string;
   photoFile?: File | null;
+  artFile?: File | null;
   by: '우댕' | '꼼이';
 }): Promise<string> {
-  let photoUrl: string | undefined;
-  if (input.photoFile) {
-    const ext = input.photoFile.type.includes('png') ? 'png'
-      : input.photoFile.type.includes('webp') ? 'webp' : 'jpg';
-    const safeBy = input.by.replace(/[^\w가-힣]/g, '_') || 'anon';
-    const path = `poems/${Date.now()}_${safeBy}.${ext}`;
-    const sref = storageRef(storage, path);
-    await uploadBytes(sref, input.photoFile, { contentType: input.photoFile.type || 'image/jpeg' });
-    photoUrl = await getDownloadURL(sref);
-  }
+  const [photoUrl, artUrl] = await Promise.all([
+    input.photoFile ? uploadImage(input.photoFile, 'photo', input.by) : undefined,
+    input.artFile ? uploadImage(input.artFile, 'art', input.by) : undefined,
+  ]);
 
   const payload: DocumentData = {
     title: input.title.trim(),
@@ -93,6 +103,7 @@ export async function addPoem(input: {
   };
   if (input.body?.trim()) payload.body = input.body.trim();
   if (photoUrl) payload.photoUrl = photoUrl;
+  if (artUrl) payload.artUrl = artUrl;
 
   const ref = await addDoc(collection(db, 'poems'), payload);
 
@@ -109,4 +120,15 @@ export async function addPoem(input: {
 
 export async function deletePoem(id: string): Promise<void> {
   await deleteDoc(doc(db, 'poems', id));
+}
+
+// 이미 올라간 시에 시화만 따로 붙이기/바꾸기 (둘 다 가능 — 상대 시에 그림 선물 OK)
+export async function setPoemArt(id: string, file: File, by: '우댕' | '꼼이'): Promise<string> {
+  const artUrl = await uploadImage(file, 'art', by);
+  await updateDoc(doc(db, 'poems', id), { artUrl, updatedAt: serverTimestamp() });
+  return artUrl;
+}
+
+export async function removePoemArt(id: string): Promise<void> {
+  await updateDoc(doc(db, 'poems', id), { artUrl: deleteField(), updatedAt: serverTimestamp() });
 }

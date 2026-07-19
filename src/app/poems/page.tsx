@@ -7,11 +7,13 @@ import type { ChangeEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Camera, Loader2, MessageCircle, X, BookText, Trash2, Sparkles } from 'lucide-react';
+import { ArrowLeft, Plus, Camera, Loader2, MessageCircle, X, BookText, Trash2, Sparkles, Palette } from 'lucide-react';
 import {
   subscribePoems,
   addPoem,
   deletePoem,
+  setPoemArt,
+  removePoemArt,
   type PoemItemView,
 } from '@/lib/poems';
 import {
@@ -42,8 +44,13 @@ export default function PoemsPage() {
   const [draftBody, setDraftBody] = useState('');
   const [draftPhoto, setDraftPhoto] = useState<File | null>(null);
   const draftPhotoUrl = useObjectUrl(draftPhoto);
+  const [draftArt, setDraftArt] = useState<File | null>(null);   // 시화 (정사각형)
+  const draftArtUrl = useObjectUrl(draftArt);
   const [isOcr, setIsOcr] = useState(false);
   const [ocrUsed, setOcrUsed] = useState(false); // 같은 사진에 OCR 여러 번 안 부르도록
+
+  // 이미 올라간 시에 시화 붙이는 중인 id
+  const [artUploadingId, setArtUploadingId] = useState<string | null>(null);
 
   // 갤러리 모달 (시 사진 확대)
   const [galleryPhoto, setGalleryPhoto] = useState<string | null>(null);
@@ -73,8 +80,27 @@ export default function PoemsPage() {
     setDraftTitle('');
     setDraftBody('');
     setDraftPhoto(null);
+    setDraftArt(null);
     setOcrUsed(false);
     setIsAdding(true);
+  };
+
+  // 이미 올라간 시에 시화만 붙이기 (내 시/상대 시 둘 다 가능 — 그림 선물)
+  const handleArtPick = async (id: string, e: ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    const f = input.files?.[0];
+    input.value = '';
+    if (!f || !f.type.startsWith('image/')) return;
+    setArtUploadingId(id);
+    try {
+      await setPoemArt(id, f, me);
+      feedback('🎨 시화를 걸었어');
+    } catch (err) {
+      console.error(err);
+      feedback('시화 올리기 실패. 다시 해보자', 'error');
+    } finally {
+      setArtUploadingId(null);
+    }
   };
 
   // 사진을 base64로 변환해서 /api/ocr-poem 호출. 결과를 본문에 채워줌(사용자가 편집 가능).
@@ -124,6 +150,7 @@ export default function PoemsPage() {
         title: draftTitle,
         body: draftBody || undefined,
         photoFile: draftPhoto,
+        artFile: draftArt,
         by: me,
       });
       feedback('📜 시 한 편 엮었어');
@@ -201,6 +228,44 @@ export default function PoemsPage() {
                     <span className="absolute -top-2 -right-1 bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md rotate-[8deg] shadow-md z-20 ring-2 ring-white">
                       ✨ NEW
                     </span>
+                  )}
+
+                  {/* 시화 — 정사각형, 시 맨 위. 없으면 등록 슬롯 */}
+                  {item.artUrl ? (
+                    <div className="relative mb-7">
+                      <button
+                        type="button"
+                        onClick={() => { setGalleryPhoto(item.artUrl!); setGalleryTitle(`${item.title} — 시화`); }}
+                        className="block w-full active:scale-[0.99] transition"
+                      >
+                        <div className="p-2.5 bg-white shadow-[1px_2px_10px_rgba(107,33,168,0.08)]">
+                          <img
+                            src={item.artUrl}
+                            alt={`${item.title} 시화`}
+                            className="w-full aspect-square object-cover bg-slate-50"
+                          />
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { if (confirm('시화를 뺄까요?')) removePoemArt(item.id); }}
+                        className="absolute -top-2.5 -right-2.5 h-7 w-7 rounded-full bg-white border border-purple-100 text-slate-400 flex items-center justify-center shadow-sm active:scale-90 active:text-rose-500"
+                        aria-label="시화 빼기"
+                      ><X size={13} /></button>
+                    </div>
+                  ) : (
+                    <label className={`mb-7 flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl border-2 border-dashed border-purple-200 bg-purple-50/40 text-purple-400 text-[12px] font-black cursor-pointer active:scale-[0.99] transition ${artUploadingId === item.id ? 'opacity-60' : ''}`}>
+                      {artUploadingId === item.id
+                        ? <><Loader2 size={14} className="animate-spin" /> 시화 거는 중...</>
+                        : <><Palette size={14} /> 시화 넣기</>}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={artUploadingId === item.id}
+                        onChange={(e) => handleArtPick(item.id, e)}
+                      />
+                    </label>
                   )}
 
                   {/* 사진 (있으면) — 인화지 프레임 + 살짝 회전 */}
@@ -328,6 +393,37 @@ export default function PoemsPage() {
                     onChange={(e: ChangeEvent<HTMLInputElement>) => {
                       const f = e.target.files?.[0];
                       if (f && f.type.startsWith('image/')) { setDraftPhoto(f); setOcrUsed(false); }
+                      e.currentTarget.value = '';
+                    }}
+                  />
+                </label>
+              )}
+
+              {/* 시화 첨부 (선택) — 정사각형, 시 상단에 걸림 */}
+              {draftArt ? (
+                <div className="mb-6 mx-auto relative w-40">
+                  <div className="p-2 bg-white shadow-md">
+                    {draftArtUrl && <img src={draftArtUrl} alt="" className="w-full aspect-square object-cover" />}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDraftArt(null)}
+                    className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-slate-800 text-white flex items-center justify-center shadow-lg"
+                    aria-label="시화 빼기"
+                  ><X size={15} /></button>
+                  <p className="text-center text-[10px] font-black text-purple-400 mt-2">시화</p>
+                </div>
+              ) : (
+                <label className="mb-6 mx-auto w-28 h-28 rounded-2xl bg-purple-50/60 border-2 border-dashed border-purple-200 flex flex-col items-center justify-center text-purple-400 cursor-pointer active:scale-95 shadow-sm">
+                  <Palette size={22} />
+                  <span className="text-[10px] font-bold mt-1 leading-tight text-center px-2">시화 첨부<br/>(선택)</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                      const f = e.target.files?.[0];
+                      if (f && f.type.startsWith('image/')) setDraftArt(f);
                       e.currentTarget.value = '';
                     }}
                   />
