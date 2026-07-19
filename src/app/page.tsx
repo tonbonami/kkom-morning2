@@ -25,6 +25,7 @@ import { subscribeShareList, type ShareItemView } from '@/lib/share';
 import { subscribeWishlist } from '@/lib/wishlist';
 import { subscribeAgain } from '@/lib/again';
 import { subscribeRecipes, type RecipeItemView } from '@/lib/recipes';
+import { subscribePoems, countNewPoems, readPoemsLastSeen, type PoemItemView } from '@/lib/poems';
 import VoicePlayer from '@/components/VoicePlayer';
 // ⏱ 임시 — D-day 카드 어텐션 (테두리 펄스 + Tap! 뱃지 + 리플). 24h 후 자동 안 뜸.
 import DdayAttentionV2 from '@/components/DdayAttentionV2';
@@ -79,6 +80,9 @@ export default function KkomMorningHome() {
   const [wishes, setWishes] = useState<{ id: string; createdAt: Date }[]>([]);
   const [agains, setAgains] = useState<{ id: string; createdAt: Date }[]>([]);
   const [recipes, setRecipes] = useState<RecipeItemView[]>([]);
+  // 시집 — 카드 총편수 배지 + 안읽은 새 시 숫자 배지
+  const [poems, setPoems] = useState<PoemItemView[]>([]);
+  const [poemsLastSeen, setPoemsLastSeen] = useState(0);
   // 칭찬 다이어리 카드 — 오늘 partner가 칭찬 보냈는지 (스마일 배지용)
   const [hasNewPraise, setHasNewPraise] = useState(false);
   // 날씨 카드 onboarding 힌트 (디바이스당 한 번)
@@ -132,6 +136,9 @@ export default function KkomMorningHome() {
     });
     // 레시피 — 카드 NEW 배지 + 매일매일 꼼모닝 헤더 정확한 오늘 카운트용
     const unsubRecipes = subscribeRecipes(setRecipes);
+    // 시집 — 새 시 배지. lastSeen은 /poems를 열 때 갱신되므로, 볼 때까지 배지가 남음
+    setPoemsLastSeen(readPoemsLastSeen());
+    const unsubPoems = subscribePoems(setPoems);
 
     // 칭찬 — 오늘 partner가 보낸 게 있으면 스마일 배지 (1회 fetch)
     // Claude 참고(코드리뷰 #5): 지역변수 me 사용. userName은 setUserName 직후라 클로저에서 초기값('꼼이') 고정 →
@@ -173,7 +180,7 @@ export default function KkomMorningHome() {
     return () => {
       if (hintTimer) clearTimeout(hintTimer);
       unsubLetter(); unsubMoods(); unsubMemories(); unsubShares();
-      unsubWishes(); unsubAgains(); unsubRecipes();
+      unsubWishes(); unsubAgains(); unsubRecipes(); unsubPoems();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
@@ -833,14 +840,34 @@ export default function KkomMorningHome() {
         {/* 우리의 시집 — 신규 (서재 자리 옆) */}
         <button onClick={() => router.push('/poems')} className="relative w-full bg-purple-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-purple-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all -rotate-[0.5deg]">
           <div className="tape-pink absolute -top-2 left-8 w-14 rotate-3 z-10" />
-          <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center shrink-0 text-purple-600">
+          <div className="relative w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center shrink-0 text-purple-600">
             <BookText size={22} strokeWidth={2.5} />
+            {poems.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-purple-500 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+                {poems.length > 99 ? '99+' : poems.length}
+              </span>
+            )}
+            {/* 아직 안 본 새 시 — 열어볼 때까지 안 사라짐 */}
+            {(() => {
+              const n = countNewPoems(poems, poemsLastSeen);
+              return n > 0 ? (
+                <span className="absolute -bottom-1.5 -left-1.5 min-w-[20px] h-[20px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center shadow-md ring-2 ring-white animate-pulse">
+                  +{n}
+                </span>
+              ) : null;
+            })()}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 text-purple-500 mb-1">
               <span className="text-xs font-bold tracking-wider uppercase">Our Poems</span>
             </div>
             <p className="text-sm font-bold text-purple-900">우리의 시집</p>
+            {(() => {
+              const n = countNewPoems(poems, poemsLastSeen);
+              return n > 0 ? (
+                <p className="text-[11px] font-black text-rose-500 mt-0.5">✨ 새 시 {n}편이 올라왔어</p>
+              ) : null;
+            })()}
           </div>
           <ChevronRight size={20} className="text-purple-400 shrink-0" />
         </button>

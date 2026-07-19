@@ -24,7 +24,8 @@ export interface PoemDoc {
   photoUrl?: string;    // 시를 찍은 사진 URL (옵션)
   artUrl?: string;      // 시화(詩畵) — 시와 어울리는 그림. 정사각형으로 상단에 노출 (옵션)
   by: '우댕' | '꼼이';
-  createdAt?: Timestamp | null;
+  createdAt?: Timestamp | null;   // 시를 '쓴' 날 (과거 시 백필 시 실제 작성일)
+  postedAt?: Timestamp | null;    // 시집에 '올린' 시각 — NEW 판정은 이걸로
   updatedAt?: Timestamp | null;
   hearts?: number;
   commentCount?: number;
@@ -38,6 +39,7 @@ export interface PoemItemView {
   artUrl?: string;
   by: '우댕' | '꼼이';
   createdAt: Date;
+  postedAt?: Date | null;
   updatedAt?: Date | null;
   hearts?: number;
   commentCount?: number;
@@ -52,6 +54,7 @@ function toView(id: string, d: PoemDoc): PoemItemView {
     artUrl: d.artUrl,
     by: d.by,
     createdAt: d.createdAt?.toDate?.() ?? new Date(),
+    postedAt: d.postedAt?.toDate?.() ?? null,
     updatedAt: d.updatedAt?.toDate?.() ?? null,
     hearts: d.hearts,
     commentCount: d.commentCount,
@@ -100,6 +103,7 @@ export async function addPoem(input: {
     title: input.title.trim(),
     by: input.by,
     createdAt: serverTimestamp(),
+    postedAt: serverTimestamp(),
   };
   if (input.body?.trim()) payload.body = input.body.trim();
   if (photoUrl) payload.photoUrl = photoUrl;
@@ -131,4 +135,35 @@ export async function setPoemArt(id: string, file: File, by: '우댕' | '꼼이'
 
 export async function removePoemArt(id: string): Promise<void> {
   await updateDoc(doc(db, 'poems', id), { artUrl: deleteField(), updatedAt: serverTimestamp() });
+}
+
+// ── '새 시' 안읽음 판정 ──────────────────────────────────────────
+// createdAt은 '쓴 날'(과거 시 백필 가능)이라 NEW 판정엔 postedAt(올린 시각)을 우선 씀.
+// 24h 창 대신 '볼 때까지 유지' 방식 — 상대가 늦게 열어도 배지가 안 사라짐.
+// 작성자 구분은 안 함: 상대 시를 대신 옮겨 적어 올리는 경우가 있어서(손글씨 시 대필),
+// '시집에 새로 올라온 편수' 자체를 알리는 게 맞음. 내가 올린 직후엔 markPoemsSeen으로 즉시 정리.
+const POEMS_SEEN_KEY = 'kkom-poems-lastseen';
+const NEW_WINDOW_MS = 14 * 24 * 60 * 60 * 1000; // 아무리 안 봐도 2주 지나면 NEW 해제
+
+export function poemPostedTime(p: PoemItemView): number {
+  return (p.postedAt ?? p.createdAt).getTime();
+}
+
+export function readPoemsLastSeen(): number {
+  if (typeof window === 'undefined') return 0;
+  return Number(localStorage.getItem(POEMS_SEEN_KEY) || 0);
+}
+
+export function markPoemsSeen(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(POEMS_SEEN_KEY, String(Date.now()));
+}
+
+export function isNewPoem(p: PoemItemView, lastSeen: number): boolean {
+  const t = poemPostedTime(p);
+  return t > lastSeen && Date.now() - t < NEW_WINDOW_MS;
+}
+
+export function countNewPoems(items: PoemItemView[], lastSeen: number): number {
+  return items.filter((p) => isNewPoem(p, lastSeen)).length;
 }
