@@ -7,6 +7,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
   Wind, Heart, PenLine, BookOpen, ChefHat, BookText,
   RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award, CalendarDays,
+  Library, ExternalLink,
 } from 'lucide-react';
 
 // 화면에서 보는 위치 (알림 cron과 별개로 사용자가 선택)
@@ -871,6 +872,26 @@ export default function KkomMorningHome() {
           </div>
           <ChevronRight size={20} className="text-purple-400 shrink-0" />
         </button>
+
+        {/* 댕's 서재 — 외부 영어 원서 읽기 사이트(새 탭). 시집 아래, 옛 서재 자리 */}
+        <a
+          href="https://dang-s-library.vercel.app/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="relative w-full bg-emerald-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-emerald-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]"
+        >
+          <div className="tape absolute -top-2 right-6 w-14 -rotate-3 z-10" />
+          <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-600">
+            <Library size={22} strokeWidth={2.5} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-emerald-500 mb-1">
+              <span className="text-xs font-bold tracking-wider uppercase">Dang&apos;s Library</span>
+            </div>
+            <p className="text-sm font-bold text-emerald-900">댕's 서재 · 영어 원서 읽기</p>
+          </div>
+          <ExternalLink size={18} className="text-emerald-400 shrink-0" />
+        </a>
 
         {/* 우리들의 서재 — memory project-novel-hidden.md 참고. 코드 유지, 카드만 숨김 */}
         {false && (<button onClick={() => router.push('/novel')} className="relative w-full flex items-center justify-between p-6 rounded-2xl bg-slate-800 text-white shadow-[2px_3px_0px_rgba(0,0,0,0.12)] border border-slate-700 active:scale-[0.98] transition-transform text-left -rotate-[0.5deg]">
