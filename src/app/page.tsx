@@ -873,6 +873,21 @@ export default function KkomMorningHome() {
           <ChevronRight size={20} className="text-purple-400 shrink-0" />
         </button>
 
+        {/* 우리 낙서장 — 실시간 공유 필기 보드 (아이패드+펜슬) */}
+        <button onClick={() => router.push('/canvas')} className="relative w-full bg-amber-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-amber-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]">
+          <div className="tape-mint absolute -top-2 left-8 w-14 rotate-3 z-10" />
+          <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-600">
+            <PenLine size={22} strokeWidth={2.5} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-amber-500 mb-1">
+              <span className="text-xs font-bold tracking-wider uppercase">Our Doodle</span>
+            </div>
+            <p className="text-sm font-bold text-amber-900">우리 낙서장 · 같이 끄적이기</p>
+          </div>
+          <ChevronRight size={20} className="text-amber-400 shrink-0" />
+        </button>
+
         {/* 댕's 서재 — 외부 영어 원서 읽기 사이트(새 탭). 시집 아래, 옛 서재 자리 */}
         <a
           href="https://dang-s-library.vercel.app/"

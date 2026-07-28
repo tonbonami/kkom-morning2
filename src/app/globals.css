@@ -119,6 +119,11 @@
   }
 }
 
+/* 우리 낙서장 — 잉크 캔버스 레이어 (ClassNote 이식). baked=확정 획, live=그리는 중 */
+.ink-layer { position: absolute; inset: 0; }
+.ink-baked, .ink-live { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ink-live { touch-action: none; -webkit-user-select: none; user-select: none; }
+
 @layer base {
   :root {
     --background: 210 17% 98%;
