@@ -9,12 +9,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Pen, Eraser, Undo2, Trash2, ImagePlus, ImageOff, Loader2 } from 'lucide-react';
 import InkCanvas from '@/components/ink/InkCanvas';
+import StaticInkCanvas from '@/components/ink/StaticInkCanvas';
 import {
   subscribeStrokes, subscribeBoardMeta, addStroke, eraseStrokes, clearBoard,
   uploadPassageImage, setPassage, clearPassage,
-  DEFAULT_BOARD, type BoardStroke,
+  publishLive, subscribeLive, armLiveDisconnect, liveKey,
+  DEFAULT_BOARD, type BoardStroke, type LiveStroke,
 } from '@/lib/canvasBoard';
-import { nameFromCode } from '@/lib/letters';
+import { nameFromCode, partnerOf } from '@/lib/letters';
 import { feedback } from '@/lib/feedback';
 
 // 색 팔레트 — 꼼이(로즈)·우댕(블루) 기본 + 먹색·형광
@@ -30,6 +32,7 @@ const SIZES = [
   { key: 'l', label: '굵게', size: 13 },
 ];
 const BOARD_RATIO = 3 / 4; // 세로 교재 비율 (w:h = 3:4)
+const EMPTY_STROKES: never[] = []; // StaticInkCanvas는 라이브 획만 그림 (베이크는 InkCanvas 담당)
 
 export default function CanvasPage() {
   const router = useRouter();
@@ -47,6 +50,11 @@ export default function CanvasPage() {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [board, setBoard] = useState({ w: 0, h: 0 });
 
+  // 상대가 그리는 중인 획 (RTDB 생중계)
+  const [partnerLive, setPartnerLive] = useState<LiveStroke | null>(null);
+  const myLiveRef = useRef<LiveStroke | null>(null);
+  const graceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
     if (!userStr) { router.push('/login'); return; }
@@ -57,7 +65,22 @@ export default function CanvasPage() {
     if (savedOp) setOpacity(Number(savedOp));
     const unsubS = subscribeStrokes(DEFAULT_BOARD, setStrokes);
     const unsubM = subscribeBoardMeta(DEFAULT_BOARD, (m) => setPassageUrl(m.passageUrl));
-    return () => { unsubS(); unsubM(); };
+
+    // 실시간 생중계 — 내 라이브 노드 자동정리 + 상대 라이브 구독
+    const myKey = liveKey(name);
+    const partnerKey = liveKey(partnerOf(name) as '우댕' | '꼼이');
+    armLiveDisconnect(DEFAULT_BOARD, myKey);
+    const unsubL = subscribeLive(DEFAULT_BOARD, partnerKey, (stroke) => {
+      if (graceRef.current) clearTimeout(graceRef.current);
+      if (stroke && stroke.points?.length) {
+        setPartnerLive(stroke);
+      } else {
+        // 상대가 획을 끝냄 → Firestore 확정 획이 도착할 때까지 잠깐 유지(깜빡임 방지)
+        graceRef.current = setTimeout(() => setPartnerLive(null), 450);
+      }
+    });
+
+    return () => { unsubS(); unsubM(); unsubL(); if (graceRef.current) clearTimeout(graceRef.current); };
   }, [router]);
 
   // 컨테이너에 맞춰 3:4 보드 크기 산출
@@ -88,6 +111,20 @@ export default function CanvasPage() {
   };
   const handleErase = (ids: string[]) => {
     eraseStrokes(DEFAULT_BOARD, ids).catch(console.error);
+  };
+
+  // 그리는 중 획 생중계 — InkCanvas가 준 델타 점을 누적해 RTDB에 전체 획을 쏨 (50ms 쓰로틀됨)
+  const handleLiveStroke = (partial: LiveStroke | null) => {
+    if (!me) return;
+    const myKey = liveKey(me);
+    if (!partial) { myLiveRef.current = null; publishLive(DEFAULT_BOARD, myKey, null); return; }
+    const cur = myLiveRef.current;
+    if (!cur || cur.id !== partial.id) {
+      myLiveRef.current = { id: partial.id, color: partial.color, size: partial.size, points: [...partial.points] };
+    } else {
+      cur.points.push(...partial.points);
+    }
+    publishLive(DEFAULT_BOARD, myKey, myLiveRef.current);
   };
 
   const undoMine = () => {
@@ -202,16 +239,21 @@ export default function CanvasPage() {
       <div ref={wrapRef} className="flex-1 min-h-0 flex items-center justify-center p-3 bg-[#FBF8F0]">
         {board.w > 0 && (
           <div
-            className="relative bg-white shadow-[0_6px_30px_rgba(0,0,0,0.08)] rounded-lg overflow-hidden"
-            style={{ width: board.w, height: board.h }}
+            className="relative bg-white shadow-[0_6px_30px_rgba(0,0,0,0.08)] rounded-lg overflow-hidden select-none"
+            style={{ width: board.w, height: board.h, WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
           >
+            {/* 배경 지문 — CSS background-image (img 태그 X). iOS 이미지 콜아웃/선택 회피 */}
             {passageUrl && (
-              <img
-                src={passageUrl}
-                alt="배경 지문"
-                draggable={false}
-                className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
-                style={{ opacity }}
+              <div
+                aria-hidden
+                className="absolute inset-0 pointer-events-none select-none"
+                style={{
+                  opacity,
+                  backgroundImage: `url(${passageUrl})`,
+                  backgroundSize: 'contain',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                }}
               />
             )}
             <InkCanvas
@@ -224,7 +266,18 @@ export default function CanvasPage() {
               palmSensitivity="normal"
               onAddStroke={handleAddStroke}
               onEraseStrokes={handleErase}
+              onLiveStroke={handleLiveStroke}
             />
+            {/* 상대가 그리는 중인 획 — 위에 겹쳐 생중계 (입력은 통과) */}
+            {partnerLive && (
+              <StaticInkCanvas
+                width={board.w}
+                height={board.h}
+                strokes={EMPTY_STROKES}
+                liveStroke={partnerLive}
+                fadingStrokes={EMPTY_STROKES}
+              />
+            )}
           </div>
         )}
       </div>

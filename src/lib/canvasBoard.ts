@@ -2,13 +2,14 @@
 // 획(stroke)은 정규화 좌표(0~1)로 저장 → 아이패드/폰 화면 달라도 위치 동일.
 // 1단계: 완성된 획을 Firestore로 공유(onSnapshot). 2단계에서 그리는 중 획은 RTDB로 생중계 예정.
 
-import { db, storage } from './firebase';
+import { db, storage, rtdb } from './firebase';
 import {
   collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy,
   writeBatch, getDocs, setDoc, updateDoc, deleteField, serverTimestamp,
   type DocumentData,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref as dbRef, set as dbSet, onValue, onDisconnect } from 'firebase/database';
 
 export const DEFAULT_BOARD = 'main'; // 우댕♥꼼이 단일 보드 (MVP)
 
@@ -106,4 +107,32 @@ export async function setPassage(boardId: string, passageUrl: string): Promise<v
 
 export async function clearPassage(boardId: string): Promise<void> {
   await updateDoc(doc(db, 'canvasBoards', boardId), { passageUrl: deleteField() });
+}
+
+// ── 2단계: 그리는 중 획 실시간 생중계 (RTDB — 초고빈도, 완성되면 Firestore로 확정) ──
+export interface LiveStroke { id: string; color: string; size: number; points: StrokePoint[] }
+
+export function liveKey(name: '우댕' | '꼼이'): 'udaeng' | 'kkomi' {
+  return name === '우댕' ? 'udaeng' : 'kkomi';
+}
+
+function liveRef(boardId: string, userKey: string) {
+  return dbRef(rtdb, `canvas/${boardId}/live/${userKey}`);
+}
+
+// 내 그리는 중 획을 갱신(또는 null로 지움). InkCanvas가 50ms로 쓰로틀하므로 그대로 흘려보냄.
+export function publishLive(boardId: string, userKey: string, stroke: LiveStroke | null): void {
+  dbSet(liveRef(boardId, userKey), stroke ?? null).catch(() => {});
+}
+
+// 내 라이브 노드에 onDisconnect 자동삭제 걸기 (그리다 끊겨도 유령 획 안 남게)
+export function armLiveDisconnect(boardId: string, userKey: string): void {
+  onDisconnect(liveRef(boardId, userKey)).remove().catch(() => {});
+}
+
+// 상대의 그리는 중 획 구독
+export function subscribeLive(
+  boardId: string, userKey: string, cb: (stroke: LiveStroke | null) => void,
+): () => void {
+  return onValue(liveRef(boardId, userKey), (snap) => cb(snap.val() as LiveStroke | null));
 }
