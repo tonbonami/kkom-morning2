@@ -45,6 +45,9 @@ export default function CanvasPage() {
   const [size, setSize] = useState(7);
   const [opacity, setOpacity] = useState(0.5); // 지문 투명도 (개인 뷰 설정)
   const [uploading, setUploading] = useState(false);
+  // 필기감 설정 (ClassNote 이식) — 왼손잡이면 팜가드 반대라 오른손 기본이 끊김↑
+  const [handedness, setHandedness] = useState<'right' | 'left'>('right');
+  const [palm, setPalm] = useState<'off' | 'normal' | 'strong'>('normal');
 
   // 보드 실측 크기 (3:4 유지, 화면에 맞춤)
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -63,6 +66,8 @@ export default function CanvasPage() {
     setColor(name === '꼼이' ? '#f43f5e' : '#3b82f6'); // 내 색을 기본으로
     const savedOp = localStorage.getItem('kkom-canvas-opacity');
     if (savedOp) setOpacity(Number(savedOp));
+    const h = localStorage.getItem('kkom-canvas-hand'); if (h === 'left' || h === 'right') setHandedness(h);
+    const pm = localStorage.getItem('kkom-canvas-palm'); if (pm === 'off' || pm === 'normal' || pm === 'strong') setPalm(pm);
     const unsubS = subscribeStrokes(DEFAULT_BOARD, setStrokes);
     const unsubM = subscribeBoardMeta(DEFAULT_BOARD, (m) => setPassageUrl(m.passageUrl));
 
@@ -82,6 +87,15 @@ export default function CanvasPage() {
 
     return () => { unsubS(); unsubM(); unsubL(); if (graceRef.current) clearTimeout(graceRef.current); };
   }, [router]);
+
+  // ⚠️ 필기감 핵심 — 이 화면에서만 핀치줌/더블탭줌 잠금 (사파리가 필기를 줌으로 오해해 획 끊는 것 차단).
+  //    ClassNote가 index.html에 넣은 viewport 잠금을, 여기선 이 페이지 진입/이탈 때만 적용.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    const prev = meta?.getAttribute('content') ?? null;
+    meta?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+    return () => { if (meta && prev) meta.setAttribute('content', prev); };
+  }, []);
 
   // 컨테이너에 맞춰 3:4 보드 크기 산출
   useEffect(() => {
@@ -212,6 +226,16 @@ export default function CanvasPage() {
         <button onClick={() => setTool('pen')} className={`shrink-0 h-8 w-8 rounded-lg flex items-center justify-center border ${tool === 'pen' ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-200 text-slate-500'}`} aria-label="펜"><Pen size={16} /></button>
         <button onClick={() => setTool('eraser')} className={`shrink-0 h-8 w-8 rounded-lg flex items-center justify-center border ${tool === 'eraser' ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-200 text-slate-500'}`} aria-label="지우개"><Eraser size={16} /></button>
         <span className="shrink-0 w-px h-6 bg-slate-200 mx-1" />
+        {/* 필기감 — 손잡이 / 팜 민감도 (왼손잡이·손가락 낙서 대응) */}
+        <button
+          onClick={() => { const n = handedness === 'right' ? 'left' : 'right'; setHandedness(n); try { localStorage.setItem('kkom-canvas-hand', n); } catch {} }}
+          className="shrink-0 h-8 px-2 rounded-lg border border-slate-200 text-slate-500 text-[12px] font-bold active:scale-95"
+        >{handedness === 'right' ? '✋오른손' : '🤚왼손'}</button>
+        <button
+          onClick={() => { const order: ('normal' | 'strong' | 'off')[] = ['normal', 'strong', 'off']; const n = order[(order.indexOf(palm) + 1) % 3]; setPalm(n); try { localStorage.setItem('kkom-canvas-palm', n); } catch {} }}
+          className={`shrink-0 h-8 px-2 rounded-lg border text-[12px] font-bold active:scale-95 ${palm === 'off' ? 'border-slate-200 text-slate-400' : 'border-slate-700 text-slate-700'}`}
+        >{palm === 'off' ? '손가락OK' : palm === 'strong' ? '팜 강함' : '팜 보통'}</button>
+        <span className="shrink-0 w-px h-6 bg-slate-200 mx-1" />
         {/* 지문 배경 */}
         <label className="shrink-0 h-8 px-2.5 rounded-lg border border-slate-200 text-slate-500 flex items-center gap-1.5 text-[12px] font-bold active:scale-95 cursor-pointer">
           {uploading ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={15} />} 지문
@@ -263,7 +287,8 @@ export default function CanvasPage() {
               tool={tool}
               color={color}
               size={size}
-              palmSensitivity="normal"
+              handedness={handedness}
+              palmSensitivity={palm}
               onAddStroke={handleAddStroke}
               onEraseStrokes={handleErase}
               onLiveStroke={handleLiveStroke}
