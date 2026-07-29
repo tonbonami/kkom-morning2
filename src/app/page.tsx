@@ -35,6 +35,7 @@ import DailyPiecesHeader from '@/components/DailyPiecesHeader';
 import LiveHeartLayer from '@/components/LiveHeartLayer';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
 import { touchPresence, subscribePresence, formatPresenceRelative, type Presence } from '@/lib/presence';
+import { subscribeLive, liveKey, DEFAULT_BOARD } from '@/lib/canvasBoard';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
 import AirSkyVisual from '@/components/AirSkyVisual';
 import { Bell, BellOff } from 'lucide-react';
@@ -74,6 +75,7 @@ export default function KkomMorningHome() {
   const [dDay, setDDay] = useState(0);
   const [dateText, setDateText] = useState('');
   const [partnerPresence, setPartnerPresence] = useState<Presence>({ lastSeenAt: null, active: false });
+  const [partnerDrawing, setPartnerDrawing] = useState(false); // 상대가 낙서장에서 실시간 필기 중 (RTDB live)
   const [presenceTick, setPresenceTick] = useState(0); // 매분 재계산용
   const [pushState, setPushState] = useState<PushState>('unknown');
   const [locKey, setLocKey] = useState<LocKey>('home'); // 화면 위치 선택
@@ -208,6 +210,10 @@ export default function KkomMorningHome() {
     const onUnload = () => { touchPresence(userName, false); };
     window.addEventListener('pagehide', onUnload);
     const unsub = subscribePresence(partner, setPartnerPresence);
+    // 상대가 낙서장에서 실시간 필기 중인지 (RTDB live 노드 non-null) — 네이티브 캔버스가 pen-up 때 지움
+    const unsubLive = subscribeLive(DEFAULT_BOARD, liveKey(partner as '우댕' | '꼼이'), (s) => {
+      setPartnerDrawing(!!s && Array.isArray(s.points) && s.points.length > 0);
+    });
     // "N분 전" 표시 매 1분마다 재계산
     const tick = setInterval(() => setPresenceTick((x) => x + 1), 60_000);
     // 푸시 구독 상태 1회 확인
@@ -220,6 +226,7 @@ export default function KkomMorningHome() {
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('pagehide', onUnload);
       unsub();
+      unsubLive();
     };
   }, [userName]);
 
@@ -367,6 +374,89 @@ export default function KkomMorningHome() {
           </button>
         </div>
       </header>
+
+      {/* 우리 낙서장 — 홈 최상단 히어로 (실시간 대화 채널). 상대 접속·끄적임 연동. 디자인: Gemini */}
+      <div className="relative z-10 px-6 pt-1 pb-2">
+        {(() => {
+          const online = partnerPresence.active || partnerDrawing;
+          const openDoodle = async () => {
+            // 네이티브(Capacitor)면 끊김 없는 네이티브 캔버스, 웹이면 기존 /canvas
+            const { Capacitor, registerPlugin } = await import('@capacitor/core');
+            if (Capacitor.isNativePlatform()) {
+              try {
+                await (registerPlugin('Canvas') as { open(o: { me: string }): Promise<void> })
+                  .open({ me: userName === '우댕' ? 'udaeng' : 'kkomi' });
+              } catch { router.push('/canvas'); }
+            } else {
+              router.push('/canvas');
+            }
+          };
+          return (
+            <button
+              onClick={openDoodle}
+              className="relative w-full text-left bg-white rounded-[24px] p-5 -rotate-[1.5deg] active:scale-[0.98] active:rotate-0 transition-all"
+              style={{ boxShadow: '0px 12px 32px rgba(120,100,80,0.08)' }}
+              aria-label="우리 낙서장 열기"
+            >
+              {/* 민트 마스킹 테이프 */}
+              <div className="tape tape-mint absolute -top-2 left-1/2 -translate-x-1/2 w-16 rotate-2 z-10" />
+
+              {/* 헤더: 상태 배지 + 타이틀 */}
+              <div className="flex items-start justify-between gap-2 mb-3">
+                {online ? (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-bold"
+                    style={{ background: 'rgba(251,123,168,0.10)', color: '#10B981' }}
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#10B981] opacity-60 animate-ping" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[#10B981]" />
+                    </span>
+                    {partnerDrawing ? (
+                      <>{partner}가 끄적이는 중 <span className="animate-doodle-wiggle">✍️</span></>
+                    ) : (
+                      <>{partner} 지금 함께 💚</>
+                    )}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: '#94A3B8' }}>
+                    <span className="h-2 w-2 rounded-full border border-slate-300" />
+                    {partner} · {formatPresenceRelative(partnerPresence)}
+                  </span>
+                )}
+                <span className="font-handwriting text-[30px] leading-none text-slate-700 shrink-0">우리 낙서장 ✏️</span>
+              </div>
+
+              {/* 캔버스 프리뷰 (도트그리드 종이) */}
+              <div
+                className="relative rounded-2xl overflow-hidden"
+                style={{ height: 140, background: '#FFFCF5', border: '1px solid rgba(0,0,0,0.05)' }}
+              >
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backgroundImage: 'radial-gradient(rgba(226,232,240,0.6) 1.4px, transparent 1.4px)',
+                    backgroundSize: '22px 22px',
+                  }}
+                />
+                {online ? (
+                  <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: 'inset 0 0 26px rgba(16,185,129,0.18)' }} />
+                ) : (
+                  <div className="absolute inset-0 bg-white/20" />
+                )}
+
+                {/* CTA — 우측 하단에 걸친 알약 버튼 */}
+                <span
+                  className="absolute bottom-2.5 right-2.5 h-10 px-4 rounded-[20px] inline-flex items-center shadow-[0_4px_12px_rgba(0,0,0,0.12)]"
+                  style={{ background: online ? '#10B981' : '#FBBF24' }}
+                >
+                  <span className="font-handwriting text-[24px] leading-none text-white">종이 펼치기</span>
+                </span>
+              </div>
+            </button>
+          );
+        })()}
+      </div>
 
       {/* Share List 알림 바 — 미확인 카드 있을 때만 (홈 only) */}
       {(() => {
@@ -873,33 +963,7 @@ export default function KkomMorningHome() {
           <ChevronRight size={20} className="text-purple-400 shrink-0" />
         </button>
 
-        {/* 우리 낙서장 — 실시간 공유 필기 보드 (아이패드+펜슬) */}
-        <button
-          onClick={async () => {
-            // 네이티브(Capacitor) 앱에선 끊김 없는 네이티브 캔버스 플러그인, 웹에선 기존 /canvas
-            const { Capacitor, registerPlugin } = await import('@capacitor/core');
-            if (Capacitor.isNativePlatform()) {
-              try {
-                await (registerPlugin('Canvas') as { open(o: { me: string }): Promise<void> })
-                  .open({ me: userName === '우댕' ? 'udaeng' : 'kkomi' });
-              } catch { router.push('/canvas'); }
-            } else {
-              router.push('/canvas');
-            }
-          }}
-          className="relative w-full bg-amber-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-amber-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]">
-          <div className="tape-mint absolute -top-2 left-8 w-14 rotate-3 z-10" />
-          <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-600">
-            <PenLine size={22} strokeWidth={2.5} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 text-amber-500 mb-1">
-              <span className="text-xs font-bold tracking-wider uppercase">Our Doodle</span>
-            </div>
-            <p className="text-sm font-bold text-amber-900">우리 낙서장 · 같이 끄적이기</p>
-          </div>
-          <ChevronRight size={20} className="text-amber-400 shrink-0" />
-        </button>
+        {/* 우리 낙서장 카드는 홈 최상단 히어로로 이동 (헤더 바로 아래) */}
 
         {/* 댕's 서재 — 외부 영어 원서 읽기 사이트(새 탭). 시집 아래, 옛 서재 자리 */}
         <a

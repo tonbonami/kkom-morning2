@@ -58,6 +58,17 @@
   );
 }
 
+/* 낙서장 히어로 — 상대가 끄적이는 중일 때 연필 흔들림 */
+@keyframes doodle-wiggle {
+  0%, 100% { transform: rotate(-9deg); }
+  50% { transform: rotate(9deg); }
+}
+.animate-doodle-wiggle {
+  display: inline-block;
+  animation: doodle-wiggle 0.5s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
 /* iOS Safe Area utility (이미 tailwind에 pb-safe 있지만 명시) */
 .pb-safe-bottom {
   padding-bottom: max(env(safe-area-inset-bottom), 1.5rem);
