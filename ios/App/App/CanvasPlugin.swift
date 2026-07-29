@@ -2,10 +2,15 @@ import Foundation
 import Capacitor
 import SwiftUI
 
-// 웹의 '우리 낙서장' 카드 → Canvas.open({me}) → 네이티브 캔버스 전체화면 present.
-// 등록은 CanvasPlugin.m의 CAP_PLUGIN 매크로(클래식·확실).
+// MainViewController.capacitorDidLoad()에서 registerPluginInstance로 명시적 등록.
 @objc(CanvasPlugin)
-public class CanvasPlugin: CAPPlugin {
+public class CanvasPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "CanvasPlugin"
+    public let jsName = "Canvas"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "open", returnType: CAPPluginReturnPromise)
+    ]
+
     @objc func open(_ call: CAPPluginCall) {
         let me = call.getString("me") ?? "udaeng"
         DispatchQueue.main.async { [weak self] in
