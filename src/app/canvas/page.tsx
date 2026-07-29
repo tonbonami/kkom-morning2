@@ -7,14 +7,15 @@
 import type { ChangeEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Pen, Eraser, Undo2, Trash2, ImagePlus, ImageOff, Loader2 } from 'lucide-react';
+import { ArrowLeft, Pen, Eraser, Undo2, Trash2, ImagePlus, ImageOff, Loader2, ChevronLeft, ChevronRight, FilePlus } from 'lucide-react';
 import InkCanvas from '@/components/ink/InkCanvas';
 import StaticInkCanvas from '@/components/ink/StaticInkCanvas';
 import {
   subscribeStrokes, subscribeBoardMeta, addStroke, eraseStrokes, clearBoard,
   uploadPassageImage, setPassage, clearPassage,
   publishLive, subscribeLive, armLiveDisconnect, liveKey,
-  DEFAULT_BOARD, type BoardStroke, type LiveStroke,
+  ensureBook, subscribeCurrentPage, subscribePages, createPage, setCurrentPage,
+  DEFAULT_BOOK, type BoardStroke, type LiveStroke, type CanvasPage,
 } from '@/lib/canvasBoard';
 import { nameFromCode, partnerOf } from '@/lib/letters';
 import { feedback } from '@/lib/feedback';
@@ -39,6 +40,10 @@ export default function CanvasPage() {
   const [me, setMe] = useState<'우댕' | '꼼이' | ''>('');
   const [strokes, setStrokes] = useState<BoardStroke[]>([]);
   const [passageUrl, setPassageUrl] = useState<string | undefined>();
+  // 공유 노트북 — 현재 페이지(=boardId)는 둘이 공유, 페이지 목록은 넘겨보기용
+  const [pageId, setPageId] = useState<string | null>(null);
+  const [pages, setPages] = useState<CanvasPage[]>([]);
+  const pageIdRef = useRef<string | null>(null); // 핸들러가 최신 페이지에 쓰도록
 
   const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
   const [color, setColor] = useState('#334155');
@@ -68,25 +73,38 @@ export default function CanvasPage() {
     if (savedOp) setOpacity(Number(savedOp));
     const h = localStorage.getItem('kkom-canvas-hand'); if (h === 'left' || h === 'right') setHandedness(h);
     const pm = localStorage.getItem('kkom-canvas-palm'); if (pm === 'off' || pm === 'normal' || pm === 'strong') setPalm(pm);
-    const unsubS = subscribeStrokes(DEFAULT_BOARD, setStrokes);
-    const unsubM = subscribeBoardMeta(DEFAULT_BOARD, (m) => setPassageUrl(m.passageUrl));
 
-    // 실시간 생중계 — 내 라이브 노드 자동정리 + 상대 라이브 구독
-    const myKey = liveKey(name);
-    const partnerKey = liveKey(partnerOf(name) as '우댕' | '꼼이');
-    armLiveDisconnect(DEFAULT_BOARD, myKey);
-    const unsubL = subscribeLive(DEFAULT_BOARD, partnerKey, (stroke) => {
+    // 공유 노트북 — 책 초기화 후 현재 페이지(공유 포인터) + 페이지 목록 구독
+    ensureBook(DEFAULT_BOOK).catch(console.error);
+    const unsubP = subscribeCurrentPage(DEFAULT_BOOK, setPageId);
+    const unsubList = subscribePages(DEFAULT_BOOK, setPages);
+    return () => { unsubP(); unsubList(); };
+  }, [router]);
+
+  // 현재 페이지가 바뀔 때마다 그 페이지의 획/지문/생중계 재구독 (새 페이지·넘겨보기 공유)
+  useEffect(() => {
+    if (!pageId || !me) return;
+    pageIdRef.current = pageId;
+    // 페이지 전환 순간 이전 페이지 잔상 제거
+    setStrokes([]); setPassageUrl(undefined); setPartnerLive(null);
+    if (graceRef.current) clearTimeout(graceRef.current);
+
+    const unsubS = subscribeStrokes(pageId, setStrokes);
+    const unsubM = subscribeBoardMeta(pageId, (m) => setPassageUrl(m.passageUrl));
+    const myKey = liveKey(me);
+    const partnerKey = liveKey(partnerOf(me) as '우댕' | '꼼이');
+    armLiveDisconnect(pageId, myKey);
+    const unsubL = subscribeLive(pageId, partnerKey, (stroke) => {
       if (graceRef.current) clearTimeout(graceRef.current);
       if (stroke && stroke.points?.length) {
         setPartnerLive(stroke);
       } else {
-        // 상대가 획을 끝냄 → Firestore 확정 획이 도착할 때까지 잠깐 유지(깜빡임 방지)
+        // 상대가 획을 끝냄 → Firestore 확정 획 도착까지 잠깐 유지(깜빡임 방지)
         graceRef.current = setTimeout(() => setPartnerLive(null), 450);
       }
     });
-
     return () => { unsubS(); unsubM(); unsubL(); if (graceRef.current) clearTimeout(graceRef.current); };
-  }, [router]);
+  }, [pageId, me]);
 
   // ⚠️ 필기감 핵심 — 이 화면에서만 핀치줌/더블탭줌 잠금 (사파리가 필기를 줌으로 오해해 획 끊는 것 차단).
   //    ClassNote가 index.html에 넣은 viewport 잠금을, 여기선 이 페이지 진입/이탈 때만 적용.
@@ -120,48 +138,58 @@ export default function CanvasPage() {
   };
 
   const handleAddStroke = (s: { color: string; size: number; points: { x: number; y: number; p: number }[] }) => {
-    if (!me) return;
-    addStroke(DEFAULT_BOARD, { color: s.color, size: s.size, points: s.points }, me).catch(console.error);
+    const b = pageIdRef.current; if (!me || !b) return;
+    addStroke(b, { color: s.color, size: s.size, points: s.points }, me).catch(console.error);
   };
   const handleErase = (ids: string[]) => {
-    eraseStrokes(DEFAULT_BOARD, ids).catch(console.error);
+    const b = pageIdRef.current; if (!b) return;
+    eraseStrokes(b, ids).catch(console.error);
   };
 
   // 그리는 중 획 생중계 — InkCanvas가 준 델타 점을 누적해 RTDB에 전체 획을 쏨 (50ms 쓰로틀됨)
   const handleLiveStroke = (partial: LiveStroke | null) => {
-    if (!me) return;
+    const b = pageIdRef.current; if (!me || !b) return;
     const myKey = liveKey(me);
-    if (!partial) { myLiveRef.current = null; publishLive(DEFAULT_BOARD, myKey, null); return; }
+    if (!partial) { myLiveRef.current = null; publishLive(b, myKey, null); return; }
     const cur = myLiveRef.current;
     if (!cur || cur.id !== partial.id) {
       myLiveRef.current = { id: partial.id, color: partial.color, size: partial.size, points: [...partial.points] };
     } else {
       cur.points.push(...partial.points);
     }
-    publishLive(DEFAULT_BOARD, myKey, myLiveRef.current);
+    publishLive(b, myKey, myLiveRef.current);
   };
 
   const undoMine = () => {
     // 내가 그린 마지막 획 지우기
+    const b = pageIdRef.current; if (!b) return;
     for (let i = strokes.length - 1; i >= 0; i--) {
-      if (strokes[i].by === me) { eraseStrokes(DEFAULT_BOARD, [strokes[i].id]).catch(console.error); return; }
+      if (strokes[i].by === me) { eraseStrokes(b, [strokes[i].id]).catch(console.error); return; }
     }
     feedback('되돌릴 내 획이 없어', 'info');
   };
   const clearAll = () => {
-    if (!confirm('낙서장을 전부 지울까? (둘 다에게서 사라져)')) return;
-    clearBoard(DEFAULT_BOARD).then(() => feedback('🧹 낙서장 비웠어')).catch(() => feedback('지우기 실패', 'error'));
+    const b = pageIdRef.current; if (!b) return;
+    if (!confirm('이 페이지를 전부 지울까? (둘 다에게서 사라져)')) return;
+    clearBoard(b).then(() => feedback('🧹 이 페이지 비웠어')).catch(() => feedback('지우기 실패', 'error'));
   };
+
+  // 페이지 넘기기 / 새 페이지 (공유 — 상대도 같이 이동)
+  const pageIdx = pages.findIndex((p) => p.id === pageId);
+  const goPrev = () => { if (pageIdx > 0) setCurrentPage(DEFAULT_BOOK, pages[pageIdx - 1].id).catch(console.error); };
+  const goNext = () => { if (pageIdx >= 0 && pageIdx < pages.length - 1) setCurrentPage(DEFAULT_BOOK, pages[pageIdx + 1].id).catch(console.error); };
+  const addPage = () => { createPage(DEFAULT_BOOK).then(() => feedback('📄 새 페이지 폈어')).catch(() => feedback('새 페이지 실패', 'error')); };
 
   const pickPassage = async (e: ChangeEvent<HTMLInputElement>) => {
     const input = e.currentTarget;
     const f = input.files?.[0];
     input.value = '';
-    if (!f || !f.type.startsWith('image/') || !me) return;
+    const b = pageIdRef.current;
+    if (!f || !f.type.startsWith('image/') || !me || !b) return;
     setUploading(true);
     try {
       const url = await uploadPassageImage(f, me);
-      await setPassage(DEFAULT_BOARD, url);
+      await setPassage(b, url);
       feedback('📄 지문 깔았어');
     } catch (err) {
       console.error(err);
@@ -171,8 +199,9 @@ export default function CanvasPage() {
     }
   };
   const removePassage = () => {
+    const b = pageIdRef.current; if (!b) return;
     if (!confirm('배경 지문을 뺄까?')) return;
-    clearPassage(DEFAULT_BOARD).catch(console.error);
+    clearPassage(b).catch(console.error);
   };
 
   // Firestore 획 → InkCanvas가 이해하는 형태 (id 유지 → 지우개 히트/삭제 정확)
@@ -190,11 +219,18 @@ export default function CanvasPage() {
         className="shrink-0 flex items-center gap-2 px-3 border-b border-slate-200/70 bg-white/90 backdrop-blur"
         style={{ paddingTop: 'max(8px, env(safe-area-inset-top))', paddingBottom: 8 }}
       >
-        <button onClick={() => router.push('/')} className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 active:scale-95" aria-label="홈으로"><ArrowLeft size={17} /></button>
-        <h1 className="font-handwriting text-[24px] text-slate-800 leading-none">우리 낙서장</h1>
+        <button onClick={() => router.push('/')} className="h-9 w-9 shrink-0 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 active:scale-95" aria-label="홈으로"><ArrowLeft size={17} /></button>
+        {/* 페이지 넘기기 (공유 — 상대도 같이 이동) */}
+        <div className="flex items-center shrink-0">
+          <button onClick={goPrev} disabled={pageIdx <= 0} className="h-9 w-7 rounded-lg flex items-center justify-center text-slate-500 disabled:opacity-25 active:scale-95" aria-label="이전 페이지"><ChevronLeft size={18} /></button>
+          <span className="text-[13px] font-black text-slate-600 tabular-nums min-w-[32px] text-center">{(pageIdx < 0 ? 0 : pageIdx) + 1}/{pages.length || 1}</span>
+          <button onClick={goNext} disabled={pageIdx < 0 || pageIdx >= pages.length - 1} className="h-9 w-7 rounded-lg flex items-center justify-center text-slate-500 disabled:opacity-25 active:scale-95" aria-label="다음 페이지"><ChevronRight size={18} /></button>
+        </div>
+        {/* 새 페이지 */}
+        <button onClick={addPage} className="h-9 shrink-0 px-2.5 rounded-xl bg-slate-800 text-white flex items-center gap-1 text-[12px] font-bold active:scale-95" aria-label="새 페이지"><FilePlus size={14} />새 페이지</button>
         <div className="flex-1" />
-        <button onClick={undoMine} className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 active:scale-95" aria-label="되돌리기"><Undo2 size={17} /></button>
-        <button onClick={clearAll} className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 active:text-rose-500 active:scale-95" aria-label="전체 지우기"><Trash2 size={16} /></button>
+        <button onClick={undoMine} className="h-9 w-9 shrink-0 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 active:scale-95" aria-label="되돌리기"><Undo2 size={17} /></button>
+        <button onClick={clearAll} className="h-9 w-9 shrink-0 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 active:text-rose-500 active:scale-95" aria-label="전체 지우기"><Trash2 size={16} /></button>
       </header>
 
       {/* 도구 바 */}
