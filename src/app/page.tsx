@@ -34,7 +34,7 @@ import QuickReplyBar from '@/components/QuickReplyBar';
 import DailyPiecesHeader from '@/components/DailyPiecesHeader';
 import LiveHeartLayer from '@/components/LiveHeartLayer';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
-import { touchPresence, subscribePresence, formatPresenceRelative, type Presence } from '@/lib/presence';
+import { touchPresence, subscribePresence, formatPresenceRelative, isTogetherNow, type Presence } from '@/lib/presence';
 import { subscribeLive, liveKey, DEFAULT_BOARD } from '@/lib/canvasBoard';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
 import AirSkyVisual from '@/components/AirSkyVisual';
@@ -378,7 +378,9 @@ export default function KkomMorningHome() {
       {/* 우리 낙서장 — 홈 최상단 히어로 (실시간 대화 채널). 상대 접속·끄적임 연동. 디자인: Gemini */}
       <div className="relative z-10 px-6 pt-1 pb-2">
         {(() => {
-          const online = partnerPresence.active || partnerDrawing;
+          // 헤더 서브라인과 동일 기준(active+90초 이내)이라야 '지금 함께'가 서로 안 어긋남.
+          // 상대가 네이티브 캔버스에서 필기 중이면(웹 presence는 stale해도) 무조건 온라인.
+          const online = partnerDrawing || isTogetherNow(partnerPresence);
           const openDoodle = async () => {
             // 네이티브(Capacitor)면 끊김 없는 네이티브 캔버스, 웹이면 기존 /canvas
             const { Capacitor, registerPlugin } = await import('@capacitor/core');

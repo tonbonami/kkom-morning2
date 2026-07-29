@@ -53,6 +53,13 @@ export function subscribePresence(
   );
 }
 
+// '지금 함께'로 칠 수 있는가 — active 플래그 + 최근 활동(90초 이내) 둘 다 충족.
+// 헤더 서브라인(formatPresenceRelative)과 낙서장 히어로 배지가 항상 같은 기준을 쓰도록 공통화.
+export function isTogetherNow(p: Presence): boolean {
+  if (!p.active || !p.lastSeenAt) return false;
+  return Math.max(0, Date.now() - p.lastSeenAt.getTime()) < ACTIVE_THRESHOLD_MS;
+}
+
 // '지금 함께 💚' / '5분 전' 등으로 변환
 // active 플래그 + 최근 활동 두 조건 모두 충족해야 '지금 함께'
 // '방금 전'이라는 표현은 background heartbeat로 잘못 트리거되기 쉬워서 빼고 분 단위로 정직하게.
@@ -62,7 +69,7 @@ export function formatPresenceRelative(p: Presence): string {
   const diff = Math.max(0, now - p.lastSeenAt.getTime());
 
   // 시계 어긋남 보정: 클라이언트가 서버 시간보다 약간 빨라도 active 플래그 우선
-  if (p.active && diff < ACTIVE_THRESHOLD_MS) return '지금 함께 💚';
+  if (isTogetherNow(p)) return '지금 함께 💚';
 
   // 1분 미만은 '1분 전'으로 통일 (이전 '방금 전' 표현이 오해 유발)
   const min = Math.max(1, Math.floor(diff / 60_000));
