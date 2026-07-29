@@ -874,7 +874,20 @@ export default function KkomMorningHome() {
         </button>
 
         {/* 우리 낙서장 — 실시간 공유 필기 보드 (아이패드+펜슬) */}
-        <button onClick={() => router.push('/canvas')} className="relative w-full bg-amber-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-amber-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]">
+        <button
+          onClick={async () => {
+            // 네이티브(Capacitor) 앱에선 끊김 없는 네이티브 캔버스 플러그인, 웹에선 기존 /canvas
+            const { Capacitor, registerPlugin } = await import('@capacitor/core');
+            if (Capacitor.isNativePlatform()) {
+              try {
+                await (registerPlugin('Canvas') as { open(o: { me: string }): Promise<void> })
+                  .open({ me: userName === '우댕' ? 'udaeng' : 'kkomi' });
+              } catch { router.push('/canvas'); }
+            } else {
+              router.push('/canvas');
+            }
+          }}
+          className="relative w-full bg-amber-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-amber-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]">
           <div className="tape-mint absolute -top-2 left-8 w-14 rotate-3 z-10" />
           <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-600">
             <PenLine size={22} strokeWidth={2.5} />
