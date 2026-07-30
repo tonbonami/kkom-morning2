@@ -1,21 +1,27 @@
 // 우리 낙서장 — 커플 공유 실시간 필기 보드.
-// 획(stroke)은 정규화 좌표(0~1)로 저장 → 아이패드/폰 화면 달라도 위치 동일.
-// 1단계: 완성된 획을 Firestore로 공유(onSnapshot). 2단계에서 그리는 중 획은 RTDB로 생중계 예정.
+// 획(stroke)은 정규화 좌표(0~1)로 저장 → 아이패드/폰/웹 화면 달라도 위치 동일.
+// ★ 웹·네이티브 통일: 확정 획·페이지·지문·라이브 전부 RTDB 한 창고에서 주고받음.
+//   구조:
+//     canvas/book/currentPage          = 현재 페이지 id (둘이 공유)
+//     canvas/book/pages/{pageId}       = { t }  (페이지 목록·정렬)
+//     canvas/{pageId}/strokes/{user}/{id} = { color, size, points:[{x,y,p}], by, t }  (확정 획)
+//     canvas/{pageId}/meta             = { passageUrl }  (배경 지문)
+//     canvas/{pageId}/live/{user}      = 그리는 중 획 (생중계)
+//   ({user} = 'udaeng' | 'kkomi'. 내 subtree에 쓰고, 전체를 구독해 둘 다 렌더.)
 
-import { db, storage, rtdb } from './firebase';
-import {
-  collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy,
-  writeBatch, getDocs, getDoc, setDoc, updateDoc, deleteField, serverTimestamp,
-  type DocumentData,
-} from 'firebase/firestore';
+import { storage, rtdb } from './firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { ref as dbRef, set as dbSet, onValue, onDisconnect } from 'firebase/database';
+import {
+  ref as dbRef, set as dbSet, push as dbPush, remove as dbRemove,
+  update as dbUpdate, get as dbGet, onValue, onDisconnect,
+} from 'firebase/database';
 
-export const DEFAULT_BOARD = 'main'; // 우댕♥꼼이 단일 보드 (MVP)
+export const DEFAULT_BOARD = 'main'; // 첫 페이지 id (기존 낙서 승계)
+export const DEFAULT_BOOK = 'main';  // 책은 전역 canvas/book 하나 (인자는 시그니처 호환용)
 
 export interface StrokePoint { x: number; y: number; p: number }
 export interface BoardStroke {
-  id: string;                 // Firestore 문서 id (지우개 히트 판정·삭제에 사용)
+  id: string;                 // "{user}/{pushId}" 복합 id (지우개 히트·삭제 경로에 사용)
   color: string;
   size: number;
   points: StrokePoint[];
@@ -26,28 +32,43 @@ export interface BoardMeta {
   passageUrl?: string;        // 배경 지문 이미지 (선택)
 }
 
-function strokesCol(boardId: string) {
-  return collection(db, 'canvasBoards', boardId, 'strokes');
+export interface CanvasPage { id: string; t: number }
+
+export function liveKey(name: '우댕' | '꼼이'): 'udaeng' | 'kkomi' {
+  return name === '우댕' ? 'udaeng' : 'kkomi';
 }
 
-// ── 완성된 획 구독 (양쪽이 서로의 획을 봄) ──
+// ── 확정 획 ──
+function strokesRef(boardId: string) { return dbRef(rtdb, `canvas/${boardId}/strokes`); }
+
+// 완성된 획 구독 (양쪽 것 모두 — user별 subtree를 평탄화). t로 정렬.
 export function subscribeStrokes(boardId: string, cb: (strokes: BoardStroke[]) => void): () => void {
-  return onSnapshot(
-    query(strokesCol(boardId), orderBy('t')),
+  return onValue(
+    strokesRef(boardId),
     (snap) => {
-      const strokes = snap.docs.map((d) => {
-        const x = d.data() as DocumentData;
-        return {
-          id: d.id,
-          color: x.color || '#334155',
-          size: x.size || 6,
-          points: Array.isArray(x.points) ? x.points : [],
-          by: x.by,
-        } as BoardStroke;
-      });
-      cb(strokes);
+      const val = snap.val() as Record<string, Record<string, Record<string, unknown>>> | null;
+      const out: (BoardStroke & { t: number })[] = [];
+      if (val) {
+        for (const [user, byId] of Object.entries(val)) {
+          if (!byId) continue;
+          for (const [sid, s] of Object.entries(byId)) {
+            const st = s as { color?: string; size?: number; points?: StrokePoint[]; by?: '우댕' | '꼼이'; t?: number };
+            if (!st || !Array.isArray(st.points) || st.points.length < 2) continue;
+            out.push({
+              id: `${user}/${sid}`,
+              color: st.color || '#334155',
+              size: st.size || 6,
+              points: st.points,
+              by: st.by || (user === 'udaeng' ? '우댕' : '꼼이'),
+              t: st.t ?? 0,
+            });
+          }
+        }
+      }
+      out.sort((a, b) => a.t - b.t);
+      cb(out.map(({ t: _t, ...s }) => s));
     },
-    (err) => { console.error('낙서장 구독 오류:', err); cb([]); }
+    (err) => { console.error('낙서장 구독 오류:', err); cb([]); },
   );
 }
 
@@ -57,38 +78,31 @@ export async function addStroke(
   by: '우댕' | '꼼이',
 ): Promise<void> {
   if (!stroke.points || stroke.points.length < 2) return;
-  await addDoc(strokesCol(boardId), {
-    color: stroke.color,
-    size: stroke.size,
-    points: stroke.points,
-    by,
-    t: Date.now(),               // 정렬용 (serverTimestamp는 pending 시 null이라 클라 ms 병행)
-    createdAt: serverTimestamp(),
-  });
+  const user = liveKey(by);
+  const r = dbPush(dbRef(rtdb, `canvas/${boardId}/strokes/${user}`));
+  await dbSet(r, { color: stroke.color, size: stroke.size, points: stroke.points, by, t: Date.now() });
 }
 
+// ids = "{user}/{pushId}" 복합 id. 멀티패스 업데이트로 한 번에 삭제.
 export async function eraseStrokes(boardId: string, ids: string[]): Promise<void> {
   if (!ids.length) return;
-  // 최대 500개씩 배치 삭제
-  for (let i = 0; i < ids.length; i += 450) {
-    const batch = writeBatch(db);
-    for (const id of ids.slice(i, i + 450)) batch.delete(doc(db, 'canvasBoards', boardId, 'strokes', id));
-    await batch.commit();
-  }
+  const updates: Record<string, null> = {};
+  for (const id of ids) updates[`canvas/${boardId}/strokes/${id}`] = null;
+  await dbUpdate(dbRef(rtdb), updates);
 }
 
 export async function clearBoard(boardId: string): Promise<void> {
-  const snap = await getDocs(strokesCol(boardId));
-  const ids = snap.docs.map((d) => d.id);
-  await eraseStrokes(boardId, ids);
+  await dbRemove(strokesRef(boardId));
 }
 
 // ── 보드 메타 (배경 지문) ──
+function metaRef(boardId: string) { return dbRef(rtdb, `canvas/${boardId}/meta`); }
+
 export function subscribeBoardMeta(boardId: string, cb: (meta: BoardMeta) => void): () => void {
-  return onSnapshot(
-    doc(db, 'canvasBoards', boardId),
-    (snap) => cb((snap.data() as BoardMeta) || {}),
-    (err) => { console.error('보드 메타 구독 오류:', err); cb({}); }
+  return onValue(
+    metaRef(boardId),
+    (snap) => cb((snap.val() as BoardMeta) || {}),
+    (err) => { console.error('보드 메타 구독 오류:', err); cb({}); },
   );
 }
 
@@ -102,84 +116,70 @@ export async function uploadPassageImage(file: File, by: string): Promise<string
 }
 
 export async function setPassage(boardId: string, passageUrl: string): Promise<void> {
-  await setDoc(doc(db, 'canvasBoards', boardId), { passageUrl }, { merge: true });
+  await dbUpdate(metaRef(boardId), { passageUrl });
 }
 
 export async function clearPassage(boardId: string): Promise<void> {
-  await updateDoc(doc(db, 'canvasBoards', boardId), { passageUrl: deleteField() });
+  await dbRemove(dbRef(rtdb, `canvas/${boardId}/meta/passageUrl`));
 }
 
-// ── 여러 장 노트북 (공유 스케치북) ──
-// 책 문서: canvasBooks/{bookId} { currentPage }  — 둘이 같은 페이지를 봄(공유 포인터)
-// 페이지: canvasBooks/{bookId}/pages/{pageId} { t }  — t로 정렬(생성순)
-// 각 페이지의 획/지문/라이브는 기존 모델 그대로 재사용 (pageId 가 곧 boardId)
-export const DEFAULT_BOOK = 'main';
-
-export interface CanvasPage { id: string; t: number }
-
-function bookDoc(bookId: string) { return doc(db, 'canvasBooks', bookId); }
-function pagesCol(bookId: string) { return collection(db, 'canvasBooks', bookId, 'pages'); }
-
-// 첫 진입 시 책이 없으면 초기화 — 기존 'main' 보드를 1페이지로 승계(옛 낙서 보존)
-export async function ensureBook(bookId: string): Promise<void> {
-  const snap = await getDoc(bookDoc(bookId));
-  if (snap.exists() && (snap.data() as DocumentData).currentPage) return;
-  await setDoc(doc(db, 'canvasBooks', bookId, 'pages', 'main'), { t: 0 }, { merge: true });
-  await setDoc(bookDoc(bookId), { currentPage: 'main' }, { merge: true });
+// ── 여러 장 노트북 (전역 공유 책: canvas/book) ──
+// 첫 진입 시 currentPage 없으면 초기화 — 'main'을 1페이지로.
+export async function ensureBook(_bookId: string): Promise<void> {
+  const snap = await dbGet(dbRef(rtdb, 'canvas/book/currentPage'));
+  if (snap.exists() && snap.val()) return;
+  await dbUpdate(dbRef(rtdb, 'canvas/book'), { currentPage: 'main', 'pages/main': { t: 0 } });
 }
 
-// 현재 페이지(공유 포인터) 구독
-export function subscribeCurrentPage(bookId: string, cb: (pageId: string | null) => void): () => void {
-  return onSnapshot(
-    bookDoc(bookId),
-    (snap) => cb(((snap.data() as DocumentData)?.currentPage as string) ?? null),
+export function subscribeCurrentPage(_bookId: string, cb: (pageId: string | null) => void): () => void {
+  return onValue(
+    dbRef(rtdb, 'canvas/book/currentPage'),
+    (snap) => cb((snap.val() as string) || null),
     () => cb(null),
   );
 }
 
-// 페이지 목록(생성순) 구독
-export function subscribePages(bookId: string, cb: (pages: CanvasPage[]) => void): () => void {
-  return onSnapshot(
-    query(pagesCol(bookId), orderBy('t')),
-    (snap) => cb(snap.docs.map((d) => ({ id: d.id, t: (d.data() as DocumentData).t ?? 0 }))),
+export function subscribePages(_bookId: string, cb: (pages: CanvasPage[]) => void): () => void {
+  return onValue(
+    dbRef(rtdb, 'canvas/book/pages'),
+    (snap) => {
+      const val = snap.val() as Record<string, { t?: number }> | null;
+      const pages = val
+        ? Object.entries(val).map(([id, v]) => ({ id, t: v?.t ?? 0 })).sort((a, b) => a.t - b.t)
+        : [];
+      cb(pages);
+    },
     () => cb([]),
   );
 }
 
 // 새 빈 페이지 만들고 현재 페이지를 그리로 이동(둘 다 넘어감)
-export async function createPage(bookId: string): Promise<string> {
-  const ref = await addDoc(pagesCol(bookId), { t: Date.now() });
-  await setDoc(bookDoc(bookId), { currentPage: ref.id }, { merge: true });
-  return ref.id;
+export async function createPage(_bookId: string): Promise<string> {
+  const id = `p_${Date.now()}`;
+  await dbUpdate(dbRef(rtdb, 'canvas/book'), { [`pages/${id}`]: { t: Date.now() }, currentPage: id });
+  return id;
 }
 
 // 현재 페이지 이동(넘겨보기 — 공유라 상대도 같이 넘어감)
-export async function setCurrentPage(bookId: string, pageId: string): Promise<void> {
-  await setDoc(bookDoc(bookId), { currentPage: pageId }, { merge: true });
+export async function setCurrentPage(_bookId: string, pageId: string): Promise<void> {
+  await dbSet(dbRef(rtdb, 'canvas/book/currentPage'), pageId);
 }
 
-// ── 2단계: 그리는 중 획 실시간 생중계 (RTDB — 초고빈도, 완성되면 Firestore로 확정) ──
+// ── 그리는 중 획 실시간 생중계 (RTDB) ──
 export interface LiveStroke { id: string; color: string; size: number; points: StrokePoint[] }
-
-export function liveKey(name: '우댕' | '꼼이'): 'udaeng' | 'kkomi' {
-  return name === '우댕' ? 'udaeng' : 'kkomi';
-}
 
 function liveRef(boardId: string, userKey: string) {
   return dbRef(rtdb, `canvas/${boardId}/live/${userKey}`);
 }
 
-// 내 그리는 중 획을 갱신(또는 null로 지움). InkCanvas가 50ms로 쓰로틀하므로 그대로 흘려보냄.
 export function publishLive(boardId: string, userKey: string, stroke: LiveStroke | null): void {
   dbSet(liveRef(boardId, userKey), stroke ?? null).catch(() => {});
 }
 
-// 내 라이브 노드에 onDisconnect 자동삭제 걸기 (그리다 끊겨도 유령 획 안 남게)
 export function armLiveDisconnect(boardId: string, userKey: string): void {
   onDisconnect(liveRef(boardId, userKey)).remove().catch(() => {});
 }
 
-// 상대의 그리는 중 획 구독
 export function subscribeLive(
   boardId: string, userKey: string, cb: (stroke: LiveStroke | null) => void,
 ): () => void {

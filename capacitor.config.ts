@@ -10,6 +10,11 @@ const config: CapacitorConfig = {
     url: 'https://kkommorning-v2.vercel.app',
     cleartext: false,
   },
+  ios: {
+    // webview 콘텐츠를 상태바/다이나믹 아일랜드(safe-area) 아래로 내려 상단 잘림 방지.
+    // (웹 CSS는 안 건드림 — 네이티브 껍데기에서만 처리)
+    contentInset: 'always',
+  },
 };
 
 export default config;
