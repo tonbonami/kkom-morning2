@@ -1,42 +1,52 @@
 import Foundation
 import UIKit
 
-// STEP 2 — 실시간 생중계. Firebase iOS SDK 없이 RTDB REST(PUT/POST/DELETE) + SSE(text/event-stream)로 직접.
-// 테스트 모드 규칙(open)이라 토큰 불필요. 좌표는 정규화 0~1로 주고받아 기기 크기 달라도 맞음.
-// 구조: canvas/main/live/{user}=그리는 중 획, canvas/main/strokes/{user}/{id}=확정 획.
-// 각 기기는 "내 것"에 쓰고 "상대 것"을 구독 → 중복 렌더 없음.
+// 웹·네이티브 통일 동기화. Firebase SDK 없이 RTDB REST(PUT/POST/DELETE) + SSE(text/event-stream).
+// 스키마(웹과 공용):
+//   canvas/book/currentPage              = 현재 페이지 id (둘이 공유)
+//   canvas/book/pages/{id}               = { t }
+//   canvas/{page}/strokes/{user}/{id}    = { color, size, points:[{x,y,p}], by, t }  (확정 획)
+//   canvas/{page}/live/{user}            = { id, color, size, points:[{x,y,p}] }      (생중계)
+//   canvas/{page}/meta/passageUrl        = String
+// 좌표·필압 정규화(0~1). 확정 획은 "전체(양쪽)"를 구독해 렌더 → 페이지 넘겨도 내 획 복원됨.
 
 let RTDB_URL = "https://kkom-morning-default-rtdb.asia-southeast1.firebasedatabase.app"
-let BOARD_ID = "main"
 
-// 네트워크로 오가는 획 — color(hex) + 정규화 점 [x, y, wN]
-struct NetStroke: Codable {
-    var color: String
-    var pts: [[Double]]
-}
+struct NetPoint: Codable { var x: Double; var y: Double; var p: Double }
+struct NetStroke: Codable { var color: String; var size: Double; var points: [NetPoint] }
 
 final class SyncClient: NSObject, URLSessionDataDelegate {
     let me: String       // "udaeng" | "kkomi"
     let partner: String
 
+    // 현재 페이지 (book에서 옴). 기본 main.
+    private(set) var page: String = "main"
+
+    // 콜백 (모두 메인큐)
+    var onCurrentPage: ((String) -> Void)?
+    var onPages: (([String]) -> Void)?
+    var onCommitted: (([(String, NetStroke)]) -> Void)?   // 현재 페이지 확정 획 전체(양쪽), key="user/id"
     var onRemoteLive: ((NetStroke?) -> Void)?
-    var onRemoteCommit: ((String, NetStroke?) -> Void)?     // id, stroke(nil=삭제)
-    var onRemoteReset: (([(String, NetStroke)]) -> Void)?   // 전체 리셋(초기·삭제)
+    var onPassage: ((String?) -> Void)?
 
     private lazy var streamSession: URLSession = {
         let c = URLSessionConfiguration.default
         c.timeoutIntervalForRequest = 300
         c.timeoutIntervalForResource = 86400
-        c.httpMaximumConnectionsPerHost = 6
+        c.httpMaximumConnectionsPerHost = 8
         return URLSession(configuration: c, delegate: self, delegateQueue: nil)
     }()
 
-    private enum Kind { case live, strokes }
+    private enum Kind { case book, strokes, live, meta }
+    private var tasks: [Int: URLSessionDataTask] = [:]
     private var kindOf: [Int: Kind] = [:]
-    private var urlOf: [Int: String] = [:]
     private var buffer: [Int: String] = [:]
     private var evName: [Int: String] = [:]
     private var evData: [Int: String] = [:]
+
+    // 로컬 상태
+    private var bookObj: [String: Any] = [:]
+    private var committed: [String: NetStroke] = [:]   // key "user/id"
 
     init(me: String) {
         self.me = me
@@ -45,8 +55,14 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
     }
 
     func start() {
-        openStream("\(RTDB_URL)/canvas/\(BOARD_ID)/live/\(partner).json", kind: .live)
-        openStream("\(RTDB_URL)/canvas/\(BOARD_ID)/strokes/\(partner).json", kind: .strokes)
+        openStream("\(RTDB_URL)/canvas/book.json", kind: .book)
+        openPageStreams()
+    }
+
+    private func openPageStreams() {
+        openStream("\(RTDB_URL)/canvas/\(page)/strokes.json", kind: .strokes)
+        openStream("\(RTDB_URL)/canvas/\(page)/live/\(partner).json", kind: .live)
+        openStream("\(RTDB_URL)/canvas/\(page)/meta/passageUrl.json", kind: .meta)
     }
 
     private func openStream(_ urlStr: String, kind: Kind) {
@@ -54,35 +70,79 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
         var req = URLRequest(url: url)
         req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         let task = streamSession.dataTask(with: req)
-        kindOf[task.taskIdentifier] = kind
-        urlOf[task.taskIdentifier] = urlStr
-        buffer[task.taskIdentifier] = ""
+        let id = task.taskIdentifier
+        tasks[id] = task; kindOf[id] = kind; buffer[id] = ""
         task.resume()
     }
 
-    // ── 쓰기 (fire-and-forget, 일반 세션) ──
-    func publishLive(_ s: NetStroke?) {
-        write("PUT", "\(RTDB_URL)/canvas/\(BOARD_ID)/live/\(me).json", body: encode(s))
-    }
-    // 클라이언트가 만든 id로 PUT → 지우개/되돌리기에서 특정 획 정확히 삭제 가능
-    func commit(id: String, _ s: NetStroke) {
-        write("PUT", "\(RTDB_URL)/canvas/\(BOARD_ID)/strokes/\(me)/\(id).json", body: encode(s))
-    }
-    func deleteMine(id: String) {
-        write("DELETE", "\(RTDB_URL)/canvas/\(BOARD_ID)/strokes/\(me)/\(id).json", body: nil)
-    }
-    func clearMine() {
-        write("DELETE", "\(RTDB_URL)/canvas/\(BOARD_ID)/strokes/\(me).json", body: nil)
-        write("PUT", "\(RTDB_URL)/canvas/\(BOARD_ID)/live/\(me).json", body: "null".data(using: .utf8))
+    // 페이지 전환: 확정/라이브/지문 스트림만 교체(book 스트림은 유지)
+    private func switchPage(to newPage: String) {
+        guard newPage != page else { return }
+        page = newPage
+        committed.removeAll()
+        DispatchQueue.main.async {
+            self.onCommitted?([])
+            self.onRemoteLive?(nil)
+            self.onPassage?(nil)
+        }
+        for (id, k) in kindOf where k == .strokes || k == .live || k == .meta {
+            kindOf[id] = nil
+            tasks[id]?.cancel(); tasks[id] = nil
+            buffer[id] = nil; evName[id] = nil; evData[id] = nil
+        }
+        openPageStreams()
     }
 
-    private func encode(_ s: NetStroke?) -> Data? {
-        guard let s = s else { return "null".data(using: .utf8) }
-        return try? JSONEncoder().encode(s)
+    // ── 쓰기 ──
+    func commit(id: String, _ s: NetStroke) {
+        var dict: [String: Any] = ["color": s.color, "size": s.size,
+                                   "points": s.points.map { ["x": $0.x, "y": $0.y, "p": $0.p] },
+                                   "by": me == "udaeng" ? "우댕" : "꼼이", "t": Int(Date().timeIntervalSince1970 * 1000)]
+        write("PUT", "\(RTDB_URL)/canvas/\(page)/strokes/\(me)/\(id).json", body: jsonData(dict))
+        committed["\(me)/\(id)"] = s   // 낙관적 로컬 반영(에코 오면 동일 id로 덮임)
+        _ = dict
     }
+    func deleteMine(id: String) {
+        write("DELETE", "\(RTDB_URL)/canvas/\(page)/strokes/\(me)/\(id).json", body: nil)
+        committed["\(me)/\(id)"] = nil
+    }
+    func clearMine() {
+        write("DELETE", "\(RTDB_URL)/canvas/\(page)/strokes/\(me).json", body: nil)
+        write("PUT", "\(RTDB_URL)/canvas/\(page)/live/\(me).json", body: "null".data(using: .utf8))
+        for k in committed.keys where k.hasPrefix("\(me)/") { committed[k] = nil }
+    }
+    func publishLive(_ s: NetStroke?, id: String) {
+        guard let s = s else {
+            write("PUT", "\(RTDB_URL)/canvas/\(page)/live/\(me).json", body: "null".data(using: .utf8)); return
+        }
+        let dict: [String: Any] = ["id": id, "color": s.color, "size": s.size,
+                                   "points": s.points.map { ["x": $0.x, "y": $0.y, "p": $0.p] }]
+        write("PUT", "\(RTDB_URL)/canvas/\(page)/live/\(me).json", body: jsonData(dict))
+    }
+
+    // 페이지 만들기/이동 (book)
+    func createPage() {
+        let id = "p_\(Int(Date().timeIntervalSince1970 * 1000))"
+        write("PUT", "\(RTDB_URL)/canvas/book/pages/\(id).json",
+              body: jsonData(["t": Int(Date().timeIntervalSince1970 * 1000)]))
+        write("PUT", "\(RTDB_URL)/canvas/book/currentPage.json", body: "\"\(id)\"".data(using: .utf8))
+    }
+    func setCurrentPage(_ id: String) {
+        write("PUT", "\(RTDB_URL)/canvas/book/currentPage.json", body: "\"\(id)\"".data(using: .utf8))
+    }
+    func setPassage(_ url: String?) {
+        if let url = url {
+            write("PUT", "\(RTDB_URL)/canvas/\(page)/meta/passageUrl.json", body: "\"\(url)\"".data(using: .utf8))
+        } else {
+            write("DELETE", "\(RTDB_URL)/canvas/\(page)/meta/passageUrl.json", body: nil)
+        }
+    }
+
+    private func jsonData(_ obj: Any) -> Data? { try? JSONSerialization.data(withJSONObject: obj) }
     private func write(_ method: String, _ urlStr: String, body: Data?) {
         guard let url = URL(string: urlStr) else { return }
         var req = URLRequest(url: url); req.httpMethod = method; req.httpBody = body
+        if body != nil { req.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         URLSession.shared.dataTask(with: req).resume()
     }
 
@@ -114,47 +174,100 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
     }
 
     private func dispatch(_ id: Int, _ event: String, _ dataJSON: String) {
-        guard event == "put" || event == "patch" else { return }  // keep-alive 등 무시
+        guard event == "put" || event == "patch" else { return }
         guard let d = dataJSON.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
         let path = obj["path"] as? String ?? "/"
         let payload = obj["data"]
         switch kindOf[id] {
+        case .book:   applyBook(event: event, path: path, value: payload)
+        case .strokes: applyStrokes(event: event, path: path, value: payload)
         case .live:
             let s = Self.decodeStroke(payload)
             DispatchQueue.main.async { self.onRemoteLive?(s) }
-        case .strokes:
-            if path == "/" {
-                var list: [(String, NetStroke)] = []
-                if let m = payload as? [String: Any] {
-                    for (k, v) in m { if let s = Self.decodeStroke(v) { list.append((k, s)) } }
-                }
-                DispatchQueue.main.async { self.onRemoteReset?(list) }
-            } else {
-                let sid = String(path.dropFirst())
-                let s = Self.decodeStroke(payload)
-                DispatchQueue.main.async { self.onRemoteCommit?(sid, s) }
-            }
-        case .none:
-            break
+        case .meta:
+            let url = payload as? String
+            DispatchQueue.main.async { self.onPassage?(url) }
+        case .none: break
         }
     }
 
-    static func decodeStroke(_ any: Any?) -> NetStroke? {
-        guard let dict = any as? [String: Any],
-              let color = dict["color"] as? String,
-              let ptsAny = dict["pts"] as? [[Any]] else { return nil }
-        let pts = ptsAny.map { arr in arr.compactMap { ($0 as? NSNumber)?.doubleValue } }
-        return NetStroke(color: color, pts: pts)
+    // book: currentPage + pages 파싱
+    private func applyBook(event: String, path: String, value: Any?) {
+        let comps = path.split(separator: "/").map(String.init)
+        if path == "/" {
+            bookObj = (value as? [String: Any]) ?? [:]
+        } else if event == "patch", comps.isEmpty {
+            if let m = value as? [String: Any] { for (k, v) in m { bookObj[k] = v } }
+        } else if comps.count == 1 {
+            if let v = value { bookObj[comps[0]] = v } else { bookObj.removeValue(forKey: comps[0]) }
+        } else if comps.count == 2 {
+            var sub = bookObj[comps[0]] as? [String: Any] ?? [:]
+            if let v = value { sub[comps[1]] = v } else { sub.removeValue(forKey: comps[1]) }
+            bookObj[comps[0]] = sub
+        }
+        let cp = (bookObj["currentPage"] as? String) ?? "main"
+        let pagesMap = bookObj["pages"] as? [String: Any] ?? [:]
+        let pageList = pagesMap.sorted { a, b in tOf(a.value) < tOf(b.value) }.map { $0.key }
+        DispatchQueue.main.async {
+            self.onPages?(pageList.isEmpty ? ["main"] : pageList)
+            self.onCurrentPage?(cp)
+        }
+        if cp != page { switchPage(to: cp) }
+    }
+    private func tOf(_ v: Any) -> Double { ((v as? [String: Any])?["t"] as? NSNumber)?.doubleValue ?? 0 }
+
+    // strokes: canvas/{page}/strokes 전체(양쪽) → committed 갱신
+    private func applyStrokes(event: String, path: String, value: Any?) {
+        let comps = path.split(separator: "/").map(String.init)
+        if path == "/" {
+            committed.removeAll()
+            if let byUser = value as? [String: Any] {
+                for (user, byId) in byUser {
+                    if let m = byId as? [String: Any] {
+                        for (sid, s) in m { if let st = Self.decodeStroke(s) { committed["\(user)/\(sid)"] = st } }
+                    }
+                }
+            }
+        } else if comps.count == 1 {   // /{user}
+            for k in committed.keys where k.hasPrefix("\(comps[0])/") { committed[k] = nil }
+            if let m = value as? [String: Any] {
+                for (sid, s) in m { if let st = Self.decodeStroke(s) { committed["\(comps[0])/\(sid)"] = st } }
+            }
+        } else if comps.count == 2 {   // /{user}/{id}
+            let key = "\(comps[0])/\(comps[1])"
+            if let st = Self.decodeStroke(value) { committed[key] = st } else { committed[key] = nil }
+        }
+        let list = committed.map { ($0.key, $0.value) }
+        DispatchQueue.main.async { self.onCommitted?(list) }
     }
 
-    // 연결 끊기면 재접속
+    static func decodeStroke(_ any: Any?) -> NetStroke? {
+        guard let dict = any as? [String: Any], let color = dict["color"] as? String else { return nil }
+        let size = (dict["size"] as? NSNumber)?.doubleValue ?? 6
+        guard let ptsAny = dict["points"] as? [[String: Any]] else { return nil }
+        let pts = ptsAny.compactMap { p -> NetPoint? in
+            guard let x = (p["x"] as? NSNumber)?.doubleValue, let y = (p["y"] as? NSNumber)?.doubleValue else { return nil }
+            let pr = (p["p"] as? NSNumber)?.doubleValue ?? 0.5
+            return NetPoint(x: x, y: y, p: pr)
+        }
+        guard pts.count >= 1 else { return nil }
+        return NetStroke(color: color, size: size, points: pts)
+    }
+
+    // 재접속 (현재 page 기준으로 다시 열기)
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         let id = task.taskIdentifier
-        guard let kind = kindOf[id], let urlStr = urlOf[id] else { return }
-        kindOf[id] = nil; urlOf[id] = nil; buffer[id] = nil; evName[id] = nil; evData[id] = nil
+        guard let kind = kindOf[id] else { return }
+        kindOf[id] = nil; tasks[id] = nil; buffer[id] = nil; evName[id] = nil; evData[id] = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            self?.openStream(urlStr, kind: kind)
+            guard let self = self else { return }
+            switch kind {
+            case .book:    self.openStream("\(RTDB_URL)/canvas/book.json", kind: .book)
+            case .strokes: self.openStream("\(RTDB_URL)/canvas/\(self.page)/strokes.json", kind: .strokes)
+            case .live:    self.openStream("\(RTDB_URL)/canvas/\(self.page)/live/\(self.partner).json", kind: .live)
+            case .meta:    self.openStream("\(RTDB_URL)/canvas/\(self.page)/meta/passageUrl.json", kind: .meta)
+            }
         }
     }
 }

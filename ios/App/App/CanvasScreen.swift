@@ -1,7 +1,6 @@
 import SwiftUI
-import PhotosUI
 
-// 네이티브 낙서장 화면 (Capacitor 플러그인이 present). me는 꼼모닝 로그인에서 전달받음.
+// 네이티브 낙서장 화면. me는 꼼모닝 로그인에서 전달. 데이터·페이지·지문 전부 웹과 공유(RTDB).
 private let cream = Color(red: 1.0, green: 0.988, blue: 0.961)
 private let rose = Color(red: 0.98, green: 0.48, blue: 0.66)
 private let blue = Color(red: 0.49, green: 0.83, blue: 0.99)
@@ -14,7 +13,6 @@ struct CanvasScreen: View {
     @StateObject private var controller = CanvasController()
     @Environment(\.horizontalSizeClass) private var hSize
 
-    @State private var passageItem: PhotosPickerItem?
     @State private var passageImage: UIImage?
     @State private var opacity: Double = 0.5
 
@@ -32,41 +30,62 @@ struct CanvasScreen: View {
 
             ZStack {
                 cream.ignoresSafeArea()
-
                 board(width: bw, height: bh)
                     .frame(width: bw, height: bh)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                // 상단: 닫기 + presence + 나 배지
                 VStack {
-                    HStack(alignment: .top) {
+                    // 상단: 닫기 + 페이지 넘기기 + presence + 나 배지
+                    HStack(alignment: .center, spacing: 8) {
                         Button(action: onClose) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(inkColor)
-                                .frame(width: 34, height: 34)
+                            Image(systemName: "xmark").font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(inkColor).frame(width: 34, height: 34)
                                 .background(.ultraThinMaterial).clipShape(Circle())
                         }
+                        pageNav
                         if controller.partnerActive { presenceTag }
                         Spacer()
                         meBadge
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 6)
+                    .padding(.horizontal, 16).padding(.top, 6)
                     Spacer()
                 }
-
                 toolbarLayer
             }
         }
-        .onChange(of: passageItem) { item in
-            Task {
-                if let data = try? await item?.loadTransferable(type: Data.self),
-                   let img = UIImage(data: data) {
-                    await MainActor.run { passageImage = img; opacity = 0.5 }
+        .onChange(of: controller.passageUrl) { url in loadPassage(url) }
+        .onAppear { loadPassage(controller.passageUrl) }
+    }
+
+    // 페이지 넘기기 ‹ n/N › + 새 페이지 (공유 — 상대도 같이 이동)
+    private var pageNav: some View {
+        let idx = controller.pageIndex
+        let total = max(controller.pages.count, 1)
+        return HStack(spacing: 2) {
+            Button { controller.goPrev() } label: {
+                Image(systemName: "chevron.left").font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(idx <= 0 ? Color.secondary.opacity(0.35) : inkColor)
+                    .frame(width: 26, height: 30)
+            }.disabled(idx <= 0)
+            Text("\(idx + 1)/\(total)")
+                .font(.system(size: 13, weight: .heavy)).monospacedDigit()
+                .foregroundStyle(inkColor).frame(minWidth: 34)
+            Button { controller.goNext() } label: {
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(idx >= total - 1 ? Color.secondary.opacity(0.35) : inkColor)
+                    .frame(width: 26, height: 30)
+            }.disabled(idx >= total - 1)
+            Button { controller.newPage() } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "doc.badge.plus").font(.system(size: 12, weight: .bold))
+                    Text("새 페이지").font(.system(size: 12, weight: .bold))
                 }
+                .foregroundStyle(.white).padding(.horizontal, 10).frame(height: 30)
+                .background(inkColor).clipShape(Capsule())
             }
         }
+        .padding(.horizontal, 6).frame(height: 34)
+        .background(.ultraThinMaterial).clipShape(Capsule())
     }
 
     private func board(width: CGFloat, height: CGFloat) -> some View {
@@ -88,10 +107,8 @@ struct CanvasScreen: View {
             Circle().fill(partnerColor).frame(width: 8, height: 8)
             Text("\(partnerName)가 끄적이는 중 ✍️").font(.system(size: 12, weight: .bold))
         }
-        .foregroundStyle(inkColor)
-        .padding(.horizontal, 12).padding(.vertical, 6)
-        .background(.ultraThinMaterial).clipShape(Capsule())
-        .rotationEffect(.degrees(-2))
+        .foregroundStyle(inkColor).padding(.horizontal, 12).padding(.vertical, 6)
+        .background(.ultraThinMaterial).clipShape(Capsule()).rotationEffect(.degrees(-2))
     }
 
     private var meBadge: some View {
@@ -108,7 +125,7 @@ struct CanvasScreen: View {
                 VStack(spacing: 12) {
                     Spacer()
                     if passageImage != nil { opacitySlider }
-                    CanvasToolbar(controller: controller, axis: .vertical, passageItem: $passageItem)
+                    CanvasToolbar(controller: controller, axis: .vertical)
                     Spacer()
                 }.padding(.trailing, 16)
             }
@@ -116,8 +133,7 @@ struct CanvasScreen: View {
             VStack(spacing: 10) {
                 Spacer()
                 if passageImage != nil { opacitySlider }
-                CanvasToolbar(controller: controller, axis: .horizontal, passageItem: $passageItem)
-                    .padding(.bottom, 18)
+                CanvasToolbar(controller: controller, axis: .horizontal).padding(.bottom, 18)
             }
         }
     }
@@ -131,6 +147,14 @@ struct CanvasScreen: View {
         .padding(.horizontal, 14).padding(.vertical, 8)
         .background(.ultraThinMaterial).clipShape(Capsule())
         .overlay(Capsule().stroke(Color.black.opacity(0.05), lineWidth: 1))
+    }
+
+    private func loadPassage(_ url: String?) {
+        guard let url = url, let u = URL(string: url) else { passageImage = nil; return }
+        URLSession.shared.dataTask(with: u) { data, _, _ in
+            guard let data = data, let img = UIImage(data: data) else { return }
+            DispatchQueue.main.async { self.passageImage = img }
+        }.resume()
     }
 }
 
@@ -155,7 +179,6 @@ struct CanvasDotGrid: View {
 struct CanvasToolbar: View {
     @ObservedObject var controller: CanvasController
     let axis: Axis
-    @Binding var passageItem: PhotosPickerItem?
     private let sizes: [CGFloat] = [4, 7, 13]
 
     var body: some View {
@@ -165,8 +188,7 @@ struct CanvasToolbar: View {
             else { HStack(spacing: 7) { items } }
         }
         .foregroundStyle(Color(red: 0.39, green: 0.45, blue: 0.55))
-        .padding(.horizontal, vertical ? 12 : 13)
-        .padding(.vertical, vertical ? 18 : 12)
+        .padding(.horizontal, vertical ? 12 : 13).padding(.vertical, vertical ? 18 : 12)
         .background(.ultraThinMaterial).clipShape(Capsule())
         .overlay(Capsule().stroke(Color.black.opacity(0.05), lineWidth: 1))
         .shadow(color: warmShadow.opacity(0.14), radius: 12, y: 8)
@@ -182,8 +204,7 @@ struct CanvasToolbar: View {
         divider
         ForEach(sizes, id: \.self) { w in
             Button { controller.lineWidth = w; controller.eraser = false } label: {
-                Circle().fill(inkColor).frame(width: w + 3, height: w + 3)
-                    .frame(width: 30, height: 30)
+                Circle().fill(inkColor).frame(width: w + 3, height: w + 3).frame(width: 30, height: 30)
                     .background(Circle().fill(Color.gray.opacity(controller.lineWidth == w && !controller.eraser ? 0.18 : 0)))
             }
         }
@@ -191,11 +212,7 @@ struct CanvasToolbar: View {
         Button { controller.eraser.toggle() } label: {
             Image(systemName: "eraser").font(.system(size: 16, weight: .medium))
                 .foregroundStyle(controller.eraser ? .white : Color(red: 0.39, green: 0.45, blue: 0.55))
-                .frame(width: 30, height: 30)
-                .background(Circle().fill(controller.eraser ? inkColor : Color.clear))
-        }
-        PhotosPicker(selection: $passageItem, matching: .images) {
-            Image(systemName: "photo").font(.system(size: 16, weight: .medium))
+                .frame(width: 30, height: 30).background(Circle().fill(controller.eraser ? inkColor : Color.clear))
         }
         Button { controller.undo() } label: { Image(systemName: "arrow.uturn.backward").font(.system(size: 17, weight: .medium)) }
         Button { controller.clear() } label: { Image(systemName: "trash").font(.system(size: 16, weight: .medium)) }

@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import LocalAuthentication
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,43 +8,101 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        AppLock.shared.showCover()   // 콘텐츠 보이기 전 커버
         return true
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
-        // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
-        // Use this method to pause ongoing tasks, disable timers, and invalidate graphics rendering callbacks. Games should use this method to pause the game.
+        AppLock.shared.showCover()   // 앱 스위처 프라이버시 커버
     }
 
     func applicationDidEnterBackground(_ application: UIApplication) {
-        // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
-        // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+        AppLock.shared.markBackground()
     }
 
-    func applicationWillEnterForeground(_ application: UIApplication) {
-        // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
-    }
+    func applicationWillEnterForeground(_ application: UIApplication) {}
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        AppLock.shared.authenticateIfNeeded()
     }
 
-    func applicationWillTerminate(_ application: UIApplication) {
-        // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
-    }
+    func applicationWillTerminate(_ application: UIApplication) {}
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        // Called when the app was launched with a url. Feel free to add additional processing here,
-        // but if you want the App API to support tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        // Called when the app was launched with an activity, including Universal Links.
-        // Feel free to add additional processing here, but if you want the App API to support
-        // tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
+}
 
+// ── FaceID 잠금 (우리만의 앱) ──
+// 콜드 런치 + 백그라운드 30초 이상 후 복귀 시 FaceID(없으면 패스코드). 실패 시 커버 유지.
+final class AppLock {
+    static let shared = AppLock()
+    private var cover: UIView?
+    private var isUnlocked = false
+    private var isAuthenticating = false
+    private var backgroundedAt: Date?
+    private let graceSeconds: TimeInterval = 30
+
+    private func keyWindow() -> UIWindow? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.flatMap { $0.windows }.first { $0.isKeyWindow } ?? scenes.flatMap { $0.windows }.first
+    }
+
+    func showCover() {
+        guard let win = keyWindow() else { return }
+        if cover == nil || cover?.superview == nil {
+            let v = UIVisualEffectView(effect: UIBlurEffect(style: .systemThickMaterial))
+            v.frame = win.bounds
+            v.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            let label = UILabel()
+            label.text = "💚"
+            label.font = .systemFont(ofSize: 64)
+            label.textAlignment = .center
+            label.frame = win.bounds
+            label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            v.contentView.addSubview(label)
+            win.addSubview(v)
+            cover = v
+        }
+        cover?.isHidden = false
+        if let c = cover { win.bringSubviewToFront(c) }
+    }
+
+    private func hideCover() { cover?.isHidden = true }
+
+    func markBackground() { backgroundedAt = Date(); showCover() }
+
+    func authenticateIfNeeded() {
+        // 유예: 잠깐 나갔다 온 거면 통과
+        if isUnlocked, let bg = backgroundedAt, Date().timeIntervalSince(bg) < graceSeconds {
+            hideCover(); return
+        }
+        if isUnlocked, backgroundedAt == nil { hideCover(); return }
+        guard !isAuthenticating else { return }
+        isUnlocked = false
+        showCover()
+
+        let ctx = LAContext()
+        var err: NSError?
+        guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) else {
+            // 생체·패스코드 설정 없으면 잠금 무의미 → 통과
+            isUnlocked = true; hideCover(); return
+        }
+        isAuthenticating = true
+        ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "꼼모닝 잠금 해제") { ok, _ in
+            DispatchQueue.main.async {
+                self.isAuthenticating = false
+                if ok {
+                    self.isUnlocked = true
+                    self.backgroundedAt = nil
+                    self.hideCover()
+                }
+                // 실패 시 커버 유지 — 다음 활성화 때 재시도
+            }
+        }
+    }
 }
