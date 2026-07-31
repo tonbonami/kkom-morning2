@@ -39,8 +39,8 @@ enum Fire {
         } catch { return nil }
     }
 
-    // 하트 던지기 — 상대 liveHearts doc을 덮어씀(nonce 매번 새로). 웹 throwHeart와 동일 스키마.
-    static func sendHeart(from: String, to: String) async {
+    // 하트/스티커 던지기 — 상대 liveHearts doc을 덮어씀(nonce 매번 새로). 웹 throwHeart와 동일 스키마 + emoji.
+    static func fling(from: String, to: String, emoji: String) async {
         guard let url = URL(string: "\(base)/liveHearts/\(enc(to))?key=\(apiKey)") else { return }
         // ⚠️ 애플워치(arm64_32)는 Int가 32비트 → 밀리초(≈1.75조)를 Int로 넣으면 오버플로 크래시. Int64 필수.
         let nonce = "\(Int64(Date().timeIntervalSince1970 * 1000))_w\(Int.random(in: 100000...999999))"
@@ -48,7 +48,25 @@ enum Fire {
             "from":  ["stringValue": from],
             "nonce": ["stringValue": nonce],
             "at":    ["timestampValue": formatTS(Date())],
+            "emoji": ["stringValue": emoji],
         ]]
+        await patch(url, body)
+    }
+
+    // 오늘 내 기분 저장 — moods/{name}_{day}. 웹 setMyMood와 동일 스키마.
+    static func setMood(name: String, emoji: String, day: String) async {
+        guard let url = URL(string: "\(base)/moods/\(enc("\(name)_\(day)"))?key=\(apiKey)") else { return }
+        let body: [String: Any] = ["fields": [
+            "name":      ["stringValue": name],
+            "day":       ["stringValue": day],
+            "emoji":     ["stringValue": emoji],
+            "note":      ["stringValue": ""],
+            "updatedAt": ["timestampValue": formatTS(Date())],
+        ]]
+        await patch(url, body)
+    }
+
+    private static func patch(_ url: URL, _ body: [String: Any]) async {
         var req = URLRequest(url: url)
         req.httpMethod = "PATCH"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -56,15 +74,16 @@ enum Fire {
         _ = try? await URLSession.shared.data(for: req)
     }
 
-    // 내가 받는 하트의 nonce 조회 (변화 감지는 호출처에서).
-    static func fetchHeartNonce(for me: String) async -> (from: String, nonce: String)? {
+    // 내가 받는 하트의 nonce+emoji 조회 (변화 감지는 호출처에서).
+    static func fetchHeartNonce(for me: String) async -> (from: String, nonce: String, emoji: String)? {
         guard let url = URL(string: "\(base)/liveHearts/\(enc(me))?key=\(apiKey)") else { return nil }
         guard let (data, _) = try? await URLSession.shared.data(from: url),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let fields = obj["fields"] as? [String: Any],
               let nonce = (fields["nonce"] as? [String: Any])?["stringValue"] as? String else { return nil }
         let from = (fields["from"] as? [String: Any])?["stringValue"] as? String ?? ""
-        return (from, nonce)
+        let emoji = (fields["emoji"] as? [String: Any])?["stringValue"] as? String ?? "❤️"
+        return (from, nonce, emoji)
     }
 
     // ── 시각 헬퍼 ──

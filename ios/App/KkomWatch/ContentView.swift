@@ -23,8 +23,22 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var phase
     var body: some View {
         Group {
-            if store.role == nil { RolePicker() }
-            else { PresenceView() }
+            if store.role == nil {
+                RolePicker()
+            } else {
+                ZStack {
+                    TabView {
+                        PresenceView()    // 접속 + D-day + 하트
+                        StickerPalette()  // 날리기
+                        MoodPicker()      // 기분
+                    }
+                    .tabViewStyle(.page)
+                    // 상대가 날린 이모지 — 어느 페이지에서도 위로 크게 떴다 사라짐
+                    if store.heartFlash > 0 {
+                        ReceivedHeart(trigger: store.heartFlash, emoji: store.lastReceivedEmoji)
+                    }
+                }
+            }
         }
         .onChange(of: phase) { _, newPhase in
             if newPhase == .active { store.start() } else { store.stop() }
@@ -51,7 +65,7 @@ struct PresenceView: View {
                     .font(.system(size: 30, weight: .heavy, design: .rounded))
                     .foregroundStyle(store.online ? cMint : .white.opacity(0.9))
 
-                Button { store.sendHeart() } label: {
+                Button { store.fling("❤️") } label: {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 32))
                         .foregroundStyle(cRose)
@@ -61,24 +75,22 @@ struct PresenceView: View {
                 .buttonStyle(.plain)
                 .padding(.top, 2)
 
-                Text("톡, 보내기").font(.system(size: 11)).foregroundStyle(.white.opacity(0.5))
+                Text("톡  ·  ← 밀어 스티커").font(.system(size: 10)).foregroundStyle(.white.opacity(0.45))
             }
             .padding(.horizontal, 8)
-
-            if store.heartFlash > 0 { ReceivedHeart(trigger: store.heartFlash) }
         }
     }
 }
 
-// 상대가 보낸 하트 — 커졌다 사라지는 오버레이
+// 상대가 날린 이모지 — 커졌다 사라지는 오버레이
 struct ReceivedHeart: View {
     let trigger: Int
+    let emoji: String
     @State private var show = false
     var body: some View {
-        Image(systemName: "heart.fill")
-            .font(.system(size: 95))
-            .foregroundStyle(cRose)
-            .opacity(show ? 0 : 0.9)
+        Text(emoji)
+            .font(.system(size: 88))
+            .opacity(show ? 0 : 1)
             .scaleEffect(show ? 1.7 : 0.5)
             .allowsHitTesting(false)
             .onChange(of: trigger) { _, _ in
@@ -86,6 +98,58 @@ struct ReceivedHeart: View {
                 withAnimation(.easeOut(duration: 0.9)) { show = true }
             }
             .onAppear { withAnimation(.easeOut(duration: 0.9)) { show = true } }
+    }
+}
+
+// ── 날리기 팔레트 — 스티커 탭하면 상대에게 발사 ──
+struct StickerPalette: View {
+    @EnvironmentObject var store: WatchStore
+    private let stickers = ["❤️", "😘", "🥰", "🥺", "🫂", "💪", "🔋", "✊", "😤", "🎉", "👍", "🔥"]
+    private let cols = [GridItem(.adaptive(minimum: 44), spacing: 8)]
+    var body: some View {
+        ScrollView {
+            Text("날려 💌").font(.system(size: 13, weight: .bold))
+                .foregroundStyle(.white.opacity(0.55)).padding(.top, 4).padding(.bottom, 2)
+            LazyVGrid(columns: cols, spacing: 8) {
+                ForEach(stickers, id: \.self) { e in
+                    Button { store.fling(e) } label: {
+                        Text(e).font(.system(size: 26))
+                            .frame(width: 46, height: 46)
+                            .background(Color.white.opacity(0.08)).clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .background(cBg.ignoresSafeArea())
+    }
+}
+
+// ── 기분 보내기 — 오늘 내 기분 (웹 MOOD_OPTIONS와 동일 이모지) ──
+struct MoodPicker: View {
+    @EnvironmentObject var store: WatchStore
+    private let moods = ["😊", "🥰", "😄", "😌", "😴", "😢", "😠", "🥺", "🤒", "🙏", "🙇", "😤"]
+    private let cols = [GridItem(.adaptive(minimum: 44), spacing: 8)]
+    var body: some View {
+        ScrollView {
+            Text(store.moodSent.map { "오늘 \($0) 보냄" } ?? "오늘 내 기분")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(.white.opacity(0.55)).padding(.top, 4).padding(.bottom, 2)
+            LazyVGrid(columns: cols, spacing: 8) {
+                ForEach(moods, id: \.self) { e in
+                    Button { store.sendMood(e) } label: {
+                        Text(e).font(.system(size: 26))
+                            .frame(width: 46, height: 46)
+                            .background(store.moodSent == e ? cMint.opacity(0.3) : Color.white.opacity(0.08))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .background(cBg.ignoresSafeArea())
     }
 }
 

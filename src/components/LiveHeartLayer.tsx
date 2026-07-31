@@ -14,7 +14,8 @@ interface Particle {
   scale: number;
   rot: number;
   dur: number;    // 상승 시간
-  hue: number;    // 색조 (핑크~빨강 범위)
+  hue: number;    // 색조 (핑크~빨강 범위) — ❤️일 때만 적용
+  emoji: string;  // 날아오르는 이모지 (워치 스티커 날리기와 공용)
 }
 
 let pidSeq = 0;
@@ -24,8 +25,8 @@ export default function LiveHeartLayer({ me, partnerActive }: { me: string; part
   const [burst, setBurst] = useState(false); // 중앙 하트 눌렀을 때 살짝 커지는 반응
   const seenNonce = useRef<string | null>(null);
 
-  // 폭탄 — n개의 하트를 바닥 중앙에서 위로 흩뿌림
-  const bomb = (n: number) => {
+  // 폭탄 — n개의 이모지를 바닥 중앙에서 위로 흩뿌림 (기본 ❤️)
+  const bomb = (n: number, emoji: string = '❤️') => {
     const next: Particle[] = [];
     for (let i = 0; i < n; i++) {
       next.push({
@@ -36,6 +37,7 @@ export default function LiveHeartLayer({ me, partnerActive }: { me: string; part
         rot: (Math.random() - 0.5) * 80,
         dur: 1.6 + Math.random() * 1.2,
         hue: Math.random() * 40 - 10, // -10~30 (핑크~빨강)
+        emoji,
       });
     }
     setParticles((prev) => {
@@ -67,7 +69,7 @@ export default function LiveHeartLayer({ me, partnerActive }: { me: string; part
       if (ping.nonce === seenNonce.current) return;
       seenNonce.current = ping.nonce;
       haptic(15);
-      bomb(8);
+      bomb(8, ping.emoji || '❤️');
     });
     return () => unsub();
   }, [me]);
@@ -138,12 +140,12 @@ function HeartParticle({ p, onDone }: { p: Particle; onDone: () => void }) {
         ['--drift' as any]: `${p.drift}px`,
         ['--rot' as any]: `${p.rot}deg`,
         animation: `heart-rise ${p.dur}s cubic-bezier(.35,.7,.5,1) forwards`,
-        filter: `hue-rotate(${p.hue}deg) drop-shadow(0 3px 6px rgba(244,63,94,0.25))`,
+        filter: `${p.emoji === '❤️' ? `hue-rotate(${p.hue}deg) ` : ''}drop-shadow(0 3px 6px rgba(244,63,94,0.25))`,
         willChange: 'transform, opacity',
         pointerEvents: 'none',
       }}
     >
-      ❤️
+      {p.emoji}
     </span>
   );
 }

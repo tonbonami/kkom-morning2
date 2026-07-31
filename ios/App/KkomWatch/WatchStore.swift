@@ -15,7 +15,9 @@ final class WatchStore: ObservableObject {
     @Published var online = false
     @Published var lastSeenMs: Double? = nil
     @Published var sending = false
-    @Published var heartFlash = 0            // 상대 하트 수신 시 ++ → 애니메이션 트리거
+    @Published var heartFlash = 0            // 상대 하트/스티커 수신 시 ++ → 애니메이션 트리거
+    @Published var lastReceivedEmoji = "❤️"  // 방금 날아온 이모지
+    @Published var moodSent: String? = nil   // 오늘 보낸 기분(피드백)
 
     private var serverOffsetMs: Double = 0   // serverNow = deviceNow + offset
     private var lastHeartNonce: String? = nil
@@ -61,6 +63,7 @@ final class WatchStore: ObservableObject {
                 lastHeartNonce = h.nonce; baselineSet = true
             } else if h.nonce != lastHeartNonce {
                 lastHeartNonce = h.nonce
+                lastReceivedEmoji = h.emoji
                 heartFlash += 1
                 playHeartHaptic()
             }
@@ -69,15 +72,34 @@ final class WatchStore: ObservableObject {
         }
     }
 
-    func sendHeart() {
-        guard let me = role, !sending else { return }
+    // 하트/스티커 날리기
+    func fling(_ emoji: String) {
+        guard let me = role else { return }
         sending = true
         playTapHaptic()
         let to = partner
         Task {
-            await Fire.sendHeart(from: me, to: to)
+            await Fire.fling(from: me, to: to, emoji: emoji)
             self.sending = false
         }
+    }
+
+    // 오늘 내 기분 보내기
+    func sendMood(_ emoji: String) {
+        guard let me = role else { return }
+        playTapHaptic()
+        moodSent = emoji
+        let day = todayKst()
+        Task { await Fire.setMood(name: me, emoji: emoji, day: day) }
+    }
+
+    // KST 오늘 날짜 (웹 todayKst와 동일 규칙, 시계보정 적용)
+    func todayKst() -> String {
+        let d = Date(timeIntervalSince1970: (serverNow() + 9 * 3600 * 1000) / 1000)
+        let f = DateFormatter()
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: d)
     }
 
     // ── 표시용 텍스트 ──

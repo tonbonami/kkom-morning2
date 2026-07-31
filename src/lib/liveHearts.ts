@@ -10,16 +10,17 @@ export interface LiveHeartPing {
   from: string;
   nonce: string;   // 매 탭마다 바뀜 — 같은 값 무시로 중복 트리거 방지
   at: Date | null;
+  emoji: string;   // 날린 이모지 (기본 ❤️) — 워치 스티커 날리기와 공용
 }
 
-// 하트 던지기 — 상대 doc을 덮어씀. 연타하면 nonce가 매번 새로.
-export async function throwHeart(from: string): Promise<void> {
+// 하트/스티커 던지기 — 상대 doc을 덮어씀. 연타하면 nonce가 매번 새로.
+export async function throwHeart(from: string, emoji: string = '❤️'): Promise<void> {
   if (!from) return;
   const to = partnerOf(from);
   // Math.random은 워크플로 밖 일반 앱 코드라 사용 가능. nonce는 시각+난수로 충분히 유니크.
   const nonce = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   try {
-    await setDoc(doc(db, 'liveHearts', to), { from, nonce, at: serverTimestamp() });
+    await setDoc(doc(db, 'liveHearts', to), { from, nonce, at: serverTimestamp(), emoji });
   } catch (e) {
     console.warn('하트 던지기 실패:', e);
   }
@@ -31,9 +32,9 @@ export function subscribeLiveHearts(me: string, cb: (ping: LiveHeartPing) => voi
   return onSnapshot(
     doc(db, 'liveHearts', me),
     (snap) => {
-      const d = snap.data() as { from?: string; nonce?: string; at?: Timestamp } | undefined;
+      const d = snap.data() as { from?: string; nonce?: string; at?: Timestamp; emoji?: string } | undefined;
       if (!d?.nonce) return;
-      cb({ from: d.from ?? '', nonce: d.nonce, at: d.at?.toDate?.() ?? null });
+      cb({ from: d.from ?? '', nonce: d.nonce, at: d.at?.toDate?.() ?? null, emoji: d.emoji || '❤️' });
     },
     (err) => console.error('liveHearts 구독 오류:', err)
   );
