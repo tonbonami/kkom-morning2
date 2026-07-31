@@ -14,9 +14,11 @@ import {
   subscribeStrokes, subscribeBoardMeta, addStroke, eraseStrokes, clearBoard,
   uploadPassageImage, setPassage, clearPassage,
   publishLive, subscribeLive, armLiveDisconnect, liveKey,
-  ensureBook, subscribeCurrentPage, subscribePages, createPage, setCurrentPage,
-  DEFAULT_BOOK, type BoardStroke, type LiveStroke, type CanvasPage,
+  ensureBook, subscribeCurrentPage, subscribePages, createPage, setCurrentPage, deletePage,
+  subscribeReactions, toggleLike, addComment, deleteComment,
+  DEFAULT_BOOK, type BoardStroke, type LiveStroke, type CanvasPage, type Reactions,
 } from '@/lib/canvasBoard';
+import { Heart, MessageCircle, Send } from 'lucide-react';
 import { nameFromCode, partnerOf } from '@/lib/letters';
 import { feedback } from '@/lib/feedback';
 
@@ -44,6 +46,9 @@ export default function CanvasPage() {
   const [pageId, setPageId] = useState<string | null>(null);
   const [pages, setPages] = useState<CanvasPage[]>([]);
   const pageIdRef = useRef<string | null>(null); // 핸들러가 최신 페이지에 쓰도록
+  const [reactions, setReactions] = useState<Reactions>({ likedBy: [], comments: [] });
+  const [commentText, setCommentText] = useState('');
+  const [showComments, setShowComments] = useState(false);
 
   const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
   const [color, setColor] = useState('#334155');
@@ -91,6 +96,7 @@ export default function CanvasPage() {
 
     const unsubS = subscribeStrokes(pageId, setStrokes);
     const unsubM = subscribeBoardMeta(pageId, (m) => setPassageUrl(m.passageUrl));
+    const unsubR = subscribeReactions(pageId, setReactions);
     const myKey = liveKey(me);
     const partnerKey = liveKey(partnerOf(me) as '우댕' | '꼼이');
     armLiveDisconnect(pageId, myKey);
@@ -103,7 +109,7 @@ export default function CanvasPage() {
         graceRef.current = setTimeout(() => setPartnerLive(null), 450);
       }
     });
-    return () => { unsubS(); unsubM(); unsubL(); if (graceRef.current) clearTimeout(graceRef.current); };
+    return () => { unsubS(); unsubM(); unsubR(); unsubL(); if (graceRef.current) clearTimeout(graceRef.current); };
   }, [pageId, me]);
 
   // ⚠️ 필기감 핵심 — 이 화면에서만 핀치줌/더블탭줌 잠금 (사파리가 필기를 줌으로 오해해 획 끊는 것 차단).
@@ -179,6 +185,16 @@ export default function CanvasPage() {
   const goPrev = () => { if (pageIdx > 0) setCurrentPage(DEFAULT_BOOK, pages[pageIdx - 1].id).catch(console.error); };
   const goNext = () => { if (pageIdx >= 0 && pageIdx < pages.length - 1) setCurrentPage(DEFAULT_BOOK, pages[pageIdx + 1].id).catch(console.error); };
   const addPage = () => { createPage(DEFAULT_BOOK).then(() => feedback('📄 새 페이지 폈어')).catch(() => feedback('새 페이지 실패', 'error')); };
+  const deletePageHandler = () => {
+    const b = pageIdRef.current;
+    if (!b || pages.length <= 1) return;
+    if (!confirm('이 페이지와 낙서를 삭제할까? 되돌릴 수 없어.')) return;
+    const remaining = pages.filter((p) => p.id !== b);
+    const newIdx = Math.min(Math.max(0, pageIdx - 1), remaining.length - 1);
+    deletePage(DEFAULT_BOOK, b, remaining[newIdx].id)
+      .then(() => feedback('🗑 페이지 삭제했어'))
+      .catch(() => feedback('삭제 실패', 'error'));
+  };
 
   const pickPassage = async (e: ChangeEvent<HTMLInputElement>) => {
     const input = e.currentTarget;
@@ -228,6 +244,9 @@ export default function CanvasPage() {
         </div>
         {/* 새 페이지 */}
         <button onClick={addPage} className="h-9 shrink-0 px-2.5 rounded-xl bg-slate-800 text-white flex items-center gap-1 text-[12px] font-bold active:scale-95" aria-label="새 페이지"><FilePlus size={14} />새 페이지</button>
+        {pages.length > 1 && (
+          <button onClick={deletePageHandler} className="h-9 w-9 shrink-0 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 active:text-rose-500 active:scale-95" aria-label="페이지 삭제"><Trash2 size={15} /></button>
+        )}
         <div className="flex-1" />
         <button onClick={undoMine} className="h-9 w-9 shrink-0 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 active:scale-95" aria-label="되돌리기"><Undo2 size={17} /></button>
         <button onClick={clearAll} className="h-9 w-9 shrink-0 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 active:text-rose-500 active:scale-95" aria-label="전체 지우기"><Trash2 size={16} /></button>
@@ -339,6 +358,51 @@ export default function CanvasPage() {
                 fadingStrokes={EMPTY_STROKES}
               />
             )}
+          </div>
+        )}
+      </div>
+
+      {/* 하트 + 댓글 (현재 페이지) */}
+      <div className="shrink-0 border-t border-slate-200/70 bg-white/85 backdrop-blur" style={{ paddingBottom: 'max(6px, env(safe-area-inset-bottom))' }}>
+        <div className="flex items-center gap-4 px-4 py-2">
+          <button
+            onClick={() => { const b = pageIdRef.current; if (b && me) toggleLike(b, me as '우댕' | '꼼이', !reactions.likedBy.includes(me as '우댕' | '꼼이')).catch(() => {}); }}
+            className="flex items-center gap-1.5 active:scale-90 transition-transform" aria-label="하트"
+          >
+            <Heart size={22} className={reactions.likedBy.includes(me as '우댕' | '꼼이') ? 'text-rose-500 fill-rose-500' : 'text-slate-300'} />
+            {reactions.likedBy.length > 0 && <span className="text-sm font-black text-slate-600 tabular-nums">{reactions.likedBy.length}</span>}
+          </button>
+          <button onClick={() => setShowComments((v) => !v)} className="flex items-center gap-1.5 text-slate-400 active:scale-90 transition-transform" aria-label="댓글">
+            <MessageCircle size={20} className={showComments ? 'text-purple-500' : ''} />
+            {reactions.comments.length > 0 && <span className="text-sm font-bold text-slate-500 tabular-nums">{reactions.comments.length}</span>}
+          </button>
+          <div className="flex-1" />
+          {reactions.likedBy.length === 2 && <span className="text-xs font-black text-rose-400">둘 다 하트 💕</span>}
+        </div>
+        {showComments && (
+          <div className="px-4 pb-2">
+            <div className="max-h-36 overflow-y-auto flex flex-col gap-1 mb-1.5">
+              {reactions.comments.length === 0 && <p className="text-xs text-slate-400 py-2 text-center">첫 댓글을 남겨봐 💬</p>}
+              {reactions.comments.map((c) => (
+                <div key={c.id} className="flex items-start gap-1.5">
+                  <span className={`text-[11px] font-black shrink-0 mt-0.5 ${c.by === '꼼이' ? 'text-rose-500' : 'text-blue-500'}`}>{c.by}</span>
+                  <span className="text-[13px] text-slate-700 flex-1 break-words">{c.text}</span>
+                  {c.by === me && (
+                    <button onClick={() => { const b = pageIdRef.current; if (b) deleteComment(b, c.id).catch(() => {}); }} className="text-slate-300 text-xs shrink-0 active:text-rose-400" aria-label="댓글 삭제">✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                onKeyDown={(e) => { const b = pageIdRef.current; if (e.key === 'Enter' && commentText.trim() && b && me) { addComment(b, me as '우댕' | '꼼이', commentText); setCommentText(''); } }}
+                placeholder="댓글 달기…" maxLength={500}
+                className="flex-1 text-[13px] bg-slate-100 rounded-full px-3.5 py-1.5 outline-none focus:bg-slate-200/70"
+              />
+              <button onClick={() => { const b = pageIdRef.current; if (commentText.trim() && b && me) { addComment(b, me as '우댕' | '꼼이', commentText); setCommentText(''); } }} className="text-purple-500 active:scale-90 shrink-0" aria-label="댓글 전송"><Send size={18} /></button>
+            </div>
           </div>
         )}
       </div>

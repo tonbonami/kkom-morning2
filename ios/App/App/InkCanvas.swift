@@ -7,6 +7,7 @@ import UIKit
 
 struct InkPoint { var location: CGPoint; var width: CGFloat }
 struct RawPt { var loc: CGPoint; var p: Double }
+struct CanvasCommentItem: Identifiable { let id: String; let by: String; let text: String }
 
 // ── 도구 상태 ──
 final class CanvasController: ObservableObject {
@@ -18,6 +19,8 @@ final class CanvasController: ObservableObject {
     @Published var currentPage: String = ""
     @Published var pages: [String] = []
     @Published var passageUrl: String? = nil   // 공유 지문 (웹에서 설정, RTDB)
+    @Published var likedBy: [String] = []      // 이 페이지에 하트 누른 사람
+    @Published var comments: [CanvasCommentItem] = []
     weak var canvas: StrokeCanvasView?
     weak var sync: SyncClient?
 
@@ -36,6 +39,18 @@ final class CanvasController: ObservableObject {
     func newPage() { sync?.createPage() }
     func goPrev() { let i = pageIndex; if i > 0 { sync?.setCurrentPage(pages[i - 1]) } }
     func goNext() { let i = pageIndex; if i >= 0 && i < pages.count - 1 { sync?.setCurrentPage(pages[i + 1]) } }
+    var canDeletePage: Bool { pages.count > 1 }
+    func deleteCurrentPage() {
+        guard canDeletePage, let sync = sync else { return }
+        let id = currentPage
+        let remaining = pages.filter { $0 != id }
+        let newIdx = min(max(0, pageIndex - 1), remaining.count - 1)
+        sync.setCurrentPage(remaining[newIdx])  // 먼저 다른 페이지로 이동
+        sync.deletePage(id)
+    }
+    func toggleLike(_ on: Bool) { sync?.toggleLike(on) }
+    func addComment(_ text: String) { sync?.addComment(text) }
+    func deleteComment(_ id: String) { sync?.deleteComment(id) }
 }
 
 // ── SwiftUI 래퍼 ──
@@ -55,6 +70,10 @@ struct InkCanvasRepresentable: UIViewRepresentable {
         sync.onCurrentPage = { [weak controller] p in controller?.currentPage = p }
         sync.onPages = { [weak controller] ps in controller?.pages = ps }
         sync.onPassage = { [weak controller] url in controller?.passageUrl = url }
+        sync.onReact = { [weak controller] likedBy, comments in
+            controller?.likedBy = likedBy
+            controller?.comments = comments.map { CanvasCommentItem(id: $0.0, by: $0.1, text: $0.2) }
+        }
         sync.start()
         return v
     }

@@ -165,6 +165,48 @@ export async function setCurrentPage(_bookId: string, pageId: string): Promise<v
   await dbSet(dbRef(rtdb, 'canvas/book/currentPage'), pageId);
 }
 
+// 페이지 삭제 — 페이지 항목 + 그 페이지 데이터(획·지문·라이브) 제거, currentPage를 newCurrent로 이동.
+export async function deletePage(_bookId: string, pageId: string, newCurrent: string): Promise<void> {
+  await dbUpdate(dbRef(rtdb), {
+    [`canvas/book/pages/${pageId}`]: null,
+    'canvas/book/currentPage': newCurrent,
+    [`canvas/${pageId}`]: null,   // 획·지문·라이브·리액션 통째로
+  });
+}
+
+// ── 페이지 하트 + 댓글 (canvas/{page}/react) ──
+export interface CanvasComment { id: string; by: '우댕' | '꼼이'; text: string; t: number }
+export interface Reactions { likedBy: ('우댕' | '꼼이')[]; comments: CanvasComment[] }
+
+export function subscribeReactions(boardId: string, cb: (r: Reactions) => void): () => void {
+  return onValue(
+    dbRef(rtdb, `canvas/${boardId}/react`),
+    (snap) => {
+      const v = (snap.val() as { likes?: Record<string, boolean>; comments?: Record<string, { by: '우댕' | '꼼이'; text: string; t?: number }> }) || {};
+      const likedBy: ('우댕' | '꼼이')[] = [];
+      if (v.likes?.udaeng) likedBy.push('우댕');
+      if (v.likes?.kkomi) likedBy.push('꼼이');
+      const comments = Object.entries(v.comments || {})
+        .map(([id, c]) => ({ id, by: c.by, text: c.text, t: c.t ?? 0 }))
+        .sort((a, b) => a.t - b.t);
+      cb({ likedBy, comments });
+    },
+    () => cb({ likedBy: [], comments: [] }),
+  );
+}
+export async function toggleLike(boardId: string, by: '우댕' | '꼼이', on: boolean): Promise<void> {
+  await dbSet(dbRef(rtdb, `canvas/${boardId}/react/likes/${liveKey(by)}`), on ? true : null);
+}
+export async function addComment(boardId: string, by: '우댕' | '꼼이', text: string): Promise<void> {
+  const t = text.trim();
+  if (!t) return;
+  const r = dbPush(dbRef(rtdb, `canvas/${boardId}/react/comments`));
+  await dbSet(r, { by, text: t.slice(0, 500), t: Date.now() });
+}
+export async function deleteComment(boardId: string, id: string): Promise<void> {
+  await dbRemove(dbRef(rtdb, `canvas/${boardId}/react/comments/${id}`));
+}
+
 // ── 그리는 중 획 실시간 생중계 (RTDB) ──
 export interface LiveStroke { id: string; color: string; size: number; points: StrokePoint[] }
 

@@ -15,6 +15,13 @@ struct CanvasScreen: View {
 
     @State private var passageImage: UIImage?
     @State private var opacity: Double = 0.5
+    @State private var showClearConfirm = false
+    @State private var showDeletePageConfirm = false
+    @State private var showComments = false
+    @State private var zoom: CGFloat = 1.0
+    @State private var lastZoom: CGFloat = 1.0
+    private var myName: String { me == "udaeng" ? "우댕" : "꼼이" }
+    private var iLiked: Bool { controller.likedBy.contains(myName) }
 
     private var isPad: Bool { hSize == .regular }
     private var partnerName: String { me == "udaeng" ? "꼼이" : "우댕" }
@@ -51,10 +58,47 @@ struct CanvasScreen: View {
                     Spacer()
                 }
                 toolbarLayer
+                // 하트 + 댓글 (좌하단)
+                VStack {
+                    Spacer()
+                    HStack { reactionBar; Spacer() }
+                        .padding(.leading, 16).padding(.bottom, isPad ? 26 : 32)
+                }
             }
         }
         .onChange(of: controller.passageUrl) { url in loadPassage(url) }
         .onAppear { loadPassage(controller.passageUrl) }
+        .alert("이 페이지를 전부 지울까?", isPresented: $showClearConfirm) {
+            Button("취소", role: .cancel) {}
+            Button("지우기", role: .destructive) { controller.clear() }
+        } message: { Text("이 페이지의 낙서가 둘 다에게서 사라져요.") }
+        .alert("이 페이지를 삭제할까?", isPresented: $showDeletePageConfirm) {
+            Button("취소", role: .cancel) {}
+            Button("삭제", role: .destructive) { controller.deleteCurrentPage() }
+        } message: { Text("페이지와 그 안의 낙서가 영구히 사라져요. 되돌릴 수 없어요.") }
+        .sheet(isPresented: $showComments) { CommentSheet(controller: controller, myName: myName) }
+    }
+
+    // 하트 + 댓글 버튼 (좌하단 알약)
+    private var reactionBar: some View {
+        HStack(spacing: 14) {
+            Button { controller.toggleLike(!iLiked) } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: iLiked ? "heart.fill" : "heart").foregroundStyle(iLiked ? rose : Color.secondary)
+                    if !controller.likedBy.isEmpty { Text("\(controller.likedBy.count)").font(.system(size: 13, weight: .bold)).foregroundStyle(inkColor) }
+                }
+            }
+            Button { showComments = true } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "bubble.left").foregroundStyle(Color.secondary)
+                    if !controller.comments.isEmpty { Text("\(controller.comments.count)").font(.system(size: 13, weight: .bold)).foregroundStyle(inkColor) }
+                }
+            }
+        }
+        .font(.system(size: 20, weight: .medium))
+        .padding(.horizontal, 14).padding(.vertical, 8)
+        .background(.ultraThinMaterial).clipShape(Capsule())
+        .shadow(color: warmShadow.opacity(0.14), radius: 10, y: 6)
     }
 
     // 페이지 넘기기 ‹ n/N › + 새 페이지 (공유 — 상대도 같이 이동)
@@ -83,6 +127,13 @@ struct CanvasScreen: View {
                 .foregroundStyle(.white).padding(.horizontal, 10).frame(height: 30)
                 .background(inkColor).clipShape(Capsule())
             }
+            if controller.canDeletePage {
+                Button { showDeletePageConfirm = true } label: {
+                    Image(systemName: "trash").font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color(red: 0.87, green: 0.35, blue: 0.47))
+                        .frame(width: 30, height: 30)
+                }
+            }
         }
         .padding(.horizontal, 6).frame(height: 34)
         .background(.ultraThinMaterial).clipShape(Capsule())
@@ -100,6 +151,13 @@ struct CanvasScreen: View {
         .frame(width: width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: warmShadow.opacity(0.12), radius: 16, y: 8)
+        .scaleEffect(zoom)
+        .gesture(
+            MagnificationGesture()  // 두 손가락 핀치 확대 (한 손가락/펜슬 그리기와 충돌 안 함)
+                .onChanged { v in zoom = min(4, max(1, lastZoom * v)) }
+                .onEnded { _ in lastZoom = zoom }
+        )
+        .onTapGesture(count: 2) { withAnimation(.easeOut(duration: 0.2)) { zoom = 1; lastZoom = 1 } }
     }
 
     private var presenceTag: some View {
@@ -125,7 +183,7 @@ struct CanvasScreen: View {
                 VStack(spacing: 12) {
                     Spacer()
                     if passageImage != nil { opacitySlider }
-                    CanvasToolbar(controller: controller, axis: .vertical)
+                    CanvasToolbar(controller: controller, axis: .vertical, onClear: { showClearConfirm = true })
                     Spacer()
                 }.padding(.trailing, 16)
             }
@@ -133,7 +191,7 @@ struct CanvasScreen: View {
             VStack(spacing: 10) {
                 Spacer()
                 if passageImage != nil { opacitySlider }
-                CanvasToolbar(controller: controller, axis: .horizontal).padding(.bottom, 18)
+                CanvasToolbar(controller: controller, axis: .horizontal, onClear: { showClearConfirm = true }).padding(.bottom, 18)
             }
         }
     }
@@ -179,6 +237,7 @@ struct CanvasDotGrid: View {
 struct CanvasToolbar: View {
     @ObservedObject var controller: CanvasController
     let axis: Axis
+    var onClear: () -> Void = {}
     private let sizes: [CGFloat] = [4, 7, 13]
 
     var body: some View {
@@ -215,7 +274,7 @@ struct CanvasToolbar: View {
                 .frame(width: 30, height: 30).background(Circle().fill(controller.eraser ? inkColor : Color.clear))
         }
         Button { controller.undo() } label: { Image(systemName: "arrow.uturn.backward").font(.system(size: 17, weight: .medium)) }
-        Button { controller.clear() } label: { Image(systemName: "trash").font(.system(size: 16, weight: .medium)) }
+        Button { onClear() } label: { Image(systemName: "trash").font(.system(size: 16, weight: .medium)) }
         divider
         Button { controller.pencilOnly.toggle() } label: {
             Image(systemName: controller.pencilOnly ? "pencil.tip" : "hand.draw").font(.system(size: 16, weight: .medium))
@@ -225,5 +284,58 @@ struct CanvasToolbar: View {
     private var divider: some View {
         Rectangle().fill(Color.black.opacity(0.06))
             .frame(width: axis == .vertical ? 22 : 1, height: axis == .vertical ? 1 : 22)
+    }
+}
+
+// 댓글 시트
+struct CommentSheet: View {
+    @ObservedObject var controller: CanvasController
+    let myName: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("댓글 \(controller.comments.count)").font(.system(size: 16, weight: .bold))
+                Spacer()
+                Button("닫기") { dismiss() }
+            }
+            .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 8)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if controller.comments.isEmpty {
+                        Text("첫 댓글을 남겨봐 💬").font(.system(size: 14)).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity).padding(.top, 30)
+                    }
+                    ForEach(controller.comments) { c in
+                        HStack(alignment: .top, spacing: 6) {
+                            Text(c.by).font(.system(size: 12, weight: .heavy)).foregroundStyle(c.by == "꼼이" ? rose : blue)
+                            Text(c.text).font(.system(size: 14)).foregroundStyle(inkColor)
+                            Spacer(minLength: 0)
+                            if c.by == myName {
+                                Button { controller.deleteComment(c.id) } label: {
+                                    Image(systemName: "xmark").font(.system(size: 11)).foregroundStyle(.tertiary)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+
+            Divider()
+            HStack(spacing: 8) {
+                TextField("댓글 달기…", text: $draft, axis: .vertical).textFieldStyle(.roundedBorder).lineLimit(1 ... 3)
+                Button {
+                    let t = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !t.isEmpty { controller.addComment(t); draft = "" }
+                } label: { Image(systemName: "paperplane.fill").font(.system(size: 18)) }
+                .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10)
+        }
+        .presentationDetents([.medium, .large])
     }
 }

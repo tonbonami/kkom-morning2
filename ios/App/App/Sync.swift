@@ -28,6 +28,7 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
     var onCommitted: (([(String, NetStroke)]) -> Void)?   // 현재 페이지 확정 획 전체(양쪽), key="user/id"
     var onRemoteLive: ((NetStroke?) -> Void)?
     var onPassage: ((String?) -> Void)?
+    var onReact: (([String], [(String, String, String)]) -> Void)?  // likedBy(names), comments[(id,by,text)]
 
     private lazy var streamSession: URLSession = {
         let c = URLSessionConfiguration.default
@@ -37,7 +38,7 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
         return URLSession(configuration: c, delegate: self, delegateQueue: nil)
     }()
 
-    private enum Kind { case book, strokes, live, meta }
+    private enum Kind { case book, strokes, live, meta, react }
     private var tasks: [Int: URLSessionDataTask] = [:]
     private var kindOf: [Int: Kind] = [:]
     private var buffer: [Int: String] = [:]
@@ -46,6 +47,7 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
 
     // 로컬 상태
     private var bookObj: [String: Any] = [:]
+    private var reactObj: [String: Any] = [:]
     private var committed: [String: NetStroke] = [:]   // key "user/id"
 
     init(me: String) {
@@ -63,6 +65,7 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
         openStream("\(RTDB_URL)/canvas/\(page)/strokes.json", kind: .strokes)
         openStream("\(RTDB_URL)/canvas/\(page)/live/\(partner).json", kind: .live)
         openStream("\(RTDB_URL)/canvas/\(page)/meta/passageUrl.json", kind: .meta)
+        openStream("\(RTDB_URL)/canvas/\(page)/react.json", kind: .react)
     }
 
     private func openStream(_ urlStr: String, kind: Kind) {
@@ -80,12 +83,14 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
         guard newPage != page else { return }
         page = newPage
         committed.removeAll()
+        reactObj.removeAll()
         DispatchQueue.main.async {
             self.onCommitted?([])
             self.onRemoteLive?(nil)
             self.onPassage?(nil)
+            self.onReact?([], [])
         }
-        for (id, k) in kindOf where k == .strokes || k == .live || k == .meta {
+        for (id, k) in kindOf where k == .strokes || k == .live || k == .meta || k == .react {
             kindOf[id] = nil
             tasks[id]?.cancel(); tasks[id] = nil
             buffer[id] = nil; evName[id] = nil; evData[id] = nil
@@ -130,12 +135,34 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
     func setCurrentPage(_ id: String) {
         write("PUT", "\(RTDB_URL)/canvas/book/currentPage.json", body: "\"\(id)\"".data(using: .utf8))
     }
+    // 페이지 삭제: 그 페이지 데이터(획·지문·라이브) + 목록 항목 제거. (currentPage 이동은 호출 전 setCurrentPage로)
+    func deletePage(_ id: String) {
+        write("DELETE", "\(RTDB_URL)/canvas/book/pages/\(id).json", body: nil)
+        write("DELETE", "\(RTDB_URL)/canvas/\(id).json", body: nil)  // 획·지문·라이브·리액션 통째로
+    }
     func setPassage(_ url: String?) {
         if let url = url {
             write("PUT", "\(RTDB_URL)/canvas/\(page)/meta/passageUrl.json", body: "\"\(url)\"".data(using: .utf8))
         } else {
             write("DELETE", "\(RTDB_URL)/canvas/\(page)/meta/passageUrl.json", body: nil)
         }
+    }
+
+    // 하트/댓글
+    func toggleLike(_ on: Bool) {
+        if on { write("PUT", "\(RTDB_URL)/canvas/\(page)/react/likes/\(me).json", body: "true".data(using: .utf8)) }
+        else { write("DELETE", "\(RTDB_URL)/canvas/\(page)/react/likes/\(me).json", body: nil) }
+    }
+    func addComment(_ text: String) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return }
+        let id = "c_\(Int(Date().timeIntervalSince1970 * 1000))"
+        let by = me == "udaeng" ? "우댕" : "꼼이"
+        write("PUT", "\(RTDB_URL)/canvas/\(page)/react/comments/\(id).json",
+              body: jsonData(["by": by, "text": String(t.prefix(500)), "t": Int(Date().timeIntervalSince1970 * 1000)]))
+    }
+    func deleteComment(_ id: String) {
+        write("DELETE", "\(RTDB_URL)/canvas/\(page)/react/comments/\(id).json", body: nil)
     }
 
     private func jsonData(_ obj: Any) -> Data? { try? JSONSerialization.data(withJSONObject: obj) }
@@ -188,6 +215,8 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
         case .meta:
             let url = payload as? String
             DispatchQueue.main.async { self.onPassage?(url) }
+        case .react:
+            applyReact(event: event, path: path, value: payload)
         case .none: break
         }
     }
@@ -216,6 +245,40 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
         if cp != page { switchPage(to: cp) }
     }
     private func tOf(_ v: Any) -> Double { ((v as? [String: Any])?["t"] as? NSNumber)?.doubleValue ?? 0 }
+
+    // react: canvas/{page}/react = { likes:{user:true}, comments:{id:{by,text,t}} }
+    private func applyReact(event: String, path: String, value: Any?) {
+        let comps = path.split(separator: "/").map(String.init)
+        if path == "/" {
+            reactObj = (value as? [String: Any]) ?? [:]
+        } else if comps.count == 1 {
+            if let v = value { reactObj[comps[0]] = v } else { reactObj.removeValue(forKey: comps[0]) }
+        } else if comps.count == 2 {
+            var sub = reactObj[comps[0]] as? [String: Any] ?? [:]
+            if let v = value { sub[comps[1]] = v } else { sub.removeValue(forKey: comps[1]) }
+            reactObj[comps[0]] = sub
+        } else if comps.count == 3 {
+            var sub = reactObj[comps[0]] as? [String: Any] ?? [:]
+            var sub2 = sub[comps[1]] as? [String: Any] ?? [:]
+            if let v = value { sub2[comps[2]] = v } else { sub2.removeValue(forKey: comps[2]) }
+            sub[comps[1]] = sub2
+            reactObj[comps[0]] = sub
+        }
+        let likesMap = reactObj["likes"] as? [String: Any] ?? [:]
+        var likedBy: [String] = []
+        if (likesMap["udaeng"] as? Bool) == true { likedBy.append("우댕") }
+        if (likesMap["kkomi"] as? Bool) == true { likedBy.append("꼼이") }
+        let commentsMap = reactObj["comments"] as? [String: Any] ?? [:]
+        let comments: [(String, String, String)] = commentsMap.compactMap { (id, v) -> (String, String, String)? in
+            guard let c = v as? [String: Any], let by = c["by"] as? String, let text = c["text"] as? String else { return nil }
+            return (id, by, text)
+        }.sorted { a, b in
+            let ta = (commentsMap[a.0] as? [String: Any])?["t"] as? NSNumber
+            let tb = (commentsMap[b.0] as? [String: Any])?["t"] as? NSNumber
+            return (ta?.doubleValue ?? 0) < (tb?.doubleValue ?? 0)
+        }
+        DispatchQueue.main.async { self.onReact?(likedBy, comments) }
+    }
 
     // strokes: canvas/{page}/strokes 전체(양쪽) → committed 갱신
     private func applyStrokes(event: String, path: String, value: Any?) {
@@ -267,6 +330,7 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
             case .strokes: self.openStream("\(RTDB_URL)/canvas/\(self.page)/strokes.json", kind: .strokes)
             case .live:    self.openStream("\(RTDB_URL)/canvas/\(self.page)/live/\(self.partner).json", kind: .live)
             case .meta:    self.openStream("\(RTDB_URL)/canvas/\(self.page)/meta/passageUrl.json", kind: .meta)
+            case .react:   self.openStream("\(RTDB_URL)/canvas/\(self.page)/react.json", kind: .react)
             }
         }
     }
