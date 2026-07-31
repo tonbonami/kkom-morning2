@@ -49,5 +49,16 @@
 	<string>우리만의 앱을 FaceID로 잠급니다.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.tonbonami.kkommorning</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kkommorning</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

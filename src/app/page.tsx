@@ -36,6 +36,9 @@ import LiveHeartLayer from '@/components/LiveHeartLayer';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
 import { touchPresence, subscribePresence, formatPresenceRelative, isTogetherNow, type Presence } from '@/lib/presence';
 import { subscribeLive, liveKey, DEFAULT_BOARD } from '@/lib/canvasBoard';
+import { pushWidgetSnapshot } from '@/lib/widget';
+import { subscribeCalendar } from '@/lib/calendar';
+import { todayYmd } from '@/lib/calendarLayout';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
 import AirSkyVisual from '@/components/AirSkyVisual';
 import { Bell, BellOff } from 'lucide-react';
@@ -76,6 +79,7 @@ export default function KkomMorningHome() {
   const [dateText, setDateText] = useState('');
   const [partnerPresence, setPartnerPresence] = useState<Presence>({ lastSeenAt: null, active: false });
   const [partnerDrawing, setPartnerDrawing] = useState(false); // 상대가 낙서장에서 실시간 필기 중 (RTDB live)
+  const [nextEvent, setNextEvent] = useState<{ title: string; date: string } | null>(null); // 위젯용 다음 일정
   const [presenceTick, setPresenceTick] = useState(0); // 매분 재계산용
   const [pushState, setPushState] = useState<PushState>('unknown');
   const [locKey, setLocKey] = useState<LocKey>('home'); // 화면 위치 선택
@@ -229,6 +233,38 @@ export default function KkomMorningHome() {
       unsubLive();
     };
   }, [userName]);
+
+  // 위젯용 다음 일정 (가장 가까운 미래 일정)
+  useEffect(() => {
+    const unsub = subscribeCalendar((events) => {
+      const today = todayYmd();
+      const up = events
+        .filter((e) => e.endDate >= today)
+        .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+      setNextEvent(up ? { title: up.title, date: up.startDate } : null);
+    });
+    return () => unsub();
+  }, []);
+
+  // 홈 위젯 스냅샷 push (네이티브만) — 접속·D-day·일정·미세·기분
+  useEffect(() => {
+    if (!userName) return;
+    const partnerName = partnerOf(userName) as '우댕' | '꼼이';
+    const grade = air?.grade;
+    pushWidgetSnapshot({
+      partnerName,
+      partnerLastSeenMs: partnerPresence.lastSeenAt ? partnerPresence.lastSeenAt.getTime() : 0,
+      partnerActive: partnerPresence.active,
+      nextEventTitle: nextEvent?.title,
+      nextEventDate: nextEvent?.date,
+      airGrade: grade && grade !== '정보 없음' && grade !== '조회 실패' ? grade : undefined,
+      airPm10: air?.pm10 ?? undefined,
+      airPm25: air?.pm25 ?? undefined,
+      airLoc: air?.location ?? undefined,
+      weatherTemp: weather?.current?.temp ?? undefined,
+      partnerMood: moods[partnerName]?.emoji,
+    });
+  }, [userName, partnerPresence, partnerDrawing, nextEvent, air, weather, moods]);
 
   const togglePush = async () => {
     if (pushState === 'on') {
