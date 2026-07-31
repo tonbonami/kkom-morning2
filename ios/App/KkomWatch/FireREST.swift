@@ -42,7 +42,8 @@ enum Fire {
     // 하트 던지기 — 상대 liveHearts doc을 덮어씀(nonce 매번 새로). 웹 throwHeart와 동일 스키마.
     static func sendHeart(from: String, to: String) async {
         guard let url = URL(string: "\(base)/liveHearts/\(enc(to))?key=\(apiKey)") else { return }
-        let nonce = "\(Int(Date().timeIntervalSince1970 * 1000))_w\(Int.random(in: 100000...999999))"
+        // ⚠️ 애플워치(arm64_32)는 Int가 32비트 → 밀리초(≈1.75조)를 Int로 넣으면 오버플로 크래시. Int64 필수.
+        let nonce = "\(Int64(Date().timeIntervalSince1970 * 1000))_w\(Int.random(in: 100000...999999))"
         let body: [String: Any] = ["fields": [
             "from":  ["stringValue": from],
             "nonce": ["stringValue": nonce],
