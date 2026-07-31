@@ -35,7 +35,8 @@ import DailyPiecesHeader from '@/components/DailyPiecesHeader';
 import LiveHeartLayer from '@/components/LiveHeartLayer';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
 import { touchPresence, subscribePresence, formatPresenceRelative, isTogetherNow, type Presence } from '@/lib/presence';
-import { subscribeLive, liveKey, DEFAULT_BOARD } from '@/lib/canvasBoard';
+import { subscribeLive, liveKey, DEFAULT_BOARD, DEFAULT_BOOK, subscribeCurrentPage, subscribeStrokes, type BoardStroke } from '@/lib/canvasBoard';
+import DoodleThumb from '@/components/DoodleThumb';
 import { pushWidgetSnapshot } from '@/lib/widget';
 import { subscribeCalendar } from '@/lib/calendar';
 import { todayYmd } from '@/lib/calendarLayout';
@@ -80,6 +81,7 @@ export default function KkomMorningHome() {
   const [partnerPresence, setPartnerPresence] = useState<Presence>({ lastSeenAt: null, active: false });
   const [partnerDrawing, setPartnerDrawing] = useState(false); // 상대가 낙서장에서 실시간 필기 중 (RTDB live)
   const [nextEvent, setNextEvent] = useState<{ title: string; date: string } | null>(null); // 위젯용 다음 일정
+  const [heroStrokes, setHeroStrokes] = useState<BoardStroke[]>([]); // 홈 히어로 미니 썸네일용 현재 페이지 획
   const [presenceTick, setPresenceTick] = useState(0); // 매분 재계산용
   const [pushState, setPushState] = useState<PushState>('unknown');
   const [locKey, setLocKey] = useState<LocKey>('home'); // 화면 위치 선택
@@ -196,42 +198,16 @@ export default function KkomMorningHome() {
   useEffect(() => {
     if (!userName) return;
     const partner = partnerOf(userName);
-    // 마운트 시 active=true
-    touchPresence(userName, true);
-    // 1분 heartbeat — visible일 때만 touch.
-    // hidden일 땐 아예 안 건드림 → lastSeenAt 자연스럽게 stale → 정확한 'N분 전' 표시.
-    const heartbeat = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        touchPresence(userName, true);
-      }
-    }, 60 * 1000);
-    // 페이지 visible/hidden 명시적 전환만 active 갱신
-    const onVis = () => {
-      touchPresence(userName, document.visibilityState === 'visible');
-    };
-    document.addEventListener('visibilitychange', onVis);
-    // 페이지/탭 닫을 때 inactive 표시 — 모바일에선 신뢰성 낮지만 데스크탑에선 유효
-    const onUnload = () => { touchPresence(userName, false); };
-    window.addEventListener('pagehide', onUnload);
+    // presence 쓰기(heartbeat)는 전역 PresenceHeartbeat가 담당 → 여기선 구독만.
     const unsub = subscribePresence(partner, setPartnerPresence);
-    // 상대가 낙서장에서 실시간 필기 중인지 (RTDB live 노드 non-null) — 네이티브 캔버스가 pen-up 때 지움
+    // 상대가 낙서장에서 실시간 필기 중인지 (RTDB live)
     const unsubLive = subscribeLive(DEFAULT_BOARD, liveKey(partner as '우댕' | '꼼이'), (s) => {
       setPartnerDrawing(!!s && Array.isArray(s.points) && s.points.length > 0);
     });
     // "N분 전" 표시 매 1분마다 재계산
     const tick = setInterval(() => setPresenceTick((x) => x + 1), 60_000);
-    // 푸시 구독 상태 1회 확인
     getPushState(userName).then(setPushState);
-    return () => {
-      // 언마운트 시도 active=false (라우트 이동 등)
-      touchPresence(userName, false);
-      clearInterval(heartbeat);
-      clearInterval(tick);
-      document.removeEventListener('visibilitychange', onVis);
-      window.removeEventListener('pagehide', onUnload);
-      unsub();
-      unsubLive();
-    };
+    return () => { clearInterval(tick); unsub(); unsubLive(); };
   }, [userName]);
 
   // 위젯용 다음 일정 (가장 가까운 미래 일정)
@@ -244,6 +220,17 @@ export default function KkomMorningHome() {
       setNextEvent(up ? { title: up.title, date: up.startDate } : null);
     });
     return () => unsub();
+  }, []);
+
+  // 홈 히어로 썸네일 — 현재 페이지 획 구독 (페이지 바뀌면 재구독)
+  useEffect(() => {
+    let unsubStrokes: (() => void) | undefined;
+    const unsubPage = subscribeCurrentPage(DEFAULT_BOOK, (pageId) => {
+      unsubStrokes?.();
+      if (pageId) unsubStrokes = subscribeStrokes(pageId, setHeroStrokes);
+      else setHeroStrokes([]);
+    });
+    return () => { unsubPage(); unsubStrokes?.(); };
   }, []);
 
   // 홈 위젯 스냅샷 push (네이티브만) — 접속·D-day·일정·미세·기분
@@ -477,6 +464,8 @@ export default function KkomMorningHome() {
                     backgroundSize: '22px 22px',
                   }}
                 />
+                {/* 최근 낙서 미니 썸네일 (현재 페이지) */}
+                <DoodleThumb strokes={heroStrokes} />
                 {online ? (
                   <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: 'inset 0 0 26px rgba(16,185,129,0.18)' }} />
                 ) : (

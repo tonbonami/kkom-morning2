@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Toaster } from '@/components/ui/toaster';
 import { PwaRegister } from '@/components/pwa-register';
+import PresenceHeartbeat from '@/components/PresenceHeartbeat';
 import './globals.css';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +32,7 @@ export default function RootLayout({
         {children}
         <Toaster />
         <PwaRegister />
+        <PresenceHeartbeat />
       </body>
     </html>
   );
