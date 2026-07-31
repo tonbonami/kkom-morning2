@@ -15,6 +15,7 @@ final class CanvasController: ObservableObject {
     @Published var lineWidth: CGFloat = 7
     @Published var pencilOnly: Bool = true
     @Published var eraser: Bool = false
+    @Published var panMode: Bool = false       // 손바닥(이동) 모드: 드래그로 화면 이동, 그리기 잠금
     @Published var partnerActive: Bool = false
     @Published var currentPage: String = ""
     @Published var pages: [String] = []
@@ -97,6 +98,7 @@ final class StrokeCanvasView: UIView {
     private var seenPencil = false
     private var lastLiveSent: CFTimeInterval = 0
     private var remoteLive: NetStroke?
+    private var liveGen = 0   // 상대 생중계 표시 자동 소멸용 세대 카운터
 
     private var baked: UIImage?
     private var bakedSize: CGSize = .zero
@@ -211,9 +213,25 @@ final class StrokeCanvasView: UIView {
         committed = list
         rebuildBaked(); setNeedsDisplay()
     }
+    // 상대 생중계 획. RTDB REST엔 onDisconnect가 없어 stale 노드가 남을 수 있음 →
+    // 새 업데이트 없으면 2.5초 뒤 '끄적이는 중' 표시·유령 획을 자동 제거.
     func applyRemoteLive(_ s: NetStroke?) {
-        remoteLive = s
-        controller?.partnerActive = (s != nil && !(s?.points.isEmpty ?? true))
+        if let s = s, !s.points.isEmpty {
+            remoteLive = s
+            controller?.partnerActive = true
+            liveGen &+= 1
+            let g = liveGen
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+                guard let self = self, self.liveGen == g else { return }
+                self.remoteLive = nil
+                self.controller?.partnerActive = false
+                self.setNeedsDisplay()
+            }
+        } else {
+            remoteLive = nil
+            controller?.partnerActive = false
+            liveGen &+= 1
+        }
         setNeedsDisplay()
     }
 

@@ -20,6 +20,8 @@ struct CanvasScreen: View {
     @State private var showComments = false
     @State private var zoom: CGFloat = 1.0
     @State private var lastZoom: CGFloat = 1.0
+    @State private var panOffset: CGSize = .zero
+    @State private var lastPan: CGSize = .zero
     private var myName: String { me == "udaeng" ? "우댕" : "꼼이" }
     private var iLiked: Bool { controller.likedBy.contains(myName) }
 
@@ -41,6 +43,9 @@ struct CanvasScreen: View {
                     .frame(width: bw, height: bh)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+                // 손바닥(이동) 모드에서만 뜨는 투명 캐처 — 드래그=이동, 핀치=확대, 그리기 차단
+                if controller.panMode { panCatcher(width: bw, height: bh) }
+
                 VStack {
                     // 상단: 닫기 + 페이지 넘기기 + presence + 나 배지
                     HStack(alignment: .center, spacing: 8) {
@@ -58,12 +63,6 @@ struct CanvasScreen: View {
                     Spacer()
                 }
                 toolbarLayer
-                // 하트 + 댓글 (좌하단)
-                VStack {
-                    Spacer()
-                    HStack { reactionBar; Spacer() }
-                        .padding(.leading, 16).padding(.bottom, isPad ? 26 : 32)
-                }
             }
         }
         .onChange(of: controller.passageUrl) { url in loadPassage(url) }
@@ -152,12 +151,51 @@ struct CanvasScreen: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: warmShadow.opacity(0.12), radius: 16, y: 8)
         .scaleEffect(zoom)
+        .offset(panOffset)
         .gesture(
             MagnificationGesture()  // 두 손가락 핀치 확대 (한 손가락/펜슬 그리기와 충돌 안 함)
                 .onChanged { v in zoom = min(4, max(1, lastZoom * v)) }
-                .onEnded { _ in lastZoom = zoom }
+                .onEnded { _ in
+                    lastZoom = zoom
+                    panOffset = clampPan(panOffset, width, height); lastPan = panOffset
+                }
         )
-        .onTapGesture(count: 2) { withAnimation(.easeOut(duration: 0.2)) { zoom = 1; lastZoom = 1 } }
+        .onTapGesture(count: 2) { resetZoom() }
+    }
+
+    // 확대·이동 리셋 (더블탭)
+    private func resetZoom() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            zoom = 1; lastZoom = 1; panOffset = .zero; lastPan = .zero; controller.panMode = false
+        }
+    }
+
+    // 확대 배율에 맞춰 이동 범위 제한 (빈 여백으로 못 나가게)
+    private func clampPan(_ o: CGSize, _ w: CGFloat, _ h: CGFloat) -> CGSize {
+        let mx = max(0, (zoom - 1) * w / 2)
+        let my = max(0, (zoom - 1) * h / 2)
+        return CGSize(width: min(mx, max(-mx, o.width)), height: min(my, max(-my, o.height)))
+    }
+
+    // 손바닥 모드 투명 캐처 — 드래그로 이동, 핀치로 확대, 더블탭 리셋. 그리기는 아래 InkCanvas가 못 받음.
+    private func panCatcher(width w: CGFloat, height h: CGFloat) -> some View {
+        Color.clear
+            .frame(width: w, height: h)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture()
+                    .onChanged { v in
+                        panOffset = clampPan(CGSize(width: lastPan.width + v.translation.width,
+                                                    height: lastPan.height + v.translation.height), w, h)
+                    }
+                    .onEnded { _ in lastPan = panOffset }
+            )
+            .simultaneousGesture(
+                MagnificationGesture()
+                    .onChanged { v in zoom = min(4, max(1, lastZoom * v)) }
+                    .onEnded { _ in lastZoom = zoom; panOffset = clampPan(panOffset, w, h); lastPan = panOffset }
+            )
+            .onTapGesture(count: 2) { resetZoom() }
     }
 
     private var presenceTag: some View {
@@ -179,6 +217,7 @@ struct CanvasScreen: View {
     @ViewBuilder private var toolbarLayer: some View {
         if isPad {
             HStack {
+                VStack { Spacer(); reactionBar; panButton }.padding(.leading, 16).padding(.bottom, 26)
                 Spacer()
                 VStack(spacing: 12) {
                     Spacer()
@@ -190,9 +229,26 @@ struct CanvasScreen: View {
         } else {
             VStack(spacing: 10) {
                 Spacer()
+                // 하트·댓글(좌) + 손바닥 이동(우) — 툴바 '위'라 색상 안 가림
+                HStack { reactionBar; Spacer(); panButton }.padding(.horizontal, 8)
                 if passageImage != nil { opacitySlider }
                 CanvasToolbar(controller: controller, axis: .horizontal, onClear: { showClearConfirm = true }).padding(.bottom, 18)
             }
+        }
+    }
+
+    // 손바닥(이동) 모드 토글 — 켜면 밀어서 이동/핀치 확대, 그리기 잠금
+    private var panButton: some View {
+        Button { controller.panMode.toggle() } label: {
+            Image(systemName: controller.panMode ? "hand.raised.fill" : "hand.raised")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(controller.panMode ? .white : inkColor)
+                .frame(width: 42, height: 42)
+                .background {
+                    if controller.panMode { Circle().fill(inkColor) }
+                    else { Circle().fill(.ultraThinMaterial) }
+                }
+                .shadow(color: warmShadow.opacity(0.14), radius: 8, y: 4)
         }
     }
 
