@@ -8,6 +8,7 @@ import Foundation
 enum Fire {
     static let projectId = "kkom-morning"
     static let apiKey = "AIzaSyBaIIIwJ5x19svwkmUvVtuQSio0VPcRkQg"
+    static let webBase = "https://kkommorning-v2.vercel.app"   // 미세먼지 /api/air 호출용
     static var base: String {
         "https://firestore.googleapis.com/v1/projects/\(projectId)/databases/(default)/documents"
     }
@@ -37,6 +38,20 @@ enum Fire {
             }
             return PresenceResult(lastSeenMs: lastSeen, active: active, serverNowMs: serverNow)
         } catch { return nil }
+    }
+
+    // 미세먼지 — 웹 /api/air 공개 라우트 호출 (data.go.kr 키는 서버가 처리)
+    struct AirResult { var grade: String; var pm10: Int?; var pm25: Int? }
+    static func fetchAir(station: String, region: String) async -> AirResult? {
+        let s = station.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? station
+        let r = region.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? region
+        guard let url = URL(string: "\(webBase)/api/air?station=\(s)&region=\(r)"),
+              let (data, _) = try? await URLSession.shared.data(from: url),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let grade = obj["grade"] as? String ?? "정보 없음"
+        let pm10 = (obj["pm10"] as? NSNumber)?.intValue
+        let pm25 = (obj["pm25"] as? NSNumber)?.intValue
+        return AirResult(grade: grade, pm10: pm10, pm25: pm25)
     }
 
     // 하트/스티커 던지기 — 상대 liveHearts doc을 덮어씀(nonce 매번 새로). 웹 throwHeart와 동일 스키마 + emoji.

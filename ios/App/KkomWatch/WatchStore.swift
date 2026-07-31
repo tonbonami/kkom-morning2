@@ -8,6 +8,8 @@ import WatchKit
 let APP_GROUP = "group.com.tonbonami.kkommorning"
 let DDAY = "2023-09-28"
 
+struct AirInfo { var label: String; var grade: String; var pm10: Int? }
+
 // 워치 앱 상태 — 상대 접속 폴링, 하트 송수신, 시계오차 보정, 컴플리케이션용 스냅샷 저장.
 @MainActor
 final class WatchStore: ObservableObject {
@@ -18,12 +20,15 @@ final class WatchStore: ObservableObject {
     @Published var heartFlash = 0            // 상대 하트/스티커 수신 시 ++ → 애니메이션 트리거
     @Published var lastReceivedEmoji = "❤️"  // 방금 날아온 이모지
     @Published var moodSent: String? = nil   // 오늘 보낸 기분(피드백)
+    @Published var airHome: AirInfo? = nil   // 호평동(우댕)
+    @Published var airWork: AirInfo? = nil   // 서울 중구(꼼이)
 
     private var serverOffsetMs: Double = 0   // serverNow = deviceNow + offset
     private var lastHeartNonce: String? = nil
     private var baselineSet = false          // 첫 조회는 baseline(햅틱 X)
     private var loop: Task<Void, Never>? = nil
     private var lastWidgetReload: Double = 0
+    private var lastAirFetch: Double = 0
 
     var partner: String { role == "우댕" ? "꼼이" : "우댕" }
 
@@ -69,6 +74,17 @@ final class WatchStore: ObservableObject {
             }
         } else {
             baselineSet = true   // 아직 하트 doc 없음 → baseline 확정
+        }
+        // 미세먼지 — 10분마다 (호평동 + 서울 중구 둘 다)
+        let now = Date().timeIntervalSince1970
+        if now - lastAirFetch > 600 {
+            lastAirFetch = now
+            if let a = await Fire.fetchAir(station: "금곡동", region: "경기북부") {
+                airHome = AirInfo(label: "호평동", grade: a.grade, pm10: a.pm10)
+            }
+            if let a = await Fire.fetchAir(station: "중구", region: "서울") {
+                airWork = AirInfo(label: "서울 중구", grade: a.grade, pm10: a.pm10)
+            }
         }
     }
 

@@ -31,6 +31,7 @@ struct ContentView: View {
                         PresenceView()    // 접속 + D-day + 하트
                         StickerPalette()  // 날리기
                         MoodPicker()      // 기분
+                        AirView()         // 미세먼지
                     }
                     .tabViewStyle(.page)
                     // 상대가 날린 이모지 — 어느 페이지에서도 위로 크게 떴다 사라짐
@@ -150,6 +151,57 @@ struct MoodPicker: View {
             .padding(.horizontal, 4)
         }
         .background(cBg.ignoresSafeArea())
+    }
+}
+
+// ── 미세먼지 — 호평동 + 서울 중구 (떨어져 사는 커플, 둘 다 챙기기) ──
+struct AirView: View {
+    @EnvironmentObject var store: WatchStore
+    var body: some View {
+        ScrollView {
+            Text("오늘 미세먼지 🌫️").font(.system(size: 13, weight: .bold))
+                .foregroundStyle(.white.opacity(0.55)).padding(.top, 4).padding(.bottom, 4)
+            airRow(store.airHome)
+            airRow(store.airWork)
+        }
+        .padding(.horizontal, 6)
+        .background(cBg.ignoresSafeArea())
+    }
+
+    @ViewBuilder private func airRow(_ a: AirInfo?) -> some View {
+        if let a = a {
+            VStack(spacing: 2) {
+                Text(a.label).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.55))
+                HStack(spacing: 5) {
+                    Text(gradeEmoji(a.grade))
+                    Text(a.grade).font(.system(size: 17, weight: .heavy)).foregroundStyle(gradeColor(a.grade))
+                    if let pm = a.pm10 { Text("PM\(pm)").font(.system(size: 11)).foregroundStyle(.white.opacity(0.5)) }
+                }
+            }
+            .frame(maxWidth: .infinity).padding(.vertical, 8)
+            .background(Color.white.opacity(0.06)).clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(.bottom, 6)
+        } else {
+            ProgressView().tint(.white).padding(.vertical, 10)
+        }
+    }
+
+    private func gradeColor(_ g: String) -> Color {
+        switch g {
+        case "좋음": return Color(hexW: "#34D399")
+        case "보통": return Color(hexW: "#60A5FA")
+        case "나쁨": return Color(hexW: "#FB923C")
+        case "매우 나쁨": return Color(hexW: "#F87171")
+        default: return .white.opacity(0.6)
+        }
+    }
+    private func gradeEmoji(_ g: String) -> String {
+        switch g {
+        case "좋음": return "😊"
+        case "보통": return "🙂"
+        case "나쁨", "매우 나쁨": return "😷"
+        default: return "❔"
+        }
     }
 }
 
