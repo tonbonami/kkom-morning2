@@ -8,14 +8,12 @@
 - 코드 4+1파일 타깃에 연결됨, watchOS SDK 타입체크 통과
 - ⚠️ **App(iOS) 타깃과는 분리** — App/TestFlight 파이프라인 안 건드림(안전)
 
-## ⏳ 남은 것 (네가 해야)
-### 1. watchOS 플랫폼 설치 (이게 없어서 빌드가 안 됨)
-현재 맥에 watchOS 빌드 플랫폼이 없음. 둘 중 하나:
-- Xcode ▸ Settings ▸ **Components** ▸ watchOS 다운로드, 또는
-- 터미널: `xcodebuild -downloadPlatform watchOS`
+## ✅ 빌드 검증 완료
+- watchOS 26.5 플랫폼 설치됨 + **워치앱+컴플리케이션 실제 빌드 성공**(generic watchOS device)
+- Info.plist는 둘 다 완전형 + GENERATE_INFOPLIST_FILE=NO (앱 APPL / 위젯 XPC!)
 
-### 2. 워치에서 Run
-- Xcode 스킴 **KkomWatch** 선택 → 기기 **Woosoo의 Apple Watch**(페어링됨) → Run
+## ⏳ 남은 것 (네가 해야) — 워치에서 Run
+- Xcode 스킴 **KkomWatch** 선택(열면 자동 생성됨) → 기기 **Woosoo의 Apple Watch** → Run
 - 첫 실행 "나는 누구?" → 우댕/꼼이 → 접속상태 + D-day + 하트 버튼
 - 컴플리케이션: 문자판 길게 눌러 Edit → 슬롯에 **꼼모닝**
 

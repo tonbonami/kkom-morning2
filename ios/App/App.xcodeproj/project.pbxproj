@@ -553,6 +553,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KkomWatchWidget/Info.plist;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tonbonami.kkommorning.watchkitapp.KkomWatchWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -740,6 +742,8 @@
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KkomWatch/Info.plist;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tonbonami.kkommorning.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -762,6 +766,8 @@
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KkomWatch/Info.plist;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tonbonami.kkommorning.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -781,6 +787,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KkomWatchWidget/Info.plist;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tonbonami.kkommorning.watchkitapp.KkomWatchWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
