@@ -43,3 +43,7 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+# 배포 (자격증명·빌드 산출물 커밋 금지)
+scripts/.deploy-env
+*.p8
+ios/App/build/
