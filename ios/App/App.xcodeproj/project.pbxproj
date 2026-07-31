@@ -27,10 +27,12 @@
 		A7F02733B971CFF61012F47E /* InkCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7FE18AAAD6CAAA0BC69073D /* InkCanvas.swift */; };
 		A8057E254D9AFBD603329EE4 /* KkomWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */; };
 		C15473C9BCFE6E608251475D /* KkomWatchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0985B3199406CFEA5EEFE583 /* KkomWatchWidget.swift */; };
+		C200BDA8490062092F231CA3 /* KkomWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 5B1BFE32B2792896DF3CC9DD /* KkomWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DF6DF869301C25680029DEE0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF6DF839301B9E3C0029DEE0 /* WidgetKit.framework */; };
 		DF6DF86A301C25680029DEE0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF6DF83B301B9E3C0029DEE0 /* SwiftUI.framework */; };
 		DF6DF875301C25680029DEE0 /* KkomWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DF6DF868301C25680029DEE0 /* KkomWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EA57C752D99C7B618F0898A2 /* CanvasScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E811AD988B947C59DE5916 /* CanvasScreen.swift */; };
+		F20E82AE748042443919FD8C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5B2E72E83E1B27DDF4150575 /* Assets.xcassets */; };
 		FD2B817BEC8FF35CB58B4E82 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E7132EF8F94C13984C0045 /* Foundation.framework */; };
 /* End PBXBuildFile section */
 
@@ -42,6 +44,13 @@
 			remoteGlobalIDString = 2CA064763DAF831F10E6C307;
 			remoteInfo = KkomWatchWidget;
 		};
+		C834978162B649A0A40BC6E0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D7E47D6555AA41519434F864;
+			remoteInfo = KkomWatch;
+		};
 		DF6DF873301C25680029DEE0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
@@ -52,6 +61,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		14451E4A1B7AE11AD4F61043 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				C200BDA8490062092F231CA3 /* KkomWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		58188256EE01731A50829755 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -92,6 +112,7 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		5B1BFE32B2792896DF3CC9DD /* KkomWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KkomWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5B2E72E83E1B27DDF4150575 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		76A69DDCA0A8BD1C11921EBE /* FireREST.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FireREST.swift; sourceTree = "<group>"; };
 		78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomWatchApp.swift; sourceTree = "<group>"; };
 		8F0F37C8B7C8934708BAB4C9 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -196,6 +217,7 @@
 				474FCE64304F0513B5EA322B /* ContentView.swift */,
 				8F0F37C8B7C8934708BAB4C9 /* Info.plist */,
 				0A25420C23CD2C7F7EEBEF59 /* KkomWatch.entitlements */,
+				5B2E72E83E1B27DDF4150575 /* Assets.xcassets */,
 			);
 			name = KkomWatch;
 			path = KkomWatch;
@@ -306,11 +328,13 @@
 				504EC3021FED79650016851F /* Resources */,
 				9592DBEFFC6D2A0C8D5DEB22 /* [CP] Embed Pods Frameworks */,
 				DF6DF848301B9E3D0029DEE0 /* Embed Foundation Extensions */,
+				14451E4A1B7AE11AD4F61043 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				DF6DF874301C25680029DEE0 /* PBXTargetDependency */,
+				A3B52DE2E21D245AABCFB8B2 /* PBXTargetDependency */,
 			);
 			name = App;
 			productName = App;
@@ -414,6 +438,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F20E82AE748042443919FD8C /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -519,6 +544,12 @@
 			target = 2CA064763DAF831F10E6C307 /* KkomWatchWidget */;
 			targetProxy = 05B6FC16AB67BA4220149508 /* PBXContainerItemProxy */;
 		};
+		A3B52DE2E21D245AABCFB8B2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KkomWatch;
+			target = D7E47D6555AA41519434F864 /* KkomWatch */;
+			targetProxy = C834978162B649A0A40BC6E0 /* PBXContainerItemProxy */;
+		};
 		DF6DF874301C25680029DEE0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = DF6DF867301C25680029DEE0 /* KkomWidgetExtension */;
@@ -551,7 +582,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = KkomWatchWidget/KkomWatchWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = KkomWatchWidget/Info.plist;
@@ -681,7 +712,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -710,7 +741,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -739,7 +770,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = KkomWatch/KkomWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -763,7 +794,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = KkomWatch/KkomWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -785,7 +816,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = KkomWatchWidget/KkomWatchWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = KkomWatchWidget/Info.plist;
@@ -814,7 +845,7 @@
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CODE_SIGN_ENTITLEMENTS = KkomWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -858,7 +889,7 @@
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CODE_SIGN_ENTITLEMENTS = KkomWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
