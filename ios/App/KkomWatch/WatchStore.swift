@@ -22,6 +22,8 @@ final class WatchStore: ObservableObject {
     @Published var moodSent: String? = nil   // 오늘 보낸 기분(피드백)
     @Published var airHome: AirInfo? = nil   // 호평동(우댕)
     @Published var airWork: AirInfo? = nil   // 서울 중구(꼼이)
+    @Published var bumpFlash = 0             // 범프 보낸 확인 애니메이션 트리거
+    @Published var bumpKind: String? = nil
 
     private var serverOffsetMs: Double = 0   // serverNow = deviceNow + offset
     private var lastHeartNonce: String? = nil
@@ -98,6 +100,16 @@ final class WatchStore: ObservableObject {
             await Fire.fling(from: me, to: to, emoji: emoji)
             self.sending = false
         }
+    }
+
+    // 범프 — 폰 QuickReplyBar 그대로 재현: /api/bump 푸시 + 로컬 확인 애니메이션
+    func sendBump(_ kind: String) {
+        guard let me = role else { return }
+        playTapHaptic()
+        bumpKind = kind
+        bumpFlash += 1
+        let to = partner
+        Task { await Fire.sendBump(from: me, to: to, kind: kind) }
     }
 
     // 오늘 내 기분 보내기

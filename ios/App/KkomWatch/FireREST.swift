@@ -54,6 +54,16 @@ enum Fire {
         return AirResult(grade: grade, pm10: pm10, pm25: pm25)
     }
 
+    // 범프 — 폰 QuickReplyBar와 동일: /api/bump로 상대에게 푸시. from/to는 한글 이름(우댕/꼼이).
+    static func sendBump(from: String, to: String, kind: String) async {
+        guard let url = URL(string: "\(webBase)/api/bump") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["from": from, "to": to, "kind": kind])
+        _ = try? await URLSession.shared.data(for: req)
+    }
+
     // 하트/스티커 던지기 — 상대 liveHearts doc을 덮어씀(nonce 매번 새로). 웹 throwHeart와 동일 스키마 + emoji.
     static func fling(from: String, to: String, emoji: String) async {
         guard let url = URL(string: "\(base)/liveHearts/\(enc(to))?key=\(apiKey)") else { return }

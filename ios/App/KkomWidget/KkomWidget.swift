@@ -61,6 +61,7 @@ private func isOnline(_ s: KkomState, at date: Date) -> Bool {
     return serverNow(s, at: date) - s.partnerLastSeenMs < 90_000
 }
 private func agoText(_ s: KkomState, at date: Date) -> String {
+    if s.partnerLastSeenMs <= 0 { return "대기 중" }   // 아직 상대 기록 없음 → 쓰레기값(2876주 전) 방지
     let diff = max(0, serverNow(s, at: date) - s.partnerLastSeenMs)
     let m = max(1, Int(diff / 60_000))
     if m < 60 { return "\(m)분 전" }

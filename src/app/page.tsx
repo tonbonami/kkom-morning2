@@ -75,7 +75,7 @@ export default function KkomMorningHome() {
   const [latestMemory, setLatestMemory] = useState<Memory | null>(null);
   const [memoryCount, setMemoryCount] = useState(0);
   const [moodOpen, setMoodOpen] = useState(false);
-  const [userName, setUserName] = useState('꼼이');
+  const [userName, setUserName] = useState('');   // 빈값이어야 [userName] 이펙트 가드가 로그인 확정 전 실행을 막음(잘못된 상대·푸시토큰 방지)
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dDay, setDDay] = useState(0);
   const [dateText, setDateText] = useState('');

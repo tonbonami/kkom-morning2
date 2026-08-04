@@ -18,6 +18,13 @@ private let cBg    = Color(hexW: "#17110F")
 private let cRose  = Color(hexW: "#FB7BA8")
 private let cMint  = Color(hexW: "#34D399")
 
+// 폰 QuickReplyBar와 동일한 범프 5종 (포차코 그림은 웹 /quickbar/{kind}.webp)
+let WEB_BASE = "https://kkommorning-v2.vercel.app"
+let BUMP_ITEMS: [(kind: String, label: String)] = [
+    ("miss", "보고싶어"), ("love", "사랑해"), ("hug", "안아줘"), ("kiss", "뽀뽀"), ("whitening", "화이트닝"),
+]
+func bumpLabel(_ kind: String?) -> String { BUMP_ITEMS.first { $0.kind == kind }?.label ?? "" }
+
 struct ContentView: View {
     @EnvironmentObject var store: WatchStore
     @Environment(\.scenePhase) private var phase
@@ -29,7 +36,7 @@ struct ContentView: View {
                 ZStack {
                     TabView {
                         PresenceView()    // 접속 + D-day + 하트
-                        StickerPalette()  // 날리기
+                        BumpPalette()     // 범프 (폰 그대로 재현)
                         MoodPicker()      // 기분
                         AirView()         // 미세먼지
                     }
@@ -37,6 +44,10 @@ struct ContentView: View {
                     // 상대가 날린 이모지 — 어느 페이지에서도 위로 크게 떴다 사라짐
                     if store.heartFlash > 0 {
                         ReceivedHeart(trigger: store.heartFlash, emoji: store.lastReceivedEmoji)
+                    }
+                    // 내가 범프 보낸 확인 (폰 QuickReplyBar 재현: 큰 포차코 떠오름)
+                    if store.bumpFlash > 0, let k = store.bumpKind {
+                        BumpConfirm(trigger: store.bumpFlash, kind: k)
                     }
                 }
             }
@@ -102,21 +113,27 @@ struct ReceivedHeart: View {
     }
 }
 
-// ── 날리기 팔레트 — 스티커 탭하면 상대에게 발사 ──
-struct StickerPalette: View {
+// ── 범프 — 폰 QuickReplyBar 그대로: 포차코 그림 탭하면 /api/bump 푸시 ──
+struct BumpPalette: View {
     @EnvironmentObject var store: WatchStore
-    private let stickers = ["❤️", "😘", "🥰", "🥺", "🫂", "💪", "🔋", "✊", "😤", "🎉", "👍", "🔥"]
-    private let cols = [GridItem(.adaptive(minimum: 44), spacing: 8)]
+    private let cols = [GridItem(.adaptive(minimum: 58), spacing: 8)]
     var body: some View {
         ScrollView {
-            Text("날려 💌").font(.system(size: 13, weight: .bold))
+            Text("범프 💌").font(.system(size: 13, weight: .bold))
                 .foregroundStyle(.white.opacity(0.55)).padding(.top, 4).padding(.bottom, 2)
-            LazyVGrid(columns: cols, spacing: 8) {
-                ForEach(stickers, id: \.self) { e in
-                    Button { store.fling(e) } label: {
-                        Text(e).font(.system(size: 26))
-                            .frame(width: 46, height: 46)
-                            .background(Color.white.opacity(0.08)).clipShape(Circle())
+            LazyVGrid(columns: cols, spacing: 10) {
+                ForEach(BUMP_ITEMS, id: \.kind) { b in
+                    Button { store.sendBump(b.kind) } label: {
+                        VStack(spacing: 3) {
+                            AsyncImage(url: URL(string: "\(WEB_BASE)/quickbar/\(b.kind).webp")) { img in
+                                img.resizable().scaledToFit()
+                            } placeholder: {
+                                ProgressView().tint(.white).frame(width: 52, height: 52)
+                            }
+                            .frame(width: 52, height: 52)
+                            Text(b.label).font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.6))
+                        }
+                        .padding(.vertical, 2)
                     }
                     .buttonStyle(.plain)
                 }
@@ -124,6 +141,34 @@ struct StickerPalette: View {
             .padding(.horizontal, 4)
         }
         .background(cBg.ignoresSafeArea())
+    }
+}
+
+// 범프 보낸 확인 — 폰처럼 큰 포차코가 떠오르며 "라벨 보냈어!"
+struct BumpConfirm: View {
+    let trigger: Int
+    let kind: String
+    @State private var show = false
+    var body: some View {
+        VStack(spacing: 6) {
+            AsyncImage(url: URL(string: "\(WEB_BASE)/quickbar/\(kind).webp")) { i in
+                i.resizable().scaledToFit()
+            } placeholder: { EmptyView() }
+            .frame(width: 96, height: 96)
+            Text("\(bumpLabel(kind)) 보냈어!")
+                .font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                .padding(.horizontal, 12).padding(.vertical, 5)
+                .background(.ultraThinMaterial).clipShape(Capsule())
+        }
+        .opacity(show ? 0 : 1)
+        .scaleEffect(show ? 1.15 : 0.5)
+        .offset(y: show ? -28 : 18)
+        .allowsHitTesting(false)
+        .onChange(of: trigger) { _, _ in
+            show = false
+            withAnimation(.easeOut(duration: 1.0)) { show = true }
+        }
+        .onAppear { withAnimation(.easeOut(duration: 1.0)) { show = true } }
     }
 }
 

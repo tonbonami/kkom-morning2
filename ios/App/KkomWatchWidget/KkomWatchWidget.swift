@@ -43,6 +43,7 @@ private func ddayText(_ s: WatchSnap, at date: Date) -> String {
     return "D+\(n + 1)"
 }
 private func agoText(_ s: WatchSnap, at date: Date) -> String {
+    if s.partnerLastSeenMs <= 0 { return "대기 중" }   // 상대 기록 없을 때 쓰레기값 방지
     let m = max(1, Int(max(0, serverNow(s, at: date) - s.partnerLastSeenMs) / 60_000))
     if m < 60 { return "\(m)분 전" }
     let h = m / 60; if h < 24 { return "\(h)시간 전" }
