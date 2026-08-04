@@ -38,6 +38,7 @@ import { touchPresence, subscribePresence, formatPresenceRelative, isTogetherNow
 import { subscribeLive, liveKey, DEFAULT_BOARD, DEFAULT_BOOK, subscribeCurrentPage, subscribeStrokes, type BoardStroke } from '@/lib/canvasBoard';
 import DoodleThumb from '@/components/DoodleThumb';
 import { pushWidgetSnapshot } from '@/lib/widget';
+import { registerNativePush } from '@/lib/nativePush';
 import { subscribeCalendar } from '@/lib/calendar';
 import { todayYmd } from '@/lib/calendarLayout';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
@@ -207,6 +208,7 @@ export default function KkomMorningHome() {
     // "N분 전" 표시 매 1분마다 재계산
     const tick = setInterval(() => setPresenceTick((x) => x + 1), 60_000);
     getPushState(userName).then(setPushState);
+    registerNativePush(liveKey(userName as '우댕' | '꼼이'));   // 네이티브 앱 APNs 푸시 등록
     return () => { clearInterval(tick); unsub(); unsubLive(); };
   }, [userName]);
 

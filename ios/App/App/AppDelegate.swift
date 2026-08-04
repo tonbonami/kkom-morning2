@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import LocalAuthentication
+import UserNotifications
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -9,7 +10,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         AppLock.shared.showCover()   // 콘텐츠 보이기 전 커버
+        UNUserNotificationCenter.current().delegate = self   // 포그라운드 알림 표시용
         return true
+    }
+
+    // ── APNs 등록 콜백 ──
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        PushManager.shared.saveToken(deviceToken)
+    }
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NSLog("APNs 등록 실패: \(error.localizedDescription)")
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
@@ -34,6 +44,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+    }
+}
+
+// 앱이 열려 있어도 배너로 알림 표시 (없으면 포그라운드 알림이 안 뜸)
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
     }
 }
 

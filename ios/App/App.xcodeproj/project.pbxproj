@@ -31,6 +31,7 @@
 		DF6DF869301C25680029DEE0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF6DF839301B9E3C0029DEE0 /* WidgetKit.framework */; };
 		DF6DF86A301C25680029DEE0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF6DF83B301B9E3C0029DEE0 /* SwiftUI.framework */; };
 		DF6DF875301C25680029DEE0 /* KkomWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DF6DF868301C25680029DEE0 /* KkomWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DFA8708F030D3DEBAF423710 /* PushBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1316832D8E0CDFB384EF5062 /* PushBridge.swift */; };
 		EA57C752D99C7B618F0898A2 /* CanvasScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E811AD988B947C59DE5916 /* CanvasScreen.swift */; };
 		F20E82AE748042443919FD8C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5B2E72E83E1B27DDF4150575 /* Assets.xcassets */; };
 		FD2B817BEC8FF35CB58B4E82 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E7132EF8F94C13984C0045 /* Foundation.framework */; };
@@ -100,6 +101,7 @@
 		0985B3199406CFEA5EEFE583 /* KkomWatchWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomWatchWidget.swift; sourceTree = "<group>"; };
 		0A25420C23CD2C7F7EEBEF59 /* KkomWatch.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = KkomWatch.entitlements; sourceTree = "<group>"; };
 		12E811AD988B947C59DE5916 /* CanvasScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CanvasScreen.swift; sourceTree = "<group>"; };
+		1316832D8E0CDFB384EF5062 /* PushBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushBridge.swift; sourceTree = "<group>"; };
 		2E9EF21D41F65473FE811E1A /* CanvasPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CanvasPlugin.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		474FCE64304F0513B5EA322B /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -266,6 +268,7 @@
 				2E9EF21D41F65473FE811E1A /* CanvasPlugin.swift */,
 				96438190129A200A7B42779A /* CanvasPlugin.m */,
 				A4B1163DEC46995A75029A27 /* MainViewController.swift */,
+				1316832D8E0CDFB384EF5062 /* PushBridge.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -517,6 +520,7 @@
 				3C42BD7070C3B68F6F7E9BAC /* CanvasPlugin.swift in Sources */,
 				066C1FFCF05B5C42C4F30EFA /* CanvasPlugin.m in Sources */,
 				9CE5122407B78177F28BDCB4 /* MainViewController.swift in Sources */,
+				DFA8708F030D3DEBAF423710 /* PushBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
