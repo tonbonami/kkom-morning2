@@ -37,6 +37,9 @@ xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" \
   -destination 'generic/platform=iOS' \
   -archivePath "$ARCHIVE" \
   -allowProvisioningUpdates \
+  -authenticationKeyPath "$P8" \
+  -authenticationKeyID "$ASC_KEY_ID" \
+  -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
   clean archive
 
 # ── 익스포트 + TestFlight 업로드 ──
