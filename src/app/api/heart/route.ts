@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
     // 쿨다운 조회 실패해도 발송은 시도
   }
 
-  const apnsOk = await sendApns(toKey, '💚', `${from} 하트 보냈어 💕`).catch(() => false);
+  // title=보낸이 이름(커뮤니케이션 알림이면 iOS가 이름 강조) / sender로 아바타, category로 답장 액션
+  const apnsOk = await sendApns(toKey, from, '하트 보냈어 💕', { category: 'KKOM_MSG', sender: from }).catch(() => false);
   return NextResponse.json({ ok: true, apns: apnsOk });
 }

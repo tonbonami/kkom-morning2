@@ -13,6 +13,7 @@
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		3744C7C36D96315079592B63 /* FireREST.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76A69DDCA0A8BD1C11921EBE /* FireREST.swift */; };
 		3C42BD7070C3B68F6F7E9BAC /* CanvasPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9EF21D41F65473FE811E1A /* CanvasPlugin.swift */; };
+		3EB90BA3C5188642EB285A01 /* kkomi_avatar.png in Resources */ = {isa = PBXBuildFile; fileRef = A27D05FCF7F9F3DACADCBC9D /* kkomi_avatar.png */; };
 		47F057D37D50CCF5CDDCF5CA /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E7132EF8F94C13984C0045 /* Foundation.framework */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -24,10 +25,14 @@
 		64AD27C7EDD4C658C6BAB8FB /* WatchStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B5441AB547E3A521A83969 /* WatchStore.swift */; };
 		9CE5122407B78177F28BDCB4 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4B1163DEC46995A75029A27 /* MainViewController.swift */; };
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
+		A1683D04E86B6094BE503142 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7D3782D0D5C2E8BDD4B2098 /* NotificationService.swift */; };
 		A7F02733B971CFF61012F47E /* InkCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7FE18AAAD6CAAA0BC69073D /* InkCanvas.swift */; };
 		A8057E254D9AFBD603329EE4 /* KkomWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */; };
+		B39118D307E7FF5225D637CF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03E83283EDE47AFA52F15E55 /* Foundation.framework */; };
 		C15473C9BCFE6E608251475D /* KkomWatchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0985B3199406CFEA5EEFE583 /* KkomWatchWidget.swift */; };
 		C200BDA8490062092F231CA3 /* KkomWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 5B1BFE32B2792896DF3CC9DD /* KkomWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C2415ECF6F4E595ACB18992C /* woodang_avatar.png in Resources */ = {isa = PBXBuildFile; fileRef = F43FBAF5F6601C3AEB5DCD7E /* woodang_avatar.png */; };
+		C8004F6ADF8E21866AC3BB76 /* KkomNotifyService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9D6B09A1C33CEA1F166CFD8C /* KkomNotifyService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DF6DF869301C25680029DEE0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF6DF839301B9E3C0029DEE0 /* WidgetKit.framework */; };
 		DF6DF86A301C25680029DEE0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF6DF83B301B9E3C0029DEE0 /* SwiftUI.framework */; };
 		DF6DF875301C25680029DEE0 /* KkomWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DF6DF868301C25680029DEE0 /* KkomWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -44,6 +49,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 2CA064763DAF831F10E6C307;
 			remoteInfo = KkomWatchWidget;
+		};
+		9DE3E08B5A05E1D404C41BD1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 87E9D1E0C5D35106500B058A;
+			remoteInfo = KkomNotifyService;
 		};
 		C834978162B649A0A40BC6E0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -91,6 +103,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				DF6DF875301C25680029DEE0 /* KkomWidgetExtension.appex in Embed Foundation Extensions */,
+				C8004F6ADF8E21866AC3BB76 /* KkomNotifyService.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -98,10 +111,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		03E83283EDE47AFA52F15E55 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		0985B3199406CFEA5EEFE583 /* KkomWatchWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomWatchWidget.swift; sourceTree = "<group>"; };
 		0A25420C23CD2C7F7EEBEF59 /* KkomWatch.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = KkomWatch.entitlements; sourceTree = "<group>"; };
 		12E811AD988B947C59DE5916 /* CanvasScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CanvasScreen.swift; sourceTree = "<group>"; };
 		1316832D8E0CDFB384EF5062 /* PushBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushBridge.swift; sourceTree = "<group>"; };
+		209CBA05CA792EB15DBA5D82 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2E9EF21D41F65473FE811E1A /* CanvasPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CanvasPlugin.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		474FCE64304F0513B5EA322B /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -119,6 +134,8 @@
 		78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomWatchApp.swift; sourceTree = "<group>"; };
 		8F0F37C8B7C8934708BAB4C9 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		96438190129A200A7B42779A /* CanvasPlugin.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = CanvasPlugin.m; sourceTree = "<group>"; };
+		9D6B09A1C33CEA1F166CFD8C /* KkomNotifyService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KkomNotifyService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A27D05FCF7F9F3DACADCBC9D /* kkomi_avatar.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = kkomi_avatar.png; sourceTree = "<group>"; };
 		A4B1163DEC46995A75029A27 /* MainViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		A96983CEE393F9D59E306613 /* KkomWatchWidget.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = KkomWatchWidget.entitlements; sourceTree = "<group>"; };
 		A9CA351403CE414B584345FF /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -127,6 +144,7 @@
 		AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.release.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"; sourceTree = "<group>"; };
 		B44EFC782AD0E00A83D34740 /* KkomWatchWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KkomWatchWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B5E7132EF8F94C13984C0045 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		C7D3782D0D5C2E8BDD4B2098 /* NotificationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		C7FE18AAAD6CAAA0BC69073D /* InkCanvas.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InkCanvas.swift; sourceTree = "<group>"; };
 		DF6DF839301B9E3C0029DEE0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		DF6DF83B301B9E3C0029DEE0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -134,6 +152,7 @@
 		DF6DF868301C25680029DEE0 /* KkomWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KkomWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF6DF87A301C25EB0029DEE0 /* KkomWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KkomWidgetExtension.entitlements; sourceTree = "<group>"; };
 		F2B5441AB547E3A521A83969 /* WatchStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchStore.swift; sourceTree = "<group>"; };
+		F43FBAF5F6601C3AEB5DCD7E /* woodang_avatar.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = woodang_avatar.png; sourceTree = "<group>"; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -187,6 +206,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7E9D56B6F8CBB357849D8398 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B39118D307E7FF5225D637CF /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DF6DF865301C25680029DEE0 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -206,8 +233,17 @@
 				DF6DF839301B9E3C0029DEE0 /* WidgetKit.framework */,
 				DF6DF83B301B9E3C0029DEE0 /* SwiftUI.framework */,
 				BB424C60AF49D90F94C35D35 /* watchOS */,
+				2ACF1D6EB1DF4F5964773051 /* iOS */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		2ACF1D6EB1DF4F5964773051 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				03E83283EDE47AFA52F15E55 /* Foundation.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 		3CCB663D739B48DCD2885CF5 /* KkomWatch */ = {
@@ -225,6 +261,18 @@
 			path = KkomWatch;
 			sourceTree = "<group>";
 		};
+		4A19A305BDBCAB5D9F40B9BC /* KkomNotifyService */ = {
+			isa = PBXGroup;
+			children = (
+				C7D3782D0D5C2E8BDD4B2098 /* NotificationService.swift */,
+				209CBA05CA792EB15DBA5D82 /* Info.plist */,
+				F43FBAF5F6601C3AEB5DCD7E /* woodang_avatar.png */,
+				A27D05FCF7F9F3DACADCBC9D /* kkomi_avatar.png */,
+			);
+			name = KkomNotifyService;
+			path = KkomNotifyService;
+			sourceTree = "<group>";
+		};
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
@@ -236,6 +284,7 @@
 				27E2DDA53C4D2A4D1A88CE4A /* Frameworks */,
 				3CCB663D739B48DCD2885CF5 /* KkomWatch */,
 				A5EB3E4898CB4EA591EF50C0 /* KkomWatchWidget */,
+				4A19A305BDBCAB5D9F40B9BC /* KkomNotifyService */,
 			);
 			sourceTree = "<group>";
 		};
@@ -246,6 +295,7 @@
 				DF6DF868301C25680029DEE0 /* KkomWidgetExtension.appex */,
 				5B1BFE32B2792896DF3CC9DD /* KkomWatch.app */,
 				B44EFC782AD0E00A83D34740 /* KkomWatchWidget.appex */,
+				9D6B09A1C33CEA1F166CFD8C /* KkomNotifyService.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -338,11 +388,29 @@
 			dependencies = (
 				DF6DF874301C25680029DEE0 /* PBXTargetDependency */,
 				A3B52DE2E21D245AABCFB8B2 /* PBXTargetDependency */,
+				9B941A05537B21D55C4FFC19 /* PBXTargetDependency */,
 			);
 			name = App;
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
 			productType = "com.apple.product-type.application";
+		};
+		87E9D1E0C5D35106500B058A /* KkomNotifyService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 76A78C69DC79096F88613EFA /* Build configuration list for PBXNativeTarget "KkomNotifyService" */;
+			buildPhases = (
+				8C6710F09EDC80ADAFBCFEAA /* Sources */,
+				7E9D56B6F8CBB357849D8398 /* Frameworks */,
+				3EC98F36512E4C381E6D4D6A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KkomNotifyService;
+			productName = KkomNotifyService;
+			productReference = 9D6B09A1C33CEA1F166CFD8C /* KkomNotifyService.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		D7E47D6555AA41519434F864 /* KkomWatch */ = {
 			isa = PBXNativeTarget;
@@ -419,11 +487,21 @@
 				DF6DF867301C25680029DEE0 /* KkomWidgetExtension */,
 				D7E47D6555AA41519434F864 /* KkomWatch */,
 				2CA064763DAF831F10E6C307 /* KkomWatchWidget */,
+				87E9D1E0C5D35106500B058A /* KkomNotifyService */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		3EC98F36512E4C381E6D4D6A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2415ECF6F4E595ACB18992C /* woodang_avatar.png in Resources */,
+				3EB90BA3C5188642EB285A01 /* kkomi_avatar.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3021FED79650016851F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -524,6 +602,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8C6710F09EDC80ADAFBCFEAA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1683D04E86B6094BE503142 /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		8EF6D7E53CA8D7EBE46F2E52 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -547,6 +633,12 @@
 			name = KkomWatchWidget;
 			target = 2CA064763DAF831F10E6C307 /* KkomWatchWidget */;
 			targetProxy = 05B6FC16AB67BA4220149508 /* PBXContainerItemProxy */;
+		};
+		9B941A05537B21D55C4FFC19 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KkomNotifyService;
+			target = 87E9D1E0C5D35106500B058A /* KkomNotifyService */;
+			targetProxy = 9DE3E08B5A05E1D404C41BD1 /* PBXContainerItemProxy */;
 		};
 		A3B52DE2E21D245AABCFB8B2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -600,6 +692,53 @@
 				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Debug;
+		};
+		0B28BB6E179B2914063E243B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 19;
+				DEVELOPMENT_TEAM = JDDK6B2EKF;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KkomNotifyService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "꼼모닝 알림";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tonbonami.kkommorning.NotifyService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		388BE7AA2029A7FEA1A08ED8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 19;
+				DEVELOPMENT_TEAM = JDDK6B2EKF;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KkomNotifyService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "꼼모닝 알림";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tonbonami.kkommorning.NotifyService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
 		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -939,6 +1078,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		76A78C69DC79096F88613EFA /* Build configuration list for PBXNativeTarget "KkomNotifyService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				388BE7AA2029A7FEA1A08ED8 /* Release */,
+				0B28BB6E179B2914063E243B /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

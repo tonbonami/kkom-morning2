@@ -62,8 +62,13 @@ async function post(host: string, token: string, payload: string): Promise<{ sta
   });
 }
 
+// 커뮤니케이션 알림(상대 아바타+이름) + 답장 액션용 옵션.
+//   category: UNNotificationCategory 식별자 → 알림 꾹 누르면 답장 버튼.
+//   sender:  보낸 사람 한글 이름(우댕/꼼이) → mutable-content 켜서 NSE가 아바타 입힘.
+export interface ApnsOpts { category?: string; sender?: string; threadId?: string }
+
 // userKey('udaeng'|'kkomi')에게 알림 발송. 프로덕션 실패 시 샌드박스 폴백(dev/prod 토큰 환경 불확실성 대응).
-export async function sendApns(userKey: string, title: string, body: string): Promise<boolean> {
+export async function sendApns(userKey: string, title: string, body: string, opts?: ApnsOpts): Promise<boolean> {
   if (!APNS_KEY || !KEY_ID || !TEAM_ID) return false; // env 없으면 조용히 no-op
 
   let token: string | null = null;
@@ -76,7 +81,13 @@ export async function sendApns(userKey: string, title: string, body: string): Pr
   }
   if (!token) return false;
 
-  const payload = JSON.stringify({ aps: { alert: { title, body }, sound: 'default' } });
+  const aps: Record<string, unknown> = { alert: { title, body }, sound: 'default' };
+  if (opts?.category) aps.category = opts.category;
+  if (opts?.threadId) aps['thread-id'] = opts.threadId;
+  if (opts?.sender) aps['mutable-content'] = 1; // NSE 실행 트리거 → 아바타/이름 입힘
+  const payloadObj: Record<string, unknown> = { aps };
+  if (opts?.sender) payloadObj.sender = opts.sender; // NSE가 읽어 아바타 선택
+  const payload = JSON.stringify(payloadObj);
   let res = await post('api.push.apple.com', token, payload);
   // 프로덕션에서 토큰 환경 불일치면 샌드박스 재시도
   if (res.status === 400 && res.body.includes('BadDeviceToken')) {

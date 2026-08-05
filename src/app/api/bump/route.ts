@@ -140,7 +140,8 @@ export async function POST(req: NextRequest) {
   const bodyText = fillTemplate(picked.body, from, to);
 
   // 네이티브 앱 APNs 발송 — 웹푸시와 독립 채널(웹 구독 없어도 시도). 앱 닫혀 있어도 폰→워치 미러링.
-  const apnsOk = await sendApns(keyForName(to), title, bodyText).catch(() => false);
+  // category: 알림 꾹 눌러 답장 / sender: 상대 아바타+이름(커뮤니케이션 알림)
+  const apnsOk = await sendApns(keyForName(to), title, bodyText, { category: 'KKOM_MSG', sender: from }).catch(() => false);
 
   const subSnap = await getDoc(doc(db, 'pushSubscriptions', to));
   if (!subSnap.exists()) {
