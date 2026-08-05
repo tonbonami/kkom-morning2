@@ -12,5 +12,6 @@ import SwiftUI
 struct KkomWidgetBundle: WidgetBundle {
     var body: some Widget {
         KkomWidget()
+        if #available(iOS 16.2, *) { KkomLiveActivity() }
     }
 }

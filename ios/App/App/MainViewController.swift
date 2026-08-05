@@ -8,6 +8,7 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(CanvasPlugin())
         bridge?.registerPluginInstance(WidgetBridgePlugin())
         bridge?.registerPluginInstance(PushBridgePlugin())
+        bridge?.registerPluginInstance(LiveActivityBridgePlugin())
     }
 }
 
@@ -43,6 +44,8 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             UserDefaults(suiteName: "group.com.tonbonami.kkommorning")?.set(data, forKey: "kkomState")
             if #available(iOS 14.0, *) { WidgetCenter.shared.reloadAllTimelines() }
         }
+        // 같은 스냅샷으로 Live Activity도 시작/갱신 (포그라운드일 때). 잠금화면·다이나믹아일랜드에 남음.
+        LiveActivityManager.shared.upsert(from: d)
         call.resolve()
     }
 }

@@ -10,6 +10,7 @@
 		066C1FFCF05B5C42C4F30EFA /* CanvasPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = 96438190129A200A7B42779A /* CanvasPlugin.m */; };
 		0B98050ADC33CDA93D62482E /* Sync.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABFFEEB2C7431ADF351821CC /* Sync.swift */; };
 		19F79F87A7CF70C2D7AAAF91 /* KkomWatchWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B44EFC782AD0E00A83D34740 /* KkomWatchWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		2D88668530DA944420D8884D /* LiveActivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90633BA335ABAE160954A1DD /* LiveActivityBridge.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		3744C7C36D96315079592B63 /* FireREST.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76A69DDCA0A8BD1C11921EBE /* FireREST.swift */; };
 		3C42BD7070C3B68F6F7E9BAC /* CanvasPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9EF21D41F65473FE811E1A /* CanvasPlugin.swift */; };
@@ -20,9 +21,11 @@
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
+		507DEF43FBA7081B1DC6DD2B /* KkomActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19745C55F7234D45630743AE /* KkomActivityAttributes.swift */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		53B260FA3AC53ABB40843C01 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 474FCE64304F0513B5EA322B /* ContentView.swift */; };
 		64AD27C7EDD4C658C6BAB8FB /* WatchStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B5441AB547E3A521A83969 /* WatchStore.swift */; };
+		96F636B7A4A3F29803F4E4F9 /* KkomActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19745C55F7234D45630743AE /* KkomActivityAttributes.swift */; };
 		9CE5122407B78177F28BDCB4 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4B1163DEC46995A75029A27 /* MainViewController.swift */; };
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
 		A1683D04E86B6094BE503142 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7D3782D0D5C2E8BDD4B2098 /* NotificationService.swift */; };
@@ -116,6 +119,7 @@
 		0A25420C23CD2C7F7EEBEF59 /* KkomWatch.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = KkomWatch.entitlements; sourceTree = "<group>"; };
 		12E811AD988B947C59DE5916 /* CanvasScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CanvasScreen.swift; sourceTree = "<group>"; };
 		1316832D8E0CDFB384EF5062 /* PushBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushBridge.swift; sourceTree = "<group>"; };
+		19745C55F7234D45630743AE /* KkomActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomActivityAttributes.swift; sourceTree = "<group>"; };
 		209CBA05CA792EB15DBA5D82 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2E9EF21D41F65473FE811E1A /* CanvasPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CanvasPlugin.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
@@ -133,6 +137,7 @@
 		76A69DDCA0A8BD1C11921EBE /* FireREST.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FireREST.swift; sourceTree = "<group>"; };
 		78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomWatchApp.swift; sourceTree = "<group>"; };
 		8F0F37C8B7C8934708BAB4C9 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		90633BA335ABAE160954A1DD /* LiveActivityBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveActivityBridge.swift; sourceTree = "<group>"; };
 		96438190129A200A7B42779A /* CanvasPlugin.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = CanvasPlugin.m; sourceTree = "<group>"; };
 		9D6B09A1C33CEA1F166CFD8C /* KkomNotifyService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KkomNotifyService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A27D05FCF7F9F3DACADCBC9D /* kkomi_avatar.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = kkomi_avatar.png; sourceTree = "<group>"; };
@@ -319,6 +324,8 @@
 				96438190129A200A7B42779A /* CanvasPlugin.m */,
 				A4B1163DEC46995A75029A27 /* MainViewController.swift */,
 				1316832D8E0CDFB384EF5062 /* PushBridge.swift */,
+				19745C55F7234D45630743AE /* KkomActivityAttributes.swift */,
+				90633BA335ABAE160954A1DD /* LiveActivityBridge.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -599,6 +606,8 @@
 				066C1FFCF05B5C42C4F30EFA /* CanvasPlugin.m in Sources */,
 				9CE5122407B78177F28BDCB4 /* MainViewController.swift in Sources */,
 				DFA8708F030D3DEBAF423710 /* PushBridge.swift in Sources */,
+				96F636B7A4A3F29803F4E4F9 /* KkomActivityAttributes.swift in Sources */,
+				2D88668530DA944420D8884D /* LiveActivityBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -622,6 +631,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				507DEF43FBA7081B1DC6DD2B /* KkomActivityAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -678,7 +688,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = KkomWatchWidget/KkomWatchWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = KkomWatchWidget/Info.plist;
@@ -699,7 +709,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = KkomNotifyService/Info.plist;
@@ -722,7 +732,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = KkomNotifyService/Info.plist;
@@ -855,7 +865,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -884,7 +894,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -913,7 +923,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = KkomWatch/KkomWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -937,7 +947,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = KkomWatch/KkomWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -959,7 +969,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = KkomWatchWidget/KkomWatchWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = KkomWatchWidget/Info.plist;
@@ -988,7 +998,7 @@
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CODE_SIGN_ENTITLEMENTS = KkomWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -1032,7 +1042,7 @@
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CODE_SIGN_ENTITLEMENTS = KkomWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
