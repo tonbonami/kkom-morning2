@@ -18,8 +18,7 @@ private let cBg    = Color(hexW: "#17110F")
 private let cRose  = Color(hexW: "#FB7BA8")
 private let cMint  = Color(hexW: "#34D399")
 
-// 폰 QuickReplyBar와 동일한 범프 5종 (포차코 그림은 웹 /quickbar/{kind}.webp)
-let WEB_BASE = "https://kkommorning-v2.vercel.app"
+// 폰 QuickReplyBar와 동일한 범프 5종 (포차코 그림은 워치 애셋에 PNG로 내장 — webp가 watchOS AsyncImage에서 안 그려짐)
 let BUMP_ITEMS: [(kind: String, label: String)] = [
     ("miss", "보고싶어"), ("love", "사랑해"), ("hug", "안아줘"), ("kiss", "뽀뽀"), ("whitening", "화이트닝"),
 ]
@@ -125,12 +124,7 @@ struct BumpPalette: View {
                 ForEach(BUMP_ITEMS, id: \.kind) { b in
                     Button { store.sendBump(b.kind) } label: {
                         VStack(spacing: 3) {
-                            AsyncImage(url: URL(string: "\(WEB_BASE)/quickbar/\(b.kind).webp")) { img in
-                                img.resizable().scaledToFit()
-                            } placeholder: {
-                                ProgressView().tint(.white).frame(width: 52, height: 52)
-                            }
-                            .frame(width: 52, height: 52)
+                            Image(b.kind).resizable().scaledToFit().frame(width: 52, height: 52)
                             Text(b.label).font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.6))
                         }
                         .padding(.vertical, 2)
@@ -151,10 +145,7 @@ struct BumpConfirm: View {
     @State private var show = false
     var body: some View {
         VStack(spacing: 6) {
-            AsyncImage(url: URL(string: "\(WEB_BASE)/quickbar/\(kind).webp")) { i in
-                i.resizable().scaledToFit()
-            } placeholder: { EmptyView() }
-            .frame(width: 96, height: 96)
+            Image(kind).resizable().scaledToFit().frame(width: 96, height: 96)
             Text("\(bumpLabel(kind)) 보냈어!")
                 .font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
                 .padding(.horizontal, 12).padding(.vertical, 5)
