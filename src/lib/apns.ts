@@ -7,7 +7,12 @@ import http2 from 'node:http2';
 const RTDB =
   process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL ||
   'https://kkom-morning-default-rtdb.asia-southeast1.firebasedatabase.app';
-const APNS_KEY = (process.env.APNS_KEY || '').replace(/\\n/g, '\n'); // 개행 이스케이프 복원
+// 개행 이스케이프 복원 + 앞뒤 잡문자(zsh % 등) 제거 — BEGIN~END PEM 블록만 추출
+const APNS_KEY = (() => {
+  const raw = (process.env.APNS_KEY || '').replace(/\\n/g, '\n');
+  const m = raw.match(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/);
+  return m ? m[0] + '\n' : raw;
+})();
 const KEY_ID = process.env.APNS_KEY_ID || '';
 const TEAM_ID = process.env.APNS_TEAM_ID || '';
 const BUNDLE = process.env.APNS_BUNDLE_ID || 'com.tonbonami.kkommorning';
