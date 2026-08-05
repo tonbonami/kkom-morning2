@@ -17,6 +17,11 @@ private let cBgTop = Color(hexW: "#2A1520")
 private let cBg    = Color(hexW: "#17110F")
 private let cRose  = Color(hexW: "#FB7BA8")
 private let cMint  = Color(hexW: "#34D399")
+// 미세먼지 등급 색 (좋음→매우나쁨)
+private let cGood   = Color(hexW: "#34D399")
+private let cNormal = Color(hexW: "#60A5FA")
+private let cBad    = Color(hexW: "#FB923C")
+private let cVBad   = Color(hexW: "#F87171")
 
 // 폰 QuickReplyBar와 동일한 범프 5종 (포차코 그림은 워치 애셋에 PNG로 내장 — webp가 watchOS AsyncImage에서 안 그려짐)
 let BUMP_ITEMS: [(kind: String, label: String)] = [
@@ -195,48 +200,54 @@ struct AirView: View {
     @EnvironmentObject var store: WatchStore
     var body: some View {
         ScrollView {
-            Text("오늘 미세먼지 🌫️").font(.system(size: 13, weight: .bold))
-                .foregroundStyle(.white.opacity(0.55)).padding(.top, 4).padding(.bottom, 4)
-            airRow(store.airHome)
-            airRow(store.airWork)
+            HStack(spacing: 4) {
+                Image(systemName: "aqi.medium").font(.system(size: 12, weight: .semibold))
+                Text("오늘 미세먼지").font(.system(size: 13, weight: .bold))
+            }
+            .foregroundStyle(.white.opacity(0.55)).padding(.top, 4).padding(.bottom, 4)
+            airCard(store.airHome)
+            airCard(store.airWork)
         }
         .padding(.horizontal, 6)
         .background(cBg.ignoresSafeArea())
     }
 
-    @ViewBuilder private func airRow(_ a: AirInfo?) -> some View {
+    @ViewBuilder private func airCard(_ a: AirInfo?) -> some View {
         if let a = a {
-            VStack(spacing: 2) {
-                Text(a.label).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.55))
-                HStack(spacing: 5) {
-                    Text(gradeEmoji(a.grade))
-                    Text(a.grade).font(.system(size: 17, weight: .heavy)).foregroundStyle(gradeColor(a.grade))
-                    if let pm = a.pm10 { Text("PM\(pm)").font(.system(size: 11)).foregroundStyle(.white.opacity(0.5)) }
+            HStack(spacing: 10) {
+                // 원형 게이지 — PM10을 0~200 스펙트럼(초록→파랑→주황→빨강)에, 중앙에 수치
+                Gauge(value: Double(min(max(a.pm10 ?? 0, 0), 200)), in: 0 ... 200) {
+                    EmptyView()
+                } currentValueLabel: {
+                    Text("\(a.pm10 ?? 0)").font(.system(size: 15, weight: .heavy)).foregroundStyle(.white)
                 }
+                .gaugeStyle(.accessoryCircular)
+                .tint(Gradient(colors: [cGood, cNormal, cBad, cVBad]))
+                .frame(width: 50, height: 50)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(a.label).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.5))
+                    Text(a.grade).font(.system(size: 18, weight: .heavy)).foregroundStyle(gradeColor(a.grade))
+                    Text("PM10").font(.system(size: 9, weight: .medium)).foregroundStyle(.white.opacity(0.35))
+                }
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity).padding(.vertical, 8)
-            .background(Color.white.opacity(0.06)).clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(gradeColor(a.grade).opacity(0.14))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
             .padding(.bottom, 6)
         } else {
-            ProgressView().tint(.white).padding(.vertical, 10)
+            ProgressView().tint(.white).padding(.vertical, 12)
         }
     }
 
     private func gradeColor(_ g: String) -> Color {
         switch g {
-        case "좋음": return Color(hexW: "#34D399")
-        case "보통": return Color(hexW: "#60A5FA")
-        case "나쁨": return Color(hexW: "#FB923C")
-        case "매우 나쁨": return Color(hexW: "#F87171")
+        case "좋음": return cGood
+        case "보통": return cNormal
+        case "나쁨": return cBad
+        case "매우 나쁨": return cVBad
         default: return .white.opacity(0.6)
-        }
-    }
-    private func gradeEmoji(_ g: String) -> String {
-        switch g {
-        case "좋음": return "😊"
-        case "보통": return "🙂"
-        case "나쁨", "매우 나쁨": return "😷"
-        default: return "❔"
         }
     }
 }
