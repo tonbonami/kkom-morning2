@@ -212,6 +212,25 @@ export default function KkomMorningHome() {
     return () => { clearInterval(tick); unsub(); unsubLive(); };
   }, [userName]);
 
+  // Live Activity — 내가 접속 중이면 상대 activity에 "나 접속 💚" 실시간 푸시(앱 닫혀 있어도 잠금화면에 뜸).
+  // mount + 80초 주기 + 앱 복귀 시. 서버 쿨다운 25초로 스팸 방지.
+  useEffect(() => {
+    if (!userName) return;
+    const ping = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      fetch('/api/live-activity/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: userName }),
+      }).catch(() => {});
+    };
+    ping();
+    const iv = setInterval(ping, 80_000);
+    const onVis = () => { if (document.visibilityState === 'visible') ping(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVis); };
+  }, [userName]);
+
   // 위젯용 다음 일정 (가장 가까운 미래 일정)
   useEffect(() => {
     const unsub = subscribeCalendar((events) => {

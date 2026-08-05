@@ -39,7 +39,8 @@ function apnsJwt(): string {
   return cachedJwt;
 }
 
-async function post(host: string, token: string, payload: string): Promise<{ status: number; body: string }> {
+async function post(host: string, token: string, payload: string,
+                    headers: Record<string, string> = {}): Promise<{ status: number; body: string }> {
   return new Promise((resolve) => {
     const client = http2.connect(`https://${host}`);
     client.on('error', () => resolve({ status: 0, body: 'connect error' }));
@@ -50,6 +51,7 @@ async function post(host: string, token: string, payload: string): Promise<{ sta
       'apns-topic': BUNDLE,
       'apns-push-type': 'alert',
       'content-type': 'application/json',
+      ...headers,
     });
     let status = 0;
     let data = '';
@@ -96,6 +98,49 @@ export async function sendApns(userKey: string, title: string, body: string, opt
   // 만료/무효 토큰 정리
   if (res.status === 410 || (res.status === 400 && res.body.includes('BadDeviceToken'))) {
     try { await fetch(`${RTDB}/pushTokens/${userKey}.json`, { method: 'DELETE' }); } catch {}
+  }
+  return res.status === 200;
+}
+
+// Live Activity 갱신 푸시 — content-state 전체 교체(부분 병합 아님). 토큰은 liveActivityTokens/{userKey}.
+// aps.content-state 키는 iOS ContentState(Codable) 프로퍼티명과 정확히 일치해야 함.
+export async function sendLiveActivity(
+  userKey: string,
+  state: Record<string, unknown>,
+  opts?: { event?: 'update' | 'end'; staleInSec?: number },
+): Promise<boolean> {
+  if (!APNS_KEY || !KEY_ID || !TEAM_ID) return false;
+
+  let token: string | null = null;
+  try {
+    const r = await fetch(`${RTDB}/liveActivityTokens/${userKey}.json`, { cache: 'no-store' });
+    const j = (await r.json()) as { token?: string } | null;
+    token = j?.token || null;
+  } catch {
+    return false;
+  }
+  if (!token) return false;
+
+  const now = Math.floor(Date.now() / 1000);
+  const aps: Record<string, unknown> = {
+    timestamp: now,
+    event: opts?.event ?? 'update',
+    'content-state': state,
+  };
+  if (opts?.staleInSec) aps['stale-date'] = now + opts.staleInSec;
+  const payload = JSON.stringify({ aps });
+
+  const laHeaders: Record<string, string> = {
+    'apns-topic': `${BUNDLE}.push-type.liveactivity`,
+    'apns-push-type': 'liveactivity',
+    'apns-priority': '10',
+  };
+  let res = await post('api.push.apple.com', token, payload, laHeaders);
+  if (res.status === 400 && res.body.includes('BadDeviceToken')) {
+    res = await post('api.sandbox.push.apple.com', token, payload, laHeaders);
+  }
+  if (res.status === 410 || (res.status === 400 && res.body.includes('BadDeviceToken'))) {
+    try { await fetch(`${RTDB}/liveActivityTokens/${userKey}.json`, { method: 'DELETE' }); } catch {}
   }
   return res.status === 200;
 }

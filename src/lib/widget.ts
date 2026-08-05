@@ -42,5 +42,26 @@ export async function pushWidgetSnapshot(s: WidgetSnapshot): Promise<void> {
     if (s.weatherSky) payload.weatherSky = s.weatherSky;
     if (s.partnerMood) payload.partnerMood = s.partnerMood;
     await bridge.update(payload);
+
+    // Live Activity base 저장 — 상대 ping이 이 base를 프레즌스만 패치해 씀(키=iOS ContentState).
+    const me = s.partnerName === '꼼이' ? '우댕' : '꼼이';
+    const myKey = me === '우댕' ? 'udaeng' : 'kkomi';
+    const grade = s.airGrade && s.airGrade !== '정보 없음' && s.airGrade !== '조회 실패' ? s.airGrade : undefined;
+    const state: Record<string, unknown> = {
+      partnerName: s.partnerName,
+      partnerActive: s.partnerActive,
+      partnerLastSeenMs: s.partnerLastSeenMs,
+      serverMs: serverNow(),
+      deviceMs: Date.now(),
+      ddayDate: DDAY,
+    };
+    if (grade) state.airGrade = grade;
+    if (s.airLoc) state.airLoc = s.airLoc;
+    if (s.partnerMood) state.partnerMood = s.partnerMood;
+    fetch('/api/live-activity/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userKey: myKey, state }),
+    }).catch(() => {});
   } catch { /* 위젯 없거나 네이티브 아님 — 무시 */ }
 }
