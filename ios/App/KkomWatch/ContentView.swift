@@ -17,11 +17,6 @@ private let cBgTop = Color(hexW: "#2A1520")
 private let cBg    = Color(hexW: "#17110F")
 private let cRose  = Color(hexW: "#FB7BA8")
 private let cMint  = Color(hexW: "#34D399")
-// 미세먼지 등급 색 (좋음→매우나쁨)
-private let cGood   = Color(hexW: "#34D399")
-private let cNormal = Color(hexW: "#60A5FA")
-private let cBad    = Color(hexW: "#FB923C")
-private let cVBad   = Color(hexW: "#F87171")
 
 // 폰 QuickReplyBar와 동일한 범프 5종 (포차코 그림은 워치 애셋에 PNG로 내장 — webp가 watchOS AsyncImage에서 안 그려짐)
 let BUMP_ITEMS: [(kind: String, label: String)] = [
@@ -195,59 +190,141 @@ struct MoodPicker: View {
     }
 }
 
-// ── 미세먼지 — 호평동 + 서울 중구 (떨어져 사는 커플, 둘 다 챙기기) ──
+// ── 미세먼지 — Gemini 디자인 (미세미세 스타일: 등급 카피 + 표정 + 수치 캡슐) ──
 struct AirView: View {
     @EnvironmentObject var store: WatchStore
+
+    // 다크 배경색 지정
+    let bgColor = Color(hexW: "#17110F")
+
     var body: some View {
         ScrollView {
-            HStack(spacing: 4) {
-                Image(systemName: "aqi.medium").font(.system(size: 12, weight: .semibold))
-                Text("오늘 미세먼지").font(.system(size: 13, weight: .bold))
+            VStack(spacing: 12) {
+                // 우댕 (호평동) 카드
+                airCard(store.airHome)
+
+                // 꼼이 (서울 중구) 카드
+                airCard(store.airWork)
             }
-            .foregroundStyle(.white.opacity(0.55)).padding(.top, 4).padding(.bottom, 4)
-            airCard(store.airHome)
-            airCard(store.airWork)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 12)
         }
-        .padding(.horizontal, 6)
-        .background(cBg.ignoresSafeArea())
+        .background(bgColor.ignoresSafeArea())
     }
 
-    @ViewBuilder private func airCard(_ a: AirInfo?) -> some View {
-        if let a = a {
-            HStack(spacing: 10) {
-                // 원형 게이지 — PM10을 0~200 스펙트럼(초록→파랑→주황→빨강)에, 중앙에 수치
-                Gauge(value: Double(min(max(a.pm10 ?? 0, 0), 200)), in: 0 ... 200) {
-                    EmptyView()
-                } currentValueLabel: {
-                    Text("\(a.pm10 ?? 0)").font(.system(size: 15, weight: .heavy)).foregroundStyle(.white)
-                }
-                .gaugeStyle(.accessoryCircular)
-                .tint(Gradient(colors: [cGood, cNormal, cBad, cVBad]))
-                .frame(width: 50, height: 50)
+    // MARK: - Air Card
+    @ViewBuilder
+    func airCard(_ a: AirInfo?) -> some View {
+        if let info = a {
+            // 데이터가 있을 때
+            let attr = gradeAttributes(for: info.grade)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(a.label).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.5))
-                    Text(a.grade).font(.system(size: 18, weight: .heavy)).foregroundStyle(gradeColor(a.grade))
-                    Text("PM10").font(.system(size: 9, weight: .medium)).foregroundStyle(.white.opacity(0.35))
+            VStack(alignment: .leading, spacing: 8) {
+                // 상단: 지역 이름 & 날씨 아이콘
+                HStack {
+                    Text(info.label)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white.opacity(0.9))
+
+                    Spacer()
+
+                    Image(systemName: attr.icon)
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(attr.color)
                 }
-                Spacer(minLength: 0)
+
+                // 중단: 등급 & 친근한 카피
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(info.grade)
+                        .font(.system(size: 28, weight: .black))
+                        .foregroundColor(attr.color)
+
+                    Text(attr.copy)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                .padding(.vertical, 4)
+
+                // 하단: 구체적 수치 (PM10, PM2.5)
+                HStack(spacing: 6) {
+                    pmCapsule(title: "미세", value: info.pm10)
+                    pmCapsule(title: "초미세", value: info.pm25)
+                }
             }
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(gradeColor(a.grade).opacity(0.14))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .padding(.bottom, 6)
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(attr.color.opacity(0.15)) // 은은한 카드 배경
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(attr.color.opacity(0.3), lineWidth: 1) // 은은한 테두리
+            )
+
         } else {
-            ProgressView().tint(.white).padding(.vertical, 12)
+            // 로딩 중일 때 (Skeleton UI)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.white.opacity(0.1))
+                        .frame(width: 50, height: 16)
+                    Spacer()
+                    Circle()
+                        .fill(Color.white.opacity(0.1))
+                        .frame(width: 24, height: 24)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.white.opacity(0.1))
+                        .frame(width: 80, height: 28)
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.white.opacity(0.1))
+                        .frame(width: 110, height: 14)
+                }
+                .padding(.vertical, 4)
+
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.white.opacity(0.1))
+                    .frame(width: 130, height: 24)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(0.05))
+            )
         }
     }
 
-    private func gradeColor(_ g: String) -> Color {
-        switch g {
-        case "좋음": return cGood
-        case "보통": return cNormal
-        case "나쁨": return cBad
-        case "매우 나쁨": return cVBad
-        default: return .white.opacity(0.6)
+    // MARK: - 미세먼지 수치 캡슐
+    @ViewBuilder
+    private func pmCapsule(title: String, value: Int?) -> some View {
+        HStack(spacing: 4) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.6))
+            Text(value != nil ? "\(value!)" : "-")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.white.opacity(0.9))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(Color.white.opacity(0.1)))
+    }
+
+    // MARK: - 등급별 속성 매핑 로직
+    private func gradeAttributes(for grade: String) -> (color: Color, icon: String, copy: String) {
+        switch grade {
+        case "좋음":
+            return (Color(hexW: "#34D399"), "face.smiling", "숨쉬기 좋아요")
+        case "보통":
+            return (Color(hexW: "#60A5FA"), "sun.max", "공기 괜찮아요")
+        case "나쁨":
+            return (Color(hexW: "#FB923C"), "cloud.fog", "마스크 챙겨요")
+        case "매우 나쁨":
+            return (Color(hexW: "#F87171"), "exclamationmark.triangle", "밖은 위험해요")
+        default: // "정보 없음" 또는 예기치 못한 값
+            return (Color.gray, "aqi.medium", "정보가 없어요")
         }
     }
 }

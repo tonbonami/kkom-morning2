@@ -8,7 +8,7 @@ import WatchKit
 let APP_GROUP = "group.com.tonbonami.kkommorning"
 let DDAY = "2023-09-28"
 
-struct AirInfo { var label: String; var grade: String; var pm10: Int? }
+struct AirInfo { var label: String; var grade: String; var pm10: Int?; var pm25: Int? }
 
 // 워치 앱 상태 — 상대 접속 폴링, 하트 송수신, 시계오차 보정, 컴플리케이션용 스냅샷 저장.
 @MainActor
@@ -84,10 +84,10 @@ final class WatchStore: ObservableObject {
         if now - lastAirFetch > airInterval {
             lastAirFetch = now
             if let a = await Fire.fetchAir(station: "금곡동", region: "경기북부"), a.grade != "정보 없음" {
-                airHome = AirInfo(label: "호평동", grade: a.grade, pm10: a.pm10)
+                airHome = AirInfo(label: "호평동", grade: a.grade, pm10: a.pm10, pm25: a.pm25)
             }
             if let a = await Fire.fetchAir(station: "중구", region: "서울"), a.grade != "정보 없음" {
-                airWork = AirInfo(label: "서울 중구", grade: a.grade, pm10: a.pm10)
+                airWork = AirInfo(label: "서울 중구", grade: a.grade, pm10: a.pm10, pm25: a.pm25)
             }
         }
     }
