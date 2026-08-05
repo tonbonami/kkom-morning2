@@ -43,11 +43,16 @@ export async function GET() {
   } catch (e) { diag.tokenErr = String(e); }
   if (!token) return NextResponse.json({ ...diag, error: 'no token' });
 
+  diag.keyLen = APNS_KEY.length;
+  diag.keyTail = APNS_KEY.slice(-30);
+  diag.newlines = (APNS_KEY.match(/\n/g) || []).length;
   let jwt = '';
   try {
+    const keyObj = crypto.createPrivateKey(APNS_KEY);
+    diag.keyType = keyObj.asymmetricKeyType; // 'ec' 이어야 함
     const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
     const si = `${b64({ alg: 'ES256', kid: KEY_ID })}.${b64({ iss: TEAM_ID, iat: Math.floor(Date.now() / 1000) })}`;
-    const sig = crypto.createSign('SHA256').update(si).sign({ key: APNS_KEY, dsaEncoding: 'ieee-p1363' });
+    const sig = crypto.sign('sha256', Buffer.from(si), { key: keyObj, dsaEncoding: 'ieee-p1363' });
     jwt = `${si}.${sig.toString('base64url')}`;
     diag.jwtOk = true;
   } catch (e) { return NextResponse.json({ ...diag, jwtError: String(e) }); }
