@@ -1,5 +1,6 @@
 import WidgetKit
 import SwiftUI
+import AppIntents
 
 // 꼼모닝 위젯 — 앱 그룹 스냅샷(웹이 씀)을 읽어 렌더. 디자인: Gemini 명세.
 // 스냅샷은 UserDefaults(group)의 "kkomState"(JSON). 시계 오차는 스냅샷의 server/device 시각으로 보정.
@@ -126,6 +127,24 @@ struct StatusBadge: View {
     }
 }
 
+// ── 하트 보내기 버튼 (iOS17+ 인터랙티브 — 앱 안 열고 상대에게 하트) ──
+@available(iOS 17.0, *)
+struct HeartSendButton: View {
+    var size: CGFloat = 15
+    var body: some View {
+        Button(intent: SendHeartIntent()) {
+            Image(systemName: "heart.fill")
+                .font(.system(size: size, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(size * 0.6)
+                .background(cRose)
+                .clipShape(Circle())
+                .shadow(color: cRose.opacity(0.4), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // ── 홈: 중형(메인) ──
 struct MediumView: View {
     let e: KkomEntry
@@ -155,6 +174,7 @@ struct MediumView: View {
 
                 VStack(alignment: .trailing, spacing: 8) {
                     StatusBadge(s: s, date: e.date, compact: true)
+                    if #available(iOS 17.0, *) { HeartSendButton() }
                     Spacer(minLength: 0)
                     if let t = s.nextEventTitle, let d = eventDText(s, at: e.date) {
                         Link(destination: URL(string: "kkommorning://calendar")!) {
@@ -187,6 +207,9 @@ struct SmallView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .bottomTrailing) {
+                if #available(iOS 17.0, *) { HeartSendButton(size: 13).padding(2) }
+            }
         } else { SetupView() }
     }
 }
