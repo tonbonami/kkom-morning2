@@ -100,6 +100,7 @@ final class WatchStore: ObservableObject {
         let to = partner
         Task {
             await Fire.fling(from: me, to: to, emoji: emoji)
+            await Fire.notifyHeart(from: me, to: to)   // 상대 잠금 기기에도 알림(서버 쿨다운 20초)
             self.sending = false
         }
     }

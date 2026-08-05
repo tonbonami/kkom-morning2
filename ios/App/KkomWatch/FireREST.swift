@@ -54,6 +54,16 @@ enum Fire {
         return AirResult(grade: grade, pm10: pm10, pm25: pm25)
     }
 
+    // 하트 푸시 — 상대 잠금 기기에도 알림(연타 쿨다운은 서버). 라이브 하트와 별개.
+    static func notifyHeart(from: String, to: String) async {
+        guard let url = URL(string: "\(webBase)/api/heart") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["from": from, "to": to])
+        _ = try? await URLSession.shared.data(for: req)
+    }
+
     // 범프 — 폰 QuickReplyBar와 동일: /api/bump로 상대에게 푸시. from/to는 한글 이름(우댕/꼼이).
     static func sendBump(from: String, to: String, kind: String) async {
         guard let url = URL(string: "\(webBase)/api/bump") else { return }
