@@ -127,21 +127,97 @@ struct StatusBadge: View {
     }
 }
 
-// ── 하트 보내기 버튼 (iOS17+ 인터랙티브 — 앱 안 열고 상대에게 하트) ──
+// ── 하트 보내기 버튼 (iOS17+ 인터랙티브 — 앱 안 열고 상대에게 하트) · 디자인: Gemini(다꾸 스티커) ──
 @available(iOS 17.0, *)
 struct HeartSendButton: View {
-    var size: CGFloat = 15
+    // 4가지 시안 중 원하는 스타일을 선택해서 사용하세요.
+    enum ButtonStyleOption {
+        case solidRose, stickerGradient, sparkleCard, dashedStamp
+    }
+
+    var size: CGFloat = 36 // 15는 터치 영역으로 다소 작을 수 있어 36을 기본값으로 제안합니다.
+    var style: ButtonStyleOption = .stickerGradient
+
+    // MARK: - Design Tokens
+    private var cCream: Color { Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hexW: "#272522") : UIColor(hexW: "#FBF8F2") }) }
+    private var cInk: Color { Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hexW: "#E8E2D8") : UIColor(hexW: "#334155") }) }
+    private var cInkSoft: Color { Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hexW: "#B4AA9A") : UIColor(hexW: "#64748B") }) }
+    private var cRose: Color { Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hexW: "#D94C7A") : UIColor(hexW: "#FB7BA8") }) }
+    private var cMint: Color { Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hexW: "#2A5A53") : UIColor(hexW: "#99E6D9") }) }
+    private var cEmerald: Color { Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hexW: "#059669") : UIColor(hexW: "#10B981") }) }
+    private var cCard: Color { Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hexW: "#332F2A") : UIColor(hexW: "#FFFFFF") }) }
+
     var body: some View {
+        // AppIntent를 통한 인터랙티브 버튼 (위젯용)
         Button(intent: SendHeartIntent()) {
-            Image(systemName: "heart.fill")
-                .font(.system(size: size, weight: .bold))
-                .foregroundStyle(.white)
-                .padding(size * 0.6)
-                .background(cRose)
-                .clipShape(Circle())
-                .shadow(color: cRose.opacity(0.4), radius: 4, y: 2)
+            label(for: style)
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - 시안별 라벨 디자인
+    @ViewBuilder
+    private func label(for style: ButtonStyleOption) -> some View {
+        switch style {
+        case .solidRose:
+            // 1. Solid Rose
+            Image(systemName: "heart.fill")
+                .font(.system(size: size * 0.5, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: size, height: size)
+                .background(Circle().fill(cRose))
+                .shadow(color: cRose.opacity(0.3), radius: size * 0.1, x: 0, y: size * 0.1)
+
+        case .stickerGradient:
+            // 2. Sticker Gradient
+            Image(systemName: "heart.fill")
+                .font(.system(size: size * 0.5))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [cRose, cRose.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: size, height: size)
+                .background(Circle().fill(cCard))
+                .overlay(Circle().stroke(cMint, lineWidth: 1.5))
+                .rotationEffect(.degrees(-6)) // 삐뚤게 붙인 스티커 느낌
+                .shadow(color: Color.black.opacity(0.08), radius: 3, x: 1, y: 2)
+
+        case .sparkleCard:
+            // 3. Sparkle Card
+            ZStack {
+                Circle()
+                    .fill(cCard)
+                    .frame(width: size, height: size)
+                    .shadow(color: Color.black.opacity(0.06), radius: 4, y: 2)
+
+                Image(systemName: "heart.fill")
+                    .font(.system(size: size * 0.45))
+                    .foregroundColor(cRose)
+
+                Image(systemName: "sparkles")
+                    .font(.system(size: size * 0.25))
+                    .foregroundColor(cMint)
+                    .offset(x: size * 0.25, y: -size * 0.25)
+            }
+
+        case .dashedStamp:
+            // 4. Dashed Stamp
+            Image(systemName: "heart.fill")
+                .font(.system(size: size * 0.45))
+                .foregroundColor(cRose)
+                .frame(width: size, height: size)
+                .background(
+                    RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
+                        .fill(cCream)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: size * 0.3)
+                                .stroke(cRose.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
+                        )
+                )
+        }
     }
 }
 
@@ -208,7 +284,7 @@ struct SmallView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .bottomTrailing) {
-                if #available(iOS 17.0, *) { HeartSendButton(size: 13).padding(2) }
+                if #available(iOS 17.0, *) { HeartSendButton(size: 28).padding(4) }
             }
         } else { SetupView() }
     }
