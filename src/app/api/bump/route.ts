@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
+import { sendApns, keyForName } from '@/lib/apns';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 
@@ -135,29 +136,30 @@ export async function POST(req: NextRequest) {
 
   const templates = TEMPLATES[kind] || TEMPLATES.miss;
   const picked = pickRandom(templates);
+  const title = fillTemplate(picked.title, from, to);
+  const bodyText = fillTemplate(picked.body, from, to);
+
+  // 네이티브 앱 APNs 발송 — 웹푸시와 독립 채널(웹 구독 없어도 시도). 앱 닫혀 있어도 폰→워치 미러링.
+  const apnsOk = await sendApns(keyForName(to), title, bodyText).catch(() => false);
 
   const subSnap = await getDoc(doc(db, 'pushSubscriptions', to));
   if (!subSnap.exists()) {
-    // 기록은 됐고 푸시만 못 감 — 클라이언트가 구분할 수 있게 pushSkipped 표시
-    return NextResponse.json({ ok: true, counted, pushSkipped: 'no subscription for ' + to });
+    // 웹 구독은 없음(네이티브만 있을 수 있음) — 기록은 됐고 APNs 시도 결과만 반환
+    return NextResponse.json({ ok: true, counted, apns: apnsOk, pushSkipped: 'no web subscription for ' + to });
   }
   const s = subSnap.data() as { endpoint: string; keys: { p256dh: string; auth: string } };
 
-  const payload = JSON.stringify({
-    title: fillTemplate(picked.title, from, to),
-    body: fillTemplate(picked.body, from, to),
-    url: '/',
-  });
+  const payload = JSON.stringify({ title, body: bodyText, url: '/' });
 
   try {
     await webpush.sendNotification(s as any, payload);
-    return NextResponse.json({ ok: true, counted });
+    return NextResponse.json({ ok: true, counted, apns: apnsOk });
   } catch (e: any) {
     const status = e?.statusCode;
     if (status === 404 || status === 410) {
       try { await deleteDoc(subSnap.ref); } catch {}
     }
     // 기록은 됐으므로 ok:true 유지, 푸시 실패만 별도 표시
-    return NextResponse.json({ ok: true, counted, pushError: status || String(e?.body || e) });
+    return NextResponse.json({ ok: true, counted, apns: apnsOk, pushError: status || String(e?.body || e) });
   }
 }
