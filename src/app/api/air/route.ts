@@ -71,7 +71,12 @@ export async function GET(req: NextRequest) {
       fetch(rtUrl, { next: { revalidate: 300 } }),
       fetch(fcUrl, { next: { revalidate: 1800 } }), // 예보는 30분 캐시
     ]);
-    const rt = await rtRes.json();
+    const rtText = await rtRes.text();
+    if (url.searchParams.get('debug')) {
+      return NextResponse.json({ station: STATION, status: rtRes.status, raw: rtText.slice(0, 600) });
+    }
+    let rt: any = null;
+    try { rt = JSON.parse(rtText); } catch { return NextResponse.json({ ...fallback, error: 'data.go.kr 비JSON 응답' }); }
     const items: any[] = rt?.response?.body?.items ?? [];
 
     if (!items.length) return NextResponse.json(fallback);
