@@ -77,14 +77,16 @@ final class WatchStore: ObservableObject {
         } else {
             baselineSet = true   // 아직 하트 doc 없음 → baseline 확정
         }
-        // 미세먼지 — 10분마다 (호평동 + 서울 중구 둘 다)
+        // 미세먼지 — data.go.kr가 간헐적으로 빈 응답을 줌 → 실데이터만 반영(빈값으로 덮지 않음).
+        // 데이터 있으면 10분마다, 아직 없으면 1분마다 재시도.
         let now = Date().timeIntervalSince1970
-        if now - lastAirFetch > 600 {
+        let airInterval: Double = (airHome != nil && airWork != nil) ? 600 : 60
+        if now - lastAirFetch > airInterval {
             lastAirFetch = now
-            if let a = await Fire.fetchAir(station: "금곡동", region: "경기북부") {
+            if let a = await Fire.fetchAir(station: "금곡동", region: "경기북부"), a.grade != "정보 없음" {
                 airHome = AirInfo(label: "호평동", grade: a.grade, pm10: a.pm10)
             }
-            if let a = await Fire.fetchAir(station: "중구", region: "서울") {
+            if let a = await Fire.fetchAir(station: "중구", region: "서울"), a.grade != "정보 없음" {
                 airWork = AirInfo(label: "서울 중구", grade: a.grade, pm10: a.pm10)
             }
         }
