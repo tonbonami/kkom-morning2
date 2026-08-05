@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchKit
 
 // ── SwiftUI Color(hex) ──
 extension Color {
@@ -58,37 +59,128 @@ struct ContentView: View {
 }
 
 // ── 접속 + D-day + 하트 ──
+// ── 첫 화면 — Gemini 디자인 (D-day + 하단 미세먼지 요약, 중구 강조) ──
 struct PresenceView: View {
     @EnvironmentObject var store: WatchStore
+
+    let bgColor = Color(hexW: "#17110F")
+
     var body: some View {
         ZStack {
-            LinearGradient(colors: [cBgTop, cBg], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
+            bgColor.ignoresSafeArea()
 
-            VStack(spacing: 7) {
-                HStack(spacing: 5) {
-                    Circle().fill(store.online ? cMint : Color.gray.opacity(0.6)).frame(width: 8, height: 8)
-                    Text(store.online ? "\(store.partner) 지금 함께" : "\(store.partner) · \(store.agoText())")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.7)
+            VStack(spacing: 0) {
+                // 1. 접속 상태 (Top)
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(store.online ? Color(hexW: "#34D399") : Color.gray)
+                        .frame(width: 8, height: 8)
+                        // 온라인일 때 가벼운 맥동(Glow) 효과를 위한 그림자
+                        .shadow(color: store.online ? Color(hexW: "#34D399").opacity(0.6) : .clear, radius: 2)
+
+                    Text("\(store.partner) \(store.online ? "" : "· ")\(store.agoText())")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(store.online ? .white : .white.opacity(0.6))
+                }
+                .padding(.top, 4)
+
+                Spacer(minLength: 8)
+
+                // 2. 메인 D-day & 하트 버튼 (Center)
+                VStack(spacing: 6) {
+                    Text(store.ddayText())
+                        .font(.system(size: 38, weight: .bold, design: .rounded))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color(hexW: "#FB7BA8"), Color.white],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+
+                    Button(action: {
+                        // 가벼운 햅틱 후 하트 발송
+                        WKInterfaceDevice.current().play(.click)
+                        store.fling("❤️")
+                    }) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(.white)
+                            .frame(width: 44, height: 44)
+                            .background(
+                                Circle().fill(
+                                    LinearGradient(
+                                        colors: [Color(hexW: "#FB7BA8"), Color(hexW: "#F87171")],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                            )
+                            .shadow(color: Color(hexW: "#FB7BA8").opacity(0.3), radius: 5, y: 3)
+                    }
+                    .buttonStyle(PlainButtonStyle()) // watchOS 기본 회색 배경 제거
                 }
 
-                Text(store.ddayText())
-                    .font(.system(size: 30, weight: .heavy, design: .rounded))
-                    .foregroundStyle(store.online ? cMint : .white.opacity(0.9))
+                Spacer(minLength: 12)
 
-                Button { store.fling("❤️") } label: {
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 32))
-                        .foregroundStyle(cRose)
-                        .scaleEffect(store.sending ? 0.82 : 1)
-                        .animation(.spring(response: 0.25, dampingFraction: 0.5), value: store.sending)
+                // 3. 미세먼지 요약 (Bottom)
+                HStack(spacing: 6) {
+                    // 우댕 지역 (Home)
+                    compactAirBadge(info: store.airHome, fallbackName: "호평", isEmphasized: false)
+
+                    // 꼼이 지역 (Work - 미세먼지 관심도 높으므로 살짝 강조)
+                    compactAirBadge(info: store.airWork, fallbackName: "중구", isEmphasized: true)
                 }
-                .buttonStyle(.plain)
-                .padding(.top, 2)
-
-                Text("톡  ·  ← 밀어 스티커").font(.system(size: 10)).foregroundStyle(.white.opacity(0.45))
+                .padding(.bottom, 6)
             }
             .padding(.horizontal, 8)
+        }
+    }
+
+    // MARK: - 미세먼지 미니 배지 컴포넌트
+    @ViewBuilder
+    private func compactAirBadge(info: AirInfo?, fallbackName: String, isEmphasized: Bool) -> some View {
+        let grade = info?.grade ?? "정보 없음"
+        let color = airColor(for: grade)
+
+        // 라벨이 길면(예: "서울 중구") 앞 2글자("서울" 또는 "중구")만 쓰거나, 폴백 이름 사용
+        let rawLabel = info?.label ?? fallbackName
+        let shortLabel = String(rawLabel.split(separator: " ").last ?? Substring(rawLabel)).prefix(2)
+
+        HStack(spacing: 4) {
+            Text(shortLabel)
+                .font(.system(size: 11, weight: isEmphasized ? .bold : .medium))
+                .foregroundColor(isEmphasized ? .white : .white.opacity(0.7))
+
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+
+            Text(grade)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(color)
+        }
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity) // HStack 안에서 반반씩 공간 차지
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(color.opacity(0.15))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                // 꼼이 지역(Emphasized)은 테두리를 조금 더 진하고 두껍게 처리
+                .stroke(color.opacity(isEmphasized ? 0.4 : 0.1), lineWidth: isEmphasized ? 1 : 0.5)
+        )
+    }
+
+    // MARK: - 미세먼지 색상 헬퍼
+    private func airColor(for grade: String) -> Color {
+        switch grade {
+        case "좋음": return Color(hexW: "#34D399")
+        case "보통": return Color(hexW: "#60A5FA")
+        case "나쁨": return Color(hexW: "#FB923C")
+        case "매우 나쁨": return Color(hexW: "#F87171")
+        default: return Color.gray
         }
     }
 }
