@@ -81,6 +81,10 @@ struct InkCanvasRepresentable: UIViewRepresentable {
     func updateUIView(_ uiView: StrokeCanvasView, context: Context) {
         uiView.controller = controller
     }
+    // 낙서장이 화면에서 사라질 때(닫기) 호출 — SSE 스트림 정리해서 연결·메모리 누수 방지.
+    static func dismantleUIView(_ uiView: StrokeCanvasView, coordinator: Void) {
+        uiView.sync?.stop()
+    }
 }
 
 // ── 핵심 캔버스 ──

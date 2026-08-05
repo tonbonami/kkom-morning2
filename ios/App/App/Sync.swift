@@ -30,12 +30,23 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
     var onPassage: ((String?) -> Void)?
     var onReact: (([String], [(String, String, String)]) -> Void)?  // likedBy(names), comments[(id,by,text)]
 
+    // 모든 상태 접근을 이 serial 큐로 직렬화(레이스 제거). 델리게이트 콜백도 이 큐에서 옴.
+    private let q = DispatchQueue(label: "com.tonbonami.kkommorning.sync")
+    private var stopped = false
+    private lazy var delegateQueue: OperationQueue = {
+        let oq = OperationQueue()
+        oq.underlyingQueue = q
+        oq.maxConcurrentOperationCount = 1
+        return oq
+    }()
+
     private lazy var streamSession: URLSession = {
         let c = URLSessionConfiguration.default
         c.timeoutIntervalForRequest = 300
         c.timeoutIntervalForResource = 86400
         c.httpMaximumConnectionsPerHost = 8
-        return URLSession(configuration: c, delegate: self, delegateQueue: nil)
+        // delegateQueue를 전용 serial 큐로 → didReceive/didComplete가 q에서 실행 = 쓰기와 자동 직렬화.
+        return URLSession(configuration: c, delegate: self, delegateQueue: delegateQueue)
     }()
 
     private enum Kind { case book, strokes, live, meta, react }
@@ -57,8 +68,23 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
     }
 
     func start() {
-        openStream("\(RTDB_URL)/canvas/book.json", kind: .book)
-        openPageStreams()
+        q.async { [weak self] in
+            guard let self = self, !self.stopped else { return }
+            self.openStream("\(RTDB_URL)/canvas/book.json", kind: .book)
+            self.openPageStreams()
+        }
+    }
+
+    // 낙서장 닫을 때 호출 — SSE 전부 취소 + 델리게이트 강참조 해제(누수 방지). 이후 재접속 안 함.
+    func stop() {
+        q.async { [weak self] in
+            guard let self = self else { return }
+            self.stopped = true
+            for (_, t) in self.tasks { t.cancel() }
+            self.tasks.removeAll(); self.kindOf.removeAll()
+            self.buffer.removeAll(); self.evName.removeAll(); self.evData.removeAll()
+        }
+        streamSession.invalidateAndCancel()   // self(델리게이트) 강참조 끊김 → SyncClient 해제됨
     }
 
     private func openPageStreams() {
@@ -69,7 +95,7 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
     }
 
     private func openStream(_ urlStr: String, kind: Kind) {
-        guard let url = URL(string: urlStr) else { return }
+        guard !stopped, let url = URL(string: urlStr) else { return }
         var req = URLRequest(url: url)
         req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         let task = streamSession.dataTask(with: req)
@@ -100,29 +126,40 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
 
     // ── 쓰기 ──
     func commit(id: String, _ s: NetStroke) {
-        var dict: [String: Any] = ["color": s.color, "size": s.size,
-                                   "points": s.points.map { ["x": $0.x, "y": $0.y, "p": $0.p] },
-                                   "by": me == "udaeng" ? "우댕" : "꼼이", "t": Int(Date().timeIntervalSince1970 * 1000)]
-        write("PUT", "\(RTDB_URL)/canvas/\(page)/strokes/\(me)/\(id).json", body: jsonData(dict))
-        committed["\(me)/\(id)"] = s   // 낙관적 로컬 반영(에코 오면 동일 id로 덮임)
-        _ = dict
+        q.async { [weak self] in
+            guard let self = self else { return }
+            let dict: [String: Any] = ["color": s.color, "size": s.size,
+                                       "points": s.points.map { ["x": $0.x, "y": $0.y, "p": $0.p] },
+                                       "by": self.me == "udaeng" ? "우댕" : "꼼이", "t": Int(Date().timeIntervalSince1970 * 1000)]
+            self.write("PUT", "\(RTDB_URL)/canvas/\(self.page)/strokes/\(self.me)/\(id).json", body: self.jsonData(dict))
+            self.committed["\(self.me)/\(id)"] = s   // 낙관적 로컬 반영(에코 오면 동일 id로 덮임)
+        }
     }
     func deleteMine(id: String) {
-        write("DELETE", "\(RTDB_URL)/canvas/\(page)/strokes/\(me)/\(id).json", body: nil)
-        committed["\(me)/\(id)"] = nil
+        q.async { [weak self] in
+            guard let self = self else { return }
+            self.write("DELETE", "\(RTDB_URL)/canvas/\(self.page)/strokes/\(self.me)/\(id).json", body: nil)
+            self.committed["\(self.me)/\(id)"] = nil
+        }
     }
     func clearMine() {
-        write("DELETE", "\(RTDB_URL)/canvas/\(page)/strokes/\(me).json", body: nil)
-        write("PUT", "\(RTDB_URL)/canvas/\(page)/live/\(me).json", body: "null".data(using: .utf8))
-        for k in committed.keys where k.hasPrefix("\(me)/") { committed[k] = nil }
+        q.async { [weak self] in
+            guard let self = self else { return }
+            self.write("DELETE", "\(RTDB_URL)/canvas/\(self.page)/strokes/\(self.me).json", body: nil)
+            self.write("PUT", "\(RTDB_URL)/canvas/\(self.page)/live/\(self.me).json", body: "null".data(using: .utf8))
+            for k in self.committed.keys where k.hasPrefix("\(self.me)/") { self.committed[k] = nil }
+        }
     }
     func publishLive(_ s: NetStroke?, id: String) {
-        guard let s = s else {
-            write("PUT", "\(RTDB_URL)/canvas/\(page)/live/\(me).json", body: "null".data(using: .utf8)); return
+        q.async { [weak self] in
+            guard let self = self else { return }
+            guard let s = s else {
+                self.write("PUT", "\(RTDB_URL)/canvas/\(self.page)/live/\(self.me).json", body: "null".data(using: .utf8)); return
+            }
+            let dict: [String: Any] = ["id": id, "color": s.color, "size": s.size,
+                                       "points": s.points.map { ["x": $0.x, "y": $0.y, "p": $0.p] }]
+            self.write("PUT", "\(RTDB_URL)/canvas/\(self.page)/live/\(self.me).json", body: self.jsonData(dict))
         }
-        let dict: [String: Any] = ["id": id, "color": s.color, "size": s.size,
-                                   "points": s.points.map { ["x": $0.x, "y": $0.y, "p": $0.p] }]
-        write("PUT", "\(RTDB_URL)/canvas/\(page)/live/\(me).json", body: jsonData(dict))
     }
 
     // 페이지 만들기/이동 (book)
@@ -141,28 +178,40 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
         write("DELETE", "\(RTDB_URL)/canvas/\(id).json", body: nil)  // 획·지문·라이브·리액션 통째로
     }
     func setPassage(_ url: String?) {
-        if let url = url {
-            write("PUT", "\(RTDB_URL)/canvas/\(page)/meta/passageUrl.json", body: "\"\(url)\"".data(using: .utf8))
-        } else {
-            write("DELETE", "\(RTDB_URL)/canvas/\(page)/meta/passageUrl.json", body: nil)
+        q.async { [weak self] in
+            guard let self = self else { return }
+            if let url = url {
+                self.write("PUT", "\(RTDB_URL)/canvas/\(self.page)/meta/passageUrl.json", body: "\"\(url)\"".data(using: .utf8))
+            } else {
+                self.write("DELETE", "\(RTDB_URL)/canvas/\(self.page)/meta/passageUrl.json", body: nil)
+            }
         }
     }
 
     // 하트/댓글
     func toggleLike(_ on: Bool) {
-        if on { write("PUT", "\(RTDB_URL)/canvas/\(page)/react/likes/\(me).json", body: "true".data(using: .utf8)) }
-        else { write("DELETE", "\(RTDB_URL)/canvas/\(page)/react/likes/\(me).json", body: nil) }
+        q.async { [weak self] in
+            guard let self = self else { return }
+            if on { self.write("PUT", "\(RTDB_URL)/canvas/\(self.page)/react/likes/\(self.me).json", body: "true".data(using: .utf8)) }
+            else { self.write("DELETE", "\(RTDB_URL)/canvas/\(self.page)/react/likes/\(self.me).json", body: nil) }
+        }
     }
     func addComment(_ text: String) {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return }
-        let id = "c_\(Int(Date().timeIntervalSince1970 * 1000))"
-        let by = me == "udaeng" ? "우댕" : "꼼이"
-        write("PUT", "\(RTDB_URL)/canvas/\(page)/react/comments/\(id).json",
-              body: jsonData(["by": by, "text": String(t.prefix(500)), "t": Int(Date().timeIntervalSince1970 * 1000)]))
+        q.async { [weak self] in
+            guard let self = self else { return }
+            let id = "c_\(Int(Date().timeIntervalSince1970 * 1000))"
+            let by = self.me == "udaeng" ? "우댕" : "꼼이"
+            self.write("PUT", "\(RTDB_URL)/canvas/\(self.page)/react/comments/\(id).json",
+                       body: self.jsonData(["by": by, "text": String(t.prefix(500)), "t": Int(Date().timeIntervalSince1970 * 1000)]))
+        }
     }
     func deleteComment(_ id: String) {
-        write("DELETE", "\(RTDB_URL)/canvas/\(page)/react/comments/\(id).json", body: nil)
+        q.async { [weak self] in
+            guard let self = self else { return }
+            self.write("DELETE", "\(RTDB_URL)/canvas/\(self.page)/react/comments/\(id).json", body: nil)
+        }
     }
 
     private func jsonData(_ obj: Any) -> Data? { try? JSONSerialization.data(withJSONObject: obj) }
@@ -323,8 +372,9 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
         let id = task.taskIdentifier
         guard let kind = kindOf[id] else { return }
         kindOf[id] = nil; tasks[id] = nil; buffer[id] = nil; evName[id] = nil; evData[id] = nil
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            guard let self = self else { return }
+        guard !stopped else { return }   // 닫는 중이면 재접속 안 함
+        q.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self = self, !self.stopped else { return }
             switch kind {
             case .book:    self.openStream("\(RTDB_URL)/canvas/book.json", kind: .book)
             case .strokes: self.openStream("\(RTDB_URL)/canvas/\(self.page)/strokes.json", kind: .strokes)
