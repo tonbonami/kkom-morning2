@@ -1,151 +1,204 @@
 'use client';
 
-// 라이브 하트 — 둘 다 접속 중일 때 화면 중앙에 큰 두근두근 하트.
-// 탭하면 양방향 하트 폭탄 (인스타 라이브식). 내가 탭 → 내 화면 + 상대 화면 둘 다 터짐.
-
-import { useEffect, useRef, useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { throwHeart, subscribeLiveHearts } from '@/lib/liveHearts';
 import { haptic } from '@/lib/feedback';
 
-interface Particle {
-  id: number;
-  x: number;      // 좌우 흩날림 (-50 ~ 50 vw 비율은 px로)
-  drift: number;  // 상승 중 좌우 흔들림
-  scale: number;
-  rot: number;
-  dur: number;    // 상승 시간
-  hue: number;    // 색조 (핑크~빨강 범위) — ❤️일 때만 적용
-  emoji: string;  // 날아오르는 이모지 (워치 스티커 날리기와 공용)
+interface LiveHeartLayerProps {
+  me: string;
+  partnerActive: boolean;
 }
 
-let pidSeq = 0;
+type Ping = {
+  from: string;
+  nonce: string;
+  at: Date | null;
+  emoji: string;
+};
 
-export default function LiveHeartLayer({ me, partnerActive }: { me: string; partnerActive: boolean }) {
+type Particle = {
+  id: string;
+  emoji: string;
+  startX: number;
+  endX: number;
+  scale: number;
+  duration: number;
+  rotation: number;
+};
+
+const EMOJI_MIX = ['❤️', '💕', '✨', '💗', '💖'];
+
+export default function LiveHeartLayer({ me, partnerActive }: LiveHeartLayerProps) {
   const [particles, setParticles] = useState<Particle[]>([]);
-  const [burst, setBurst] = useState(false); // 중앙 하트 눌렀을 때 살짝 커지는 반응
   const seenNonce = useRef<string | null>(null);
 
-  // 폭탄 — n개의 이모지를 바닥 중앙에서 위로 흩뿌림 (기본 ❤️)
-  const bomb = (n: number, emoji: string = '❤️') => {
-    const next: Particle[] = [];
-    for (let i = 0; i < n; i++) {
-      next.push({
-        id: ++pidSeq,
-        x: (Math.random() - 0.5) * 160,
-        drift: (Math.random() - 0.5) * 120,
-        scale: 0.7 + Math.random() * 1.1,
-        rot: (Math.random() - 0.5) * 80,
-        dur: 1.6 + Math.random() * 1.2,
-        hue: Math.random() * 40 - 10, // -10~30 (핑크~빨강)
-        emoji,
-      });
-    }
-    setParticles((prev) => {
-      const merged = [...prev, ...next];
-      // 성능 상한 — 너무 많으면 오래된 것 버림
-      return merged.length > 80 ? merged.slice(merged.length - 80) : merged;
-    });
-  };
+  // 하트 폭탄 생성 함수
+  const triggerParticles = useCallback(() => {
+    const count = Math.floor(Math.random() * 4) + 4; // 4~7개 생성
+    const newParticles: Particle[] = Array.from({ length: count }).map(() => ({
+      id: Math.random().toString(36).substring(2, 9),
+      emoji: EMOJI_MIX[Math.floor(Math.random() * EMOJI_MIX.length)],
+      startX: 30 + Math.random() * 40, // 화면 가로 30% ~ 70% 사이에서 출발
+      endX: 10 + Math.random() * 80,   // 화면 가로 10% ~ 90% 사이로 퍼지며 상승
+      scale: 0.8 + Math.random() * 0.8, // 0.8 ~ 1.6 크기
+      duration: 2.5 + Math.random() * 1.5, // 2.5초 ~ 4초 체공
+      rotation: (Math.random() - 0.5) * 60, // -30도 ~ 30도 회전
+    }));
 
-  const removeParticle = (id: number) => {
-    setParticles((prev) => prev.filter((p) => p.id !== id));
-  };
+    setParticles((prev) => [...prev, ...newParticles]);
+  }, []);
 
-  // 내가 하트 탭 — 던지기 + 내 화면 폭탄 + 햅틱
-  const handleTap = () => {
-    haptic([12, 20, 12]);
-    setBurst(true);
-    setTimeout(() => setBurst(false), 200);
-    bomb(6);
-    throwHeart(me);
-  };
-
-  // 상대가 던진 하트 수신 — 내 화면에서도 폭탄 (양방향)
+  // 구독 및 수신 처리
   useEffect(() => {
-    if (!me) return;
-    const unsub = subscribeLiveHearts(me, (ping) => {
-      // 첫 스냅샷(기존 doc)은 무시 — 마운트 시점 이후의 새 nonce만 폭탄
-      if (seenNonce.current === null) { seenNonce.current = ping.nonce; return; }
-      if (ping.nonce === seenNonce.current) return;
-      seenNonce.current = ping.nonce;
-      haptic(15);
-      bomb(8, ping.emoji || '❤️');
+    let isFirst = true;
+
+    const unsub = subscribeLiveHearts(me, (ping: Ping) => {
+      // 1. 마운트 직후 첫 스냅샷(기존 doc)은 무시
+      if (isFirst) {
+        isFirst = false;
+        seenNonce.current = ping.nonce;
+        return;
+      }
+
+      // 2. 새로운 nonce가 올 때만 폭탄 + 진동
+      if (ping.nonce && ping.nonce !== seenNonce.current) {
+        seenNonce.current = ping.nonce;
+        triggerParticles();
+        haptic([12, 20, 12]); // 두근거리는 리듬
+      }
     });
+
     return () => unsub();
-  }, [me]);
+  }, [me, triggerParticles]);
 
-  // 둘 다 접속 중일 때만 표시
-  if (!partnerActive) {
-    // 접속 끊겨도 날아가던 하트는 마저 보여주기 위해 particles만 렌더
-    return (
-      <div className="fixed inset-0 z-[55] pointer-events-none overflow-hidden" aria-hidden>
-        {particles.map((p) => (
-          <HeartParticle key={p.id} p={p} onDone={() => removeParticle(p.id)} />
-        ))}
-      </div>
-    );
-  }
+  // 중앙 하트 탭 핸들러
+  const handleTap = useCallback(() => {
+    haptic(15);
+    triggerParticles();
+    throwHeart(me);
+  }, [me, triggerParticles]);
+
+  // 파티클 애니메이션 종료 시 제거
+  const removeParticle = useCallback((id: string) => {
+    setParticles((prev) => prev.filter((p) => p.id !== id));
+  }, []);
 
   return (
-    <div className="fixed inset-0 z-[55] pointer-events-none overflow-hidden" aria-hidden>
-      {/* 하트 폭탄 파티클 */}
-      {particles.map((p) => (
-        <HeartParticle key={p.id} p={p} onDone={() => removeParticle(p.id)} />
-      ))}
-
-      {/* 중앙 큰 두근두근 하트 */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <button
-          onClick={handleTap}
-          className="pointer-events-auto active:scale-95 transition-transform"
-          aria-label="하트 보내기"
-          style={{ filter: 'drop-shadow(0 12px 28px rgba(244,63,94,0.35))' }}
-        >
-          <svg
-            width="150" height="150" viewBox="0 0 24 24"
-            className={burst ? 'live-heart live-heart-burst' : 'live-heart'}
-          >
-            <defs>
-              <linearGradient id="lh-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#FB7185" />
-                <stop offset="55%" stopColor="#F43F5E" />
-                <stop offset="100%" stopColor="#E11D48" />
-              </linearGradient>
-            </defs>
-            <path
-              fill="url(#lh-grad)"
-              d="M12 21s-6.7-4.35-9.33-8.02C1.1 10.7 1.5 7.6 3.9 6.1c1.9-1.2 4.3-.7 5.6.9L12 9.9l2.5-2.9c1.3-1.6 3.7-2.1 5.6-.9 2.4 1.5 2.8 4.6 1.23 6.88C18.7 16.65 12 21 12 21z"
-            />
-          </svg>
-        </button>
-        <p className="mt-1 text-[13px] font-black text-rose-500/90 bg-white/70 backdrop-blur-sm px-3 py-1 rounded-full pointer-events-none shadow-sm">
-          지금 함께야 💕 톡 해봐
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function HeartParticle({ p, onDone }: { p: Particle; onDone: () => void }) {
-  return (
-    <span
-      onAnimationEnd={onDone}
-      style={{
-        position: 'absolute',
-        left: '50%',
-        bottom: '18%',
-        fontSize: `${28 * p.scale}px`,
-        // CSS 변수로 각 파티클 랜덤값 전달
-        ['--x' as any]: `${p.x}px`,
-        ['--drift' as any]: `${p.drift}px`,
-        ['--rot' as any]: `${p.rot}deg`,
-        animation: `heart-rise ${p.dur}s cubic-bezier(.35,.7,.5,1) forwards`,
-        filter: `${p.emoji === '❤️' ? `hue-rotate(${p.hue}deg) ` : ''}drop-shadow(0 3px 6px rgba(244,63,94,0.25))`,
-        willChange: 'transform, opacity',
-        pointerEvents: 'none',
-      }}
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center overflow-hidden pointer-events-none"
+      aria-hidden="true"
     >
-      {p.emoji}
-    </span>
+      {/* 1. 파티클(하트 폭탄) 레이어 - partnerActive=false 여도 유지됨 */}
+      <AnimatePresence>
+        {particles.map((p) => (
+          <motion.div
+            key={p.id}
+            initial={{
+              y: '50vh',
+              x: `${p.startX}vw`,
+              scale: p.scale * 0.2,
+              opacity: 0,
+              rotate: 0
+            }}
+            animate={{
+              y: '-60vh',
+              x: `${p.endX}vw`,
+              scale: p.scale,
+              opacity: [0, 1, 1, 0],
+              rotate: p.rotation
+            }}
+            transition={{
+              duration: p.duration,
+              ease: [0.25, 1, 0.5, 1] // 부드러운 감속 이징
+            }}
+            onAnimationComplete={() => removeParticle(p.id)}
+            className="absolute text-4xl select-none"
+            style={{ textShadow: '0 4px 12px rgba(244, 63, 94, 0.4)' }}
+          >
+            {p.emoji}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+
+      {/* 2. 중앙 왕하트 레이어 - partnerActive=true 일 때만 표시 */}
+      <AnimatePresence>
+        {partnerActive && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            className="relative flex flex-col items-center justify-center pointer-events-auto"
+          >
+            {/* 글래스모피즘 상태 배지 */}
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="absolute -top-16 px-4 py-2 rounded-full shadow-lg border border-white/40 bg-white/30 backdrop-blur-md flex items-center gap-2"
+            >
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+              <span className="text-sm font-bold text-rose-600 tracking-tight">
+                지금 함께야 💕 톡 해봐
+              </span>
+            </motion.div>
+
+            {/* 빛 번짐 배경 (Glow) */}
+            <motion.div
+              animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute w-40 h-40 bg-rose-400/40 rounded-full blur-2xl"
+            />
+
+            {/* 인터랙티브 중앙 하트 버튼 */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={handleTap}
+              className="relative z-10 w-32 h-32 flex items-center justify-center focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-300 rounded-full drop-shadow-[0_12px_24px_rgba(225,29,72,0.4)]"
+            >
+              {/* 맥동하는 심장 애니메이션 */}
+              <motion.div
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                className="w-full h-full relative flex items-center justify-center"
+              >
+                {/* 커스텀 그라데이션 SVG 하트 */}
+                <svg viewBox="0 0 24 24" className="w-28 h-28 drop-shadow-md">
+                  <defs>
+                    <linearGradient id="heartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#FB7185" />
+                      <stop offset="50%" stopColor="#F43F5E" />
+                      <stop offset="100%" stopColor="#E11D48" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    fill="url(#heartGradient)"
+                    d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                  />
+                </svg>
+
+                {/* 반짝이 장식 (Sparkles) */}
+                <motion.div
+                  animate={{ opacity: [0, 1, 0], scale: [0.8, 1.2, 0.8], rotate: [0, 45, 90] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                  className="absolute top-2 right-2 text-yellow-300 text-xl pointer-events-none"
+                >
+                  ✨
+                </motion.div>
+                <motion.div
+                  animate={{ opacity: [0, 1, 0], scale: [0.8, 1, 0.8], rotate: [90, 45, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, delay: 0.8 }}
+                  className="absolute bottom-4 left-4 text-white/80 text-sm pointer-events-none"
+                >
+                  ✨
+                </motion.div>
+              </motion.div>
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
