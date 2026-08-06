@@ -87,6 +87,7 @@ export default function KkomMorningHome() {
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatUnread, setChatUnread] = useState(false);
+  const [msgLimit, setMsgLimit] = useState(40);
   const wasOnlineRef = useRef(false);
   const autoOpenedRef = useRef(false);
   const lastReadIdRef = useRef<string | null>(null);
@@ -283,11 +284,11 @@ export default function KkomMorningHome() {
     });
   }, [userName, partnerPresence, partnerDrawing, nextEvent, air, weather, moods]);
 
-  // 채팅 — 실시간 메시지 구독
+  // 채팅 — 실시간 메시지 구독 (msgLimit 늘리면 지난 대화 더 불러옴)
   useEffect(() => {
-    const unsub = subscribeMessages(setMessages);
+    const unsub = subscribeMessages(setMessages, msgLimit);
     return () => unsub();
-  }, []);
+  }, [msgLimit]);
 
   // 안 읽음 표시 — 채팅 열려있으면 읽음 처리, 닫혀있고 상대 새 메시지면 뱃지
   useEffect(() => {
@@ -1160,8 +1161,10 @@ export default function KkomMorningHome() {
           messages={messages}
           open={chatOpen}
           onClose={() => setChatOpen(false)}
-          onSend={(text, imageUrl, sticker) => sendMessage(userName, text, isTogetherNow(partnerPresence), imageUrl, sticker)}
+          onSend={(text, imageUrl, sticker, replyTo) => sendMessage(userName, text, isTogetherNow(partnerPresence), imageUrl, sticker, replyTo)}
           partnerOnline={isTogetherNow(partnerPresence)}
+          onLoadMore={() => setMsgLimit((l) => l + 40)}
+          hasMore={messages.length >= msgLimit}
         />
       )}
     </div>

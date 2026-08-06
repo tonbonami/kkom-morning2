@@ -1,9 +1,14 @@
 // 우리 둘 실시간 채팅 — Firestore 'messages' 컬렉션. 기록 영구 저장 + onSnapshot 실시간.
 // 입력중은 RTDB(chatTyping, 휘발성), 읽음은 Firestore(chatReads), 사진은 Storage.
 import { db, rtdb, storage } from './firebase';
-import { collection, addDoc, doc, setDoc, query, orderBy, limit, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
+import {
+  collection, addDoc, doc, setDoc, getDoc, updateDoc, deleteField,
+  query, orderBy, limit, onSnapshot, serverTimestamp, Timestamp,
+} from 'firebase/firestore';
 import { ref as dbRef, set as dbSet, onValue, onDisconnect } from 'firebase/database';
 import { ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+
+export interface ReplyRef { id: string; from: string; text: string }
 
 export interface ChatMessage {
   id: string;
@@ -11,12 +16,16 @@ export interface ChatMessage {
   text: string;
   imageUrl?: string;
   sticker?: string;  // 포차코 표정 이미지 경로 (/pochacco/face_*.png)
+  replyTo?: ReplyRef; // 답장 대상
+  reactions?: Record<string, string>; // userKey('udaeng'|'kkomi') → 이모지
+  deleted?: boolean;
   createdAt: Date | null;
 }
 
 // 메시지 전송 — Firestore 저장(실시간) + 상대가 접속 안 했으면 푸시(잠긴 폰).
 export async function sendMessage(
-  from: string, text: string, partnerOnline: boolean, imageUrl?: string, sticker?: string,
+  from: string, text: string, partnerOnline: boolean,
+  imageUrl?: string, sticker?: string, replyTo?: ReplyRef,
 ): Promise<void> {
   const t = text.trim();
   if (!t && !imageUrl && !sticker) return;
@@ -24,6 +33,7 @@ export async function sendMessage(
   const payload: Record<string, unknown> = { from, text: clipped, createdAt: serverTimestamp() };
   if (imageUrl) payload.imageUrl = imageUrl;
   if (sticker) payload.sticker = sticker;
+  if (replyTo) payload.replyTo = { id: replyTo.id, from: replyTo.from, text: replyTo.text.slice(0, 80) };
   await addDoc(collection(db, 'messages'), payload);
   if (!partnerOnline) {
     const to = from === '우댕' ? '꼼이' : '우댕';
@@ -69,6 +79,21 @@ export function subscribeRead(partnerKey: string, cb: (at: Date | null) => void)
   );
 }
 
+// 메시지 반응(이모지) — 유저당 1개, 같은 이모지 다시 누르면 취소.
+export async function toggleReaction(messageId: string, userKey: string, emoji: string): Promise<void> {
+  const ref = doc(db, 'messages', messageId);
+  const snap = await getDoc(ref);
+  const cur = ((snap.data()?.reactions ?? {}) as Record<string, string>)[userKey];
+  await updateDoc(ref, { [`reactions.${userKey}`]: cur === emoji ? deleteField() : emoji });
+}
+
+// 메시지 삭제 — 양쪽에서 '삭제된 메시지'로 표시(soft delete).
+export async function deleteMessage(messageId: string): Promise<void> {
+  await updateDoc(doc(db, 'messages', messageId), {
+    deleted: true, text: '', imageUrl: deleteField(), sticker: deleteField(),
+  });
+}
+
 // 최근 max개 실시간 구독 (오래된→최신 순으로 콜백).
 export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): () => void {
   const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(max));
@@ -77,8 +102,16 @@ export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): 
     (snap) => {
       const msgs: ChatMessage[] = snap.docs
         .map((d) => {
-          const data = d.data() as { from?: string; text?: string; imageUrl?: string; sticker?: string; createdAt?: Timestamp };
-          return { id: d.id, from: data.from ?? '', text: data.text ?? '', imageUrl: data.imageUrl, sticker: data.sticker, createdAt: data.createdAt?.toDate?.() ?? null };
+          const data = d.data() as {
+            from?: string; text?: string; imageUrl?: string; sticker?: string;
+            replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; createdAt?: Timestamp;
+          };
+          return {
+            id: d.id, from: data.from ?? '', text: data.text ?? '',
+            imageUrl: data.imageUrl, sticker: data.sticker, replyTo: data.replyTo,
+            reactions: data.reactions, deleted: data.deleted,
+            createdAt: data.createdAt?.toDate?.() ?? null,
+          };
         })
         .reverse();
       cb(msgs);
