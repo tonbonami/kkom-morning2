@@ -39,6 +39,7 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         if let v = call.getString("airLoc") { d["airLoc"] = v }
         if let v = call.getInt("weatherTemp") { d["weatherTemp"] = v }
         if let v = call.getString("weatherSky") { d["weatherSky"] = v }
+        if let v = call.getString("rainEmoji") { d["rainEmoji"] = v }
         if let v = call.getString("partnerMood") { d["partnerMood"] = v }
 
         if let data = try? JSONSerialization.data(withJSONObject: d) {

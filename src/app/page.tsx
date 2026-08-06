@@ -268,6 +268,15 @@ export default function KkomMorningHome() {
     if (!userName) return;
     const partnerName = partnerOf(userName) as '우댕' | '꼼이';
     const grade = air?.grade;
+    const rainEmoji = (() => {
+      const wx = weather as any;
+      const pty = String(wx?.current?.pty ?? wx?.today?.pty ?? '0');
+      const prob = wx?.today?.precipitation?.probability as number | null | undefined;
+      if (pty === '3') return '🌨️';                              // 눈
+      if (pty === '1' || pty === '2' || pty === '4') return '☔'; // 비/비눈/소나기
+      if (prob != null && prob >= 60) return '☔';                // 강수확률 높음
+      return undefined;
+    })();
     pushWidgetSnapshot({
       partnerName,
       partnerLastSeenMs: partnerPresence.lastSeenAt ? partnerPresence.lastSeenAt.getTime() : 0,
@@ -280,6 +289,7 @@ export default function KkomMorningHome() {
       airLoc: air?.location ?? undefined,
       weatherTemp: weather?.current?.temp ?? undefined,
       weatherSky: weather?.current?.sky ?? undefined,
+      weatherRainEmoji: rainEmoji,
       partnerMood: moods[partnerName]?.emoji,
     });
   }, [userName, partnerPresence, partnerDrawing, nextEvent, air, weather, moods]);

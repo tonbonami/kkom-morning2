@@ -37,6 +37,7 @@ export interface WidgetSnapshot {
   airLoc?: string;
   weatherTemp?: number;
   weatherSky?: string;
+  weatherRainEmoji?: string;   // 비/눈 예보 있으면 ☔/🌨️
   partnerMood?: string;        // 이모지
 }
 
@@ -61,6 +62,7 @@ export async function pushWidgetSnapshot(s: WidgetSnapshot): Promise<void> {
     if (s.airLoc) payload.airLoc = s.airLoc;
     if (s.weatherTemp != null) payload.weatherTemp = s.weatherTemp;
     if (s.weatherSky) payload.weatherSky = s.weatherSky;
+    if (s.weatherRainEmoji) payload.rainEmoji = s.weatherRainEmoji;
     if (s.partnerMood) payload.partnerMood = s.partnerMood;
     await bridge.update(payload);
 
@@ -82,6 +84,7 @@ export async function pushWidgetSnapshot(s: WidgetSnapshot): Promise<void> {
     if (s.airPm10 != null) state.pm10 = s.airPm10;
     if (s.airPm25 != null) state.pm25 = s.airPm25;
     if (s.weatherTemp != null) state.temp = s.weatherTemp;
+    if (s.weatherRainEmoji) state.rainEmoji = s.weatherRainEmoji;
     if (s.partnerMood) state.partnerMood = s.partnerMood;
     fetch('/api/live-activity/sync', {
       method: 'POST',

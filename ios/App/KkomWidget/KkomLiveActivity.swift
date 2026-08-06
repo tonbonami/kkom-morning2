@@ -55,20 +55,10 @@ struct LockLiveView: View {
                         .foregroundColor(.cInkSoft)
                 }
 
-                // 보조 정보: 위치 및 D-day 배지
-                HStack(spacing: 8) {
-                    Text(state.airLoc ?? "")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.cInkSoft)
-
-                    Text(state.dday)
-                        .font(.system(size: 11, weight: .bold))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.cRose.opacity(0.15))
-                        .foregroundColor(.cRose)
-                        .clipShape(Capsule())
-                }
+                // 보조 정보: 위치
+                Text(state.airLoc ?? "")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.cInkSoft)
             }
 
             Spacer()
@@ -96,6 +86,15 @@ struct LockLiveView: View {
                 Text(state.agoText)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.cInkSoft)
+
+                // D-day 배지 (오른쪽)
+                Text(state.dday)
+                    .font(.system(size: 11, weight: .bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.cRose.opacity(0.15))
+                    .foregroundColor(.cRose)
+                    .clipShape(Capsule())
             }
         }
         .padding(20)
