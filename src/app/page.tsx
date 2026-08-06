@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
@@ -43,7 +43,9 @@ import { subscribeCalendar } from '@/lib/calendar';
 import { todayYmd } from '@/lib/calendarLayout';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
 import AirSkyVisual from '@/components/AirSkyVisual';
-import { Bell, BellOff } from 'lucide-react';
+import { Bell, BellOff, MessageCircle } from 'lucide-react';
+import ChatPanel from '@/components/ChatPanel';
+import { subscribeMessages, sendMessage, type ChatMessage } from '@/lib/chat';
 import type { WeatherData, OutfitGuide } from '@/types';
 
 // 등급별 테마 (배경 그라데이션·텍스트·막대 색을 한 색으로 통일)
@@ -81,6 +83,12 @@ export default function KkomMorningHome() {
   const [dateText, setDateText] = useState('');
   const [partnerPresence, setPartnerPresence] = useState<Presence>({ lastSeenAt: null, active: false });
   const [partnerDrawing, setPartnerDrawing] = useState(false); // 상대가 낙서장에서 실시간 필기 중 (RTDB live)
+  const [chatOpen, setChatOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatUnread, setChatUnread] = useState(false);
+  const wasOnlineRef = useRef(false);
+  const autoOpenedRef = useRef(false);
+  const lastReadIdRef = useRef<string | null>(null);
   const [nextEvent, setNextEvent] = useState<{ title: string; date: string } | null>(null); // 위젯용 다음 일정
   const [heroStrokes, setHeroStrokes] = useState<BoardStroke[]>([]); // 홈 히어로 미니 썸네일용 현재 페이지 획
   const [presenceTick, setPresenceTick] = useState(0); // 매분 재계산용
@@ -274,6 +282,36 @@ export default function KkomMorningHome() {
     });
   }, [userName, partnerPresence, partnerDrawing, nextEvent, air, weather, moods]);
 
+  // 채팅 — 실시간 메시지 구독
+  useEffect(() => {
+    const unsub = subscribeMessages(setMessages);
+    return () => unsub();
+  }, []);
+
+  // 안 읽음 표시 — 채팅 열려있으면 읽음 처리, 닫혀있고 상대 새 메시지면 뱃지
+  useEffect(() => {
+    if (!userName || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (chatOpen) {
+      lastReadIdRef.current = last.id;
+      if (chatUnread) setChatUnread(false);
+    } else if (last.from !== userName && last.id !== lastReadIdRef.current) {
+      setChatUnread(true);
+    }
+  }, [messages, chatOpen, userName, chatUnread]);
+
+  // 둘 다 접속하면 대화창 자동 오픈 (접속 세션당 1회 — 닫으면 다시 안 뜸, 오프라인 됐다 다시 접속하면 또 열림)
+  useEffect(() => {
+    if (!userName) return;
+    const online = isTogetherNow(partnerPresence);
+    if (online && !wasOnlineRef.current && !autoOpenedRef.current) {
+      setChatOpen(true);
+      autoOpenedRef.current = true;
+    }
+    if (!online) autoOpenedRef.current = false;
+    wasOnlineRef.current = online;
+  }, [userName, partnerPresence]);
+
   const togglePush = async () => {
     if (pushState === 'on') {
       await disablePush(userName);
@@ -402,6 +440,14 @@ export default function KkomMorningHome() {
         </div>
         <div className="flex items-center gap-2">
           {/* 공유 캘린더 진입 (새로고침 왼쪽) */}
+          <button
+            onClick={() => { setChatOpen(true); setChatUnread(false); }}
+            className="relative p-2 bg-white/50 backdrop-blur-md rounded-full text-[#FB7BA8] hover:text-[#e0568f] transition-colors"
+            aria-label="대화"
+          >
+            <MessageCircle size={20} />
+            {chatUnread && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-white" />}
+          </button>
           <button
             onClick={() => router.push('/calendar')}
             className="p-2 bg-white/50 backdrop-blur-md rounded-full text-purple-500 hover:text-purple-600 transition-colors"
@@ -1071,6 +1117,19 @@ export default function KkomMorningHome() {
 
       {/* 하단 고정 퀵메세지 바 — 한 탭 푸시 (보고싶어/사랑해/뽀뽀/잘 자) */}
       <QuickReplyBar me={userName} partner={partner} />
+
+      {/* 실시간 대화창 — 둘 다 접속하면 자동으로 뜸. 기록은 Firestore에 쌓임 */}
+      {(userName === '우댕' || userName === '꼼이') && (
+        <ChatPanel
+          me={userName}
+          partner={partner}
+          messages={messages}
+          open={chatOpen}
+          onClose={() => setChatOpen(false)}
+          onSend={(text) => sendMessage(userName, text, isTogetherNow(partnerPresence))}
+          partnerOnline={isTogetherNow(partnerPresence)}
+        />
+      )}
     </div>
   );
 }
