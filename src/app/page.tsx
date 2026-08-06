@@ -1161,7 +1161,7 @@ export default function KkomMorningHome() {
           messages={messages}
           open={chatOpen}
           onClose={() => setChatOpen(false)}
-          onSend={(text, imageUrl, sticker, replyTo) => sendMessage(userName, text, isTogetherNow(partnerPresence), imageUrl, sticker, replyTo)}
+          onSend={(text, imageUrl, sticker, replyTo, audio) => sendMessage(userName, text, isTogetherNow(partnerPresence), imageUrl, sticker, replyTo, audio)}
           partnerOnline={isTogetherNow(partnerPresence)}
           onLoadMore={() => setMsgLimit((l) => l + 40)}
           hasMore={messages.length >= msgLimit}

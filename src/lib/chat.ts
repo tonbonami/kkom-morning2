@@ -16,6 +16,8 @@ export interface ChatMessage {
   text: string;
   imageUrl?: string;
   sticker?: string;  // 포차코 표정 이미지 경로 (/pochacco/face_*.png)
+  audioUrl?: string; // 음성 메시지
+  audioDur?: number; // 음성 길이(초)
   replyTo?: ReplyRef; // 답장 대상
   reactions?: Record<string, string>; // userKey('udaeng'|'kkomi') → 이모지
   deleted?: boolean;
@@ -26,18 +28,21 @@ export interface ChatMessage {
 export async function sendMessage(
   from: string, text: string, partnerOnline: boolean,
   imageUrl?: string, sticker?: string, replyTo?: ReplyRef,
+  audio?: { url: string; dur: number },
 ): Promise<void> {
   const t = text.trim();
-  if (!t && !imageUrl && !sticker) return;
+  if (!t && !imageUrl && !sticker && !audio) return;
   const clipped = t.slice(0, 2000);
   const payload: Record<string, unknown> = { from, text: clipped, createdAt: serverTimestamp() };
   if (imageUrl) payload.imageUrl = imageUrl;
   if (sticker) payload.sticker = sticker;
+  if (audio) { payload.audioUrl = audio.url; payload.audioDur = audio.dur; }
   if (replyTo) payload.replyTo = { id: replyTo.id, from: replyTo.from, text: replyTo.text.slice(0, 80) };
   await addDoc(collection(db, 'messages'), payload);
   if (!partnerOnline) {
     const to = from === '우댕' ? '꼼이' : '우댕';
-    const pushText = sticker ? '이모티콘을 보냈어 🐶'
+    const pushText = audio ? '음성 메시지를 보냈어 🎤'
+      : sticker ? '이모티콘을 보냈어 🐶'
       : imageUrl ? (clipped ? clipped.slice(0, 140) : '사진을 보냈어 📷')
       : clipped.slice(0, 140);
     fetch('/api/message', {
@@ -53,6 +58,15 @@ export async function uploadChatImage(file: File): Promise<string> {
   const key = `chat/${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const r = sRef(storage, key);
   await uploadBytes(r, file, { contentType: file.type || 'image/jpeg' });
+  return getDownloadURL(r);
+}
+
+// 음성 업로드 → 다운로드 URL. Storage chat-audio/ 아래.
+export async function uploadChatAudio(blob: Blob): Promise<string> {
+  const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('webm') ? 'webm' : 'dat';
+  const key = `chat-audio/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const r = sRef(storage, key);
+  await uploadBytes(r, blob, { contentType: blob.type || 'audio/webm' });
   return getDownloadURL(r);
 }
 
@@ -104,11 +118,13 @@ export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): 
         .map((d) => {
           const data = d.data() as {
             from?: string; text?: string; imageUrl?: string; sticker?: string;
+            audioUrl?: string; audioDur?: number;
             replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; createdAt?: Timestamp;
           };
           return {
             id: d.id, from: data.from ?? '', text: data.text ?? '',
-            imageUrl: data.imageUrl, sticker: data.sticker, replyTo: data.replyTo,
+            imageUrl: data.imageUrl, sticker: data.sticker,
+            audioUrl: data.audioUrl, audioDur: data.audioDur, replyTo: data.replyTo,
             reactions: data.reactions, deleted: data.deleted,
             createdAt: data.createdAt?.toDate?.() ?? null,
           };

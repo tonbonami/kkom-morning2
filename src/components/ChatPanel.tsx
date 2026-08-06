@@ -2,13 +2,62 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2 } from 'lucide-react';
+import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Mic, Play, Pause } from 'lucide-react';
 import {
   type ChatMessage, type ReplyRef,
-  subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage,
+  subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage, uploadChatAudio,
   toggleReaction, deleteMessage,
 } from '@/lib/chat';
 import { MOOD_OPTIONS } from '@/lib/moods';
+import ChatEffectLayer, { type ChatEffect } from '@/components/ChatEffectLayer';
+
+// 메시지 효과 키워드 → 이모지
+function effectFor(text: string): string[] | null {
+  if (!text) return null;
+  if (/사랑해|사랑행|러브|❤️|💕|💗|💖|하트/.test(text)) return ['❤️', '💕', '💗', '💖', '😍'];
+  if (/축하|생일|🎉|🎊|축하해|생축/.test(text)) return ['🎉', '🎊', '✨', '🥳', '🎈'];
+  if (/ㅋㅋㅋ|ㅎㅎㅎ|😂|🤣/.test(text)) return ['😂', '🤣', '😆', '😹'];
+  if (/눈 ?와|❄️|눈온다|첫눈|겨울|눈내|화이트/.test(text)) return ['❄️', '🌨️', '⛄', '✨'];
+  if (/뽀뽀|💋|😘|쪽/.test(text)) return ['💋', '😘', '💕', '🥰'];
+  return null;
+}
+
+function fmtDur(s: number): string {
+  const m = Math.floor(s / 60);
+  return `${m}:${String(Math.max(0, s % 60)).padStart(2, '0')}`;
+}
+
+// 음성 메시지 말풍선 (재생/일시정지 + 의사 파형 + 길이)
+function VoiceBubble({ url, dur, mine }: { url: string; dur: number; mine: boolean }) {
+  const [playing, setPlaying] = useState(false);
+  const [pos, setPos] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const toggle = () => {
+    let a = audioRef.current;
+    if (!a) {
+      a = new Audio(url); audioRef.current = a;
+      a.ontimeupdate = () => setPos(a && a.duration ? a.currentTime / a.duration : 0);
+      a.onended = () => { setPlaying(false); setPos(0); };
+    }
+    if (playing) { a.pause(); setPlaying(false); } else { a.play().catch(() => {}); setPlaying(true); }
+  };
+  const bars = 22;
+  return (
+    <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-2xl shadow-sm ${mine ? 'bg-[#FB7BA8] rounded-br-md' : 'bg-white rounded-bl-md'}`}>
+      <button onClick={toggle} aria-label="재생" className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${mine ? 'bg-white/25 text-white' : 'bg-[#FB7BA8] text-white'}`}>
+        {playing ? <Pause size={15} /> : <Play size={15} />}
+      </button>
+      <div className="flex items-center gap-[2px] h-6">
+        {Array.from({ length: bars }).map((_, i) => {
+          const active = i / bars <= pos;
+          const h = 6 + ((i * 7) % 14);
+          return <span key={i} className={`w-[3px] rounded-full ${mine ? (active ? 'bg-white' : 'bg-white/40') : (active ? 'bg-[#FB7BA8]' : 'bg-slate-300')}`} style={{ height: h }} />;
+        })}
+      </div>
+      <span className={`text-[11px] font-semibold ${mine ? 'text-white/90' : 'text-slate-500'}`}>{fmtDur(dur)}</span>
+    </div>
+  );
+}
 
 interface Props {
   me: string;
@@ -16,7 +65,7 @@ interface Props {
   messages: ChatMessage[];
   open: boolean;
   onClose: () => void;
-  onSend: (text: string, imageUrl?: string, sticker?: string, replyTo?: ReplyRef) => void;
+  onSend: (text: string, imageUrl?: string, sticker?: string, replyTo?: ReplyRef, audio?: { url: string; dur: number }) => void;
   partnerOnline: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
@@ -56,6 +105,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [actionMsg, setActionMsg] = useState<ChatMessage | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [viewerImage, setViewerImage] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [recSec, setRecSec] = useState(0);
+  const [effect, setEffect] = useState<ChatEffect | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -65,6 +117,14 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const longPressed = useRef(false);
   const isPrepending = useRef(false);
   const pendingAnchor = useRef<number | null>(null);
+  const recRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recStart = useRef<number>(0);
+  const sendAfterStop = useRef(false);
+  const seenLastId = useRef<string | null>(null);
+  const effectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const meKey = keyOf(me);
   const partnerKey = keyOf(partner);
@@ -132,6 +192,65 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     catch { /* 무시 */ }
     setUploading(false);
   };
+
+  // ── 음성 메시지 녹음 ──
+  const startRec = async () => {
+    if (recording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mime = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/mp4')) ? 'audio/mp4' : '';
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
+      rec.onstop = () => { void finishRec(); };
+      recRef.current = rec;
+      recStart.current = Date.now();
+      rec.start();
+      setRecording(true); setRecSec(0);
+      recTimer.current = setInterval(() => setRecSec((s) => s + 1), 1000);
+    } catch {
+      alert('마이크 권한이 필요해요');
+    }
+  };
+  const stopRec = (sendIt: boolean) => {
+    sendAfterStop.current = sendIt;
+    if (recTimer.current) clearInterval(recTimer.current);
+    setRecording(false);
+    try { recRef.current?.stop(); } catch { /* 무시 */ }
+  };
+  const finishRec = async () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    const dur = Math.round((Date.now() - recStart.current) / 1000);
+    const blob = new Blob(chunksRef.current, { type: recRef.current?.mimeType || 'audio/webm' });
+    if (!sendAfterStop.current || dur < 1 || blob.size < 1200) return; // 취소 or 너무 짧음
+    setUploading(true);
+    try {
+      const url = await uploadChatAudio(blob);
+      onSend('', undefined, undefined, replyTo ?? undefined, { url, dur });
+      setReplyTo(null);
+    } catch { /* 무시 */ }
+    setUploading(false);
+  };
+
+  // 메시지 효과 — 새 메시지에 키워드 있으면 이모지 폭죽 (첫 로드/더보기는 스킵)
+  useEffect(() => {
+    if (!messages.length) return;
+    const last = messages[messages.length - 1];
+    if (seenLastId.current === null) { seenLastId.current = last.id; return; }
+    if (last.id !== seenLastId.current) {
+      seenLastId.current = last.id;
+      const recent = last.createdAt == null || Date.now() - last.createdAt.getTime() < 15000;
+      const emojis = effectFor(last.text);
+      if (open && recent && emojis) {
+        setEffect({ id: last.id, emojis });
+        if (effectTimer.current) clearTimeout(effectTimer.current);
+        effectTimer.current = setTimeout(() => setEffect(null), 2600);
+      }
+    }
+  }, [messages, open]);
 
   // 길게 누르기 → 액션 시트
   const startPress = (m: ChatMessage) => {
@@ -244,6 +363,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           className="max-w-[68%] rounded-2xl shadow-sm object-cover cursor-pointer"
                           style={{ maxHeight: 280 }}
                         />
+                      ) : m.audioUrl ? (
+                        <VoiceBubble url={m.audioUrl} dur={m.audioDur ?? 0} mine={mine} />
                       ) : (
                         <div className={`max-w-[75%] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap break-words shadow-sm ${
                           mine ? 'bg-[#FB7BA8] text-white rounded-2xl rounded-br-md' : 'bg-white text-slate-700 rounded-2xl rounded-bl-md'
@@ -310,26 +431,48 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
 
           {/* 입력 */}
           <div className="px-3 pb-6 pt-2 bg-white/60 backdrop-blur-md border-t border-black/5">
-            <div className="flex items-end gap-2">
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
-              <button onClick={() => setStickerOpen((v) => !v)} aria-label="이모티콘"
-                className={`shrink-0 w-11 h-11 rounded-full border border-black/5 flex items-center justify-center active:scale-95 transition ${stickerOpen ? 'bg-[#FB7BA8] text-white' : 'bg-white text-slate-400'}`}>
-                <Smile size={20} />
-              </button>
-              <button onClick={() => { setStickerOpen(false); fileRef.current?.click(); }} disabled={uploading} aria-label="사진"
-                className="shrink-0 w-11 h-11 rounded-full bg-white border border-black/5 text-slate-400 flex items-center justify-center disabled:opacity-40 active:scale-95 transition">
-                <ImagePlus size={20} />
-              </button>
-              <textarea ref={taRef} value={draft} onChange={onInput} onBlur={stopTyping}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-                rows={1} placeholder={uploading ? '사진 올리는 중…' : '메시지 보내기…'}
-                className="flex-1 resize-none rounded-2xl bg-white border border-black/5 px-4 py-2.5 text-[15px] text-slate-700 outline-none focus:border-[#FB7BA8]/50 max-h-[120px]" />
-              <button onClick={send} disabled={!draft.trim()} aria-label="보내기"
-                className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center disabled:opacity-40 active:scale-95 transition">
-                <Send size={18} />
-              </button>
-            </div>
+            {recording ? (
+              <div className="flex items-center gap-3 h-11 px-2">
+                <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+                <span className="flex-1 text-[15px] font-semibold text-slate-600">{fmtDur(recSec)} · 녹음 중…</span>
+                <button onClick={() => stopRec(false)} className="text-slate-400 font-semibold px-2 active:scale-95">취소</button>
+                <button onClick={() => stopRec(true)} aria-label="음성 전송"
+                  className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center active:scale-95 transition">
+                  <Send size={18} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-end gap-2">
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
+                <button onClick={() => setStickerOpen((v) => !v)} aria-label="이모티콘"
+                  className={`shrink-0 w-11 h-11 rounded-full border border-black/5 flex items-center justify-center active:scale-95 transition ${stickerOpen ? 'bg-[#FB7BA8] text-white' : 'bg-white text-slate-400'}`}>
+                  <Smile size={20} />
+                </button>
+                <button onClick={() => { setStickerOpen(false); fileRef.current?.click(); }} disabled={uploading} aria-label="사진"
+                  className="shrink-0 w-11 h-11 rounded-full bg-white border border-black/5 text-slate-400 flex items-center justify-center disabled:opacity-40 active:scale-95 transition">
+                  <ImagePlus size={20} />
+                </button>
+                <textarea ref={taRef} value={draft} onChange={onInput} onBlur={stopTyping}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+                  rows={1} placeholder={uploading ? '올리는 중…' : '메시지 보내기…'}
+                  className="flex-1 resize-none rounded-2xl bg-white border border-black/5 px-4 py-2.5 text-[15px] text-slate-700 outline-none focus:border-[#FB7BA8]/50 max-h-[120px]" />
+                {draft.trim() ? (
+                  <button onClick={send} aria-label="보내기"
+                    className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center active:scale-95 transition">
+                    <Send size={18} />
+                  </button>
+                ) : (
+                  <button onClick={startRec} disabled={uploading} aria-label="음성 메시지"
+                    className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center disabled:opacity-40 active:scale-95 transition">
+                    <Mic size={18} />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* 메시지 효과 (사랑해/축하/ㅋㅋㅋ 등) */}
+          <ChatEffectLayer effect={effect} />
 
           {/* 길게 누르기 액션 시트 */}
           <AnimatePresence>
