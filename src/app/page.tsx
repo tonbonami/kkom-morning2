@@ -1126,7 +1126,7 @@ export default function KkomMorningHome() {
           messages={messages}
           open={chatOpen}
           onClose={() => setChatOpen(false)}
-          onSend={(text) => sendMessage(userName, text, isTogetherNow(partnerPresence))}
+          onSend={(text, imageUrl) => sendMessage(userName, text, isTogetherNow(partnerPresence), imageUrl)}
           partnerOnline={isTogetherNow(partnerPresence)}
         />
       )}

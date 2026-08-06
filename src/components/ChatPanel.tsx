@@ -2,8 +2,11 @@
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send } from 'lucide-react';
-import type { ChatMessage } from '@/lib/chat';
+import { X, Send, ImagePlus } from 'lucide-react';
+import {
+  type ChatMessage,
+  subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage,
+} from '@/lib/chat';
 
 interface Props {
   me: string;
@@ -11,9 +14,11 @@ interface Props {
   messages: ChatMessage[];
   open: boolean;
   onClose: () => void;
-  onSend: (text: string) => void;
+  onSend: (text: string, imageUrl?: string) => void;
   partnerOnline: boolean;
 }
+
+const keyOf = (name: string) => (name === '우댕' ? 'udaeng' : 'kkomi');
 
 function timeText(d: Date | null): string {
   if (!d) return '';
@@ -26,34 +31,81 @@ function timeText(d: Date | null): string {
 function dayText(d: Date | null): string {
   if (!d) return '';
   const now = new Date();
-  const same = d.toDateString() === now.toDateString();
+  if (d.toDateString() === now.toDateString()) return '오늘';
   const y = new Date(now.getTime() - 86400000);
-  if (same) return '오늘';
   if (d.toDateString() === y.toDateString()) return '어제';
   return `${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline }: Props) {
   const [draft, setDraft] = useState('');
+  const [partnerTyping, setPartnerTyping] = useState(false);
+  const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
+  const [uploading, setUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 새 메시지/열림 시 맨 아래로
+  const meKey = keyOf(me);
+  const partnerKey = keyOf(partner);
+
+  // 상대 입력중 / 상대 읽음 구독
+  useEffect(() => {
+    const a = subscribeTyping(partnerKey, setPartnerTyping);
+    const b = subscribeRead(partnerKey, setPartnerLastRead);
+    return () => { a(); b(); };
+  }, [partnerKey]);
+
+  // 채팅 열려있고 새 메시지 보이면 읽음 처리
+  useEffect(() => {
+    if (open) markRead(meKey);
+  }, [open, messages, meKey]);
+
+  // 닫힐 때 입력중 해제
+  useEffect(() => {
+    if (!open) setTyping(meKey, false);
+  }, [open, meKey]);
+
+  // 새 메시지/입력중/열림 시 맨 아래로
   useEffect(() => {
     if (!open) return;
     const el = scrollRef.current;
     if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
-  }, [messages, open]);
+  }, [messages, open, partnerTyping]);
+
+  const stopTyping = () => { setTyping(meKey, false); if (typingTimer.current) clearTimeout(typingTimer.current); };
+
+  const onInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setDraft(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+    setTyping(meKey, true);
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => setTyping(meKey, false), 2500);
+  };
 
   const send = () => {
     const t = draft.trim();
     if (!t) return;
     onSend(t);
     setDraft('');
+    stopTyping();
     if (taRef.current) taRef.current.style.height = 'auto';
   };
 
-  // 날짜 구분선 삽입 위치 계산
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadChatImage(file);
+      onSend('', url);
+    } catch { /* 업로드 실패 무시 */ }
+    setUploading(false);
+  };
+
   const withDays = useMemo(() => {
     let lastDay = '';
     return messages.map((m) => {
@@ -81,8 +133,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             </button>
             <div className="flex-1">
               <div className="text-base font-extrabold text-slate-700">{partner}</div>
-              <div className={`text-xs font-bold ${partnerOnline ? 'text-emerald-500' : 'text-slate-400'}`}>
-                {partnerOnline ? '지금 함께 💚' : '오프라인'}
+              <div className={`text-xs font-bold ${partnerTyping ? 'text-[#FB7BA8]' : partnerOnline ? 'text-emerald-500' : 'text-slate-400'}`}>
+                {partnerTyping ? '입력 중…' : partnerOnline ? '지금 함께 💚' : '오프라인'}
               </div>
             </div>
           </div>
@@ -97,6 +149,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             )}
             {withDays.map(({ m, showDay, day }) => {
               const mine = m.from === me;
+              const unread = mine && m.createdAt != null && (partnerLastRead == null || m.createdAt > partnerLastRead);
               return (
                 <div key={m.id}>
                   {showDay && (
@@ -105,42 +158,73 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     </div>
                   )}
                   <div className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}>
-                    {mine && <span className="text-[10px] text-slate-400 mb-0.5">{timeText(m.createdAt)}</span>}
-                    <div
-                      className={`max-w-[75%] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap break-words shadow-sm ${
-                        mine
-                          ? 'bg-[#FB7BA8] text-white rounded-2xl rounded-br-md'
-                          : 'bg-white text-slate-700 rounded-2xl rounded-bl-md'
-                      }`}
-                    >
-                      {m.text}
-                    </div>
+                    {mine && (
+                      <div className="flex flex-col items-end mb-0.5 leading-tight">
+                        {unread && <span className="text-[10px] font-bold text-[#FB7BA8]">1</span>}
+                        <span className="text-[10px] text-slate-400">{timeText(m.createdAt)}</span>
+                      </div>
+                    )}
+                    {m.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={m.imageUrl}
+                        alt="사진"
+                        className="max-w-[68%] rounded-2xl shadow-sm object-cover"
+                        style={{ maxHeight: 280 }}
+                      />
+                    ) : (
+                      <div
+                        className={`max-w-[75%] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap break-words shadow-sm ${
+                          mine
+                            ? 'bg-[#FB7BA8] text-white rounded-2xl rounded-br-md'
+                            : 'bg-white text-slate-700 rounded-2xl rounded-bl-md'
+                        }`}
+                      >
+                        {m.text}
+                      </div>
+                    )}
                     {!mine && <span className="text-[10px] text-slate-400 mb-0.5">{timeText(m.createdAt)}</span>}
                   </div>
                 </div>
               );
             })}
+
+            {/* 상대 입력 중 버블 */}
+            {partnerTyping && (
+              <div className="flex justify-start">
+                <div className="bg-white text-slate-400 rounded-2xl rounded-bl-md px-4 py-2.5 shadow-sm">
+                  <span className="inline-flex gap-1 items-center">
+                    <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 입력 */}
           <div className="px-3 pb-6 pt-2 bg-white/60 backdrop-blur-md border-t border-black/5">
             <div className="flex items-end gap-2">
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                aria-label="사진"
+                className="shrink-0 w-11 h-11 rounded-full bg-white border border-black/5 text-slate-400 flex items-center justify-center disabled:opacity-40 active:scale-95 transition"
+              >
+                <ImagePlus size={20} />
+              </button>
               <textarea
                 ref={taRef}
                 value={draft}
-                onChange={(e) => {
-                  setDraft(e.target.value);
-                  e.target.style.height = 'auto';
-                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                }}
+                onChange={onInput}
+                onBlur={stopTyping}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    send();
-                  }
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
                 }}
                 rows={1}
-                placeholder="메시지 보내기…"
+                placeholder={uploading ? '사진 올리는 중…' : '메시지 보내기…'}
                 className="flex-1 resize-none rounded-2xl bg-white border border-black/5 px-4 py-2.5 text-[15px] text-slate-700 outline-none focus:border-[#FB7BA8]/50 max-h-[120px]"
               />
               <button
