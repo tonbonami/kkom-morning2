@@ -43,7 +43,7 @@ function VoiceBubble({ url, dur, mine }: { url: string; dur: number; mine: boole
   };
   const bars = 22;
   return (
-    <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-2xl shadow-sm ${mine ? 'bg-[#FB7BA8] rounded-br-md' : 'bg-white rounded-bl-md'}`}>
+    <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-2xl shadow-sm ${mine ? 'bg-[#FB7BA8] rounded-tr-sm' : 'bg-white rounded-tl-sm'}`}>
       <button onClick={toggle} aria-label="재생" className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${mine ? 'bg-white/25 text-white' : 'bg-[#FB7BA8] text-white'}`}>
         {playing ? <Pause size={15} /> : <Play size={15} />}
       </button>
@@ -352,7 +352,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[60] flex flex-col bg-[#FBF8F2] bg-[radial-gradient(rgba(148,163,184,0.16)_1.4px,transparent_1.4px)] [background-size:22px_22px]"
+          className="fixed inset-0 z-[60] flex flex-col bg-[#FBF8F2] dark:bg-[#272522] bg-[radial-gradient(#e5e7eb_1.5px,transparent_1.5px)] [background-size:20px_20px] dark:bg-[radial-gradient(#374151_1.5px,transparent_1.5px)]"
           initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
           transition={{ type: 'spring', stiffness: 320, damping: 32 }}
         >
@@ -394,8 +394,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               return (
                 <div key={m.id}>
                   {showDay && (
-                    <div className="flex justify-center my-5">
-                      <span className="text-[11px] font-bold text-slate-400 bg-white/70 backdrop-blur-sm shadow-sm rounded-full px-4 py-1.5">{day}</span>
+                    <div className="flex justify-center my-6">
+                      <span className="rounded-full bg-black/5 dark:bg-white/10 px-4 py-1.5 text-xs font-bold text-[#64748B] dark:text-[#B4AA9A]">{day}</span>
                     </div>
                   )}
                   <div className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}>
@@ -411,7 +411,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     )}
 
                     <div
-                      className="flex flex-col select-none max-w-[78%]"
+                      className={`relative flex flex-col select-none max-w-[78%] ${reactionEmojis.length > 0 ? 'mb-3' : ''}`}
                       style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}
                       onPointerDown={() => startPress(m)}
                       onPointerUp={cancelPress}
@@ -430,7 +430,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                         <div className="mb-0.5 flex items-center gap-1 text-[10px] font-bold text-[#FB7BA8]">⏳ 타임캡슐</div>
                       )}
                       {pending ? (
-                        <div className="max-w-full px-4 py-3 rounded-2xl rounded-tr-md border-2 border-dashed border-[#FB7BA8]/50 bg-[#FB7BA8]/10">
+                        <div className="max-w-full px-4 py-3 rounded-2xl rounded-tr-sm border-2 border-dashed border-[#FB7BA8]/50 bg-[#FB7BA8]/10">
                           <div className="text-[13px] font-bold text-[#c94c7a] flex items-center gap-1.5"><span className="text-base">⏳</span> 타임캡슐이 심어졌어요</div>
                           <div className="text-[15px] text-slate-600 mt-1.5 break-keep whitespace-pre-wrap">{m.text}</div>
                           <div className="text-[11px] font-semibold text-[#FB7BA8]/70 mt-1.5">{m.createdAt?.getFullYear()}.{(m.createdAt?.getMonth() ?? 0) + 1}.{m.createdAt?.getDate()} 도착 예정</div>
@@ -453,19 +453,17 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       ) : (
                         <div className={`max-w-full px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap break-keep ${
                           mine
-                            ? 'bg-[#FB7BA8] text-white rounded-2xl rounded-br-md shadow-[0_2px_10px_rgba(251,123,168,0.25)]'
-                            : 'bg-white text-slate-700 rounded-2xl rounded-bl-md shadow-[0_2px_12px_rgba(0,0,0,0.05)]'
+                            ? 'bg-[#FB7BA8] dark:bg-[#D94C7A] text-white rounded-2xl rounded-tr-sm shadow-[0_2px_8px_rgba(251,123,168,0.2)]'
+                            : 'bg-white dark:bg-[#332F2A] text-slate-700 dark:text-[#E8E2D8] rounded-2xl rounded-tl-sm shadow-[0_2px_12px_rgba(0,0,0,0.04)]'
                         }`}>
                           {renderRich(m.text)}
                         </div>
                       )}
 
-                      {/* 반응 칩 */}
+                      {/* 반응 칩 — 말풍선 하단에 살짝 걸치게 (제미나이 원안) */}
                       {reactionEmojis.length > 0 && (
-                        <div className={`mt-0.5 flex gap-0.5 ${mine ? 'justify-end' : 'justify-start'}`}>
-                          <span className="rounded-full bg-white shadow-sm border border-black/5 px-1.5 py-0.5 text-[12px] leading-none">
-                            {reactionEmojis.join(' ')}
-                          </span>
+                        <div className={`absolute -bottom-3 flex items-center gap-1 rounded-full border border-[#FBF8F2] dark:border-[#272522] bg-white dark:bg-[#332F2A] px-2 py-0.5 shadow-sm text-[12px] leading-none ${mine ? '-left-2' : '-right-2'}`}>
+                          {reactionEmojis.join(' ')}
                         </div>
                       )}
                     </div>
@@ -658,13 +656,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           {/* 추억 보관함 */}
           <AnimatePresence>
             {memoryOpen && (
-              <motion.div className="absolute inset-0 z-[66] flex flex-col bg-[#FBF8F2] bg-[radial-gradient(rgba(148,163,184,0.16)_1.4px,transparent_1.4px)] [background-size:22px_22px]"
+              <motion.div className="absolute inset-0 z-[66] flex flex-col bg-[#FBF8F2] dark:bg-[#272522] bg-[radial-gradient(#e5e7eb_1.5px,transparent_1.5px)] [background-size:20px_20px] dark:bg-[radial-gradient(#374151_1.5px,transparent_1.5px)]"
                 initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
                 transition={{ type: 'spring', stiffness: 320, damping: 32 }}>
                 <div className="flex items-center gap-3 px-4 pb-3 bg-[#FBF8F2]/95 backdrop-blur-xl border-b border-black/[0.04] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
                   style={{ paddingTop: 'max(env(safe-area-inset-top), 2.75rem)' }}>
                   <button onClick={() => setMemoryOpen(false)} aria-label="닫기" className="p-1.5 -ml-1 text-slate-400"><X size={22} /></button>
-                  <div className="flex-1 text-lg font-extrabold text-slate-700">우리의 추억함 💛</div>
+                  <div className="flex-1 font-['Dongle'] text-3xl font-bold leading-none text-[#334155] dark:text-[#E8E2D8]">우리의 추억함</div>
                 </div>
                 <div className="flex gap-1.5 px-4 py-2">
                   <button onClick={() => setMemoryTab('star')} className={`px-3.5 py-1.5 rounded-full text-[13px] font-bold ${memoryTab === 'star' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>⭐️ 별표</button>
