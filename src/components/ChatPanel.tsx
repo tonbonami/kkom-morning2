@@ -373,8 +373,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             </button>
           </div>
 
-          {/* 메시지 */}
-          <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5">
+          {/* 메시지 — 길게눌러 답장 시 iOS 기본 텍스트선택/콜아웃(Copy·Look Up) 뜨는 것 차단 */}
+          <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5 select-none [-webkit-touch-callout:none] [-webkit-user-select:none]">
             {hasMore && (
               <div className="flex justify-center py-1">
                 <button onClick={onLoadMore} className="text-[11px] font-bold text-slate-400 bg-black/5 rounded-full px-3 py-1">이전 대화 더보기</button>
