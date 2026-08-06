@@ -102,7 +102,7 @@ function renderRich(text: string): React.ReactNode {
     const opt = MOOD_OPTIONS.find((o) => o.id === m![1]);
     if (opt) {
       // eslint-disable-next-line @next/next/no-img-element
-      parts.push(<img key={i++} src={opt.image} alt={opt.label} className="inline-block w-6 h-6 align-text-bottom object-contain" />);
+      parts.push(<img key={i++} src={opt.image} alt={opt.label} className="inline-block w-6 h-6 align-middle object-contain" />);
     } else parts.push(m[0]);
     last = m.index + m[0].length;
   }
@@ -401,7 +401,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       ) : m.audioUrl ? (
                         <VoiceBubble url={m.audioUrl} dur={m.audioDur ?? 0} mine={mine} />
                       ) : (
-                        <div className={`max-w-[75%] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap break-words shadow-sm ${
+                        <div className={`max-w-[75%] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap break-keep [overflow-wrap:anywhere] shadow-sm ${
                           mine ? 'bg-[#FB7BA8] text-white rounded-2xl rounded-br-md' : 'bg-white text-slate-700 rounded-2xl rounded-bl-md'
                         }`}>
                           {renderRich(m.text)}

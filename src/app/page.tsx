@@ -45,7 +45,6 @@ import { getPushState, enablePush, disablePush, type PushState } from '@/lib/pus
 import AirSkyVisual from '@/components/AirSkyVisual';
 import { Bell, BellOff, MessageCircle } from 'lucide-react';
 import ChatPanel from '@/components/ChatPanel';
-import WeatherAirHero from '@/components/WeatherAirHero';
 import { subscribeMessages, sendMessage, type ChatMessage } from '@/lib/chat';
 import type { WeatherData, OutfitGuide } from '@/types';
 
@@ -376,39 +375,6 @@ export default function KkomMorningHome() {
   const theme = getAirTheme(air?.grade);
   const hasGrade = air && air.grade && air.grade !== '정보 없음' && air.grade !== '조회 실패';
   const hasWeather = weather?.current?.temp != null;
-
-  // WeatherAirHero용 매핑 (raw /api/weather → 컴포넌트 형태)
-  const w: any = weather;
-  const skyText = ((): '맑음' | '구름많음' | '흐림' | null => {
-    const s = String(w?.current?.sky ?? '');
-    if (s === '1') return '맑음';
-    if (s === '3') return '구름많음';
-    if (s === '4') return '흐림';
-    return null;
-  })();
-  // 체감온도 — API에 없어서 호주식 apparent temperature(기온+습도)로 근사
-  const feelsLike = ((): number | null => {
-    const t = w?.current?.temp as number | null | undefined;
-    const rh = w?.current?.humidity as number | null | undefined;
-    if (t == null) return null;
-    if (rh == null) return Math.round(t);
-    const e = (rh / 100) * 6.105 * Math.exp((17.27 * t) / (237.7 + t));
-    return Math.round(t + 0.33 * e - 4.0);
-  })();
-  const rainProp = ((): { type: '비' | '눈' | '비/눈' | '없음'; typeText: string; emoji: string; probability: number | null; startTimeKor: string | null } | null => {
-    const pty = String(w?.current?.pty ?? w?.today?.pty ?? '0');
-    const prob = (w?.today?.precipitation?.probability ?? null) as number | null;
-    const map: Record<string, { type: '비' | '눈' | '비/눈'; typeText: string; emoji: string }> = {
-      '1': { type: '비', typeText: '비', emoji: '☔' },
-      '4': { type: '비', typeText: '소나기', emoji: '🌦️' },
-      '2': { type: '비/눈', typeText: '비/눈', emoji: '🌨️' },
-      '3': { type: '눈', typeText: '눈', emoji: '❄️' },
-    };
-    const hit = map[pty];
-    if (hit) return { ...hit, probability: prob, startTimeKor: '오늘' };
-    if (prob != null && prob >= 60) return { type: '비', typeText: '비', emoji: '🌂', probability: prob, startTimeKor: '오늘' };
-    return null;
-  })();
   const allHourly = (air?.hourly || []).filter((h: any) => h.pm10 != null);
   const trend = allHourly.slice(-6);
   const maxPm = Math.max(50, ...allHourly.map((h: any) => h.pm10 || 0));
@@ -635,19 +601,19 @@ export default function KkomMorningHome() {
         </div>
 
         <div className="relative z-10 flex flex-col gap-6">
-          {/* 날씨 + 미세먼지 메인 (Gemini WeatherAirHero) — D-day는 작은 뱃지로 */}
-          <div className="-mx-6 flex justify-center pt-10">
-            <WeatherAirHero
-              variant="split"
-              dday={dDay}
-              temp={w?.current?.temp ?? null}
-              feelsLike={feelsLike}
-              sky={skyText}
-              todayHigh={w?.today?.high ?? null}
-              todayLow={w?.today?.low ?? null}
-              rain={rainProp}
-              air={air ? { grade: air.grade as any, pm10: air.pm10 ?? null, pm25: air.pm25 ?? null, location: air.location ?? '금곡동' } : null}
-            />
+          <div className="pt-10">
+            <div className="flex items-center gap-1.5 mb-2 opacity-80">
+              <Wind size={16} className={theme.text} strokeWidth={2.5} />
+              <span className="text-sm font-bold text-slate-600">{air?.location || '금곡동'} 미세먼지</span>
+            </div>
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <h2 className={`text-5xl font-extrabold tracking-tight ${theme.text}`}>
+                {hasGrade ? air.grade : '불러오는 중'}
+              </h2>
+              <span className="text-sm font-medium text-slate-500">
+                PM10 <strong className="text-slate-700">{air?.pm10 ?? '--'}</strong> · PM2.5 <strong className="text-slate-700">{air?.pm25 ?? '--'}</strong>
+              </span>
+            </div>
           </div>
 
           {/* SVG 하늘 — 등급별 비주얼 (맑은하늘/뿌연하늘/먼지) + 내일 예보 + 알림 토글 */}
