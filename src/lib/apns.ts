@@ -67,7 +67,7 @@ async function post(host: string, token: string, payload: string,
 // 커뮤니케이션 알림(상대 아바타+이름) + 답장 액션용 옵션.
 //   category: UNNotificationCategory 식별자 → 알림 꾹 누르면 답장 버튼.
 //   sender:  보낸 사람 한글 이름(우댕/꼼이) → mutable-content 켜서 NSE가 아바타 입힘.
-export interface ApnsOpts { category?: string; sender?: string; threadId?: string }
+export interface ApnsOpts { category?: string; sender?: string; threadId?: string; sound?: string }
 
 // userKey('udaeng'|'kkomi')에게 알림 발송. 프로덕션 실패 시 샌드박스 폴백(dev/prod 토큰 환경 불확실성 대응).
 export async function sendApns(userKey: string, title: string, body: string, opts?: ApnsOpts): Promise<boolean> {
@@ -83,7 +83,7 @@ export async function sendApns(userKey: string, title: string, body: string, opt
   }
   if (!token) return false;
 
-  const aps: Record<string, unknown> = { alert: { title, body }, sound: 'default' };
+  const aps: Record<string, unknown> = { alert: { title, body }, sound: opts?.sound || 'default' };
   if (opts?.category) aps.category = opts.category;
   if (opts?.threadId) aps['thread-id'] = opts.threadId;
   if (opts?.sender) aps['mutable-content'] = 1; // NSE 실행 트리거 → 아바타/이름 입힘

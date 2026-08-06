@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { throwHeart, subscribeLiveHearts } from '@/lib/liveHearts';
 import { haptic } from '@/lib/feedback';
+import { heartbeatHaptic } from '@/lib/nativeHaptics';
 
 interface LiveHeartLayerProps {
   me: string;
@@ -65,7 +66,8 @@ export default function LiveHeartLayer({ me, partnerActive }: LiveHeartLayerProp
       if (ping.nonce && ping.nonce !== seenNonce.current) {
         seenNonce.current = ping.nonce;
         triggerParticles();
-        haptic([12, 20, 12]); // 두근거리는 리듬
+        heartbeatHaptic();      // 네이티브: 폰이 심장박동처럼 두근두근
+        haptic([12, 20, 12]);   // 웹 폴백(navigator.vibrate)
       }
     });
 

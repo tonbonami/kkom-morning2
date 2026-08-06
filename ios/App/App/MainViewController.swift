@@ -9,6 +9,7 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(WidgetBridgePlugin())
         bridge?.registerPluginInstance(PushBridgePlugin())
         bridge?.registerPluginInstance(LiveActivityBridgePlugin())
+        bridge?.registerPluginInstance(HapticBridgePlugin())
     }
 }
 
