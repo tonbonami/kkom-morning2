@@ -19,6 +19,7 @@ interface Props {
 }
 
 const keyOf = (name: string) => (name === '우댕' ? 'udaeng' : 'kkomi');
+const avatarOf = (name: string) => (name === '우댕' ? '/avatars/woodang_avatar.png' : '/avatars/kkomi_avatar.png');
 
 function timeText(d: Date | null): string {
   if (!d) return '';
@@ -108,13 +109,15 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
 
   const withDays = useMemo(() => {
     let lastDay = '';
-    return messages.map((m) => {
+    return messages.map((m, i) => {
       const d = dayText(m.createdAt);
       const showDay = d !== lastDay;
       lastDay = d;
-      return { m, showDay, day: d };
+      const prev = messages[i - 1];
+      const showAvatar = m.from !== me && (showDay || !prev || prev.from !== m.from);
+      return { m, showDay, day: d, showAvatar };
     });
-  }, [messages]);
+  }, [messages, me]);
 
   return (
     <AnimatePresence>
@@ -131,6 +134,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             <button onClick={onClose} aria-label="닫기" className="p-1.5 -ml-1 text-slate-400 hover:text-slate-600">
               <X size={22} />
             </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={avatarOf(partner)} alt={partner} className="w-9 h-9 rounded-full object-cover shadow-sm" />
             <div className="flex-1">
               <div className="text-base font-extrabold text-slate-700">{partner}</div>
               <div className={`text-xs font-bold ${partnerTyping ? 'text-[#FB7BA8]' : partnerOnline ? 'text-emerald-500' : 'text-slate-400'}`}>
@@ -147,7 +152,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 <p className="text-sm font-semibold">첫 메시지를 보내봐</p>
               </div>
             )}
-            {withDays.map(({ m, showDay, day }) => {
+            {withDays.map(({ m, showDay, day, showAvatar }) => {
               const mine = m.from === me;
               const unread = mine && m.createdAt != null && (partnerLastRead == null || m.createdAt > partnerLastRead);
               return (
@@ -158,6 +163,12 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     </div>
                   )}
                   <div className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}>
+                    {!mine && (showAvatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatarOf(partner)} alt={partner} className="w-8 h-8 rounded-full object-cover shrink-0 self-end shadow-sm" />
+                    ) : (
+                      <div className="w-8 shrink-0" />
+                    ))}
                     {mine && (
                       <div className="flex flex-col items-end mb-0.5 leading-tight">
                         {unread && <span className="text-[10px] font-bold text-[#FB7BA8]">1</span>}
