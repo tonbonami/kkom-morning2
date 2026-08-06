@@ -2,7 +2,7 @@
 // 입력중은 RTDB(chatTyping, 휘발성), 읽음은 Firestore(chatReads), 사진은 Storage.
 import { db, rtdb, storage } from './firebase';
 import {
-  collection, addDoc, doc, setDoc, getDoc, updateDoc, deleteField,
+  collection, addDoc, doc, setDoc, getDoc, getDocs, updateDoc, deleteField,
   query, orderBy, limit, onSnapshot, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { ref as dbRef, set as dbSet, onValue, onDisconnect } from 'firebase/database';
@@ -21,6 +21,7 @@ export interface ChatMessage {
   replyTo?: ReplyRef; // 답장 대상
   reactions?: Record<string, string>; // userKey('udaeng'|'kkomi') → 이모지
   deleted?: boolean;
+  starred?: boolean;  // 추억 보관함(별표)
   createdAt: Date | null;
 }
 
@@ -109,6 +110,32 @@ export async function deleteMessage(messageId: string): Promise<void> {
   });
 }
 
+// 별표(추억 보관함) 토글 — 둘 중 누구나 별표 가능(공유).
+export async function toggleStar(messageId: string): Promise<void> {
+  const ref = doc(db, 'messages', messageId);
+  const snap = await getDoc(ref);
+  const cur = snap.data()?.starred === true;
+  await updateDoc(ref, { starred: !cur });
+}
+
+// 추억 보관함용 — 최근 max개 한 번 조회(별표/사진 필터는 호출처에서, 오래된→최신).
+export async function fetchRecentMessages(max = 300): Promise<ChatMessage[]> {
+  const snap = await getDocs(query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(max)));
+  return snap.docs
+    .map((d) => {
+      const data = d.data() as Record<string, unknown> & { createdAt?: Timestamp };
+      return {
+        id: d.id, from: (data.from as string) ?? '', text: (data.text as string) ?? '',
+        imageUrl: data.imageUrl as string | undefined, sticker: data.sticker as string | undefined,
+        audioUrl: data.audioUrl as string | undefined, audioDur: data.audioDur as number | undefined,
+        replyTo: data.replyTo as ReplyRef | undefined, reactions: data.reactions as Record<string, string> | undefined,
+        deleted: data.deleted as boolean | undefined, starred: data.starred as boolean | undefined,
+        createdAt: data.createdAt?.toDate?.() ?? null,
+      } as ChatMessage;
+    })
+    .reverse();
+}
+
 // 최근 max개 실시간 구독 (오래된→최신 순으로 콜백).
 export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): () => void {
   const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(max));
@@ -120,13 +147,13 @@ export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): 
           const data = d.data() as {
             from?: string; text?: string; imageUrl?: string; sticker?: string;
             audioUrl?: string; audioDur?: number;
-            replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; createdAt?: Timestamp;
+            replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; starred?: boolean; createdAt?: Timestamp;
           };
           return {
             id: d.id, from: data.from ?? '', text: data.text ?? '',
             imageUrl: data.imageUrl, sticker: data.sticker,
             audioUrl: data.audioUrl, audioDur: data.audioDur, replyTo: data.replyTo,
-            reactions: data.reactions, deleted: data.deleted,
+            reactions: data.reactions, deleted: data.deleted, starred: data.starred,
             createdAt: data.createdAt?.toDate?.() ?? null,
           };
         })

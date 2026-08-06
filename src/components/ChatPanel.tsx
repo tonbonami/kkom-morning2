@@ -2,11 +2,11 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Mic, Play, Pause } from 'lucide-react';
+import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Mic, Play, Pause, Bookmark, BookmarkCheck } from 'lucide-react';
 import {
   type ChatMessage, type ReplyRef,
   subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage, uploadChatAudio,
-  toggleReaction, deleteMessage,
+  toggleReaction, deleteMessage, toggleStar, fetchRecentMessages,
 } from '@/lib/chat';
 import { MOOD_OPTIONS } from '@/lib/moods';
 import ChatEffectLayer, { type ChatEffect } from '@/components/ChatEffectLayer';
@@ -130,6 +130,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [recording, setRecording] = useState(false);
   const [recSec, setRecSec] = useState(0);
   const [effect, setEffect] = useState<ChatEffect | null>(null);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [memoryTab, setMemoryTab] = useState<'star' | 'photo'>('star');
+  const [memories, setMemories] = useState<ChatMessage[] | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -307,6 +310,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     });
   }, [messages, me]);
 
+  const openMemory = async () => {
+    setMemoryOpen(true);
+    setMemories(null);
+    try { setMemories(await fetchRecentMessages(300)); } catch { setMemories([]); }
+  };
+  const doStar = () => { if (actionMsg) toggleStar(actionMsg.id); setActionMsg(null); };
+
   const doReact = (emoji: string) => { if (actionMsg) toggleReaction(actionMsg.id, meKey, emoji); setActionMsg(null); };
   const doReply = () => { if (actionMsg) setReplyTo({ id: actionMsg.id, from: actionMsg.from, text: preview(actionMsg) }); setActionMsg(null); taRef.current?.focus(); };
   const doCopy = () => { if (actionMsg?.text) navigator.clipboard?.writeText(actionMsg.text).catch(() => {}); setActionMsg(null); };
@@ -331,6 +341,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 {partnerTyping ? '입력 중…' : partnerOnline ? '지금 함께 💚' : '오프라인'}
               </div>
             </div>
+            <button onClick={openMemory} aria-label="추억 보관함" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
+              <Bookmark size={20} />
+            </button>
           </div>
 
           {/* 메시지 */}
@@ -535,6 +548,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   <button onClick={doReply} className="w-full flex items-center gap-3 px-2 py-3 text-slate-700 active:bg-black/5 rounded-xl">
                     <Reply size={18} /> <span className="font-semibold">답장</span>
                   </button>
+                  <button onClick={doStar} className="w-full flex items-center gap-3 px-2 py-3 text-slate-700 active:bg-black/5 rounded-xl">
+                    {actionMsg.starred ? <BookmarkCheck size={18} className="text-[#FB7BA8]" /> : <Bookmark size={18} />}
+                    <span className="font-semibold">{actionMsg.starred ? '보관 취소' : '추억 보관'}</span>
+                  </button>
                   {actionMsg.text && !actionMsg.sticker && !actionMsg.imageUrl && (
                     <button onClick={doCopy} className="w-full flex items-center gap-3 px-2 py-3 text-slate-700 active:bg-black/5 rounded-xl">
                       <Copy size={18} /> <span className="font-semibold">복사</span>
@@ -546,6 +563,71 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     </button>
                   )}
                 </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* 추억 보관함 */}
+          <AnimatePresence>
+            {memoryOpen && (
+              <motion.div className="absolute inset-0 z-[66] flex flex-col bg-[#FBF8F2]"
+                initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 32 }}>
+                <div className="flex items-center gap-3 px-4 pt-12 pb-3 border-b border-black/5 bg-white/60 backdrop-blur-md">
+                  <button onClick={() => setMemoryOpen(false)} aria-label="닫기" className="p-1.5 -ml-1 text-slate-400"><X size={22} /></button>
+                  <div className="flex-1 text-base font-extrabold text-slate-700">추억 보관함</div>
+                </div>
+                <div className="flex gap-1.5 px-4 py-2">
+                  <button onClick={() => setMemoryTab('star')} className={`px-3.5 py-1.5 rounded-full text-[13px] font-bold ${memoryTab === 'star' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>⭐️ 별표</button>
+                  <button onClick={() => setMemoryTab('photo')} className={`px-3.5 py-1.5 rounded-full text-[13px] font-bold ${memoryTab === 'photo' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>📷 사진</button>
+                </div>
+                <div className="flex-1 overflow-y-auto px-4 pb-8">
+                  {memories === null ? (
+                    <div className="h-40 flex items-center justify-center text-slate-400 text-sm">불러오는 중…</div>
+                  ) : memoryTab === 'star' ? (
+                    (() => {
+                      const starred = memories.filter((m) => m.starred && !m.deleted);
+                      if (!starred.length) return <div className="h-40 flex flex-col items-center justify-center text-slate-400 gap-2"><span className="text-3xl">⭐️</span><p className="text-sm font-semibold">메시지 길게 눌러 &quot;추억 보관&quot;</p></div>;
+                      return (
+                        <div className="space-y-2 pt-1">
+                          {starred.map((m) => (
+                            <div key={m.id} className="flex gap-2.5 items-start p-2.5 rounded-2xl bg-white shadow-sm">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={avatarOf(m.from)} alt={m.from} className="w-7 h-7 rounded-full object-cover shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[11px] font-bold text-slate-400">{m.from} · {dayText(m.createdAt)}</div>
+                                {m.sticker ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={m.sticker} alt="" className="w-16 h-16 object-contain mt-1" />
+                                ) : m.imageUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={m.imageUrl} alt="" onClick={() => setViewerImage(m.imageUrl!)} className="max-w-[60%] rounded-xl mt-1 cursor-pointer" />
+                                ) : m.audioUrl ? (
+                                  <div className="text-[14px] text-slate-600 mt-0.5">🎤 음성 메시지</div>
+                                ) : (
+                                  <div className="text-[14px] text-slate-700 mt-0.5 break-keep">{renderRich(m.text)}</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    (() => {
+                      const photos = memories.filter((m) => m.imageUrl && !m.deleted);
+                      if (!photos.length) return <div className="h-40 flex flex-col items-center justify-center text-slate-400 gap-2"><span className="text-3xl">📷</span><p className="text-sm font-semibold">주고받은 사진이 여기 모여</p></div>;
+                      return (
+                        <div className="grid grid-cols-3 gap-1 pt-1">
+                          {photos.map((m) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={m.id} src={m.imageUrl} alt="" onClick={() => setViewerImage(m.imageUrl!)} className="aspect-square w-full object-cover rounded-lg cursor-pointer" />
+                          ))}
+                        </div>
+                      );
+                    })()
+                  )}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
