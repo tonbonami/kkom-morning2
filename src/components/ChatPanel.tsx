@@ -352,15 +352,16 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[60] flex flex-col bg-[#FBF8F2]"
+          className="fixed inset-0 z-[60] flex flex-col bg-[#FBF8F2] bg-[radial-gradient(rgba(148,163,184,0.16)_1.4px,transparent_1.4px)] [background-size:22px_22px]"
           initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
           transition={{ type: 'spring', stiffness: 320, damping: 32 }}
         >
-          {/* 헤더 */}
-          <div className="flex items-center gap-3 px-4 pt-12 pb-3 border-b border-black/5 bg-white/60 backdrop-blur-md">
+          {/* 헤더 — 불투명 + 상단 safe-area까지 덮어 뒤 배경 비침 방지 */}
+          <div className="flex items-center gap-3 px-4 pb-3 bg-[#FBF8F2]/95 backdrop-blur-xl border-b border-black/[0.04] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+            style={{ paddingTop: 'max(env(safe-area-inset-top), 2.75rem)' }}>
             <button onClick={onClose} aria-label="닫기" className="p-1.5 -ml-1 text-slate-400 hover:text-slate-600"><X size={22} /></button>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={avatarOf(partner)} alt={partner} className="w-9 h-9 rounded-full object-cover shadow-sm" />
+            <img src={avatarOf(partner)} alt={partner} className="w-9 h-9 rounded-full object-cover ring-2 ring-white shadow-sm" />
             <div className="flex-1">
               <div className="text-base font-extrabold text-slate-700">{partner}</div>
               <div className={`text-xs font-bold ${partnerTyping ? 'text-[#FB7BA8]' : partnerOnline ? 'text-emerald-500' : 'text-slate-400'}`}>
@@ -393,8 +394,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               return (
                 <div key={m.id}>
                   {showDay && (
-                    <div className="flex justify-center my-3">
-                      <span className="text-[11px] font-bold text-slate-400 bg-black/5 rounded-full px-3 py-1">{day}</span>
+                    <div className="flex justify-center my-5">
+                      <span className="text-[11px] font-bold text-slate-400 bg-white/70 backdrop-blur-sm shadow-sm rounded-full px-4 py-1.5">{day}</span>
                     </div>
                   )}
                   <div className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}>
@@ -429,10 +430,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                         <div className="mb-0.5 flex items-center gap-1 text-[10px] font-bold text-[#FB7BA8]">⏳ 타임캡슐</div>
                       )}
                       {pending ? (
-                        <div className="max-w-[80%] px-3.5 py-2.5 rounded-2xl border border-dashed border-[#FB7BA8]/60 bg-[#FB7BA8]/5">
-                          <div className="text-[13px] font-bold text-[#c94c7a] flex items-center gap-1">⏳ 타임캡슐 예약됨</div>
-                          <div className="text-[15px] text-slate-600 mt-1 break-keep whitespace-pre-wrap">{m.text}</div>
-                          <div className="text-[11px] text-slate-400 mt-1">{m.createdAt?.getFullYear()}.{(m.createdAt?.getMonth() ?? 0) + 1}.{m.createdAt?.getDate()} 도착 예정</div>
+                        <div className="max-w-full px-4 py-3 rounded-2xl rounded-tr-md border-2 border-dashed border-[#FB7BA8]/50 bg-[#FB7BA8]/10">
+                          <div className="text-[13px] font-bold text-[#c94c7a] flex items-center gap-1.5"><span className="text-base">⏳</span> 타임캡슐이 심어졌어요</div>
+                          <div className="text-[15px] text-slate-600 mt-1.5 break-keep whitespace-pre-wrap">{m.text}</div>
+                          <div className="text-[11px] font-semibold text-[#FB7BA8]/70 mt-1.5">{m.createdAt?.getFullYear()}.{(m.createdAt?.getMonth() ?? 0) + 1}.{m.createdAt?.getDate()} 도착 예정</div>
                         </div>
                       ) : m.deleted ? (
                         <div className="max-w-[75%] px-3.5 py-2 text-[14px] italic text-slate-400 bg-black/5 rounded-2xl">삭제된 메시지예요</div>
@@ -450,8 +451,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       ) : m.audioUrl ? (
                         <VoiceBubble url={m.audioUrl} dur={m.audioDur ?? 0} mine={mine} />
                       ) : (
-                        <div className={`max-w-full px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap break-keep shadow-sm ${
-                          mine ? 'bg-[#FB7BA8] text-white rounded-2xl rounded-br-md' : 'bg-white text-slate-700 rounded-2xl rounded-bl-md'
+                        <div className={`max-w-full px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap break-keep ${
+                          mine
+                            ? 'bg-[#FB7BA8] text-white rounded-2xl rounded-br-md shadow-[0_2px_10px_rgba(251,123,168,0.25)]'
+                            : 'bg-white text-slate-700 rounded-2xl rounded-bl-md shadow-[0_2px_12px_rgba(0,0,0,0.05)]'
                         }`}>
                           {renderRich(m.text)}
                         </div>
@@ -523,14 +526,15 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           )}
 
           {/* 입력 */}
-          <div className="px-3 pb-6 pt-2 bg-white/60 backdrop-blur-md border-t border-black/5">
+          <div className="px-3 pt-2 bg-[#FBF8F2]/95 backdrop-blur-xl border-t border-black/[0.04]"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1.25rem)' }}>
             {recording ? (
               <div className="flex items-center gap-3 h-11 px-2">
                 <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
                 <span className="flex-1 text-[15px] font-semibold text-slate-600">{fmtDur(recSec)} · 녹음 중…</span>
                 <button onClick={() => stopRec(false)} className="text-slate-400 font-semibold px-2 active:scale-95">취소</button>
                 <button onClick={() => stopRec(true)} aria-label="음성 전송"
-                  className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center active:scale-95 transition">
+                  className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center shadow-[0_4px_14px_rgba(251,123,168,0.35)] active:scale-90 transition">
                   <Send size={18} />
                 </button>
               </div>
@@ -547,8 +551,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 </button>
                 <textarea ref={taRef} value={draft} onChange={onInput} onBlur={stopTyping}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-                  rows={1} placeholder={uploading ? '올리는 중…' : '메시지 보내기…'}
-                  className="flex-1 resize-none rounded-2xl bg-white border border-black/5 px-4 py-2.5 text-[15px] text-slate-700 outline-none focus:border-[#FB7BA8]/50 max-h-[120px]" />
+                  rows={1} placeholder={uploading ? '올리는 중…' : '포차코에게 할 말…'}
+                  className="flex-1 resize-none rounded-3xl bg-white ring-1 ring-black/[0.07] shadow-sm px-4 py-2.5 text-[15px] text-slate-700 outline-none focus:ring-[#FB7BA8]/40 max-h-[120px]" />
                 {draft.trim() ? (
                   <>
                     <button onClick={openCapsule} aria-label="타임캡슐"
@@ -556,13 +560,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       <Hourglass size={18} />
                     </button>
                     <button onClick={send} aria-label="보내기"
-                      className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center active:scale-95 transition">
+                      className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center shadow-[0_4px_14px_rgba(251,123,168,0.35)] active:scale-90 transition">
                       <Send size={18} />
                     </button>
                   </>
                 ) : (
                   <button onClick={startRec} disabled={uploading} aria-label="음성 메시지"
-                    className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center disabled:opacity-40 active:scale-95 transition">
+                    className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center shadow-[0_4px_14px_rgba(251,123,168,0.35)] disabled:opacity-40 active:scale-90 transition">
                     <Mic size={18} />
                   </button>
                 )}
@@ -618,13 +622,15 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             {actionMsg && (
               <motion.div className="absolute inset-0 z-[65] flex items-end justify-center bg-black/20"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActionMsg(null)}>
-                <motion.div className="w-full max-w-md mb-0 rounded-t-3xl bg-white p-4 pb-8 shadow-xl"
-                  initial={{ y: 200 }} animate={{ y: 0 }} exit={{ y: 200 }} transition={{ type: 'spring', stiffness: 340, damping: 32 }}
+                <motion.div className="w-full max-w-md rounded-t-[32px] bg-white px-5 pt-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
+                  style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 2rem)' }}
+                  initial={{ y: 260 }} animate={{ y: 0 }} exit={{ y: 260 }} transition={{ type: 'spring', stiffness: 340, damping: 32 }}
                   onClick={(e) => e.stopPropagation()}>
-                  {/* 반응 이모지 */}
-                  <div className="flex justify-around pb-3 mb-2 border-b border-black/5">
+                  <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-black/10" />
+                  {/* 반응 이모지 랙 */}
+                  <div className="flex justify-around rounded-2xl bg-[#FBF8F2] px-2 py-3 mb-2">
                     {REACTIONS.map((emo) => (
-                      <button key={emo} onClick={() => doReact(emo)} className="text-2xl active:scale-125 transition">{emo}</button>
+                      <button key={emo} onClick={() => doReact(emo)} className="text-2xl hover:scale-125 active:scale-95 transition">{emo}</button>
                     ))}
                   </div>
                   <button onClick={doReply} className="w-full flex items-center gap-3 px-2 py-3 text-slate-700 active:bg-black/5 rounded-xl">
@@ -652,12 +658,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           {/* 추억 보관함 */}
           <AnimatePresence>
             {memoryOpen && (
-              <motion.div className="absolute inset-0 z-[66] flex flex-col bg-[#FBF8F2]"
+              <motion.div className="absolute inset-0 z-[66] flex flex-col bg-[#FBF8F2] bg-[radial-gradient(rgba(148,163,184,0.16)_1.4px,transparent_1.4px)] [background-size:22px_22px]"
                 initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
                 transition={{ type: 'spring', stiffness: 320, damping: 32 }}>
-                <div className="flex items-center gap-3 px-4 pt-12 pb-3 border-b border-black/5 bg-white/60 backdrop-blur-md">
+                <div className="flex items-center gap-3 px-4 pb-3 bg-[#FBF8F2]/95 backdrop-blur-xl border-b border-black/[0.04] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+                  style={{ paddingTop: 'max(env(safe-area-inset-top), 2.75rem)' }}>
                   <button onClick={() => setMemoryOpen(false)} aria-label="닫기" className="p-1.5 -ml-1 text-slate-400"><X size={22} /></button>
-                  <div className="flex-1 text-base font-extrabold text-slate-700">추억 보관함</div>
+                  <div className="flex-1 text-lg font-extrabold text-slate-700">우리의 추억함 💛</div>
                 </div>
                 <div className="flex gap-1.5 px-4 py-2">
                   <button onClick={() => setMemoryTab('star')} className={`px-3.5 py-1.5 rounded-full text-[13px] font-bold ${memoryTab === 'star' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>⭐️ 별표</button>
