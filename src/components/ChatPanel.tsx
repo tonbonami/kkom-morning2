@@ -2,11 +2,12 @@
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, ImagePlus } from 'lucide-react';
+import { X, Send, ImagePlus, Smile } from 'lucide-react';
 import {
   type ChatMessage,
   subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage,
 } from '@/lib/chat';
+import { MOOD_OPTIONS } from '@/lib/moods';
 
 interface Props {
   me: string;
@@ -14,7 +15,7 @@ interface Props {
   messages: ChatMessage[];
   open: boolean;
   onClose: () => void;
-  onSend: (text: string, imageUrl?: string) => void;
+  onSend: (text: string, imageUrl?: string, sticker?: string) => void;
   partnerOnline: boolean;
 }
 
@@ -40,6 +41,7 @@ function dayText(d: Date | null): string {
 
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline }: Props) {
   const [draft, setDraft] = useState('');
+  const [stickerOpen, setStickerOpen] = useState(false);
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -175,7 +177,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                         <span className="text-[10px] text-slate-400">{timeText(m.createdAt)}</span>
                       </div>
                     )}
-                    {m.imageUrl ? (
+                    {m.sticker ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={m.sticker} alt="이모티콘" className="w-28 h-28 object-contain drop-shadow-sm" />
+                    ) : m.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={m.imageUrl}
@@ -214,12 +219,38 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             )}
           </div>
 
+          {/* 이모티콘 피커 (포차코 표정 12종) */}
+          {stickerOpen && (
+            <div className="px-3 pt-3 pb-1 bg-white/80 backdrop-blur-md border-t border-black/5">
+              <div className="grid grid-cols-4 gap-1.5 max-h-52 overflow-y-auto">
+                {MOOD_OPTIONS.map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => { onSend('', undefined, o.image); setStickerOpen(false); }}
+                    aria-label={o.label}
+                    className="aspect-square p-1.5 rounded-2xl active:bg-black/5 transition"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={o.image} alt={o.label} className="w-full h-full object-contain" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 입력 */}
           <div className="px-3 pb-6 pt-2 bg-white/60 backdrop-blur-md border-t border-black/5">
             <div className="flex items-end gap-2">
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
               <button
-                onClick={() => fileRef.current?.click()}
+                onClick={() => setStickerOpen((v) => !v)}
+                aria-label="이모티콘"
+                className={`shrink-0 w-11 h-11 rounded-full border border-black/5 flex items-center justify-center active:scale-95 transition ${stickerOpen ? 'bg-[#FB7BA8] text-white' : 'bg-white text-slate-400'}`}
+              >
+                <Smile size={20} />
+              </button>
+              <button
+                onClick={() => { setStickerOpen(false); fileRef.current?.click(); }}
                 disabled={uploading}
                 aria-label="사진"
                 className="shrink-0 w-11 h-11 rounded-full bg-white border border-black/5 text-slate-400 flex items-center justify-center disabled:opacity-40 active:scale-95 transition"

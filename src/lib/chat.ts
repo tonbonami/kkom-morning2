@@ -10,20 +10,26 @@ export interface ChatMessage {
   from: string;      // '우댕' | '꼼이'
   text: string;
   imageUrl?: string;
+  sticker?: string;  // 포차코 표정 이미지 경로 (/pochacco/face_*.png)
   createdAt: Date | null;
 }
 
 // 메시지 전송 — Firestore 저장(실시간) + 상대가 접속 안 했으면 푸시(잠긴 폰).
-export async function sendMessage(from: string, text: string, partnerOnline: boolean, imageUrl?: string): Promise<void> {
+export async function sendMessage(
+  from: string, text: string, partnerOnline: boolean, imageUrl?: string, sticker?: string,
+): Promise<void> {
   const t = text.trim();
-  if (!t && !imageUrl) return;
+  if (!t && !imageUrl && !sticker) return;
   const clipped = t.slice(0, 2000);
   const payload: Record<string, unknown> = { from, text: clipped, createdAt: serverTimestamp() };
   if (imageUrl) payload.imageUrl = imageUrl;
+  if (sticker) payload.sticker = sticker;
   await addDoc(collection(db, 'messages'), payload);
   if (!partnerOnline) {
     const to = from === '우댕' ? '꼼이' : '우댕';
-    const pushText = imageUrl ? (clipped ? clipped.slice(0, 140) : '사진을 보냈어 📷') : clipped.slice(0, 140);
+    const pushText = sticker ? '이모티콘을 보냈어 🐶'
+      : imageUrl ? (clipped ? clipped.slice(0, 140) : '사진을 보냈어 📷')
+      : clipped.slice(0, 140);
     fetch('/api/message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -71,8 +77,8 @@ export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): 
     (snap) => {
       const msgs: ChatMessage[] = snap.docs
         .map((d) => {
-          const data = d.data() as { from?: string; text?: string; imageUrl?: string; createdAt?: Timestamp };
-          return { id: d.id, from: data.from ?? '', text: data.text ?? '', imageUrl: data.imageUrl, createdAt: data.createdAt?.toDate?.() ?? null };
+          const data = d.data() as { from?: string; text?: string; imageUrl?: string; sticker?: string; createdAt?: Timestamp };
+          return { id: d.id, from: data.from ?? '', text: data.text ?? '', imageUrl: data.imageUrl, sticker: data.sticker, createdAt: data.createdAt?.toDate?.() ?? null };
         })
         .reverse();
       cb(msgs);
