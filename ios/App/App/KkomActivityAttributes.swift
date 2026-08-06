@@ -2,19 +2,20 @@ import ActivityKit
 import Foundation
 
 // Live Activity 데이터 정의 — ⚠️ 앱 타깃 + 위젯확장 타깃 둘 다에 멤버여야 함(안 그러면 렌더 안 됨).
-// ContentState = 라이브로 바뀌는 값. 시계오차는 serverMs/deviceMs로 보정(위젯 스냅샷과 동일 방식).
+// 제미나이 시안(대기질·기온 헤드라인) 형태. online/agoText/dday/skyEmoji는 파이프라인에서 미리 계산해 넣음.
 struct KkomActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         var partnerName: String
-        var partnerActive: Bool
-        var partnerLastSeenMs: Double
-        var serverMs: Double
-        var deviceMs: Double
-        var ddayDate: String        // "YYYY-MM-DD"
+        var online: Bool
+        var agoText: String
+        var dday: String            // "D+1044"
         var airGrade: String?
         var airLoc: String?
-        var partnerMood: String?    // 이모지
+        var pm10: Int?
+        var pm25: Int?
+        var temp: Int?
+        var skyEmoji: String
+        var rainEmoji: String?
+        var partnerMood: String?
     }
-
-    var title: String = "꼼모닝"
 }

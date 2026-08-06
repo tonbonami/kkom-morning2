@@ -45,7 +45,8 @@ export async function POST(req: NextRequest) {
     // 쿨다운 실패해도 발송 시도
   }
 
-  const patched = { ...base, partnerActive: true, partnerLastSeenMs: now, serverMs: now, deviceMs: now };
+  // 제미나이 ContentState 형태 — 내가 접속했으니 online/agoText만 갱신(나머지는 base 유지).
+  const patched = { ...base, online: true, agoText: '지금 함께' };
   const ok = await sendLiveActivity(partnerKey, patched, { staleInSec: 150 }).catch(() => false);
   return NextResponse.json({ ok: true, apns: ok });
 }

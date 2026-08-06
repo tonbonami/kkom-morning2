@@ -23,15 +23,27 @@ final class LiveActivityManager {
     func upsert(from d: [String: Any]) {
         guard #available(iOS 16.2, *) else { return }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+
+        // 파생값 계산(online/agoText/dday/skyEmoji) — 제미나이 ContentState 형태에 맞춤
+        let partnerActive = d["partnerActive"] as? Bool ?? false
+        let lastSeen = (d["partnerLastSeenMs"] as? Double) ?? 0
+        let serverMs = (d["snapshotServerMs"] as? Double) ?? 0
+        let deviceMs = (d["snapshotDeviceMs"] as? Double) ?? 0
+        let serverNow = serverMs + (Date().timeIntervalSince1970 * 1000 - deviceMs)
+        let online = partnerActive && lastSeen > 0 && (serverNow - lastSeen < 90_000)
+
         let state = KkomActivityAttributes.ContentState(
             partnerName: d["partnerName"] as? String ?? "",
-            partnerActive: d["partnerActive"] as? Bool ?? false,
-            partnerLastSeenMs: (d["partnerLastSeenMs"] as? Double) ?? 0,
-            serverMs: (d["snapshotServerMs"] as? Double) ?? 0,
-            deviceMs: (d["snapshotDeviceMs"] as? Double) ?? 0,
-            ddayDate: d["ddayDate"] as? String ?? "2023-09-28",
+            online: online,
+            agoText: online ? "지금 함께" : Self.agoText(lastSeen, serverNow),
+            dday: Self.ddayText(d["ddayDate"] as? String ?? "2023-09-28", serverNow),
             airGrade: d["airGrade"] as? String,
             airLoc: d["airLoc"] as? String,
+            pm10: d["airPm10"] as? Int,
+            pm25: d["airPm25"] as? Int,
+            temp: d["weatherTemp"] as? Int,
+            skyEmoji: Self.skyEmoji(d["weatherSky"] as? String),
+            rainEmoji: d["rainEmoji"] as? String,
             partnerMood: d["partnerMood"] as? String
         )
         let content = ActivityContent(state: state, staleDate: nil)
@@ -58,6 +70,27 @@ final class LiveActivityManager {
                 NSLog("LiveActivity 시작 실패: \(error.localizedDescription)")
             }
         }
+    }
+
+    // ── 파생값 헬퍼 ──
+    private static func agoText(_ lastSeenMs: Double, _ serverNowMs: Double) -> String {
+        if lastSeenMs <= 0 { return "대기 중" }
+        let m = max(1, Int(max(0, serverNowMs - lastSeenMs) / 60_000))
+        if m < 60 { return "\(m)분 전" }
+        let h = m / 60; if h < 24 { return "\(h)시간 전" }
+        let dd = h / 24; if dd == 1 { return "어제" }; if dd < 7 { return "\(dd)일 전" }
+        return "\(dd / 7)주 전"
+    }
+    private static func ddayText(_ ymd: String, _ serverNowMs: Double) -> String {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.timeZone = TimeZone(identifier: "Asia/Seoul")
+        guard let target = f.date(from: ymd) else { return "D-day" }
+        var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        let now = Date(timeIntervalSince1970: serverNowMs / 1000)
+        let n = cal.dateComponents([.day], from: cal.startOfDay(for: target), to: cal.startOfDay(for: now)).day ?? 0
+        return "D+\(n + 1)"   // 사귄 당일 D+1
+    }
+    private static func skyEmoji(_ code: String?) -> String {
+        switch code { case "1": return "☀️"; case "3": return "⛅"; case "4": return "☁️"; default: return "🌤️" }
     }
 
     func end() {

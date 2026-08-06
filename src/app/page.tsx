@@ -279,6 +279,7 @@ export default function KkomMorningHome() {
       airPm25: air?.pm25 ?? undefined,
       airLoc: air?.location ?? undefined,
       weatherTemp: weather?.current?.temp ?? undefined,
+      weatherSky: weather?.current?.sky ?? undefined,
       partnerMood: moods[partnerName]?.emoji,
     });
   }, [userName, partnerPresence, partnerDrawing, nextEvent, air, weather, moods]);
