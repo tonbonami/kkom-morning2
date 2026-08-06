@@ -41,10 +41,11 @@ export async function sendMessage(
   await addDoc(collection(db, 'messages'), payload);
   if (!partnerOnline) {
     const to = from === '우댕' ? '꼼이' : '우댕';
+    const plain = clipped.replace(/\[\[e:[a-z]+\]\]/g, '🐶').slice(0, 140); // 미니 이모티콘 토큰 → 🐶
     const pushText = audio ? '음성 메시지를 보냈어 🎤'
       : sticker ? '이모티콘을 보냈어 🐶'
-      : imageUrl ? (clipped ? clipped.slice(0, 140) : '사진을 보냈어 📷')
-      : clipped.slice(0, 140);
+      : imageUrl ? (plain || '사진을 보냈어 📷')
+      : plain;
     fetch('/api/message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -90,15 +90,37 @@ function dayText(d: Date | null): string {
   if (d.toDateString() === y.toDateString()) return '어제';
   return `${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
+// 미니 이모티콘 — 텍스트에 [[e:id]] 토큰으로 인라인 삽입. 렌더 시 작은 이미지로 치환.
+const EMO_RE = /\[\[e:([a-z]+)\]\]/g;
+function stripEmo(text: string): string { return text.replace(EMO_RE, '🐶'); }
+function renderRich(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let last = 0; let i = 0; let m: RegExpExecArray | null;
+  EMO_RE.lastIndex = 0;
+  while ((m = EMO_RE.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    const opt = MOOD_OPTIONS.find((o) => o.id === m![1]);
+    if (opt) {
+      // eslint-disable-next-line @next/next/no-img-element
+      parts.push(<img key={i++} src={opt.image} alt={opt.label} className="inline-block w-6 h-6 align-text-bottom object-contain" />);
+    } else parts.push(m[0]);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
 function preview(m: ChatMessage): string {
   if (m.sticker) return '이모티콘';
   if (m.imageUrl) return '사진';
-  return m.text;
+  if (m.audioUrl) return '음성 메시지';
+  return stripEmo(m.text);
 }
 
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
+  const [stickerMode, setStickerMode] = useState<'sticker' | 'mini'>('sticker');
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -181,6 +203,19 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     onSend(t, undefined, undefined, replyTo ?? undefined);
     setDraft(''); setReplyTo(null); stopTyping();
     if (taRef.current) taRef.current.style.height = 'auto';
+  };
+
+  // 미니 이모티콘 — 커서 위치에 [[e:id]] 토큰 삽입 (피커 열린 채 여러 개 가능)
+  const insertMini = (id: string) => {
+    const token = `[[e:${id}]]`;
+    const ta = taRef.current;
+    const start = ta?.selectionStart ?? draft.length;
+    const end = ta?.selectionEnd ?? start;
+    const next = draft.slice(0, start) + token + draft.slice(end);
+    setDraft(next);
+    requestAnimationFrame(() => {
+      if (ta) { ta.focus(); const pos = start + token.length; ta.setSelectionRange(pos, pos); }
+    });
   };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -369,7 +404,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                         <div className={`max-w-[75%] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap break-words shadow-sm ${
                           mine ? 'bg-[#FB7BA8] text-white rounded-2xl rounded-br-md' : 'bg-white text-slate-700 rounded-2xl rounded-bl-md'
                         }`}>
-                          {m.text}
+                          {renderRich(m.text)}
                         </div>
                       )}
 
@@ -402,12 +437,21 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             )}
           </div>
 
-          {/* 이모티콘 피커 */}
+          {/* 이모티콘 피커 (스티커=크게 따로 / 미니=글자 사이 인라인) */}
           {stickerOpen && (
-            <div className="px-3 pt-3 pb-1 bg-white/80 backdrop-blur-md border-t border-black/5">
+            <div className="px-3 pt-2 pb-1 bg-white/80 backdrop-blur-md border-t border-black/5">
+              <div className="flex items-center gap-1 mb-2">
+                <button onClick={() => setStickerMode('sticker')} className={`px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'sticker' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>스티커</button>
+                <button onClick={() => setStickerMode('mini')} className={`px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'mini' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>미니</button>
+                {stickerMode === 'mini' && <span className="ml-1 text-[11px] text-slate-400">글자 사이에 콕콕 넣기</span>}
+              </div>
               <div className="grid grid-cols-4 gap-1.5 max-h-52 overflow-y-auto">
                 {MOOD_OPTIONS.map((o) => (
-                  <button key={o.id} onClick={() => { onSend('', undefined, o.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
+                  <button key={o.id}
+                    onClick={() => {
+                      if (stickerMode === 'mini') { insertMini(o.id); }
+                      else { onSend('', undefined, o.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }
+                    }}
                     aria-label={o.label} className="aspect-square p-1.5 rounded-2xl active:bg-black/5 transition">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={o.image} alt={o.label} className="w-full h-full object-contain" />
