@@ -1112,7 +1112,7 @@ export default function KkomMorningHome() {
       {(userName === '우댕' || userName === '꼼이') && (
         // isTogetherNow = active + 최근 90초 (serverNow 시계보정). 접속 뱃지와 동일 판정으로 통일
         // — 이전엔 여기만 Date.now()라 기기 시계 어긋나면 왕하트가 안 떴음.
-        <LiveHeartLayer me={userName} partnerActive={isTogetherNow(partnerPresence)} />
+        <LiveHeartLayer me={userName} partnerActive={isTogetherNow(partnerPresence)} onOpenChat={() => { setChatOpen(true); setChatUnread(false); }} />
       )}
 
       {/* 하단 고정 퀵메세지 바 — 한 탭 푸시 (보고싶어/사랑해/뽀뽀/잘 자) */}

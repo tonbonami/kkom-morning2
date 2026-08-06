@@ -9,6 +9,7 @@ import { heartbeatHaptic } from '@/lib/nativeHaptics';
 interface LiveHeartLayerProps {
   me: string;
   partnerActive: boolean;
+  onOpenChat?: () => void;
 }
 
 type Ping = {
@@ -30,7 +31,7 @@ type Particle = {
 
 const EMOJI_MIX = ['❤️', '💕', '✨', '💗', '💖'];
 
-export default function LiveHeartLayer({ me, partnerActive }: LiveHeartLayerProps) {
+export default function LiveHeartLayer({ me, partnerActive, onOpenChat }: LiveHeartLayerProps) {
   const [particles, setParticles] = useState<Particle[]>([]);
   const seenNonce = useRef<string | null>(null);
 
@@ -133,18 +134,21 @@ export default function LiveHeartLayer({ me, partnerActive }: LiveHeartLayerProp
             transition={{ type: 'spring', damping: 20, stiffness: 300 }}
             className="relative flex flex-col items-center justify-center pointer-events-auto"
           >
-            {/* 글래스모피즘 상태 배지 */}
-            <motion.div
+            {/* 글래스모피즘 상태 배지 — 누르면 채팅 바로 열림 */}
+            <motion.button
+              type="button"
+              onClick={onOpenChat}
               initial={{ y: 10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="absolute -top-16 px-4 py-2 rounded-full shadow-lg border border-white/40 bg-white/30 backdrop-blur-md flex items-center gap-2"
+              whileTap={{ scale: 0.94 }}
+              className="absolute -top-16 px-4 py-2 rounded-full shadow-lg border border-white/40 bg-white/30 backdrop-blur-md flex items-center gap-2 cursor-pointer"
             >
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
               <span className="text-sm font-bold text-rose-600 tracking-tight">
                 지금 함께야 💕 톡 해봐
               </span>
-            </motion.div>
+            </motion.button>
 
             {/* 빛 번짐 배경 (Glow) */}
             <motion.div
