@@ -30,12 +30,15 @@ final class PushManager: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    // 하트/범프 알림 꾹 누르면 뜨는 답장 버튼들. payload의 category="KKOM_MSG"와 매칭.
+    // 알림 꾹 누르면 뜨는 답장들. payload category="KKOM_MSG"와 매칭.
+    // REPLY_TEXT = 잠금화면에서 바로 타이핑 답장(카톡급) → 채팅 메시지로 저장+발송.
     private func registerReplyCategory() {
+        let reply = UNTextInputNotificationAction(identifier: "REPLY_TEXT", title: "답장", options: [],
+                                                  textInputButtonTitle: "보내기", textInputPlaceholder: "메시지…")
         let love  = UNNotificationAction(identifier: "REPLY_LOVE",  title: "사랑해 ❤️", options: [])
         let hug   = UNNotificationAction(identifier: "REPLY_HUG",   title: "안아줘 🤗", options: [])
         let heart = UNNotificationAction(identifier: "REPLY_HEART", title: "하트 💚",  options: [])
-        let cat = UNNotificationCategory(identifier: "KKOM_MSG", actions: [love, hug, heart],
+        let cat = UNNotificationCategory(identifier: "KKOM_MSG", actions: [reply, love, hug, heart],
                                          intentIdentifiers: [], options: [])
         UNUserNotificationCenter.current().setNotificationCategories([cat])
     }
@@ -46,6 +49,15 @@ final class PushManager: NSObject, UNUserNotificationCenterDelegate {
         guard let meKey = user, !meKey.isEmpty else { completionHandler(); return }
         let meName = meKey == "udaeng" ? "우댕" : "꼼이"
         let toName = meKey == "udaeng" ? "꼼이" : "우댕"
+
+        // 카톡급 텍스트 답장 — 채팅 메시지로 저장(Firestore) + 상대 푸시
+        if let textResp = response as? UNTextInputNotificationResponse {
+            let text = textResp.userText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { completionHandler(); return }
+            sendChatReply(from: meName, to: toName, text: String(text.prefix(2000)), done: completionHandler)
+            return
+        }
+
         var path: String? = nil
         var bodyDict: [String: Any] = ["from": meName, "to": toName]
         switch response.actionIdentifier {
@@ -54,11 +66,47 @@ final class PushManager: NSObject, UNUserNotificationCenterDelegate {
         case "REPLY_HEART": path = "/api/heart"
         default: completionHandler(); return   // 본문 탭(기본) → 앱 열림, 답장 없음
         }
-        guard let p = path, let url = URL(string: "\(WEB_BASE)\(p)") else { completionHandler(); return }
+        guard let p = path else { completionHandler(); return }
+        postJSON("\(WEB_BASE)\(p)", bodyDict, done: completionHandler)
+    }
+
+    private func postJSON(_ urlStr: String, _ body: [String: Any], done: @escaping () -> Void) {
+        guard let url = URL(string: urlStr) else { done(); return }
         var req = URLRequest(url: url); req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
-        URLSession.shared.dataTask(with: req) { _, _, _ in completionHandler() }.resume()
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        URLSession.shared.dataTask(with: req) { _, _, _ in done() }.resume()
+    }
+
+    // 텍스트 답장 = 채팅 메시지: Firestore 'messages'에 저장(REST, 웹 채팅과 동일 스키마) + /api/message 푸시.
+    private func sendChatReply(from: String, to: String, text: String, done: @escaping () -> Void) {
+        let projectId = "kkom-morning"
+        let apiKey = "AIzaSyBaIIIwJ5x19svwkmUvVtuQSio0VPcRkQg"   // 공개값(웹 번들에도 노출)
+        let group = DispatchGroup()
+
+        // 1) Firestore messages 저장 → 기록에 남고 상대 앱에 실시간 표시
+        if let url = URL(string: "https://firestore.googleapis.com/v1/projects/\(projectId)/databases/(default)/documents/messages?key=\(apiKey)") {
+            let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let fields: [String: Any] = ["fields": [
+                "from": ["stringValue": from],
+                "text": ["stringValue": text],
+                "createdAt": ["timestampValue": iso.string(from: Date())],
+            ]]
+            var req = URLRequest(url: url); req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: fields)
+            group.enter()
+            URLSession.shared.dataTask(with: req) { _, _, _ in group.leave() }.resume()
+        }
+        // 2) 상대에게 푸시(잠긴 폰/백그라운드)
+        if let url = URL(string: "\(WEB_BASE)/api/message") {
+            var req = URLRequest(url: url); req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: ["from": from, "to": to, "text": text])
+            group.enter()
+            URLSession.shared.dataTask(with: req) { _, _, _ in group.leave() }.resume()
+        }
+        group.notify(queue: .main) { done() }
     }
 
     // 앱을 켜고 있을 때(포그라운드)도 상단 배너 + 소리로 알림 표시.
