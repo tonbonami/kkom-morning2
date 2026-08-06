@@ -45,7 +45,7 @@ import { getPushState, enablePush, disablePush, type PushState } from '@/lib/pus
 import AirSkyVisual from '@/components/AirSkyVisual';
 import { Bell, BellOff, MessageCircle } from 'lucide-react';
 import ChatPanel from '@/components/ChatPanel';
-import { subscribeMessages, sendMessage, type ChatMessage } from '@/lib/chat';
+import { subscribeMessages, sendMessage, sendCapsule, type ChatMessage } from '@/lib/chat';
 import type { WeatherData, OutfitGuide } from '@/types';
 
 // 등급별 테마 (배경 그라데이션·텍스트·막대 색을 한 색으로 통일)
@@ -295,10 +295,14 @@ export default function KkomMorningHome() {
   }, [userName, partnerPresence, partnerDrawing, nextEvent, air, weather, moods]);
 
   // 채팅 — 실시간 메시지 구독 (msgLimit 늘리면 지난 대화 더 불러옴)
+  // 타임캡슐: 도착 전(createdAt 미래)엔 상대 것은 숨김, 내 예약분만 보임.
   useEffect(() => {
-    const unsub = subscribeMessages(setMessages, msgLimit);
+    const unsub = subscribeMessages((msgs) => {
+      const now = Date.now();
+      setMessages(msgs.filter((m) => !m.capsule || m.from === userName || (m.createdAt != null && m.createdAt.getTime() <= now)));
+    }, msgLimit);
     return () => unsub();
-  }, [msgLimit]);
+  }, [msgLimit, userName]);
 
   // 안 읽음 표시 — 채팅 열려있으면 읽음 처리, 닫혀있고 상대 새 메시지면 뱃지
   useEffect(() => {
@@ -1142,6 +1146,7 @@ export default function KkomMorningHome() {
           partnerOnline={isTogetherNow(partnerPresence)}
           onLoadMore={() => setMsgLimit((l) => l + 40)}
           hasMore={messages.length >= msgLimit}
+          onSendCapsule={(text, deliverAt) => sendCapsule(userName, text, deliverAt)}
         />
       )}
     </div>

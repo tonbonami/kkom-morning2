@@ -22,6 +22,7 @@ export interface ChatMessage {
   reactions?: Record<string, string>; // userKey('udaeng'|'kkomi') → 이모지
   deleted?: boolean;
   starred?: boolean;  // 추억 보관함(별표)
+  capsule?: boolean;  // 타임캡슐 (createdAt = 미래 도착 시각)
   createdAt: Date | null;
 }
 
@@ -61,6 +62,15 @@ export async function uploadChatImage(file: File): Promise<string> {
   const r = sRef(storage, key);
   await uploadBytes(r, file, { contentType: file.type || 'image/jpeg' });
   return getDownloadURL(r);
+}
+
+// 타임캡슐 — 미래 도착 시각을 createdAt으로 저장. 도착 전엔 클라가 (내 것 빼고) 숨김.
+export async function sendCapsule(from: string, text: string, deliverAt: Date): Promise<void> {
+  const t = text.trim();
+  if (!t) return;
+  await addDoc(collection(db, 'messages'), {
+    from, text: t.slice(0, 2000), capsule: true, createdAt: Timestamp.fromDate(deliverAt),
+  });
 }
 
 // 음성 업로드 → 다운로드 URL. Storage chat-audio/ 아래.
@@ -130,6 +140,7 @@ export async function fetchRecentMessages(max = 300): Promise<ChatMessage[]> {
         audioUrl: data.audioUrl as string | undefined, audioDur: data.audioDur as number | undefined,
         replyTo: data.replyTo as ReplyRef | undefined, reactions: data.reactions as Record<string, string> | undefined,
         deleted: data.deleted as boolean | undefined, starred: data.starred as boolean | undefined,
+        capsule: data.capsule as boolean | undefined,
         createdAt: data.createdAt?.toDate?.() ?? null,
       } as ChatMessage;
     })
@@ -147,13 +158,13 @@ export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): 
           const data = d.data() as {
             from?: string; text?: string; imageUrl?: string; sticker?: string;
             audioUrl?: string; audioDur?: number;
-            replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; starred?: boolean; createdAt?: Timestamp;
+            replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; starred?: boolean; capsule?: boolean; createdAt?: Timestamp;
           };
           return {
             id: d.id, from: data.from ?? '', text: data.text ?? '',
             imageUrl: data.imageUrl, sticker: data.sticker,
             audioUrl: data.audioUrl, audioDur: data.audioDur, replyTo: data.replyTo,
-            reactions: data.reactions, deleted: data.deleted, starred: data.starred,
+            reactions: data.reactions, deleted: data.deleted, starred: data.starred, capsule: data.capsule,
             createdAt: data.createdAt?.toDate?.() ?? null,
           };
         })

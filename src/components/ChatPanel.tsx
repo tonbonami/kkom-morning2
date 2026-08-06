@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Mic, Play, Pause, Bookmark, BookmarkCheck } from 'lucide-react';
+import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass } from 'lucide-react';
 import {
   type ChatMessage, type ReplyRef,
   subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage, uploadChatAudio,
@@ -69,6 +69,7 @@ interface Props {
   partnerOnline: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
+  onSendCapsule: (text: string, deliverAt: Date) => void;
 }
 
 const keyOf = (name: string) => (name === '우댕' ? 'udaeng' : 'kkomi');
@@ -117,7 +118,7 @@ function preview(m: ChatMessage): string {
   return stripEmo(m.text);
 }
 
-export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore }: Props) {
+export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
   const [stickerMode, setStickerMode] = useState<'sticker' | 'mini'>('sticker');
@@ -133,6 +134,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [memoryTab, setMemoryTab] = useState<'star' | 'photo'>('star');
   const [memories, setMemories] = useState<ChatMessage[] | null>(null);
+  const [capsuleOpen, setCapsuleOpen] = useState(false);
+  const [capsuleDate, setCapsuleDate] = useState('');
+  const [toast, setToast] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -206,6 +210,28 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     onSend(t, undefined, undefined, replyTo ?? undefined);
     setDraft(''); setReplyTo(null); stopTyping();
     if (taRef.current) taRef.current.style.height = 'auto';
+  };
+
+  // ── 타임캡슐 ──
+  const toLocalInput = (d: Date) => {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
+  const flashToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2400); };
+  const openCapsule = () => {
+    if (!draft.trim()) { flashToast('먼저 메시지를 써줘 ✍️'); return; }
+    const d = new Date(); d.setFullYear(d.getFullYear() + 1);
+    setCapsuleDate(toLocalInput(d));
+    setCapsuleOpen(true);
+  };
+  const setCapsulePreset = (days: number) => { const d = new Date(); d.setDate(d.getDate() + days); setCapsuleDate(toLocalInput(d)); };
+  const sendCapsuleNow = () => {
+    const when = new Date(capsuleDate);
+    if (isNaN(when.getTime()) || when.getTime() <= Date.now()) { flashToast('미래 날짜를 골라줘 ⏳'); return; }
+    onSendCapsule(draft.trim(), when);
+    setDraft(''); setReplyTo(null); setCapsuleOpen(false); stopTyping();
+    if (taRef.current) taRef.current.style.height = 'auto';
+    flashToast(`타임캡슐 예약됨 ⏳ ${when.getFullYear()}.${when.getMonth() + 1}.${when.getDate()} 도착`);
   };
 
   // 미니 이모티콘 — 커서 위치에 [[e:id]] 토큰 삽입 (피커 열린 채 여러 개 가능)
@@ -361,7 +387,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             )}
             {withDays.map(({ m, showDay, day, showAvatar }) => {
               const mine = m.from === me;
-              const unread = mine && !m.deleted && m.createdAt != null && (partnerLastRead == null || m.createdAt > partnerLastRead);
+              const pending = m.capsule === true && m.createdAt != null && m.createdAt.getTime() > Date.now();
+              const unread = mine && !m.deleted && !pending && m.createdAt != null && (partnerLastRead == null || m.createdAt > partnerLastRead);
               const reactionEmojis = m.reactions ? Object.values(m.reactions) : [];
               return (
                 <div key={m.id}>
@@ -383,7 +410,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     )}
 
                     <div
-                      className="flex flex-col select-none"
+                      className="flex flex-col select-none max-w-[78%]"
                       style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}
                       onPointerDown={() => startPress(m)}
                       onPointerUp={cancelPress}
@@ -398,7 +425,16 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                         </div>
                       )}
 
-                      {m.deleted ? (
+                      {m.capsule && !pending && !m.deleted && (
+                        <div className="mb-0.5 flex items-center gap-1 text-[10px] font-bold text-[#FB7BA8]">⏳ 타임캡슐</div>
+                      )}
+                      {pending ? (
+                        <div className="max-w-[80%] px-3.5 py-2.5 rounded-2xl border border-dashed border-[#FB7BA8]/60 bg-[#FB7BA8]/5">
+                          <div className="text-[13px] font-bold text-[#c94c7a] flex items-center gap-1">⏳ 타임캡슐 예약됨</div>
+                          <div className="text-[15px] text-slate-600 mt-1 break-keep whitespace-pre-wrap">{m.text}</div>
+                          <div className="text-[11px] text-slate-400 mt-1">{m.createdAt?.getFullYear()}.{(m.createdAt?.getMonth() ?? 0) + 1}.{m.createdAt?.getDate()} 도착 예정</div>
+                        </div>
+                      ) : m.deleted ? (
                         <div className="max-w-[75%] px-3.5 py-2 text-[14px] italic text-slate-400 bg-black/5 rounded-2xl">삭제된 메시지예요</div>
                       ) : m.sticker ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -414,7 +450,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       ) : m.audioUrl ? (
                         <VoiceBubble url={m.audioUrl} dur={m.audioDur ?? 0} mine={mine} />
                       ) : (
-                        <div className={`max-w-[75%] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap break-keep [overflow-wrap:anywhere] shadow-sm ${
+                        <div className={`max-w-full px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap break-keep shadow-sm ${
                           mine ? 'bg-[#FB7BA8] text-white rounded-2xl rounded-br-md' : 'bg-white text-slate-700 rounded-2xl rounded-bl-md'
                         }`}>
                           {renderRich(m.text)}
@@ -514,10 +550,16 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   rows={1} placeholder={uploading ? '올리는 중…' : '메시지 보내기…'}
                   className="flex-1 resize-none rounded-2xl bg-white border border-black/5 px-4 py-2.5 text-[15px] text-slate-700 outline-none focus:border-[#FB7BA8]/50 max-h-[120px]" />
                 {draft.trim() ? (
-                  <button onClick={send} aria-label="보내기"
-                    className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center active:scale-95 transition">
-                    <Send size={18} />
-                  </button>
+                  <>
+                    <button onClick={openCapsule} aria-label="타임캡슐"
+                      className="shrink-0 w-11 h-11 rounded-full bg-white border border-black/5 text-[#FB7BA8] flex items-center justify-center active:scale-95 transition">
+                      <Hourglass size={18} />
+                    </button>
+                    <button onClick={send} aria-label="보내기"
+                      className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center active:scale-95 transition">
+                      <Send size={18} />
+                    </button>
+                  </>
                 ) : (
                   <button onClick={startRec} disabled={uploading} aria-label="음성 메시지"
                     className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center disabled:opacity-40 active:scale-95 transition">
@@ -527,6 +569,46 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               </div>
             )}
           </div>
+
+          {/* 타임캡슐 작성 */}
+          <AnimatePresence>
+            {capsuleOpen && (
+              <motion.div className="absolute inset-0 z-[67] flex items-end justify-center bg-black/25"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setCapsuleOpen(false)}>
+                <motion.div className="w-full max-w-md rounded-t-3xl bg-white p-5 pb-8 shadow-xl"
+                  initial={{ y: 280 }} animate={{ y: 0 }} exit={{ y: 280 }} transition={{ type: 'spring', stiffness: 340, damping: 32 }}
+                  onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Hourglass size={18} className="text-[#FB7BA8]" />
+                    <span className="text-base font-extrabold text-slate-700">타임캡슐</span>
+                  </div>
+                  <p className="text-[13px] text-slate-500 mb-3">이 메시지가 <b>고른 날짜에 도착</b>해. 미래의 나한테서 오는 편지 ⏳</p>
+                  <div className="rounded-xl bg-black/5 px-3 py-2 text-[14px] text-slate-600 mb-3 line-clamp-2 break-keep">{draft.trim()}</div>
+                  <div className="flex gap-1.5 mb-3">
+                    <button onClick={() => setCapsulePreset(7)} className="flex-1 py-1.5 rounded-full bg-black/5 text-[12px] font-bold text-slate-600 active:bg-black/10">1주일 뒤</button>
+                    <button onClick={() => setCapsulePreset(100)} className="flex-1 py-1.5 rounded-full bg-black/5 text-[12px] font-bold text-slate-600 active:bg-black/10">100일 뒤</button>
+                    <button onClick={() => setCapsulePreset(365)} className="flex-1 py-1.5 rounded-full bg-black/5 text-[12px] font-bold text-slate-600 active:bg-black/10">1년 뒤</button>
+                  </div>
+                  <input type="datetime-local" value={capsuleDate} onChange={(e) => setCapsuleDate(e.target.value)}
+                    className="w-full rounded-xl border border-black/10 px-3 py-2.5 text-[15px] text-slate-700 mb-4" />
+                  <div className="flex gap-2">
+                    <button onClick={() => setCapsuleOpen(false)} className="flex-1 py-3 rounded-2xl bg-black/5 font-bold text-slate-500 active:scale-95">취소</button>
+                    <button onClick={sendCapsuleNow} className="flex-1 py-3 rounded-2xl bg-[#FB7BA8] font-bold text-white active:scale-95">예약하기 ⏳</button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* 토스트 */}
+          <AnimatePresence>
+            {toast && (
+              <motion.div className="absolute left-1/2 -translate-x-1/2 bottom-28 z-[75] px-4 py-2.5 rounded-full bg-slate-800/90 text-white text-[13px] font-semibold shadow-lg whitespace-nowrap"
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}>
+                {toast}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* 메시지 효과 (사랑해/축하/ㅋㅋㅋ 등) */}
           <ChatEffectLayer effect={effect} />
