@@ -35,6 +35,17 @@ final class LiveActivityManager {
             partnerMood: d["partnerMood"] as? String
         )
         let content = ActivityContent(state: state, staleDate: nil)
+
+        // 프로세스 재시작하면 current가 nil → 이미 떠있는 activity를 채택(중복 생성 방지 + 여분 정리).
+        if current == nil {
+            let existing = Activity<KkomActivityAttributes>.activities
+            if let first = existing.first {
+                current = first
+                observeToken(first)
+                for extra in existing.dropFirst() { Task { await extra.end(nil, dismissalPolicy: .immediate) } }
+            }
+        }
+
         if let act = current {
             Task { await act.update(content) }
         } else {
