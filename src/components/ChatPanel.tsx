@@ -122,9 +122,20 @@ function renderRich(text: string): React.ReactNode {
         parts.push(<img key={i++} src={opt.image} alt={opt.label} className="inline-block w-6 h-6 align-middle object-contain" />);
       } else parts.push(m[0]);
     } else if (m[2] !== undefined) {
-      // (단어) 텍스트 스티커 → 포차코 스티커
-      // eslint-disable-next-line @next/next/no-img-element
-      parts.push(<img key={i++} src={TEXT_STICKERS[m![2]]} alt={m![2]} className="inline-block h-11 w-auto align-middle object-contain" />);
+      // (단어) 텍스트 스티커 → 포차코 스티커. 통통 튀어나오고 주기적으로 살짝 흔들려 "움직이는" 느낌.
+      parts.push(
+        <motion.img
+          key={i++} src={TEXT_STICKERS[m![2]]} alt={m![2]}
+          className="inline-block h-11 w-auto align-middle object-contain"
+          initial={{ scale: 0.4, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1, rotate: [0, -6, 6, -4, 0] }}
+          transition={{
+            scale: { type: 'spring', stiffness: 480, damping: 13 },
+            opacity: { duration: 0.15 },
+            rotate: { duration: 1.6, repeat: Infinity, repeatDelay: 2.2, ease: 'easeInOut' },
+          }}
+        />
+      );
     }
     last = m.index + m[0].length;
   }
