@@ -99,6 +99,9 @@ const EMO_RE = /\[\[e:([a-z]+)\]\]/g;
 const TEXT_STICKERS: Record<string, string> = {
   '야호': '/pochacco/pochacco_yaho.png',
   '사랑해': '/pochacco_couple/love.png',
+  '보고파': '/pochacco_couple/miss.png',
+  '굿모닝': '/pochacco_couple/morning.png',
+  '토닥토닥': '/pochacco_couple/pat.png',
 };
 const STICKER_ALT = Object.keys(TEXT_STICKERS).join('|');
 // [[e:id]] 미니 이모티콘 OR (단어) 텍스트 스티커 둘 다 매칭
