@@ -102,7 +102,13 @@ const TEXT_STICKERS: Record<string, string> = {
   '보고파': '/pochacco_couple/miss.png',
   '굿모닝': '/pochacco_couple/morning.png',
   '토닥토닥': '/pochacco_couple/pat.png',
+  // 진짜 동영상 스티커 (편지처럼 MP4 재생) — 데모: 기존 편지 포차코 영상
+  '하트': '/letter-stickers/pochacco-heart.mp4',
+  '장미': '/letter-stickers/pochacco-rose.mp4',
 };
+// 스티커 소스가 동영상(mp4/webm/mov)인지 → <video>로 진짜 재생. 아니면 정지 이미지.
+const isVideoSrc = (src: string) => /\.(mp4|webm|mov)$/i.test(src);
+const posterOf = (src: string) => src.replace(/\.(mp4|webm|mov)$/i, '-poster.webp');
 const STICKER_ALT = Object.keys(TEXT_STICKERS).join('|');
 // [[e:id]] 미니 이모티콘 OR (단어) 텍스트 스티커 둘 다 매칭
 const RICH_RE = new RegExp(`\\[\\[e:([a-z]+)\\]\\]|\\((${STICKER_ALT})\\)`, 'g');
@@ -128,20 +134,29 @@ function renderRich(text: string): React.ReactNode {
         parts.push(<img key={i++} src={opt.image} alt={opt.label} className="inline-block w-6 h-6 align-middle object-contain" />);
       } else parts.push(m[0]);
     } else if (m[2] !== undefined) {
-      // (단어) 텍스트 스티커 → 포차코 스티커. 통통 튀어나오고 주기적으로 살짝 흔들려 "움직이는" 느낌.
-      parts.push(
-        <motion.img
-          key={i++} src={TEXT_STICKERS[m![2]]} alt={m![2]}
-          className="inline-block h-11 w-auto align-middle object-contain"
-          initial={{ scale: 0.4, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1, rotate: [0, -6, 6, -4, 0] }}
-          transition={{
-            scale: { type: 'spring', stiffness: 480, damping: 13 },
-            opacity: { duration: 0.15 },
-            rotate: { duration: 1.6, repeat: Infinity, repeatDelay: 2.2, ease: 'easeInOut' },
-          }}
-        />
-      );
+      const src = TEXT_STICKERS[m![2]];
+      if (isVideoSrc(src)) {
+        // 진짜 동영상 스티커 (편지처럼 MP4 재생)
+        parts.push(
+          <video key={i++} src={src} poster={posterOf(src)} autoPlay loop muted playsInline
+            className="inline-block h-20 rounded-2xl object-cover align-middle shadow-sm" />
+        );
+      } else {
+        // 정지 스티커 → 통통 튀어나오고 주기적으로 살짝 흔들림
+        parts.push(
+          <motion.img
+            key={i++} src={src} alt={m![2]}
+            className="inline-block h-11 w-auto align-middle object-contain"
+            initial={{ scale: 0.4, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1, rotate: [0, -6, 6, -4, 0] }}
+            transition={{
+              scale: { type: 'spring', stiffness: 480, damping: 13 },
+              opacity: { duration: 0.15 },
+              rotate: { duration: 1.6, repeat: Infinity, repeatDelay: 2.2, ease: 'easeInOut' },
+            }}
+          />
+        );
+      }
     }
     last = m.index + m[0].length;
   }
@@ -476,10 +491,15 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       ) : m.deleted ? (
                         <div className="max-w-[75%] px-3.5 py-2 text-[14px] italic text-slate-400 bg-black/5 rounded-2xl">삭제된 메시지예요</div>
                       ) : m.sticker ? (
-                        <motion.img src={m.sticker} alt="이모티콘" className="w-28 h-28 object-contain drop-shadow-sm"
-                          initial={{ scale: 0.4, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1, rotate: [0, -5, 5, -3, 0] }}
-                          transition={{ scale: { type: 'spring', stiffness: 420, damping: 14 }, opacity: { duration: 0.15 }, rotate: { duration: 1.8, repeat: Infinity, repeatDelay: 2.4, ease: 'easeInOut' } }} />
+                        isVideoSrc(m.sticker) ? (
+                          <video src={m.sticker} poster={posterOf(m.sticker)} autoPlay loop muted playsInline
+                            className="w-40 h-40 rounded-[26px] object-cover bg-white shadow-sm" />
+                        ) : (
+                          <motion.img src={m.sticker} alt="이모티콘" className="w-28 h-28 object-contain drop-shadow-sm"
+                            initial={{ scale: 0.4, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1, rotate: [0, -5, 5, -3, 0] }}
+                            transition={{ scale: { type: 'spring', stiffness: 420, damping: 14 }, opacity: { duration: 0.15 }, rotate: { duration: 1.8, repeat: Infinity, repeatDelay: 2.4, ease: 'easeInOut' } }} />
+                        )
                       ) : m.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -543,8 +563,12 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     <button key={s.word}
                       onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
                       aria-label={s.word} className="aspect-square p-1.5 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.image} alt={s.word} className="w-full h-full object-contain" />
+                      {isVideoSrc(s.image) ? (
+                        <video src={s.image} poster={posterOf(s.image)} muted loop autoPlay playsInline className="w-full h-full object-cover rounded-xl" />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={s.image} alt={s.word} className="w-full h-full object-contain" />
+                      )}
                     </button>
                   ))}
                 </div>
