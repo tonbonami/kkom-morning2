@@ -98,6 +98,7 @@ const EMO_RE = /\[\[e:([a-z]+)\]\]/g;
 // 단어 추가하려면 여기에 '단어': '/이미지경로' 만 넣으면 됨.
 const TEXT_STICKERS: Record<string, string> = {
   '야호': '/pochacco/pochacco_yaho.png',
+  '사랑해': '/pochacco_couple/love.png',
 };
 const STICKER_ALT = Object.keys(TEXT_STICKERS).join('|');
 // [[e:id]] 미니 이모티콘 OR (단어) 텍스트 스티커 둘 다 매칭
