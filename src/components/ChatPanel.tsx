@@ -93,18 +93,39 @@ function dayText(d: Date | null): string {
 }
 // 미니 이모티콘 — 텍스트에 [[e:id]] 토큰으로 인라인 삽입. 렌더 시 작은 이미지로 치환.
 const EMO_RE = /\[\[e:([a-z]+)\]\]/g;
-function stripEmo(text: string): string { return text.replace(EMO_RE, '🐶'); }
+
+// 카톡식 텍스트 스티커 — (야호) 같은 단어를 커스텀 포차코 스티커로 자동 치환.
+// 단어 추가하려면 여기에 '단어': '/이미지경로' 만 넣으면 됨.
+const TEXT_STICKERS: Record<string, string> = {
+  '야호': '/pochacco/pochacco_yaho.png',
+};
+const STICKER_ALT = Object.keys(TEXT_STICKERS).join('|');
+// [[e:id]] 미니 이모티콘 OR (단어) 텍스트 스티커 둘 다 매칭
+const RICH_RE = new RegExp(`\\[\\[e:([a-z]+)\\]\\]|\\((${STICKER_ALT})\\)`, 'g');
+const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
+
+// 답장 미리보기/푸시용 — 미니는 🐶, 텍스트 스티커는 괄호만 벗겨 단어로.
+function stripEmo(text: string): string {
+  return text.replace(EMO_RE, '🐶').replace(STICKER_RE, '$1');
+}
 function renderRich(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let last = 0; let i = 0; let m: RegExpExecArray | null;
-  EMO_RE.lastIndex = 0;
-  while ((m = EMO_RE.exec(text)) !== null) {
+  RICH_RE.lastIndex = 0;
+  while ((m = RICH_RE.exec(text)) !== null) {
     if (m.index > last) parts.push(text.slice(last, m.index));
-    const opt = MOOD_OPTIONS.find((o) => o.id === m![1]);
-    if (opt) {
+    if (m[1] !== undefined) {
+      // [[e:id]] 미니 이모티콘
+      const opt = MOOD_OPTIONS.find((o) => o.id === m![1]);
+      if (opt) {
+        // eslint-disable-next-line @next/next/no-img-element
+        parts.push(<img key={i++} src={opt.image} alt={opt.label} className="inline-block w-6 h-6 align-middle object-contain" />);
+      } else parts.push(m[0]);
+    } else if (m[2] !== undefined) {
+      // (단어) 텍스트 스티커 → 포차코 스티커
       // eslint-disable-next-line @next/next/no-img-element
-      parts.push(<img key={i++} src={opt.image} alt={opt.label} className="inline-block w-6 h-6 align-middle object-contain" />);
-    } else parts.push(m[0]);
+      parts.push(<img key={i++} src={TEXT_STICKERS[m![2]]} alt={m![2]} className="inline-block h-11 w-auto align-middle object-contain" />);
+    }
     last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));
