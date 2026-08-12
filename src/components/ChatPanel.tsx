@@ -104,6 +104,8 @@ const STICKER_ALT = Object.keys(TEXT_STICKERS).join('|');
 // [[e:id]] 미니 이모티콘 OR (단어) 텍스트 스티커 둘 다 매칭
 const RICH_RE = new RegExp(`\\[\\[e:([a-z]+)\\]\\]|\\((${STICKER_ALT})\\)`, 'g');
 const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
+// 스티커 포켓 그리드 — 텍스트 스티커들을 탭해서 큰 단독 스티커로 전송(투명 배경, 말풍선 없음).
+const POCKET_STICKERS = Object.entries(TEXT_STICKERS).map(([word, image]) => ({ word, image }));
 
 // 답장 미리보기/푸시용 — 미니는 🐶, 텍스트 스티커는 괄호만 벗겨 단어로.
 function stripEmo(text: string): string {
@@ -154,7 +156,7 @@ function preview(m: ChatMessage): string {
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
-  const [stickerMode, setStickerMode] = useState<'sticker' | 'mini'>('sticker');
+  const [stickerMode, setStickerMode] = useState<'sticker' | 'mini' | 'couple'>('sticker');
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -471,8 +473,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       ) : m.deleted ? (
                         <div className="max-w-[75%] px-3.5 py-2 text-[14px] italic text-slate-400 bg-black/5 rounded-2xl">삭제된 메시지예요</div>
                       ) : m.sticker ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={m.sticker} alt="이모티콘" className="w-28 h-28 object-contain drop-shadow-sm" />
+                        <motion.img src={m.sticker} alt="이모티콘" className="w-28 h-28 object-contain drop-shadow-sm"
+                          initial={{ scale: 0.4, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1, rotate: [0, -5, 5, -3, 0] }}
+                          transition={{ scale: { type: 'spring', stiffness: 420, damping: 14 }, opacity: { duration: 0.15 }, rotate: { duration: 1.8, repeat: Infinity, repeatDelay: 2.4, ease: 'easeInOut' } }} />
                       ) : m.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -526,21 +530,36 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               <div className="flex items-center gap-1 mb-2">
                 <button onClick={() => setStickerMode('sticker')} className={`px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'sticker' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>스티커</button>
                 <button onClick={() => setStickerMode('mini')} className={`px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'mini' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>미니</button>
+                <button onClick={() => setStickerMode('couple')} className={`px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'couple' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>커플</button>
                 {stickerMode === 'mini' && <span className="ml-1 text-[11px] text-slate-400">글자 사이에 콕콕 넣기</span>}
+                {stickerMode === 'couple' && <span className="ml-1 text-[11px] text-slate-400">움직이는 커플 · 톡엔 (단어)로도</span>}
               </div>
-              <div className="grid grid-cols-4 gap-1.5 max-h-52 overflow-y-auto">
-                {MOOD_OPTIONS.map((o) => (
-                  <button key={o.id}
-                    onClick={() => {
-                      if (stickerMode === 'mini') { insertMini(o.id); }
-                      else { onSend('', undefined, o.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }
-                    }}
-                    aria-label={o.label} className="aspect-square p-1.5 rounded-2xl active:bg-black/5 transition">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={o.image} alt={o.label} className="w-full h-full object-contain" />
-                  </button>
-                ))}
-              </div>
+              {stickerMode === 'couple' ? (
+                <div className="grid grid-cols-3 gap-1.5 max-h-52 overflow-y-auto">
+                  {POCKET_STICKERS.map((s) => (
+                    <button key={s.word}
+                      onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
+                      aria-label={s.word} className="aspect-square p-1.5 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={s.image} alt={s.word} className="w-full h-full object-contain" />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-1.5 max-h-52 overflow-y-auto">
+                  {MOOD_OPTIONS.map((o) => (
+                    <button key={o.id}
+                      onClick={() => {
+                        if (stickerMode === 'mini') { insertMini(o.id); }
+                        else { onSend('', undefined, o.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }
+                      }}
+                      aria-label={o.label} className="aspect-square p-1.5 rounded-2xl active:bg-black/5 transition">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={o.image} alt={o.label} className="w-full h-full object-contain" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
