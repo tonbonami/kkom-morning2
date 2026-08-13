@@ -46,8 +46,8 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             UserDefaults(suiteName: "group.com.tonbonami.kkommorning")?.set(data, forKey: "kkomState")
             if #available(iOS 14.0, *) { WidgetCenter.shared.reloadAllTimelines() }
         }
-        // 같은 스냅샷으로 Live Activity도 시작/갱신 (포그라운드일 때). 잠금화면·다이나믹아일랜드에 남음.
-        LiveActivityManager.shared.upsert(from: d)
+        // Live Activity 비활성화(우댕 요청): 시작·갱신 안 함. 남아있던 잠금화면 액티비티도 종료.
+        LiveActivityManager.shared.end()
         call.resolve()
     }
 }

@@ -88,6 +88,7 @@ export default function KkomMorningHome() {
   const [chatUnread, setChatUnread] = useState(false);
   const [msgLimit, setMsgLimit] = useState(40);
   const wasOnlineRef = useRef(false);
+  const homeTouch = useRef<{ x: number; y: number } | null>(null);
   const autoOpenedRef = useRef(false);
   const lastReadIdRef = useRef<string | null>(null);
   const [nextEvent, setNextEvent] = useState<{ title: string; date: string } | null>(null); // 위젯용 다음 일정
@@ -435,8 +436,31 @@ export default function KkomMorningHome() {
 
   if (!mounted) return <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />;
 
+  // 홈에서 왼쪽으로 스와이프 → 꼼톡 열기. 가로 스크롤 요소(미니 이모티콘 줄 등) 위에선 무시.
+  const onHomeTouchStart = (e: any) => {
+    if (chatOpen || e.touches.length !== 1) { homeTouch.current = null; return; }
+    const t = e.touches[0]; homeTouch.current = { x: t.clientX, y: t.clientY };
+  };
+  const onHomeTouchEnd = (e: any) => {
+    const s = homeTouch.current; homeTouch.current = null;
+    if (!s) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (!(dx < -70 && Math.abs(dx) > Math.abs(dy) * 1.5)) return;
+    let el = e.target as HTMLElement | null;
+    while (el && el !== e.currentTarget) {
+      if (el.scrollWidth > el.clientWidth + 4) {
+        const ov = getComputedStyle(el).overflowX;
+        if (ov === 'auto' || ov === 'scroll') return;
+      }
+      el = el.parentElement;
+    }
+    setChatOpen(true); setChatUnread(false);
+  };
+
   return (
-    <div className="w-full max-w-md mx-auto bg-[#F7F9F9] min-h-screen text-slate-800 relative overflow-x-hidden pb-32 selection:bg-[#99E6D9]/40">
+    <div className="w-full max-w-md mx-auto bg-[#F7F9F9] min-h-screen text-slate-800 relative overflow-x-hidden pb-32 selection:bg-[#99E6D9]/40"
+      onTouchStart={onHomeTouchStart} onTouchEnd={onHomeTouchEnd}>
       {/* 상단 등급색 그라데이션 — 전체를 하나의 흐름으로 */}
       <div className={`absolute top-0 left-0 w-full h-80 bg-gradient-to-b ${theme.gradient} to-[#F7F9F9] -z-0`} />
 
