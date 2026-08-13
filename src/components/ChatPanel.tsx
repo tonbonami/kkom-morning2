@@ -401,28 +401,18 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const doCopy = () => { if (actionMsg?.text) navigator.clipboard?.writeText(actionMsg.text).catch(() => {}); setActionMsg(null); };
   const doDelete = () => { if (actionMsg) deleteMessage(actionMsg.id); setActionMsg(null); };
 
-  // 오른쪽으로 스와이프 → 닫기(홈으로). 세로 스크롤·오버레이와 충돌 방지.
-  const swipeStart = useRef<{ x: number; y: number } | null>(null);
-  const onPanelTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length !== 1) { swipeStart.current = null; return; }
-    const t = e.touches[0]; swipeStart.current = { x: t.clientX, y: t.clientY };
-  };
-  const onPanelTouchEnd = (e: React.TouchEvent) => {
-    const s = swipeStart.current; swipeStart.current = null;
-    if (!s || memoryOpen || viewerImage || actionMsg || capsuleOpen) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - s.x, dy = t.clientY - s.y;
-    if (dx > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) onClose();
-  };
-
   return (
     <AnimatePresence>
       {open && (
         <motion.div
           className="fixed inset-0 z-[60] flex flex-col bg-[#FBF8F2] dark:bg-[#272522] bg-[radial-gradient(#e5e7eb_1.5px,transparent_1.5px)] [background-size:20px_20px] dark:bg-[radial-gradient(#374151_1.5px,transparent_1.5px)]"
-          initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
-          transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-          onTouchStart={onPanelTouchStart} onTouchEnd={onPanelTouchEnd}
+          initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+          transition={{ type: 'spring', stiffness: 380, damping: 40 }}
+          drag={(memoryOpen || viewerImage || actionMsg || capsuleOpen || stickerOpen) ? false : 'x'}
+          dragDirectionLock
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={{ left: 0, right: 0.9 }}
+          onDragEnd={(_e, info) => { if (info.offset.x > 110 || info.velocity.x > 550) onClose(); }}
         >
           {/* 헤더 — 불투명 + 상단 safe-area까지 덮어 뒤 배경 비침 방지 */}
           <div className="flex items-center gap-3 px-4 pb-3 bg-[#FBF8F2]/95 backdrop-blur-xl border-b border-black/[0.04] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
