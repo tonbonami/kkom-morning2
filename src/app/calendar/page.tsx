@@ -18,6 +18,7 @@ import {
 } from '@/lib/calendarLayout';
 import { nameFromCode } from '@/lib/letters';
 import { feedback } from '@/lib/feedback';
+import { holidayName } from '@/lib/holidays';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const DOT_SHAPE: Record<EventOwner, string> = { udaeng: 'rounded-full', kkomi: 'rotate-45 rounded-[2px]', together: 'rounded-full' };
@@ -137,6 +138,8 @@ export default function CalendarPage() {
                 {week.cells.map((cell, ci) => {
                   const singles = singleDayEventsOn(cell.date, events);
                   const ov = overflowByCol[ci] || 0;
+                  const hol = holidayName(cell.date);
+                  const isSun = ci === 0;
                   return (
                     <button
                       key={cell.date}
@@ -144,8 +147,12 @@ export default function CalendarPage() {
                       className={`relative flex flex-col items-center pt-1.5 ${ci > 0 ? 'border-l border-dashed border-slate-200/70' : ''} active:bg-purple-50/50 transition-colors ${!cell.inMonth ? 'opacity-40' : ''}`}
                     >
                       <span className={`text-[12px] font-bold w-6 h-6 flex items-center justify-center rounded-full z-10 ${
-                        cell.isToday ? 'bg-emerald-500 text-white shadow-sm' : cell.inMonth ? 'text-slate-700' : 'text-slate-300'
+                        cell.isToday ? 'bg-emerald-500 text-white shadow-sm' : !cell.inMonth ? 'text-slate-300' : (hol || isSun) ? 'text-rose-500' : 'text-slate-700'
                       }`}>{cell.day}</span>
+                      {/* 공휴일 이름 (한국 공휴일 자동 표시) */}
+                      {hol && cell.inMonth && (
+                        <span className="max-w-full px-0.5 -mt-0.5 text-[8px] font-black text-rose-500 leading-none truncate z-10">{hol}</span>
+                      )}
                       {/* 하루짜리 점 — 날짜 숫자 바로 아래 */}
                       {singles.length > 0 && (
                         <span className="flex gap-0.5 mt-1 z-10">
@@ -248,6 +255,7 @@ function DaySheet({ date, events, me, onClose, onAdd, onEdit }: {
   onClose: () => void; onAdd: () => void; onEdit: (e: CalendarEvent) => void;
 }) {
   const p = parseYmd(date);
+  const hol = holidayName(date);
   // 종일/멀티데이(위 고정) vs 시간 있는 일정(타임라인)
   const allDayish = events.filter((e) => e.allDay || e.startDate !== e.endDate || !e.startTime);
   const timed = events.filter((e) => !e.allDay && e.startDate === e.endDate && e.startTime);
@@ -260,8 +268,11 @@ function DaySheet({ date, events, me, onClose, onAdd, onEdit }: {
         className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md bg-[#FFFCF5] rounded-t-[28px] p-6 pb-safe-bottom max-h-[80dvh] overflow-y-auto">
         <div className="tape absolute -top-2 left-1/2 -translate-x-1/2 w-14 -rotate-2 z-10" />
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-handwriting text-[26px] text-slate-800">{p.m}월 {p.d}일</h2>
-          <button onClick={onAdd} className="inline-flex items-center gap-1 bg-purple-500 text-white text-[12px] font-black px-3 py-2 rounded-full active:scale-95"><Plus size={14} /> 추가</button>
+          <div className="flex items-baseline gap-2 min-w-0">
+            <h2 className="font-handwriting text-[26px] text-slate-800">{p.m}월 {p.d}일</h2>
+            {hol && <span className="text-[13px] font-black text-rose-500 truncate">{hol}</span>}
+          </div>
+          <button onClick={onAdd} className="shrink-0 inline-flex items-center gap-1 bg-purple-500 text-white text-[12px] font-black px-3 py-2 rounded-full active:scale-95"><Plus size={14} /> 추가</button>
         </div>
         {events.length === 0 ? (
           <p className="text-center text-sm font-bold text-slate-400 py-8">이 날은 아직 비어있어요</p>
