@@ -99,7 +99,6 @@ final class StrokeCanvasView: UIView {
     private var currentSize: CGFloat = 7
     private var currentId: String = ""
     private var activeTouch: UITouch?
-    private var seenPencil = false
     private var lastLiveSent: CFTimeInterval = 0
     private var remoteLive: NetStroke?
     private var liveGen = 0   // 상대 생중계 표시 자동 소멸용 세대 카운터
@@ -115,11 +114,23 @@ final class StrokeCanvasView: UIView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    private func accept(_ touch: UITouch) -> Bool {
-        if touch.type == .pencil { seenPencil = true; return true }
-        let pencilOnly = controller?.pencilOnly ?? true
-        if pencilOnly && seenPencil { return false }
-        return true
+    private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+
+    // 획 시작 — 도구 세팅 + 첫 점 (touchesBegan에서 분리)
+    private func startStroke(with t: UITouch) {
+        activeTouch = t
+        if controller?.eraser == true { eraseAt(t.location(in: self)); return }
+        currentColor = controller?.color ?? .black
+        currentSize = controller?.lineWidth ?? 7
+        currentId = UUID().uuidString
+        current = [RawPt(loc: t.location(in: self), p: pressure(t))]
+        setNeedsDisplay()
+    }
+    // 진행 중이던 획을 커밋 없이 폐기 (팜으로 시작했다가 펜슬이 끼어들 때 — 팜 자국 제거)
+    private func discardCurrent() {
+        current = []; activeTouch = nil
+        sync?.publishLive(nil, id: currentId)
+        setNeedsDisplay()
     }
 
     private func pressure(_ touch: UITouch) -> Double {
@@ -135,14 +146,19 @@ final class StrokeCanvasView: UIView {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard activeTouch == nil, let t = touches.first(where: { accept($0) }) else { return }
-        activeTouch = t
-        if controller?.eraser == true { eraseAt(t.location(in: self)); return }
-        currentColor = controller?.color ?? .black
-        currentSize = controller?.lineWidth ?? 7
-        currentId = UUID().uuidString
-        current = [RawPt(loc: t.location(in: self), p: pressure(t))]
-        setNeedsDisplay()
+        // ① 펜슬 우선 — 펜슬이 닿으면 팜/손가락으로 시작한 획을 폐기하고 펜슬로 교체
+        if let pen = touches.first(where: { $0.type == .pencil }) {
+            if let a = activeTouch, a.type != .pencil { discardCurrent() }
+            if activeTouch == nil { startStroke(with: pen) }
+            return
+        }
+        // ② 손가락/팜. 이미 그리는 중이면 무시.
+        guard activeTouch == nil else { return }
+        // 아이패드 + 펜슬모드 → 손가락/팜 전부 그리기 배제 (touch.type만으로 팜 완전 차단, DuoBoard 방식).
+        //   폰(.phone)은 항상 손가락으로 그려지고, 펜슬모드를 끄면 아이패드도 손가락 허용.
+        if isPad && (controller?.pencilOnly ?? true) { return }
+        guard let t = touches.first(where: { $0.type == .direct }) else { return }
+        startStroke(with: t)
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
