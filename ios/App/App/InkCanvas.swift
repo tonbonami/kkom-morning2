@@ -22,8 +22,24 @@ final class CanvasController: ObservableObject {
     @Published var passageUrl: String? = nil   // 공유 지문 (웹에서 설정, RTDB)
     @Published var likedBy: [String] = []      // 이 페이지에 하트 누른 사람
     @Published var comments: [CanvasCommentItem] = []
+    // 확대/이동 — 손가락 제스처(.direct)가 여기 갱신, CanvasScreen이 scaleEffect/offset에 반영.
+    @Published var zoom: CGFloat = 1
+    @Published var panOffset: CGSize = .zero
+    var boardSize: CGSize = .zero
     weak var canvas: StrokeCanvasView?
     weak var sync: SyncClient?
+
+    // 확대 배율에 맞춰 이동 범위 제한 (빈 여백으로 못 나가게)
+    func clampPan(_ o: CGSize) -> CGSize {
+        let mx = max(0, (zoom - 1) * boardSize.width / 2)
+        let my = max(0, (zoom - 1) * boardSize.height / 2)
+        return CGSize(width: min(mx, max(-mx, o.width)), height: min(my, max(-my, o.height)))
+    }
+    func nudgePan(_ delta: CGSize, base: CGSize) {
+        panOffset = clampPan(CGSize(width: base.width + delta.width, height: base.height + delta.height))
+    }
+    func setZoom(_ z: CGFloat) { zoom = min(4, max(1, z)); panOffset = clampPan(panOffset) }
+    func resetView() { zoom = 1; panOffset = .zero; panMode = false }
 
     // 웹과 동일 4색: 꼼이 로즈 / 우댕 블루 / 먹 / 형광
     static let palette: [UIColor] = [
@@ -80,6 +96,8 @@ struct InkCanvasRepresentable: UIViewRepresentable {
     }
     func updateUIView(_ uiView: StrokeCanvasView, context: Context) {
         uiView.controller = controller
+        // 아이패드+펜슬모드에서만 한 손가락 이동 제스처 활성 (폰/손그림 모드는 손가락이 그림이라 끔)
+        uiView.setFingerPanEnabled(UIDevice.current.userInterfaceIdiom == .pad && controller.pencilOnly)
     }
     // 낙서장이 화면에서 사라질 때(닫기) 호출 — SSE 스트림 정리해서 연결·메모리 누수 방지.
     static func dismantleUIView(_ uiView: StrokeCanvasView, coordinator: Void) {
@@ -99,6 +117,8 @@ final class StrokeCanvasView: UIView {
     private var currentSize: CGFloat = 7
     private var currentId: String = ""
     private var activeTouch: UITouch?
+    private var panBase: CGSize = .zero
+    private weak var fingerPan: UIPanGestureRecognizer?
     private var lastLiveSent: CFTimeInterval = 0
     private var remoteLive: NetStroke?
     private var liveGen = 0   // 상대 생중계 표시 자동 소멸용 세대 카운터
@@ -111,6 +131,28 @@ final class StrokeCanvasView: UIView {
         isMultipleTouchEnabled = true
         backgroundColor = .clear
         isOpaque = false
+        // DuoBoard식 — 손가락(.direct) 제스처로 이동/확대. 펜슬(.pencil)은 안 걸려서 그대로 그려짐.
+        let fingerOnly = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(onFingerPan(_:)))
+        pan.allowedTouchTypes = fingerOnly; pan.maximumNumberOfTouches = 1; pan.delegate = self
+        addGestureRecognizer(pan); fingerPan = pan
+        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(onFingerPinch(_:)))
+        pinch.allowedTouchTypes = fingerOnly; pinch.delegate = self
+        addGestureRecognizer(pinch)
+    }
+
+    // 폰/펜슬모드off엔 손가락이 '그림'이라 이동 제스처 끔. 아이패드+펜슬모드에서만 켬. (updateUIView가 갱신)
+    func setFingerPanEnabled(_ on: Bool) { fingerPan?.isEnabled = on }
+
+    @objc private func onFingerPan(_ g: UIPanGestureRecognizer) {
+        guard let c = controller, isPad, c.pencilOnly else { return }
+        let t = g.translation(in: nil)
+        if g.state == .began { panBase = c.panOffset }
+        else if g.state == .changed { c.nudgePan(CGSize(width: t.x, height: t.y), base: panBase) }
+    }
+    @objc private func onFingerPinch(_ g: UIPinchGestureRecognizer) {
+        guard let c = controller else { return }
+        if g.state == .changed { c.setZoom(c.zoom * g.scale); g.scale = 1 }
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
@@ -283,6 +325,7 @@ final class StrokeCanvasView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        controller?.boardSize = bounds.size   // 이동 클램프용
         if bakedSize != bounds.size { rebuildBaked() }
     }
 
@@ -367,4 +410,9 @@ final class StrokeCanvasView: UIView {
         let y = 0.5 * (2 * p1.y + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
         return CGPoint(x: x, y: y)
     }
+}
+
+extension StrokeCanvasView: UIGestureRecognizerDelegate {
+    // 손가락 이동+핀치 동시 인식 (이동 중 두 손가락으로 확대 자연스럽게)
+    func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
 }

@@ -18,10 +18,8 @@ struct CanvasScreen: View {
     @State private var showClearConfirm = false
     @State private var showDeletePageConfirm = false
     @State private var showComments = false
-    @State private var zoom: CGFloat = 1.0
-    @State private var lastZoom: CGFloat = 1.0
-    @State private var panOffset: CGSize = .zero
-    @State private var lastPan: CGSize = .zero
+    @State private var panDragBase: CGSize? = nil
+    @State private var pinchBaseZoom: CGFloat? = nil
     private var myName: String { me == "udaeng" ? "우댕" : "꼼이" }
     private var iLiked: Bool { controller.likedBy.contains(myName) }
 
@@ -150,34 +148,12 @@ struct CanvasScreen: View {
         .frame(width: width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: warmShadow.opacity(0.12), radius: 16, y: 8)
-        .scaleEffect(zoom)
-        .offset(panOffset)
-        .gesture(
-            MagnificationGesture()  // 두 손가락 핀치 확대 (한 손가락/펜슬 그리기와 충돌 안 함)
-                .onChanged { v in zoom = min(4, max(1, lastZoom * v)) }
-                .onEnded { _ in
-                    lastZoom = zoom
-                    panOffset = clampPan(panOffset, width, height); lastPan = panOffset
-                }
-        )
-        .onTapGesture(count: 2) { resetZoom() }
+        .scaleEffect(controller.zoom)
+        .offset(controller.panOffset)
+        .onTapGesture(count: 2) { withAnimation(.easeOut(duration: 0.2)) { controller.resetView() } }
     }
 
-    // 확대·이동 리셋 (더블탭)
-    private func resetZoom() {
-        withAnimation(.easeOut(duration: 0.2)) {
-            zoom = 1; lastZoom = 1; panOffset = .zero; lastPan = .zero; controller.panMode = false
-        }
-    }
-
-    // 확대 배율에 맞춰 이동 범위 제한 (빈 여백으로 못 나가게)
-    private func clampPan(_ o: CGSize, _ w: CGFloat, _ h: CGFloat) -> CGSize {
-        let mx = max(0, (zoom - 1) * w / 2)
-        let my = max(0, (zoom - 1) * h / 2)
-        return CGSize(width: min(mx, max(-mx, o.width)), height: min(my, max(-my, o.height)))
-    }
-
-    // 손바닥 모드 투명 캐처 — 드래그로 이동, 핀치로 확대, 더블탭 리셋. 그리기는 아래 InkCanvas가 못 받음.
+    // 손바닥(이동) 모드 캐처 (손버튼) — 폰용/보조. 드래그=이동, 핀치=확대. iPad는 손가락 제스처가 알아서 처리.
     private func panCatcher(width w: CGFloat, height h: CGFloat) -> some View {
         Color.clear
             .frame(width: w, height: h)
@@ -185,17 +161,20 @@ struct CanvasScreen: View {
             .gesture(
                 DragGesture()
                     .onChanged { v in
-                        panOffset = clampPan(CGSize(width: lastPan.width + v.translation.width,
-                                                    height: lastPan.height + v.translation.height), w, h)
+                        if panDragBase == nil { panDragBase = controller.panOffset }
+                        controller.nudgePan(CGSize(width: v.translation.width, height: v.translation.height), base: panDragBase ?? .zero)
                     }
-                    .onEnded { _ in lastPan = panOffset }
+                    .onEnded { _ in panDragBase = nil }
             )
             .simultaneousGesture(
                 MagnificationGesture()
-                    .onChanged { v in zoom = min(4, max(1, lastZoom * v)) }
-                    .onEnded { _ in lastZoom = zoom; panOffset = clampPan(panOffset, w, h); lastPan = panOffset }
+                    .onChanged { v in
+                        if pinchBaseZoom == nil { pinchBaseZoom = controller.zoom }
+                        controller.setZoom((pinchBaseZoom ?? 1) * v)
+                    }
+                    .onEnded { _ in pinchBaseZoom = nil }
             )
-            .onTapGesture(count: 2) { resetZoom() }
+            .onTapGesture(count: 2) { withAnimation(.easeOut(duration: 0.2)) { controller.resetView() } }
     }
 
     private var presenceTag: some View {
