@@ -43,10 +43,16 @@ final class CanvasController: ObservableObject {
 
     // 웹과 동일 4색: 꼼이 로즈 / 우댕 블루 / 먹 / 형광
     static let palette: [UIColor] = [
-        UIColor(hex: "#f43f5e"),
-        UIColor(hex: "#3b82f6"),
-        UIColor(hex: "#334155"),
-        UIColor(hex: "#facc15"),
+        UIColor(hex: "#f43f5e"),   // 로즈(꼼이)
+        UIColor(hex: "#3b82f6"),   // 블루(우댕)
+        UIColor(hex: "#334155"),   // 먹
+        UIColor(hex: "#facc15"),   // 노랑
+        UIColor(hex: "#fb923c"),   // 주황
+        UIColor(hex: "#22c55e"),   // 초록
+        UIColor(hex: "#14b8a6"),   // 민트
+        UIColor(hex: "#a855f7"),   // 보라
+        UIColor(hex: "#ec4899"),   // 핑크
+        UIColor(hex: "#a16207"),   // 갈색
     ]
     var color: UIColor { Self.palette[colorIndex] }
 

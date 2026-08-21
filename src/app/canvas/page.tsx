@@ -27,7 +27,13 @@ const COLORS = [
   { key: 'kkomi', label: '꼼이', hex: '#f43f5e' },
   { key: 'udaeng', label: '우댕', hex: '#3b82f6' },
   { key: 'ink', label: '먹', hex: '#334155' },
-  { key: 'hl', label: '형광', hex: '#fACC15' },
+  { key: 'hl', label: '노랑', hex: '#facc15' },
+  { key: 'orange', label: '주황', hex: '#fb923c' },
+  { key: 'green', label: '초록', hex: '#22c55e' },
+  { key: 'mint', label: '민트', hex: '#14b8a6' },
+  { key: 'purple', label: '보라', hex: '#a855f7' },
+  { key: 'pink', label: '핑크', hex: '#ec4899' },
+  { key: 'brown', label: '갈색', hex: '#a16207' },
 ];
 const SIZES = [
   { key: 's', label: '얇게', size: 4 },
