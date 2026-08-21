@@ -273,52 +273,118 @@ struct CanvasToolbar: View {
     @ObservedObject var controller: CanvasController
     let axis: Axis
     var onClear: () -> Void = {}
-    private let sizes: [CGFloat] = [4, 7, 13]
+
+    // 색상 팝오버 상태
+    @State private var showColors = false
+
+    // 디자인 토큰 컬러
+    let cInk = Color(UIColor(red: 51/255, green: 65/255, blue: 85/255, alpha: 1))  // #334155
+    let cRose = Color(UIColor(red: 251/255, green: 123/255, blue: 168/255, alpha: 1)) // #FB7BA8
+    let cCream = Color(UIColor(red: 251/255, green: 248/255, blue: 242/255, alpha: 1)) // #FBF8F2
 
     var body: some View {
-        let vertical = axis == .vertical
         Group {
-            if vertical { VStack(spacing: 12) { items } }
-            else { HStack(spacing: 7) { items } }
-        }
-        .foregroundStyle(Color(red: 0.39, green: 0.45, blue: 0.55))
-        .padding(.horizontal, vertical ? 12 : 13).padding(.vertical, vertical ? 18 : 12)
-        .background(.ultraThinMaterial).clipShape(Capsule())
-        .overlay(Capsule().stroke(Color.black.opacity(0.05), lineWidth: 1))
-        .shadow(color: warmShadow.opacity(0.14), radius: 12, y: 8)
-    }
-
-    @ViewBuilder private var items: some View {
-        ForEach(0 ..< CanvasController.palette.count, id: \.self) { i in
-            Button { controller.colorIndex = i; controller.eraser = false } label: {
-                Circle().fill(Color(CanvasController.palette[i])).frame(width: 28, height: 28)
-                    .overlay(Circle().stroke(Color.primary.opacity(controller.colorIndex == i && !controller.eraser ? 0.55 : 0), lineWidth: 2).padding(-3))
+            if axis == .horizontal {
+                HStack(spacing: 16) { toolbarContent }
+            } else {
+                VStack(spacing: 16) { toolbarContent }
             }
         }
-        divider
-        ForEach(sizes, id: \.self) { w in
-            Button { controller.lineWidth = w; controller.eraser = false } label: {
-                Circle().fill(inkColor).frame(width: w + 3, height: w + 3).frame(width: 30, height: 30)
-                    .background(Circle().fill(Color.gray.opacity(controller.lineWidth == w && !controller.eraser ? 0.18 : 0)))
+        .padding(.horizontal, axis == .horizontal ? 20 : 12)
+        .padding(.vertical, axis == .vertical ? 20 : 12)
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
+        )
+    }
+
+    @ViewBuilder
+    private var toolbarContent: some View {
+        // 1. 현재 색상 스와치 (탭 시 팔레트 팝오버)
+        Button(action: {
+            controller.eraser = false
+            showColors.toggle()
+        }) {
+            Circle()
+                .fill(Color(CanvasController.palette[controller.colorIndex]))
+                .frame(width: 28, height: 28)
+                .overlay(Circle().stroke(Color.white.opacity(0.8), lineWidth: 2))
+                .shadow(color: Color.black.opacity(0.1), radius: 2)
+        }
+        .popover(isPresented: $showColors) {
+            if #available(iOS 16.4, *) {
+                colorPaletteView.presentationCompactAdaptation(.popover)
+            } else {
+                colorPaletteView
             }
         }
-        divider
-        Button { controller.eraser.toggle() } label: {
-            Image(systemName: "eraser").font(.system(size: 16, weight: .medium))
-                .foregroundStyle(controller.eraser ? .white : Color(red: 0.39, green: 0.45, blue: 0.55))
-                .frame(width: 30, height: 30).background(Circle().fill(controller.eraser ? inkColor : Color.clear))
+
+        // 2. 펜 / 지우개 토글
+        Button(action: { controller.eraser.toggle() }) {
+            Image(systemName: controller.eraser ? "eraser.fill" : "paintbrush.pointed.fill")
+                .font(.system(size: 20))
+                .foregroundColor(controller.eraser ? cRose : cInk)
+                .frame(width: 32, height: 32)
         }
-        Button { controller.undo() } label: { Image(systemName: "arrow.uturn.backward").font(.system(size: 17, weight: .medium)) }
-        Button { onClear() } label: { Image(systemName: "trash").font(.system(size: 16, weight: .medium)) }
-        divider
-        Button { controller.pencilOnly.toggle() } label: {
-            Image(systemName: controller.pencilOnly ? "pencil.tip" : "hand.draw").font(.system(size: 16, weight: .medium))
+
+        // 3. 선 굵기 사이클 버튼 (미니 프리뷰)
+        Button(action: cycleWidth) {
+            ZStack {
+                Circle().stroke(cInk.opacity(0.15), lineWidth: 1).frame(width: 32, height: 32)
+                Circle().fill(cInk).frame(width: controller.lineWidth * 1.5, height: controller.lineWidth * 1.5)
+            }
+        }
+
+        // 4. 되돌리기 (Undo)
+        Button(action: { controller.undo() }) {
+            Image(systemName: "arrow.uturn.backward")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(cInk)
+                .frame(width: 32, height: 32)
+        }
+
+        // 5. 오버플로우 메뉴 (펜슬 전용 토글, 전체 지우기)
+        Menu {
+            Toggle(isOn: $controller.pencilOnly) {
+                Label("애플펜슬만 사용", systemImage: controller.pencilOnly ? "pencil.and.outline" : "hand.draw")
+            }
+            Button(role: .destructive, action: onClear) {
+                Label("전체 지우기", systemImage: "trash")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 20))
+                .foregroundColor(cInk.opacity(0.5))
+                .frame(width: 32, height: 32)
         }
     }
 
-    private var divider: some View {
-        Rectangle().fill(Color.black.opacity(0.06))
-            .frame(width: axis == .vertical ? 22 : 1, height: axis == .vertical ? 1 : 22)
+    private func cycleWidth() {
+        if controller.lineWidth == 4 { controller.lineWidth = 7 }
+        else if controller.lineWidth == 7 { controller.lineWidth = 13 }
+        else { controller.lineWidth = 4 }
+    }
+
+    private var colorPaletteView: some View {
+        let columns = Array(repeating: GridItem(.fixed(36), spacing: 14), count: 5)
+        return LazyVGrid(columns: columns, spacing: 14) {
+            ForEach(0..<10, id: \.self) { i in
+                Button(action: {
+                    controller.colorIndex = i
+                    controller.eraser = false
+                    showColors = false
+                }) {
+                    Circle()
+                        .fill(Color(CanvasController.palette[i]))
+                        .frame(width: 36, height: 36)
+                        .overlay(Circle().stroke(Color.white, lineWidth: controller.colorIndex == i && !controller.eraser ? 3 : 0))
+                        .shadow(color: Color.black.opacity(0.1), radius: 2)
+                }
+            }
+        }
+        .padding(20)
+        .background(cCream.ignoresSafeArea())
     }
 }
 
