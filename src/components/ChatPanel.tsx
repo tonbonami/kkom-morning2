@@ -103,6 +103,7 @@ const TEXT_STICKERS: Record<string, string> = {
   '굿모닝': '/pochacco_couple/morning.png',
   '토닥토닥': '/pochacco_couple/pat.png',
   '뽀뽀': '/pochacco_couple/kiss.png',
+  '헹가래': '/pochacco_couple/cheer.png',
   // 진짜 동영상 스티커 (편지처럼 MP4 재생) — 데모: 기존 편지 포차코 영상
   '하트': '/letter-stickers/pochacco-heart.mp4',
   '장미': '/letter-stickers/pochacco-rose.mp4',
