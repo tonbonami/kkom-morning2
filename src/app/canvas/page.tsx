@@ -229,7 +229,7 @@ export default function CanvasPage() {
   if (!me) return <div className="min-h-screen bg-[#FFFCF5] max-w-md mx-auto" />;
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#FFFCF5] text-slate-800 overscroll-none">
+    <div className="fixed inset-0 flex flex-col bg-[#FFFCF5] text-slate-800 overscroll-none select-none [-webkit-touch-callout:none] [-webkit-user-select:none]">
       {/* 상단 바 */}
       <header
         className="shrink-0 flex items-center gap-2 px-3 border-b border-slate-200/70 bg-white/90 backdrop-blur"
