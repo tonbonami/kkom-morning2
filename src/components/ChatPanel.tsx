@@ -125,6 +125,7 @@ const DANG_STICKERS: { word: string; image: string }[] = [
 // kkom's 탭 — 꼼이(여자 포차코) 스티커
 const KKOM_STICKERS: { word: string; image: string }[] = [
   { word: '달려가는 중', image: '/pochacco_kkom/kkomrun.png' },
+  { word: '꾸미는 중', image: '/pochacco_kkom/kkommakeup.png' },
 ];
 
 // 답장 미리보기/푸시용 — 미니는 🐶, 텍스트 스티커는 괄호만 벗겨 단어로.
