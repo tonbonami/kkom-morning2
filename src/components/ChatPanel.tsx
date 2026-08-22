@@ -120,6 +120,7 @@ const POCKET_STICKERS = Object.entries(TEXT_STICKERS).map(([word, image]) => ({ 
 // Dang's 탭 — 단독 스티커(탭해서 크게 전송). 추가하려면 여기 { word, image } 한 줄.
 const DANG_STICKERS: { word: string; image: string }[] = [
   { word: '귀엽꼬미', image: '/pochacco_dang/cutekkomi.png' },
+  { word: '앙 귀여워', image: '/pochacco_dang/angcute.png' },
 ];
 
 // 답장 미리보기/푸시용 — 미니는 🐶, 텍스트 스티커는 괄호만 벗겨 단어로.
