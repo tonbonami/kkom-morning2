@@ -121,6 +121,7 @@ const POCKET_STICKERS = Object.entries(TEXT_STICKERS).map(([word, image]) => ({ 
 const DANG_STICKERS: { word: string; image: string }[] = [
   { word: '귀엽꼬미', image: '/pochacco_dang/cutekkomi.png' },
   { word: '앙 귀여워', image: '/pochacco_dang/angcute.png' },
+  { word: '치카치카', image: '/pochacco_dang/dangchicca.png' },
 ];
 // kkom's 탭 — 꼼이(여자 포차코) 스티커
 const KKOM_STICKERS: { word: string; image: string }[] = [
