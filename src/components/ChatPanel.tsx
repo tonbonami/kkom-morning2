@@ -486,7 +486,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     )}
 
                     <div
-                      className={`relative flex flex-col select-none max-w-[78%] ${reactionEmojis.length > 0 ? 'mb-3' : ''}`}
+                      className={`relative flex flex-col select-none ${m.sticker && FULL_STICKERS.has(m.sticker) ? 'max-w-[88%]' : 'max-w-[78%]'} ${reactionEmojis.length > 0 ? 'mb-3' : ''}`}
                       style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}
                       onPointerDown={() => startPress(m)}
                       onPointerUp={cancelPress}
@@ -517,7 +517,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           <video src={m.sticker} poster={posterOf(m.sticker)} autoPlay loop muted playsInline
                             className="w-40 h-40 rounded-[26px] object-cover bg-white shadow-sm" />
                         ) : FULL_STICKERS.has(m.sticker) ? (
-                          <motion.img src={m.sticker} alt="이모티콘" className="w-[88vw] max-w-[560px] h-auto rounded-2xl shadow-sm"
+                          <motion.img src={m.sticker} alt="이모티콘" className="w-[76vw] max-w-[400px] h-auto rounded-2xl shadow-sm"
                             initial={{ scale: 0.6, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ scale: { type: 'spring', stiffness: 300, damping: 20 }, opacity: { duration: 0.2 } }} />

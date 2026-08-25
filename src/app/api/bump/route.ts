@@ -49,42 +49,53 @@ type BumpKind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening' | 'night';
 
 // 각 종류별 narrator 톤 멘트 변주. 매번 랜덤 셔플 → 매번 새로운 푸시 멘트.
 const TEMPLATES: Record<BumpKind, Array<{ title: string; body: string }>> = {
+  // 중계 톤 — 옆에서 지켜보던 제3자가 놀리듯 전한다. 직접 말보다 덜 부끄럽고 매번 다르다.
+  // (사이담 세션에서 다듬은 문구 병합 + 꼼모닝 알짜 유지)
   miss: [
-    { title: '💚 {fromName}가 또 {toName} 보고싶대 ㅋㅋ', body: '하루에 몇 번이야' },
-    { title: '💚 {fromName}는 {toName} 없으면 안 되나봐', body: '꼼모닝에서 콕 찔러줘 ✨' },
-    { title: '🥹 또 보고싶대...', body: '{fromSubj} 진짜 {toName} 좋아하나봐' },
-    { title: '💚 {fromName}가 {toName}만 생각해', body: '머릿속이 {toName}로 가득해 💕' },
-    { title: '💚 보고싶다고 {fromName}가 콕 찔렀어', body: '얼레리꼴레리 ㅋㅋ' },
-    { title: '💚 {fromName}는 {toName} 보는 게 인생 낙이래', body: '얼른 답해줘 ✨' },
+    { title: '🥹 {fromSubj} 또 보고싶대', body: '진짜 자주 찾는다 ㅋㅋ' },
+    { title: '💌 또 {toName} 생각났대', body: '모른 척하기엔 티 난다' },
+    { title: '👀 누가 또 찾는다', body: '네 이름부터 나오던데' },
+    { title: '🌙 갑자기 보고싶어졌대', body: '이유는 굳이 안 묻자' },
+    { title: '💗 {fromName}, 또 걸렸어', body: '{toName} 생각 중이래' },
+    { title: '🙈 또 보고싶대 ㅋㅋ', body: '이 정도면 습관 맞지?' },
+    { title: '📮 {toVoc}, 제보 들어왔어', body: '{fromSubj} 보고싶대' },
+    { title: '☁️ 오늘도 네 생각이래', body: '꽤 오래 가는 중인가 봐' },
     { title: '💚 {fromName}가 {toName} 그리워하고 있어', body: '눈에 아른거리나봐' },
     { title: '💚 {toName} 보고싶다고 {fromName}가 보냈어', body: '받아줘 🥹' },
   ],
   love: [
-    { title: '❤️ {fromName}가 {toName} 사랑한대', body: '오늘도 너 덕분에 든든해 💕' },
-    { title: '❤️ {fromName}는 {toName} 너무 좋아해', body: '사랑 폭발 ❤️‍🔥' },
-    { title: '❤️ 또 사랑해래 ㅋㅋ', body: '{fromName}는 {toName} 좋아 죽겠나봐' },
-    { title: '❤️ {fromName}가 사랑 가득 보냈어', body: '받아 {toVoc} 💕' },
-    { title: '❤️ {fromName}는 {toName} 없으면 못 살아', body: '얼레리꼴레리 ㅋㅋ' },
-    { title: '❤️ 사랑한다고 {fromName} 또 외쳤어', body: '심장 부서질 듯 사랑한대' },
+    { title: '❤️ {fromSubj} 사랑한대', body: '이건 숨길 생각도 없네' },
+    { title: '💘 또 사랑한대 ㅋㅋ', body: '네, 또 그 얘기입니다' },
+    { title: '🫶 {toVoc}, 들었지?', body: '{fromSubj} 많이 사랑한대' },
+    { title: '💌 사랑 고백 접수됨', body: '누구인진 말 안 할게' },
+    { title: '😌 오늘도 결론은 사랑', body: '중간 과정은 생략한대' },
+    { title: '💗 {fromName} 마음 또 샜다', body: '전부 {toName} 생각이래' },
+    { title: '🙈 또 들켜버렸네', body: '사랑한다는 말 말이야' },
+    { title: '🌷 별일 아닌 척하더니', body: '결국 사랑한대' },
     { title: '❤️ {fromName}한테 {toName}는 전부야', body: '이거 보고 답해줘 💕' },
     { title: '💕 {fromName}가 {toName} 세상에서 제일 좋대', body: '진짜 푹 빠졌네 ❤️' },
   ],
   hug: [
-    { title: '🤗 {fromName}는 {toName} 품이 좋나봐', body: '안아달라잖아... 얼레리꼴레리 ㅋㅋ' },
-    { title: '🤗 {fromName}가 {toName} 품 그리워해', body: '꼭 안아줘 💗' },
-    { title: '🤗 {fromName}가 안기고 싶대', body: '{toName} 품이 인생이래' },
-    { title: '🤗 안아줘 안아줘 — {fromName}가 졸라', body: '폭 안겨서 떨어지기 싫대' },
-    { title: '🤗 {fromName}는 {toName} 품에 살고 싶대', body: '꼭 안아주자 💞' },
+    { title: '🫂 {fromSubj} 안아달래', body: '오늘은 좀 꽉 안아줘' },
+    { title: '🤍 포옹 요청 들어왔어', body: '누구 요청인진 알겠지' },
+    { title: '👐 {toVoc}, 팔 좀 빌려줘', body: '{fromSubj} 안기고 싶대' },
+    { title: '🥺 오늘은 안아줘야겠대', body: '이유는 묻지 말래' },
+    { title: '📮 포옹 한 번 예약이래', body: '취소는 잘 안 받는대' },
+    { title: '☁️ 품이 좀 필요하대', body: '누군지는 알 것 같은데' },
+    { title: '🙈 {fromName} 요청사항', body: '{toVoc}, 한 번 안아달래' },
+    { title: '🧸 가까이 있고 싶대', body: '일단 안아주면 될 듯' },
     { title: '🤗 안아달라고 {fromName} 콕 찔렀어', body: '오늘 힘들었나봐 🥹' },
     { title: '🤗 {fromName}가 {toName}한테 폭 안기고 싶대', body: '얼른 두 팔 벌려줘' },
   ],
   kiss: [
-    { title: '💋 {fromName}가 {toName}랑 뽀뽀하고 싶대', body: '쪽 💋' },
-    { title: '💋 {fromName}는 {toName}랑 뽀뽀하는 거 엄청 좋아하네', body: '얼레리꼴레리 ㅋㅋ' },
-    { title: '😘 {fromName}가 입술 모았어', body: '쪽! 🩷' },
-    { title: '😘 또 뽀뽀 보냈어 ㅋㅋ', body: '{fromName}는 진짜 자주 보내네' },
-    { title: '💋 {toName}한테 뽀뽀 도착!', body: '{fromName}가 보냈어 🥰' },
-    { title: '😘 {fromName}는 {toName} 입술이 인생이래', body: '받아 🩷' },
+    { title: '😘 {fromSubj} 뽀뽀 원한대', body: '네, 전달만 합니다' },
+    { title: '💋 뽀뽀 요청 접수', body: '요청자는 아주 당당함' },
+    { title: '🙈 또 뽀뽀래 ㅋㅋ', body: '이 둘 진짜 어쩌면 좋아' },
+    { title: '😚 {toVoc}, 소식 왔어', body: '{fromSubj} 뽀뽀하고 싶대' },
+    { title: '💌 오늘의 요구사항', body: '뽀뽀 한 번이래' },
+    { title: '😌 또 가까이 오고 싶대', body: '이유는 뽀뽀래' },
+    { title: '💗 {fromName} 또 솔직해짐', body: '{toVoc}, 뽀뽀 원한대' },
+    { title: '📮 뽀뽀 소식 도착', body: '택배는 아니래 ㅋㅋ' },
     { title: '💋 쪽! 쪽! 쪽!', body: '{fromName}한테서 뽀뽀 폭격이야' },
     { title: '😘 {fromName}가 입술 모은 채 기다려', body: '얼른 뽀뽀해줘 💋' },
   ],
@@ -146,7 +157,7 @@ export async function POST(req: NextRequest) {
   const subSnap = await getDoc(doc(db, 'pushSubscriptions', to));
   if (!subSnap.exists()) {
     // 웹 구독은 없음(네이티브만 있을 수 있음) — 기록은 됐고 APNs 시도 결과만 반환
-    return NextResponse.json({ ok: true, counted, apns: apnsOk, pushSkipped: 'no web subscription for ' + to });
+    return NextResponse.json({ ok: true, counted, apns: apnsOk, sent: { title, body: bodyText }, pushSkipped: 'no web subscription for ' + to });
   }
   const s = subSnap.data() as { endpoint: string; keys: { p256dh: string; auth: string } };
 
@@ -154,13 +165,13 @@ export async function POST(req: NextRequest) {
 
   try {
     await webpush.sendNotification(s as any, payload);
-    return NextResponse.json({ ok: true, counted, apns: apnsOk });
+    return NextResponse.json({ ok: true, counted, apns: apnsOk, sent: { title, body: bodyText } });
   } catch (e: any) {
     const status = e?.statusCode;
     if (status === 404 || status === 410) {
       try { await deleteDoc(subSnap.ref); } catch {}
     }
     // 기록은 됐으므로 ok:true 유지, 푸시 실패만 별도 표시
-    return NextResponse.json({ ok: true, counted, apns: apnsOk, pushError: status || String(e?.body || e) });
+    return NextResponse.json({ ok: true, counted, apns: apnsOk, sent: { title, body: bodyText }, pushError: status || String(e?.body || e) });
   }
 }

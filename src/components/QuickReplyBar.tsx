@@ -24,6 +24,8 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
   const [toast, setToast] = useState<string | null>(null);
   const [lastSent, setLastSent] = useState(0);
   const [activeKind, setActiveKind] = useState<Kind | null>(null);
+  // 실제로 상대에게 나간 랜덤 중계 문구 — 보낸 사람도 중앙 연출에서 본다
+  const [sentPhrase, setSentPhrase] = useState<{ title: string; body: string } | null>(null);
 
   // 키보드 올라오면 hide — iOS Safari PWA fixed bottom이 키보드 영역 위로 떠오르거나 화면 중간에 박히는 버그 회피.
   // visualViewport API로 viewport 높이 변화 감지 (키보드 = viewport 줄어듦).
@@ -52,39 +54,41 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
     }
     setLastSent(now);
     setActiveKind(q.kind);
+    setSentPhrase(null);
     haptic(40);
-    setToast(`${partner}한테 보냈어`);
-    setTimeout(() => setToast(null), 1800);
-    // 중앙 confirmation 애니메이션 시간(0.95s)에 맞춰 늘림
-    setTimeout(() => setActiveKind(null), 950);
+    // 중앙 연출 유지 시간 — 실제 중계 문구를 읽을 수 있게 넉넉히
+    setTimeout(() => { setActiveKind(null); setSentPhrase(null); }, 2400);
 
     try {
-      await fetch('/api/bump', {
+      const res = await fetch('/api/bump', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ from: me, to: partner, kind: q.kind }),
       });
+      const j = await res.json().catch(() => ({} as { sent?: { title: string; body: string } }));
+      if (res.ok && j?.sent?.title) setSentPhrase(j.sent);
     } catch {
-      // 네트워크 에러는 조용히 — UX 망치지 않기
+      // 네트워크 에러는 조용히 — 중앙 연출은 이미 떴으니 UX 안 깨짐
     }
   };
 
   return (
     <>
-      {/* 화면 중앙 confirmation — 보낸 직후 큰 포차코 떠올라 사라짐 (사용자 요청: 시선 이동 없이 바로 확인) */}
+      {/* 화면 중앙 confirmation — 보낸 직후 큰 포차코가 솟아올라 유지되다 사라짐.
+          (사용자 요청: 시선 이동 없이 바로 확인 + 실제로 나간 랜덤 중계 문구를 여기서 보여준다) */}
       <AnimatePresence>
         {activeKind && (() => {
           const item = QUICK.find((q) => q.kind === activeKind);
           if (!item) return null;
           return (
             <motion.div
-              initial={{ scale: 0.4, opacity: 0, y: 80 }}
-              animate={{ scale: [0.4, 1.15, 1, 1], opacity: [0, 1, 1, 0], y: [80, 0, -10, -40] }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.95, times: [0, 0.25, 0.7, 1], ease: 'easeOut' }}
-              className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none"
+              initial={{ scale: 0.5, opacity: 0, y: 60 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: -24 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 20 }}
+              className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none px-8"
             >
-              <div className="flex flex-col items-center gap-3">
+              <div className="flex flex-col items-center gap-3 w-full">
                 <img
                   src={item.image}
                   alt=""
@@ -92,12 +96,23 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
                   height={168}
                   className="drop-shadow-[0_20px_40px_rgba(0,0,0,0.18)]"
                 />
-                <div className="bg-white/95 backdrop-blur-md px-5 py-2.5 rounded-full shadow-[0_10px_30px_rgba(15,23,42,0.18)] border border-white">
-                  <p className="font-black text-[16px] text-slate-800 flex items-center gap-1.5">
-                    <Check size={15} strokeWidth={3.5} className="text-emerald-500" />
-                    {item.label} 보냈어!
+                <motion.div
+                  layout
+                  className="bg-white/95 backdrop-blur-md px-5 py-3 rounded-[22px] shadow-[0_10px_30px_rgba(15,23,42,0.18)] border border-white max-w-[300px] text-center"
+                >
+                  <p className="font-extrabold text-[12px] text-emerald-600 flex items-center justify-center gap-1">
+                    <Check size={13} strokeWidth={3.5} />
+                    {partner}한테 보냈어
                   </p>
-                </div>
+                  {sentPhrase ? (
+                    <>
+                      <p className="font-bold text-[14px] text-slate-800 leading-snug break-keep mt-1">{sentPhrase.title}</p>
+                      <p className="text-[12.5px] text-slate-500 break-keep mt-0.5">{sentPhrase.body}</p>
+                    </>
+                  ) : (
+                    <p className="font-black text-[15px] text-slate-800 mt-0.5">{item.label}!</p>
+                  )}
+                </motion.div>
               </div>
             </motion.div>
           );
