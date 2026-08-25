@@ -206,7 +206,7 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
                   height={48}
                   loading="lazy"
                   decoding="async"
-                  className="h-[48px] w-[48px] object-contain"
+                  className="h-[48px] w-[48px] object-contain drop-shadow-[0_2px_3px_rgba(120,95,60,0.22)]"
                   animate={isActive ? { scale: [1, 0.95, 1.08, 1], y: [0, 1, -3, 0] } : {}}
                   transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
                 />
