@@ -31,7 +31,7 @@ import VoicePlayer from '@/components/VoicePlayer';
 // ⏱ 임시 — D-day 카드 어텐션 (테두리 펄스 + Tap! 뱃지 + 리플). 24h 후 자동 안 뜸.
 import DdayAttentionV2 from '@/components/DdayAttentionV2';
 import QuickReplyBar from '@/components/QuickReplyBar';
-import DailyPiecesHeader from '@/components/DailyPiecesHeader';
+import TodayDigest from '@/components/TodayDigest';
 import { subscribeTodayStats } from '@/lib/dailyStats';
 import LiveHeartLayer from '@/components/LiveHeartLayer';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
@@ -750,24 +750,10 @@ export default function KkomMorningHome() {
 
       {/* 3. 대시보드 본문 — 하나의 일관된 그리드 */}
       <main className="relative z-10 px-5 flex flex-col gap-4">
-        {/* 매일매일 꼼모닝 — 오늘 우리 둘 사이의 조각 (Mad-libs 헤더) */}
-        {(userName === '우댕' || userName === '꼼이') && (() => {
-          // dailyStats.wishItems 대신 실제 wishlist의 오늘 createdAt count 사용 (또갈래 되돌리기 등 잘못 누적 회피)
-          const now = new Date();
-          const todayKey = kstDayKey(now);
-          const isSameDay = (d: Date) => kstDayKey(d) === todayKey;
-          const todayWishCount = wishes.filter((w) => isSameDay(w.createdAt)).length;
-          const todayRecipes = recipes
-            .filter((r) => isSameDay(r.createdAt))
-            .map((r) => ({ by: r.by, createdAt: r.createdAt }));
-          return (
-            <DailyPiecesHeader
-              me={userName as '우댕' | '꼼이'}
-              todayWishCount={todayWishCount}
-              todayRecipes={todayRecipes}
-            />
-          );
-        })()}
+        {/* 오늘의 조각 — 오늘 새로 생긴 콘텐츠를 놓치지 않는 2열 업데이트 보드 (GPT 스펙, 수정0) */}
+        {(userName === '우댕' || userName === '꼼이') && (
+          <TodayDigest me={userName as '우댕' | '꼼이'} />
+        )}
 
         {/* 날씨 V2 — 탭하면 상세 페이지. 첫 진입 시 살짝 흔들리고 토스트로 알려줌 */}
         <motion.button
