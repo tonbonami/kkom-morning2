@@ -31,7 +31,8 @@ import VoicePlayer from '@/components/VoicePlayer';
 // ⏱ 임시 — D-day 카드 어텐션 (테두리 펄스 + Tap! 뱃지 + 리플). 24h 후 자동 안 뜸.
 import DdayAttentionV2 from '@/components/DdayAttentionV2';
 import QuickReplyBar from '@/components/QuickReplyBar';
-import TodayDigest from '@/components/TodayDigest';
+import DailyPiecesHeader from '@/components/DailyPiecesHeader';
+import { subscribeTodayStats } from '@/lib/dailyStats';
 import LiveHeartLayer from '@/components/LiveHeartLayer';
 import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
 import { touchPresence, subscribePresence, formatPresenceRelative, isTogetherNow, type Presence } from '@/lib/presence';
@@ -104,7 +105,8 @@ export default function KkomMorningHome() {
   const [poems, setPoems] = useState<PoemItemView[]>([]);
   const [poemsLastSeen, setPoemsLastSeen] = useState(0);
   // 칭찬 다이어리 카드 — 오늘 partner가 칭찬 보냈는지 (스마일 배지용)
-  const [hasNewPraise, setHasNewPraise] = useState(false);
+  const [praiseCount, setPraiseCount] = useState(0);   // 오늘 partner가 준 칭찬(스티커+졸랐어) 실시간 카운트
+  const [praiseSeen, setPraiseSeen] = useState(0);     // /praise를 마지막으로 연 시점의 카운트 (localStorage)
   // 날씨 카드 onboarding 힌트 (디바이스당 한 번)
   const [showWeatherHint, setShowWeatherHint] = useState(false);
   const weatherShake = useAnimation();
@@ -160,15 +162,14 @@ export default function KkomMorningHome() {
     setPoemsLastSeen(readPoemsLastSeen());
     const unsubPoems = subscribePoems(setPoems);
 
-    // 칭찬 — 오늘 partner가 보낸 게 있으면 스마일 배지 (1회 fetch)
-    // Claude 참고(코드리뷰 #5): 지역변수 me 사용. userName은 setUserName 직후라 클로저에서 초기값('꼼이') 고정 →
-    // 우댕 로그인 시 partner를 '우댕'으로 잘못 계산해 자기 칭찬으로 배지 켜지던 버그.
-    import('@/lib/dailyStats').then(({ fetchTodayStats }) => fetchTodayStats()).then((s) => {
-      const partnerKey = (me === '우댕' ? '꼼이' : '우댕') as '우댕' | '꼼이';
-      const got = (s.praiseStickers as any)[partnerKey] || 0;
-      const gotReq = (s.praiseRequests as any)[partnerKey] || 0;
-      if (got > 0 || gotReq > 0) setHasNewPraise(true);
-    }).catch(() => {});
+    // 칭찬 — 오늘 partner가 준 칭찬(스티커+졸랐어)을 실시간 구독. 안읽음 숫자 배지용.
+    // (지역변수 me 사용 — userName은 setUserName 직후라 클로저에서 초기값 고정되는 이슈 회피)
+    // 안읽음 = 지금 카운트 − 내가 /praise를 마지막으로 연 시점의 카운트(localStorage, 날짜별).
+    const praisePartner = (me === '우댕' ? '꼼이' : '우댕') as '우댕' | '꼼이';
+    setPraiseSeen(Number(localStorage.getItem(`praiseSeen:${kstDayKey(new Date())}`) || 0));
+    const unsubPraise = subscribeTodayStats((s) => {
+      setPraiseCount(((s.praiseStickers as any)[praisePartner] || 0) + ((s.praiseRequests as any)[praisePartner] || 0));
+    });
 
     const start = new Date('2023-09-28');
     const today = new Date();
@@ -200,7 +201,7 @@ export default function KkomMorningHome() {
     return () => {
       if (hintTimer) clearTimeout(hintTimer);
       unsubLetter(); unsubMoods(); unsubMemories(); unsubShares();
-      unsubWishes(); unsubAgains(); unsubRecipes(); unsubPoems();
+      unsubWishes(); unsubAgains(); unsubRecipes(); unsubPoems(); unsubPraise();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
@@ -749,11 +750,24 @@ export default function KkomMorningHome() {
 
       {/* 3. 대시보드 본문 — 하나의 일관된 그리드 */}
       <main className="relative z-10 px-5 flex flex-col gap-4">
-        {/* 오늘의 조각 — 상대가 오늘 남긴 것 중 놓치기 쉬운 것. (사이담 TodayDigest 설계 이식)
-            데이터는 dailyStats 실시간 구독으로 컴포넌트 내부에서 읽는다. */}
-        {(userName === '우댕' || userName === '꼼이') && (
-          <TodayDigest me={userName as '우댕' | '꼼이'} />
-        )}
+        {/* 매일매일 꼼모닝 — 오늘 우리 둘 사이의 조각 (Mad-libs 헤더) */}
+        {(userName === '우댕' || userName === '꼼이') && (() => {
+          // dailyStats.wishItems 대신 실제 wishlist의 오늘 createdAt count 사용 (또갈래 되돌리기 등 잘못 누적 회피)
+          const now = new Date();
+          const todayKey = kstDayKey(now);
+          const isSameDay = (d: Date) => kstDayKey(d) === todayKey;
+          const todayWishCount = wishes.filter((w) => isSameDay(w.createdAt)).length;
+          const todayRecipes = recipes
+            .filter((r) => isSameDay(r.createdAt))
+            .map((r) => ({ by: r.by, createdAt: r.createdAt }));
+          return (
+            <DailyPiecesHeader
+              me={userName as '우댕' | '꼼이'}
+              todayWishCount={todayWishCount}
+              todayRecipes={todayRecipes}
+            />
+          );
+        })()}
 
         {/* 날씨 V2 — 탭하면 상세 페이지. 첫 진입 시 살짝 흔들리고 토스트로 알려줌 */}
         <motion.button
@@ -977,16 +991,20 @@ export default function KkomMorningHome() {
 
         {/* 칭찬 다이어리 진입 카드 — 옅은 종이 톤 + 핑크 테이프 (Gemini 리뷰 P1) */}
         <button
-          onClick={() => router.push('/praise')}
+          onClick={() => {
+            localStorage.setItem(`praiseSeen:${kstDayKey(new Date())}`, String(praiseCount));
+            setPraiseSeen(praiseCount);
+            router.push('/praise');
+          }}
           className="relative w-full bg-emerald-50 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-emerald-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all"
         >
           <div className="tape-pink absolute -top-2 -left-2 w-14 -rotate-12 z-10" />
           <div className="relative w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-600">
             <Award size={22} strokeWidth={2.5} />
-            {/* 새 칭찬 받았을 때 스마일 배지 (숫자 대신) */}
-            {hasNewPraise && (
-              <span className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-amber-300 text-amber-800 flex items-center justify-center shadow-md ring-2 ring-white">
-                <Smile size={14} strokeWidth={2.8} />
+            {/* 안 읽은 칭찬 숫자 배지 — 실시간. /praise 열면 확인 처리되어 사라짐 */}
+            {praiseCount - praiseSeen > 0 && (
+              <span className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-400 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+                {praiseCount - praiseSeen > 99 ? '99+' : praiseCount - praiseSeen}
               </span>
             )}
           </div>
