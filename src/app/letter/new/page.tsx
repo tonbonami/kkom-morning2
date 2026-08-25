@@ -392,7 +392,9 @@ export default function NewLetterPage() {
             <div className="pt-1">
               <DoodlePad
                 mode="compose"
+                initialData={doodle ?? undefined}
                 onChange={(d) => setDoodle(d)}
+                onDone={() => setShowDoodle(false)}
               />
               <p className="text-[11px] text-slate-400 leading-tight mt-2 px-1">
                 ✏️ 그린 순서·속도 그대로 {partner || '상대'}에게 재생돼요

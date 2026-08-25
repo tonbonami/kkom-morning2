@@ -3,6 +3,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, Eraser, Check, Play, Pause, RotateCw, X } from 'lucide-react';
+import { getStroke } from 'perfect-freehand';
+// 낙서장(캔버스) 엔진 이식 — 속도기반 의사필압 + perfect-freehand 채움
+import { freehandOptions, outlineToPath, smoothVelocity, pseudoPressure } from './ink/brush';
 
 // -----------------------------------------------------------------------------
 // Types & Data Model
@@ -25,6 +28,7 @@ export interface Props {
   initialData?: DoodleData;
   onChange?: (data: DoodleData | null) => void;
   onCancel?: () => void;
+  onDone?: () => void; // 완료 눌렀을 때 (부모가 패드를 접는 등 피드백 처리)
   // Play props
   data?: DoodleData;
   autoPlay?: boolean;
@@ -37,7 +41,23 @@ const CANVAS_W = 320;
 const CANVAS_H = 200;
 const PEN_COLOR = '#334155';
 const PEN_WIDTH = 2.5;
+const PF_SIZE = 5.5; // perfect-freehand 브러시 굵기 (낙서장 엔진과 동일 계열)
 const BG_COLOR = '#FFFCF7';
+
+// DoodlePad 점([x,y,t] 픽셀) → perfect-freehand 채움 Path2D. 속도로 의사필압을 계산해
+// 빠르면 얇게·천천히면 두껍게 (낙서장 엔진 이식). 저장 포맷([x,y,t])은 그대로 유지.
+function pointsToPath(points: Array<[number, number, number]>, size: number = PF_SIZE): Path2D {
+  if (points.length === 0) return new Path2D();
+  let v = 0;
+  const pts = points.map((pt, i) => {
+    if (i > 0) {
+      const [px, py, pt0] = points[i - 1];
+      v = smoothVelocity(v, pt[0] - px, pt[1] - py, pt[2] - pt0);
+    }
+    return { x: pt[0], y: pt[1], pressure: pseudoPressure(v) };
+  });
+  return outlineToPath(getStroke(pts, freehandOptions(size)));
+}
 
 // -----------------------------------------------------------------------------
 // Helper: Convert points to smooth SVG Path
@@ -72,7 +92,7 @@ export default function DoodlePad(props: Props) {
 // -----------------------------------------------------------------------------
 // 1. Compose Mode (HTML5 Canvas for real-time drawing perf)
 // -----------------------------------------------------------------------------
-function ComposePad({ initialData, onChange, onCancel }: Omit<Props, 'mode' | 'data' | 'autoPlay'>) {
+function ComposePad({ initialData, onChange, onCancel, onDone }: Omit<Props, 'mode' | 'data' | 'autoPlay'>) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -102,28 +122,11 @@ function ComposePad({ initialData, onChange, onCancel }: Omit<Props, 'mode' | 'd
     // Clear
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-    // Config
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = PEN_WIDTH;
-
+    // perfect-freehand 채움 — 속도기반 굵기(빠르면 얇게)로 낙서장과 동일한 획 느낌
     const renderStroke = (stroke: Stroke) => {
-      const pts = stroke.points;
-      if (pts.length === 0) return;
-      ctx.strokeStyle = stroke.color;
-      ctx.beginPath();
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length - 1; i++) {
-        const cx = (pts[i][0] + pts[i + 1][0]) / 2;
-        const cy = (pts[i][1] + pts[i + 1][1]) / 2;
-        ctx.quadraticCurveTo(pts[i][0], pts[i][1], cx, cy);
-      }
-      if (pts.length > 1) {
-        ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
-      } else {
-        ctx.lineTo(pts[0][0], pts[0][1]);
-      }
-      ctx.stroke();
+      if (stroke.points.length === 0) return;
+      ctx.fillStyle = stroke.color;
+      ctx.fill(pointsToPath(stroke.points));
     };
 
     strokesRef.current.forEach(renderStroke);
@@ -236,9 +239,10 @@ function ComposePad({ initialData, onChange, onCancel }: Omit<Props, 'mode' | 'd
 
   const handleDone = () => {
     if (strokesRef.current.length === 0) return;
+    notifyChange();                 // 최신 획까지 확실히 동기화
     setIsDonePulsing(true);
-    setTimeout(() => setIsDonePulsing(false), 500);
-    // 실제 저장은 이미 onChange로 동기화됨. (부모 폼에서 처리)
+    // 짧은 확인 펄스 후 부모에 완료 통지 → 부모가 패드를 접어 '첨부됨' 상태로 (명확한 피드백)
+    setTimeout(() => { setIsDonePulsing(false); onDone?.(); }, 300);
   };
 
   return (
@@ -380,42 +384,47 @@ function PlayPad({ data, autoPlay = false }: { data: DoodleData; autoPlay?: bool
     setIsPlaying(true);
   };
 
-  // Find tip position for current time
-  let currentTip: [number, number] | null = null;
-  let isDrawingNow = false;
+  const playCanvasRef = useRef<HTMLCanvasElement>(null);
+  const wpx = data.width || CANVAS_W;
+  const hpx = data.height || CANVAS_H;
 
-  const visibleStrokes = data.strokes.map(stroke => {
-    const pts = stroke.points;
-    if (pts.length === 0) return null;
+  // time이 바뀔 때마다 지금까지의 획 + 펜촉을 perfect-freehand로 캔버스에 다시 그린다 (낙서장 엔진)
+  useEffect(() => {
+    const canvas = playCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, wpx, hpx);
 
-    // Check if stroke is currently being drawn
-    if (time >= pts[0][2] && time <= pts[pts.length - 1][2]) {
-      isDrawingNow = true;
-      for (let i = 0; i < pts.length - 1; i++) {
-        const p1 = pts[i];
-        const p2 = pts[i + 1];
-        if (time >= p1[2] && time <= p2[2]) {
-          const progress = p2[2] === p1[2] ? 1 : (time - p1[2]) / (p2[2] - p1[2]);
-          currentTip = [
-            p1[0] + (p2[0] - p1[0]) * progress,
-            p1[1] + (p2[1] - p1[1]) * progress
-          ];
-          break;
+    let tip: [number, number] | null = null;
+    for (const stroke of data.strokes) {
+      const pts = stroke.points;
+      if (pts.length === 0) continue;
+      let drawingNow = false;
+      if (time >= pts[0][2] && time <= pts[pts.length - 1][2]) {
+        drawingNow = true;
+        for (let i = 0; i < pts.length - 1; i++) {
+          if (time >= pts[i][2] && time <= pts[i + 1][2]) {
+            const prog = pts[i + 1][2] === pts[i][2] ? 1 : (time - pts[i][2]) / (pts[i + 1][2] - pts[i][2]);
+            tip = [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * prog, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * prog];
+            break;
+          }
         }
       }
+      const visible: Array<[number, number, number]> = pts.filter((p) => p[2] <= time);
+      if (drawingNow && tip && visible.length > 0) visible.push([tip[0], tip[1], time]);
+      if (visible.length === 0) continue;
+      ctx.fillStyle = stroke.color;
+      ctx.fill(pointsToPath(visible));
     }
 
-    // Filter points that exist up to `time`
-    const visiblePoints = pts.filter(p => p[2] <= time);
-
-    // Smooth rendering: add the exact interpolated tip to the path so it doesn't snap to recorded intervals
-    if (isDrawingNow && currentTip && visiblePoints.length > 0) {
-      visiblePoints.push([currentTip[0], currentTip[1], time]);
+    if (tip) {
+      ctx.beginPath();
+      ctx.fillStyle = '#10B981';
+      ctx.arc(tip[0], tip[1], 3.2, 0, Math.PI * 2);
+      ctx.fill();
     }
-
-    if (visiblePoints.length === 0) return null;
-    return { ...stroke, points: visiblePoints };
-  }).filter(Boolean) as Stroke[];
+  }, [time, data, wpx, hpx]);
 
   const formatTime = (ms: number) => (ms / 1000).toFixed(1);
 
@@ -423,32 +432,12 @@ function PlayPad({ data, autoPlay = false }: { data: DoodleData; autoPlay?: bool
     <div className="w-full max-w-md mx-auto flex flex-col items-center">
       <div className="w-full aspect-[1.6] relative rounded-[28px] overflow-hidden bg-[#FFFCF7] border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
 
-        <svg
-          viewBox={`0 0 ${data.width || CANVAS_W} ${data.height || CANVAS_H}`}
+        <canvas
+          ref={playCanvasRef}
+          width={wpx}
+          height={hpx}
           className="w-full h-full block"
-          style={{ strokeLinecap: 'round', strokeLinejoin: 'round' }}
-        >
-          {visibleStrokes.map((stroke, i) => (
-            <path
-              key={`stroke-${i}`}
-              d={getSmoothSvgPath(stroke.points)}
-              fill="none"
-              stroke={stroke.color}
-              strokeWidth={PEN_WIDTH}
-            />
-          ))}
-
-          {/* Pen Tip Highlighter */}
-          {isDrawingNow && currentTip && (
-            <circle
-              cx={(currentTip as [number, number])[0]}
-              cy={(currentTip as [number, number])[1]}
-              r={3}
-              fill="#10B981"
-              className="drop-shadow-sm"
-            />
-          )}
-        </svg>
+        />
 
         {/* Floating Controls Overlay */}
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
