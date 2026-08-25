@@ -20,6 +20,38 @@ const QUICK: { kind: Kind; image: string; emoji: string; label: string }[] = [
 
 const COOLDOWN_MS = 2500; // 클라이언트 스팸 가드
 
+// 탭 시 포차코 주위로 톡톡 터지는 반짝이 — 얼굴을 덮지 않게 둘레에만. 원 4 + 별(✦) 2.
+// (GPT 디자인 스펙 통합, 수정0)
+const SPARKLES: { x: number; y: number; size: number; delay: number; star?: boolean }[] = [
+  { x: -19, y: -14, size: 4, delay: 0.0 },
+  { x: 1, y: -22, size: 3, delay: 0.03, star: true },
+  { x: 20, y: -11, size: 5, delay: 0.06 },
+  { x: -23, y: 6, size: 3, delay: 0.04 },
+  { x: 19, y: 12, size: 4, delay: 0.08, star: true },
+  { x: 3, y: 20, size: 3, delay: 0.1 },
+];
+
+function Sparkles({ show }: { show: boolean }) {
+  return (
+    <AnimatePresence>
+      {show &&
+        SPARKLES.map((s, i) => (
+          <motion.span
+            key={i}
+            className={`pointer-events-none absolute left-1/2 top-[26px] leading-none ${s.star ? 'text-[#EFCF77]' : 'rounded-full bg-[#FFE59A]'}`}
+            style={s.star ? { fontSize: s.size + 6 } : { width: s.size, height: s.size }}
+            initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+            animate={{ x: s.x, y: s.y, scale: [0, 1.25, 0.8], opacity: [0, 1, 0] }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.42, delay: s.delay, ease: 'easeOut' }}
+          >
+            {s.star ? '✦' : null}
+          </motion.span>
+        ))}
+    </AnimatePresence>
+  );
+}
+
 export default function QuickReplyBar({ me, partner }: { me: string; partner: string }) {
   const [toast, setToast] = useState<string | null>(null);
   const [lastSent, setLastSent] = useState(0);
@@ -135,35 +167,52 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
         )}
       </AnimatePresence>
 
-      {/* 하단 고정 바 — transform 제거 (iOS PWA fixed positioning 충돌 회피),
-          키보드 올라오면 hide (중간에 박히는 버그 회피) */}
+      {/* 하단 고정 독 — "포차코 선반" (GPT 디자인 스펙 통합, 수정0).
+          개별 버튼을 캡슐에 가두지 않고 크림색 선반 하나에 포차코 5마리를 진열.
+          글래스/큰그림자 금지 — 포차코보다 독이 먼저 보이면 안 됨. 키보드 올라오면 hide. */}
       <div
-        className={`fixed bottom-0 left-0 right-0 mx-auto max-w-md px-3 pb-safe pointer-events-none z-40 transition-transform duration-200 ${
-          keyboardOpen ? 'translate-y-full opacity-0' : 'translate-y-0 opacity-100'
+        className={`fixed left-4 right-4 mx-auto max-w-md bottom-[calc(10px+env(safe-area-inset-bottom))] pointer-events-none z-40 transition-transform duration-200 ${
+          keyboardOpen ? 'translate-y-[135%] opacity-0' : 'translate-y-0 opacity-100'
         }`}
       >
-        <div className="bg-white/95 backdrop-blur-xl rounded-[28px] shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-white/60 px-1 py-1.5 mb-3 flex items-center justify-around pointer-events-auto">
+        <div className="grid grid-cols-5 h-[84px] items-center rounded-[22px] border border-[#F0E4D5] bg-[#FFF9EF] px-2 py-2 shadow-[0_3px_12px_rgba(91,68,42,0.08),0_1px_2px_rgba(91,68,42,0.05)] pointer-events-auto">
           {QUICK.map((q) => {
             const isActive = activeKind === q.kind;
             return (
               <motion.button
                 key={q.kind}
-                whileTap={{ scale: 0.88 }}
+                whileTap={{ scale: 0.94 }}
                 onClick={() => send(q)}
-                animate={isActive ? { scale: [1, 1.25, 1] } : { scale: 1 }}
-                transition={{ duration: 0.5 }}
-                className="flex flex-col items-center gap-0 px-0.5 py-1 rounded-2xl active:bg-slate-50 transition-colors flex-1"
+                aria-label={`${partner}한테 ${q.label} 보내기`}
+                className="relative flex min-w-0 flex-col items-center justify-center rounded-[16px] py-1 select-none"
               >
-                <img
+                {/* 눌린 크림 얼룩 — 캡슐 아님, 포근한 얼룩이 잠깐 */}
+                <AnimatePresence>
+                  {isActive && (
+                    <motion.span
+                      className="absolute inset-[3px] -z-10 rounded-[15px] bg-[#FFF1DD]"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: [0, 1, 0], scale: [0.9, 1, 1] }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.42 }}
+                    />
+                  )}
+                </AnimatePresence>
+                <Sparkles show={isActive} />
+                <motion.img
                   src={q.image}
                   alt={q.label}
-                  width={52}
-                  height={52}
+                  width={48}
+                  height={48}
                   loading="lazy"
                   decoding="async"
-                  className={q.kind === 'love' ? 'drop-shadow-sm pochacco-dance-heart' : 'drop-shadow-sm'}
+                  className="h-[48px] w-[48px] object-contain"
+                  animate={isActive ? { scale: [1, 0.95, 1.08, 1], y: [0, 1, -3, 0] } : {}}
+                  transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
                 />
-                <span className="text-[9px] font-black text-slate-600 whitespace-nowrap leading-none">{q.label}</span>
+                <span className="mt-[2px] whitespace-nowrap text-[11px] font-medium leading-none text-[#625950]">
+                  {q.label}
+                </span>
               </motion.button>
             );
           })}
