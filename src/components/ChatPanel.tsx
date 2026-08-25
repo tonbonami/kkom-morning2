@@ -517,7 +517,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           <video src={m.sticker} poster={posterOf(m.sticker)} autoPlay loop muted playsInline
                             className="w-40 h-40 rounded-[26px] object-cover bg-white shadow-sm" />
                         ) : FULL_STICKERS.has(m.sticker) ? (
-                          <motion.img src={m.sticker} alt="이모티콘" className="w-[74vw] max-w-[300px] h-auto rounded-2xl shadow-sm"
+                          <motion.img src={m.sticker} alt="이모티콘" className="w-[88vw] max-w-[560px] h-auto rounded-2xl shadow-sm"
                             initial={{ scale: 0.6, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ scale: { type: 'spring', stiffness: 300, damping: 20 }, opacity: { duration: 0.2 } }} />
@@ -577,14 +577,14 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           {/* 이모티콘 피커 (스티커=크게 따로 / 미니=글자 사이 인라인) */}
           {stickerOpen && (
             <div className="px-3 pt-2 pb-1 bg-white/80 backdrop-blur-md border-t border-black/5">
-              <div className="flex items-center gap-1 mb-2">
-                <button onClick={() => setStickerMode('sticker')} className={`px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'sticker' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>스티커</button>
-                <button onClick={() => setStickerMode('mini')} className={`px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'mini' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>미니</button>
-                <button onClick={() => setStickerMode('couple')} className={`px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'couple' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>커플</button>
-                <button onClick={() => setStickerMode('dang')} className={`px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'dang' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>Dang&apos;s</button>
-                <button onClick={() => setStickerMode('kkom')} className={`px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'kkom' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>kkom&apos;s</button>
-                {stickerMode === 'mini' && <span className="ml-1 text-[11px] text-slate-400">글자 사이에 콕콕 넣기</span>}
-                {stickerMode === 'couple' && <span className="ml-1 text-[11px] text-slate-400">움직이는 커플 · 톡엔 (단어)로도</span>}
+              <div className="flex items-center gap-1 mb-2 overflow-x-auto">
+                <button onClick={() => setStickerMode('sticker')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'sticker' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>스티커</button>
+                <button onClick={() => setStickerMode('mini')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'mini' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>미니</button>
+                <button onClick={() => setStickerMode('couple')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'couple' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>커플</button>
+                <button onClick={() => setStickerMode('dang')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'dang' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>Dang&apos;s</button>
+                <button onClick={() => setStickerMode('kkom')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'kkom' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>kkom&apos;s</button>
+                {stickerMode === 'mini' && <span className="ml-1 shrink-0 whitespace-nowrap text-[11px] text-slate-400">글자 사이에 콕콕 넣기</span>}
+                {stickerMode === 'couple' && <span className="ml-1 shrink-0 whitespace-nowrap text-[11px] text-slate-400">움직이는 커플 · 톡엔 (단어)로도</span>}
               </div>
               {stickerMode === 'couple' ? (
                 <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
