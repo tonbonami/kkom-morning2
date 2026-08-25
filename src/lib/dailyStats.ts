@@ -114,7 +114,12 @@ export function subscribeTodayStats(cb: (s: DailyStats) => void): () => void {
 
 // 1회 fetch (필요 시)
 export async function fetchTodayStats(): Promise<DailyStats> {
-  const ref = doc(db, 'dailyStats', todayKey());
+  return fetchStatsFor(todayKey());
+}
+
+// 특정 날짜의 stats 1회 조회 — "오늘의 조각"에서 지난 날을 고를 때만 읽는다.
+export async function fetchStatsFor(dayKey: string): Promise<DailyStats> {
+  const ref = doc(db, 'dailyStats', dayKey);
   try {
     const snap = await getDoc(ref);
     return snap.exists() ? normalizeStats(snap.data()) : emptyStats();
@@ -122,4 +127,12 @@ export async function fetchTodayStats(): Promise<DailyStats> {
     console.error('dailyStats fetch 실패:', e);
     return emptyStats();
   }
+}
+
+// 최근 n일의 KST 날짜키 [오늘, 어제, …]. 자정에 데이터가 사라지는 게 아니라 '오늘'로 넘어갈 뿐임을 보여준다.
+export function recentDayKeys(n: number): string[] {
+  const out: string[] = [];
+  const base = Date.now();
+  for (let i = 0; i < n; i++) out.push(todayKey(new Date(base - i * 86400000)));
+  return out;
 }
