@@ -44,7 +44,7 @@ import { todayYmd } from '@/lib/calendarLayout';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
 import AirSkyVisual from '@/components/AirSkyVisual';
 import { Bell, BellOff, MessageCircle } from 'lucide-react';
-import ChatPanel from '@/components/ChatPanel';
+import ChatPanel, { preview } from '@/components/ChatPanel';
 import { subscribeMessages, sendMessage, sendCapsule, type ChatMessage } from '@/lib/chat';
 import type { WeatherData, OutfitGuide } from '@/types';
 
@@ -591,6 +591,58 @@ export default function KkomMorningHome() {
           );
         })()}
       </div>
+
+      {/* 꼼톡 미리보기 — 사이담식: 안읽음 '숫자'가 아니라 '최근에 쓴 말'을 보여준다. 탭하면 꼼톡 열림. */}
+      {messages.length > 0 && (
+        <div className="relative z-10 px-6 pt-1 pb-2">
+          <button
+            onClick={() => { setChatOpen(true); setChatUnread(false); }}
+            className="relative w-full text-left bg-white rounded-[24px] p-5 active:scale-[0.98] transition-all"
+            style={{ boxShadow: '0px 12px 32px rgba(120,100,80,0.08)' }}
+            aria-label="꼼톡 열기"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2">
+                <span className="font-handwriting text-[26px] leading-none text-slate-700">꼼톡 💬</span>
+                {chatUnread && <span className="inline-flex h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />}
+              </div>
+              <ChevronRight size={16} className="text-slate-300" />
+            </div>
+            {(() => {
+              const recent = messages.slice(-3);
+              const last = recent[recent.length - 1];
+              const rel = (() => {
+                const d = last?.createdAt;
+                if (!d) return '';
+                const s = Math.floor((Date.now() - d.getTime()) / 1000);
+                if (s < 60) return '방금';
+                if (s < 3600) return `${Math.floor(s / 60)}분 전`;
+                if (s < 86400) return `${Math.floor(s / 3600)}시간 전`;
+                return `${Math.floor(s / 86400)}일 전`;
+              })();
+              return (
+                <div className="flex flex-col gap-1.5">
+                  {recent.map((m, i) => {
+                    const mine = m.from === userName;
+                    return (
+                      <div key={m.id ?? i} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                        <span
+                          className={`max-w-[82%] rounded-2xl px-3 py-1.5 text-[12.5px] font-semibold leading-snug line-clamp-2 ${
+                            mine ? 'bg-slate-800 text-white' : 'bg-[#FCE7EF] text-slate-700'
+                          }`}
+                        >
+                          {preview(m)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {rel && <p suppressHydrationWarning className="text-[11px] font-semibold text-slate-400 mt-0.5">{rel}</p>}
+                </div>
+              );
+            })()}
+          </button>
+        </div>
+      )}
 
       {/* Share List 알림 바 — 미확인 카드 있을 때만 (홈 only) */}
       {(() => {

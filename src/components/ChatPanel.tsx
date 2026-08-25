@@ -176,7 +176,7 @@ function renderRich(text: string): React.ReactNode {
   return parts;
 }
 
-function preview(m: ChatMessage): string {
+export function preview(m: ChatMessage): string {
   if (m.sticker) return '이모티콘';
   if (m.imageUrl) return '사진';
   if (m.audioUrl) return '음성 메시지';
