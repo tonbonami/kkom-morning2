@@ -104,10 +104,13 @@ const TEXT_STICKERS: Record<string, string> = {
   '토닥토닥': '/pochacco_couple/pat.png',
   '뽀뽀': '/pochacco_couple/kiss.png',
   '헹가래': '/pochacco_couple/cheer.png',
+  '날아가자': '/pochacco_couple/heli.webp',
   // 진짜 동영상 스티커 (편지처럼 MP4 재생) — 데모: 기존 편지 포차코 영상
   '하트': '/letter-stickers/pochacco-heart.mp4',
   '장미': '/letter-stickers/pochacco-rose.mp4',
 };
+// 배경 있는 풀씬 스티커 — 채팅에서 꽉 차게 크게 렌더한다.
+const FULL_STICKERS = new Set(['/pochacco_couple/heli.webp']);
 // 스티커 소스가 동영상(mp4/webm/mov)인지 → <video>로 진짜 재생. 아니면 정지 이미지.
 const isVideoSrc = (src: string) => /\.(mp4|webm|mov)$/i.test(src);
 const posterOf = (src: string) => src.replace(/\.(mp4|webm|mov)$/i, '-poster.webp');
@@ -513,6 +516,11 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                         isVideoSrc(m.sticker) ? (
                           <video src={m.sticker} poster={posterOf(m.sticker)} autoPlay loop muted playsInline
                             className="w-40 h-40 rounded-[26px] object-cover bg-white shadow-sm" />
+                        ) : FULL_STICKERS.has(m.sticker) ? (
+                          <motion.img src={m.sticker} alt="이모티콘" className="w-[74vw] max-w-[300px] h-auto rounded-2xl shadow-sm"
+                            initial={{ scale: 0.6, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ scale: { type: 'spring', stiffness: 300, damping: 20 }, opacity: { duration: 0.2 } }} />
                         ) : (
                           <motion.img src={m.sticker} alt="이모티콘" className="w-28 h-28 object-contain drop-shadow-sm"
                             initial={{ scale: 0.4, opacity: 0 }}
@@ -579,39 +587,39 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 {stickerMode === 'couple' && <span className="ml-1 text-[11px] text-slate-400">움직이는 커플 · 톡엔 (단어)로도</span>}
               </div>
               {stickerMode === 'couple' ? (
-                <div className="grid grid-cols-3 gap-1.5 max-h-52 overflow-y-auto">
+                <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
                   {POCKET_STICKERS.map((s) => (
                     <button key={s.word}
                       onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
-                      aria-label={s.word} className="aspect-square p-1.5 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
+                      aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
                       {isVideoSrc(s.image) ? (
-                        <video src={s.image} poster={posterOf(s.image)} muted loop autoPlay playsInline className="w-full h-full object-cover rounded-xl" />
+                        <video src={s.image} poster={posterOf(s.image)} muted loop autoPlay playsInline className="h-full w-auto object-contain rounded-xl" />
                       ) : (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={s.image} alt={s.word} className="w-full h-full object-contain" />
+                        <img src={s.image} alt={s.word} className="h-full w-auto object-contain" />
                       )}
                     </button>
                   ))}
                 </div>
               ) : stickerMode === 'dang' ? (
-                <div className="grid grid-cols-3 gap-1.5 max-h-52 overflow-y-auto">
+                <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
                   {DANG_STICKERS.map((s) => (
                     <button key={s.word}
                       onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
-                      aria-label={s.word} className="aspect-square p-1.5 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
+                      aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.image} alt={s.word} className="w-full h-full object-contain" />
+                      <img src={s.image} alt={s.word} className="h-full w-auto object-contain" />
                     </button>
                   ))}
                 </div>
               ) : stickerMode === 'kkom' ? (
-                <div className="grid grid-cols-3 gap-1.5 max-h-52 overflow-y-auto">
+                <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
                   {KKOM_STICKERS.map((s) => (
                     <button key={s.word}
                       onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
-                      aria-label={s.word} className="aspect-square p-1.5 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
+                      aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.image} alt={s.word} className="w-full h-full object-contain" />
+                      <img src={s.image} alt={s.word} className="h-full w-auto object-contain" />
                     </button>
                   ))}
                 </div>
