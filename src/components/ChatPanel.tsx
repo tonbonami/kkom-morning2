@@ -4,7 +4,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 're
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2 } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
-import { saveLink, deleteLink, subscribeLinks, firstUrl, type SavedLink } from '@/lib/links';
+import { saveLink, deleteLink, subscribeLinks, firstUrl, youTubeId, type SavedLink } from '@/lib/links';
 import {
   type ChatMessage, type ReplyRef,
   subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage, uploadChatAudio, uploadChatVideo,
@@ -202,6 +202,59 @@ function renderRich(text: string): React.ReactNode {
   }
   if (last < text.length) parts.push(...linkify(text.slice(last), text.length));
   return parts;
+}
+
+// 채팅 속 링크 인라인 미리보기 카드 — 유튜브 등. og-preview 결과를 모듈 캐시에 담아 재스크롤 시 재요청 X.
+const ogCache = new Map<string, { title?: string; image?: string; site?: string }>();
+function LinkPreview({ url, mine }: { url: string; mine: boolean }) {
+  const ytId = youTubeId(url);
+  const host = (() => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } })();
+  const [meta, setMeta] = useState<{ title?: string; image?: string; site?: string }>(() =>
+    ogCache.get(url) ?? (ytId ? { image: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`, site: 'YouTube' } : {}));
+  useEffect(() => {
+    if (ogCache.has(url)) { setMeta(ogCache.get(url)!); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch(`/api/og-preview?url=${encodeURIComponent(url)}`);
+        if (!r.ok) return;
+        const j = (await r.json()) as { title?: string; image?: string; siteName?: string; error?: string };
+        if (j.error) return;
+        const m = {
+          title: j.title,
+          image: j.image || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined),
+          site: j.siteName || host,
+        };
+        ogCache.set(url, m);
+        if (alive) setMeta(m);
+      } catch { /* 미리보기 실패 무시 */ }
+    })();
+    return () => { alive = false; };
+  }, [url, ytId, host]);
+
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+      className={`block w-[248px] max-w-full overflow-hidden rounded-2xl border shadow-sm active:scale-[0.99] transition ${mine ? 'border-black/5 bg-white' : 'border-black/5 bg-white dark:bg-[#332F2A] dark:border-white/10'}`}>
+      {meta.image && (
+        <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={meta.image} alt="" className="aspect-video w-full object-cover bg-black/5" />
+          {ytId && (
+            <span className="absolute inset-0 grid place-items-center">
+              <span className="grid h-11 w-11 place-items-center rounded-full bg-black/55"><Play size={18} fill="white" className="ml-0.5 text-white" /></span>
+            </span>
+          )}
+        </div>
+      )}
+      <div className="px-3 py-2">
+        <div className="text-[13px] font-bold text-slate-800 dark:text-[#E8E2D8] break-keep"
+          style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {meta.title || url}
+        </div>
+        <div className="mt-0.5 truncate text-[11px] text-slate-400">{meta.site || host}</div>
+      </div>
+    </a>
+  );
 }
 
 export function preview(m: ChatMessage): string {
@@ -628,15 +681,27 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                         </div>
                       ) : m.audioUrl ? (
                         <VoiceBubble url={m.audioUrl} dur={m.audioDur ?? 0} mine={mine} />
-                      ) : (
-                        <div className={`max-w-full px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap break-keep ${
-                          mine
-                            ? 'bg-[#FB7BA8] dark:bg-[#D94C7A] text-white rounded-2xl rounded-tr-sm shadow-[0_2px_8px_rgba(251,123,168,0.2)]'
-                            : 'bg-white dark:bg-[#332F2A] text-slate-700 dark:text-[#E8E2D8] rounded-2xl rounded-tl-sm shadow-[0_2px_12px_rgba(0,0,0,0.04)]'
-                        }`}>
-                          {renderRich(m.text)}
-                        </div>
-                      )}
+                      ) : (() => {
+                        const linkUrl = firstUrl(m.text);
+                        const onlyUrl = !!linkUrl && m.text.trim() === linkUrl;
+                        return (
+                          <>
+                            {/* 주소만 덜렁 보내면 텍스트 버블은 숨기고 카드만 (주소 노출 X) */}
+                            {!onlyUrl && (
+                              <div className={`max-w-full px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap break-keep ${
+                                mine
+                                  ? 'bg-[#FB7BA8] dark:bg-[#D94C7A] text-white rounded-2xl rounded-tr-sm shadow-[0_2px_8px_rgba(251,123,168,0.2)]'
+                                  : 'bg-white dark:bg-[#332F2A] text-slate-700 dark:text-[#E8E2D8] rounded-2xl rounded-tl-sm shadow-[0_2px_12px_rgba(0,0,0,0.04)]'
+                              }`}>
+                                {renderRich(m.text)}
+                              </div>
+                            )}
+                            {linkUrl && (
+                              <div className={onlyUrl ? '' : 'mt-1'}><LinkPreview url={linkUrl} mine={mine} /></div>
+                            )}
+                          </>
+                        );
+                      })()}
 
                       {/* 반응 칩 — 말풍선 하단에 살짝 걸치게 (제미나이 원안) */}
                       {reactionEmojis.length > 0 && (
