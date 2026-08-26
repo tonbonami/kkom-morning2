@@ -4,6 +4,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 're
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2 } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
+import { saveLink, deleteLink, subscribeLinks, firstUrl, type SavedLink } from '@/lib/links';
 import {
   type ChatMessage, type ReplyRef,
   subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage, uploadChatAudio, uploadChatVideo,
@@ -138,12 +139,33 @@ const KKOM_STICKERS: { word: string; image: string }[] = [
 function stripEmo(text: string): string {
   return text.replace(EMO_RE, '🐶').replace(STICKER_RE, '$1');
 }
+// 평문 구간의 http(s) 링크를 클릭 가능한 <a>로 (끝 문장부호는 링크에서 제외). "바로 연결".
+const PLAIN_URL_RE = /(https?:\/\/[^\s<]+)/g;
+function linkify(text: string, keyBase: number): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  let last = 0; let li = 0; let m: RegExpExecArray | null;
+  PLAIN_URL_RE.lastIndex = 0;
+  while ((m = PLAIN_URL_RE.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    const raw = m[0];
+    const clean = raw.replace(/[),.\]]+$/, '');
+    out.push(
+      <a key={`lk${keyBase}-${li++}`} href={clean} target="_blank" rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="underline decoration-1 underline-offset-2 break-all">{clean}</a>,
+    );
+    if (raw.length > clean.length) out.push(raw.slice(clean.length));
+    last = m.index + raw.length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
 function renderRich(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let last = 0; let i = 0; let m: RegExpExecArray | null;
   RICH_RE.lastIndex = 0;
   while ((m = RICH_RE.exec(text)) !== null) {
-    if (m.index > last) parts.push(text.slice(last, m.index));
+    if (m.index > last) parts.push(...linkify(text.slice(last, m.index), m.index));
     if (m[1] !== undefined) {
       // [[e:id]] 미니 이모티콘
       const opt = MOOD_OPTIONS.find((o) => o.id === m![1]);
@@ -178,7 +200,7 @@ function renderRich(text: string): React.ReactNode {
     }
     last = m.index + m[0].length;
   }
-  if (last < text.length) parts.push(text.slice(last));
+  if (last < text.length) parts.push(...linkify(text.slice(last), text.length));
   return parts;
 }
 
@@ -207,7 +229,11 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [recSec, setRecSec] = useState(0);
   const [effect, setEffect] = useState<ChatEffect | null>(null);
   const [memoryOpen, setMemoryOpen] = useState(false);
-  const [memoryTab, setMemoryTab] = useState<'star' | 'photo'>('star');
+  const [memoryTab, setMemoryTab] = useState<'star' | 'photo' | 'link'>('star');
+  // "이거봐봐" — 저장한 링크들. 링크 보내면 저장할지 묻는 프롬프트.
+  const [links, setLinks] = useState<SavedLink[] | null>(null);
+  const [linkPrompt, setLinkPrompt] = useState<string | null>(null);
+  const [linkSaving, setLinkSaving] = useState(false);
   const [memories, setMemories] = useState<ChatMessage[] | null>(null);
   const [capsuleOpen, setCapsuleOpen] = useState(false);
   const [capsuleDate, setCapsuleDate] = useState('');
@@ -285,6 +311,19 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     onSend(t, undefined, undefined, replyTo ?? undefined);
     setDraft(''); setReplyTo(null); stopTyping();
     if (taRef.current) taRef.current.style.height = 'auto';
+    // 링크가 들어있으면 "이거봐봐에 저장할까요?" 물어보기
+    const url = firstUrl(t);
+    if (url) setLinkPrompt(url);
+  };
+
+  // "이거봐봐" 링크 구독 — 탭 열자마자 바로 보이게 상시 구독(≤100건).
+  useEffect(() => subscribeLinks(setLinks), []);
+  const saveCurrentLink = async () => {
+    if (!linkPrompt || linkSaving) return;
+    setLinkSaving(true);
+    try { await saveLink(linkPrompt, me); flashToast('이거봐봐에 저장했어 🔖'); }
+    catch { flashToast('저장 실패 — 다시 시도해줘'); }
+    setLinkSaving(false); setLinkPrompt(null);
   };
 
   // ── 타임캡슐 ──
@@ -735,6 +774,25 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 </motion.div>
               )}
             </AnimatePresence>
+            {/* 링크 저장 프롬프트 — 링크 보내면 "이거봐봐에 저장할까요?" */}
+            <AnimatePresence>
+              {linkPrompt && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: 8, height: 0 }}
+                  className="mb-2 flex items-center gap-2 overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.06] shadow-sm px-3 py-2"
+                >
+                  <span className="text-[17px] leading-none">🔖</span>
+                  <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-slate-600">이거봐봐에 저장할까요?</span>
+                  <button onClick={() => setLinkPrompt(null)} className="shrink-0 px-2 py-1 text-[13px] font-semibold text-slate-400 active:scale-95">닫기</button>
+                  <button onClick={saveCurrentLink} disabled={linkSaving}
+                    className="shrink-0 rounded-full bg-[#FB7BA8] px-3.5 py-1.5 text-[13px] font-bold text-white active:scale-95 disabled:opacity-50">
+                    {linkSaving ? '저장 중…' : '저장'}
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
             {recording ? (
               <div className="flex items-center gap-3 h-11 px-2">
                 <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
@@ -876,9 +934,43 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 <div className="flex gap-1.5 px-4 py-2">
                   <button onClick={() => setMemoryTab('star')} className={`px-3.5 py-1.5 rounded-full text-[13px] font-bold ${memoryTab === 'star' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>⭐️ 별표</button>
                   <button onClick={() => setMemoryTab('photo')} className={`px-3.5 py-1.5 rounded-full text-[13px] font-bold ${memoryTab === 'photo' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>📷 사진</button>
+                  <button onClick={() => setMemoryTab('link')} className={`px-3.5 py-1.5 rounded-full text-[13px] font-bold ${memoryTab === 'link' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>🔖 이거봐봐</button>
                 </div>
                 <div className="flex-1 overflow-y-auto px-4 pb-8">
-                  {memories === null ? (
+                  {memoryTab === 'link' ? (
+                    (() => {
+                      if (links === null) return <div className="h-40 flex items-center justify-center text-slate-400 text-sm">불러오는 중…</div>;
+                      if (!links.length) return <div className="h-40 flex flex-col items-center justify-center text-slate-400 gap-2"><span className="text-3xl">🔖</span><p className="text-sm font-semibold">링크 보내고 &quot;이거봐봐&quot;에 저장</p></div>;
+                      return (
+                        <div className="space-y-2 pt-1">
+                          {links.map((lk) => (
+                            <a key={lk.id} href={lk.url} target="_blank" rel="noopener noreferrer"
+                              className="flex gap-3 items-center p-2.5 rounded-2xl bg-white shadow-sm active:scale-[0.99] transition">
+                              {lk.image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={lk.image} alt="" className="h-14 w-20 shrink-0 rounded-lg object-cover bg-black/5" />
+                              ) : (
+                                <div className="h-14 w-20 shrink-0 rounded-lg bg-[#FB7BA8]/10 flex items-center justify-center text-2xl">🔗</div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[13.5px] font-bold text-slate-700 break-keep"
+                                  style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                  {lk.title || lk.url}
+                                </div>
+                                <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-400">
+                                  <span className="truncate">{lk.site || '링크'}</span>
+                                  <span>·</span>
+                                  <span className="shrink-0">{lk.from}</span>
+                                </div>
+                              </div>
+                              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteLink(lk.id); }}
+                                aria-label="삭제" className="shrink-0 p-1.5 text-slate-300 active:text-slate-500"><Trash2 size={15} /></button>
+                            </a>
+                          ))}
+                        </div>
+                      );
+                    })()
+                  ) : memories === null ? (
                     <div className="h-40 flex items-center justify-center text-slate-400 text-sm">불러오는 중…</div>
                   ) : memoryTab === 'star' ? (
                     (() => {
