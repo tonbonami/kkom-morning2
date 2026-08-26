@@ -433,9 +433,11 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     e.target.value = '';
     if (!file) return;
 
-    // 동영상 — 라이브러리에서 고른 파일. 상한: 30초 · 60MB (개인앱이라 Storage 부담 거의 없음).
+    // 동영상 — 라이브러리에서 고른 파일. 상한: 30초 · 30MB.
+    // 속도 우선(사용자 선택): 원본 화질 유지하되 파일을 가볍게 → 업로드·재생 빠르게.
+    // (진짜 재인코딩 압축은 iOS/웹 코덱·컨테이너가 갈려 재생이 깨질 수 있어 안 함)
     if (file.type.startsWith('video/')) {
-      if (file.size > 60 * 1024 * 1024) { alert('동영상이 너무 커요 — 60MB 이하로 보내줘 🎬'); return; }
+      if (file.size > 30 * 1024 * 1024) { alert('동영상이 너무 커요 — 30MB 이하(약 30초)로 보내줘 🎬'); return; }
       const dur = await new Promise<number>((resolve) => {
         const v = document.createElement('video');
         v.preload = 'metadata';
