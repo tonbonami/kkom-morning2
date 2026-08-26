@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { haptic } from '@/lib/feedback';
@@ -56,8 +56,19 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
   const [toast, setToast] = useState<string | null>(null);
   const [lastSent, setLastSent] = useState(0);
   const [activeKind, setActiveKind] = useState<Kind | null>(null);
-  // 실제로 상대에게 나간 랜덤 중계 문구 — 보낸 사람도 중앙 연출에서 본다
+  // 실제로 상대에게 나간 랜덤 중계 문구 — 보낸 사람도 독 위 영수증에서 본다
   const [sentPhrase, setSentPhrase] = useState<{ title: string; body: string } | null>(null);
+  // 타이머 두 개를 ref로 붙든다 — 연타 시 앞 타이머가 새로 뜬 영수증/팝을 지우면 안 됨(사이담 ④).
+  const dismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const popRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (dismissRef.current) clearTimeout(dismissRef.current);
+    if (popRef.current) clearTimeout(popRef.current);
+  }, []);
+  const dismissReceipt = () => {
+    if (dismissRef.current) clearTimeout(dismissRef.current);
+    setSentPhrase(null);
+  };
 
   // 키보드 올라오면 hide — iOS Safari PWA fixed bottom이 키보드 영역 위로 떠오르거나 화면 중간에 박히는 버그 회피.
   // visualViewport API로 viewport 높이 변화 감지 (키보드 = viewport 줄어듦).
@@ -86,10 +97,10 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
     }
     setLastSent(now);
     setActiveKind(q.kind);
-    setSentPhrase(null);
     haptic(40);
-    // 중앙 연출 유지 시간 — 실제 중계 문구를 읽을 수 있게 넉넉히
-    setTimeout(() => { setActiveKind(null); setSentPhrase(null); }, 2400);
+    // 독 버튼 팝/반짝이는 짧게만 — 연타 시 앞 타이머로 덮어쓰기.
+    if (popRef.current) clearTimeout(popRef.current);
+    popRef.current = setTimeout(() => setActiveKind(null), 1100);
 
     try {
       const res = await fetch('/api/bump', {
@@ -98,9 +109,14 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
         body: JSON.stringify({ from: me, to: partner, kind: q.kind }),
       });
       const j = await res.json().catch(() => ({} as { sent?: { title: string; body: string } }));
-      if (res.ok && j?.sent?.title) setSentPhrase(j.sent);
+      if (res.ok && j?.sent?.title) {
+        setSentPhrase(j.sent);
+        // 영수증 유지 — 두 줄 한글을 읽을 시간. 연타 시 ref로 교체(앞 타이머가 새 영수증 못 지움).
+        if (dismissRef.current) clearTimeout(dismissRef.current);
+        dismissRef.current = setTimeout(() => setSentPhrase(null), 4500);
+      }
     } catch {
-      // 네트워크 에러는 조용히 — 중앙 연출은 이미 떴으니 UX 안 깨짐
+      // 네트워크 에러는 조용히 — 독 버튼 팝은 이미 떴으니 UX 안 깨짐
     }
   };
 
@@ -117,7 +133,12 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
             transition={{ type: 'spring', stiffness: 300, damping: 24 }}
             className="fixed left-4 right-4 mx-auto max-w-md z-50 pointer-events-none bottom-[calc(104px+env(safe-area-inset-bottom))]"
           >
-            <div className="bg-white/[0.97] backdrop-blur-md rounded-[18px] px-4 py-3 shadow-[0_12px_32px_-10px_rgba(91,68,42,0.35)] border border-[#F0E4D5]">
+            <div
+              onClick={dismissReceipt}
+              role="button"
+              aria-label="확인 닫기"
+              className="pointer-events-auto cursor-pointer bg-white/[0.97] backdrop-blur-md rounded-[18px] px-4 py-3 shadow-[0_12px_32px_-10px_rgba(91,68,42,0.35)] border border-[#F0E4D5]"
+            >
               <p className="font-extrabold text-[11.5px] text-emerald-600 flex items-center gap-1 mb-1">
                 <Check size={12} strokeWidth={3.5} /> {partner}한테 보냈어
               </p>

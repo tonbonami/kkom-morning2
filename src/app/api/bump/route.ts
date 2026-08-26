@@ -2,7 +2,7 @@
 // body { from, to, kind?: 'miss' | 'love' | 'hug' | 'kiss' | 'whitening' | 'night' }
 // 방해 금지 시간(22-07) 적용 안 함 — 사용자가 명시적으로 누른 즉시 액션.
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import webpush from 'web-push';
 import { sendApns, keyForName } from '@/lib/apns';
 import { db } from '@/lib/firebase';
@@ -131,47 +131,50 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'to/from required' }, { status: 400 });
   }
 
-  // Claude 참고(코드리뷰 #3): bump 기록을 푸시 성공 여부와 분리.
-  // 이전엔 상대 구독 없으면 skip으로 조기 return → 애정 표현이 dailyStats에 안 남고 증발했음.
-  // 기록은 '보냈다'는 사실이므로 푸시 결과와 무관하게 항상 increment.
-  let counted = false;
-  if (from === '우댕' || from === '꼼이') {
-    try {
-      const { incrementBump } = await import('@/lib/dailyStats');
-      await incrementBump(from, kind);
-      counted = true;
-    } catch (e) {
-      console.warn('bump 기록 실패:', e);
-    }
-  }
-
+  // 누른 사람에게 필요한 건 '무슨 문구가 갔는지' 하나뿐 — 그건 지금 이 자리에서 확정된다.
+  // 그래서 문구만 '즉시' 응답하고, 집계·APNs·웹푸시는 응답 뒤(after)로 미룬다 → 영수증이 곧바로 뜬다.
+  // (사이담 세션 제안 ①: 이전엔 이 전부를 순서대로 await한 뒤에야 응답 → 영수증이 늦게 떴음)
   const templates = TEMPLATES[kind] || TEMPLATES.miss;
   const picked = pickRandom(templates);
   const title = fillTemplate(picked.title, from, to);
   const bodyText = fillTemplate(picked.body, from, to);
 
-  // 네이티브 앱 APNs 발송 — 웹푸시와 독립 채널(웹 구독 없어도 시도). 앱 닫혀 있어도 폰→워치 미러링.
-  // category: 알림 꾹 눌러 답장 / sender: 상대 아바타+이름(커뮤니케이션 알림)
-  const apnsOk = await sendApns(keyForName(to), title, bodyText, { category: 'KKOM_MSG', sender: from }).catch(() => false);
-
-  const subSnap = await getDoc(doc(db, 'pushSubscriptions', to));
-  if (!subSnap.exists()) {
-    // 웹 구독은 없음(네이티브만 있을 수 있음) — 기록은 됐고 APNs 시도 결과만 반환
-    return NextResponse.json({ ok: true, counted, apns: apnsOk, sent: { title, body: bodyText }, pushSkipped: 'no web subscription for ' + to });
-  }
-  const s = subSnap.data() as { endpoint: string; keys: { p256dh: string; auth: string } };
-
-  const payload = JSON.stringify({ title, body: bodyText, url: '/' });
-
-  try {
-    await webpush.sendNotification(s as any, payload);
-    return NextResponse.json({ ok: true, counted, apns: apnsOk, sent: { title, body: bodyText } });
-  } catch (e: any) {
-    const status = e?.statusCode;
-    if (status === 404 || status === 410) {
-      try { await deleteDoc(subSnap.ref); } catch {}
+  after(async () => {
+    // 집계 — '보냈다'는 사실이므로 푸시 결과와 무관하게 항상 increment.
+    if (from === '우댕' || from === '꼼이') {
+      try {
+        const { incrementBump } = await import('@/lib/dailyStats');
+        await incrementBump(from, kind);
+      } catch (e) {
+        console.warn('[bump] 집계 실패:', e);
+      }
     }
-    // 기록은 됐으므로 ok:true 유지, 푸시 실패만 별도 표시
-    return NextResponse.json({ ok: true, counted, apns: apnsOk, sent: { title, body: bodyText }, pushError: status || String(e?.body || e) });
-  }
+
+    // APNs(네이티브)와 웹푸시는 서로 독립 채널 — 나란히 보낸다(순차 X).
+    await Promise.all([
+      // 네이티브 APNs — 웹 구독 없어도 시도. category: 알림 꾹 눌러 답장 / sender: 상대 아바타+이름.
+      sendApns(keyForName(to), title, bodyText, { category: 'KKOM_MSG', sender: from })
+        .catch((e) => { console.warn('[bump] APNs 실패:', e); return false; }),
+      // 웹푸시 — 구독 있을 때만.
+      (async () => {
+        try {
+          const subSnap = await getDoc(doc(db, 'pushSubscriptions', to));
+          if (!subSnap.exists()) return; // 웹 구독 없음(네이티브만 있을 수 있음)
+          const s = subSnap.data() as { endpoint: string; keys: { p256dh: string; auth: string } };
+          const payload = JSON.stringify({ title, body: bodyText, url: '/' });
+          try {
+            await webpush.sendNotification(s as any, payload);
+          } catch (e: any) {
+            const status = e?.statusCode;
+            if (status === 404 || status === 410) { try { await deleteDoc(subSnap.ref); } catch {} }
+            console.warn('[bump] 웹푸시 실패:', status || String(e?.body || e));
+          }
+        } catch (e) {
+          console.warn('[bump] 웹푸시 조회 실패:', e);
+        }
+      })(),
+    ]);
+  });
+
+  return NextResponse.json({ ok: true, sent: { title, body: bodyText } });
 }

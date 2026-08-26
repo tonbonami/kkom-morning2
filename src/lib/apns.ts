@@ -81,7 +81,7 @@ export async function sendApns(userKey: string, title: string, body: string, opt
   } catch {
     return false;
   }
-  if (!token) return false;
+  if (!token) { console.warn(`[apns] ${userKey} — 저장된 토큰 없음`); return false; }
 
   const aps: Record<string, unknown> = { alert: { title, body }, sound: opts?.sound || 'default' };
   if (opts?.category) aps.category = opts.category;
@@ -90,11 +90,17 @@ export async function sendApns(userKey: string, title: string, body: string, opt
   const payloadObj: Record<string, unknown> = { aps };
   if (opts?.sender) payloadObj.sender = opts.sender; // NSE가 읽어 아바타 선택
   const payload = JSON.stringify(payloadObj);
-  let res = await post('api.push.apple.com', token, payload);
+  const prod = await post('api.push.apple.com', token, payload);
+  let res = prod;
   // 프로덕션에서 토큰 환경 불일치면 샌드박스 재시도
-  if (res.status === 400 && res.body.includes('BadDeviceToken')) {
+  if (prod.status === 400 && prod.body.includes('BadDeviceToken')) {
     res = await post('api.sandbox.push.apple.com', token, payload);
   }
+  // 발송 결과 로그 — 없으면 '갔는지 안 갔는지'가 조용히 묻힌다(사이담 제안).
+  const detail = (r: { status: number; body: string }) => r.status === 200 ? '200' : `${r.status} ${r.body.slice(0, 60)}`;
+  const line = res === prod ? `프로덕션 ${detail(prod)}` : `프로덕션 ${prod.status} → 샌드박스 ${detail(res)}`;
+  if (res.status === 200) console.log(`[apns] ${userKey} ✅ ${line}`);
+  else console.warn(`[apns] ${userKey} ❌ ${line}`);
   // 만료/무효 토큰 정리
   if (res.status === 410 || (res.status === 400 && res.body.includes('BadDeviceToken'))) {
     try { await fetch(`${RTDB}/pushTokens/${userKey}.json`, { method: 'DELETE' }); } catch {}
