@@ -197,6 +197,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadKind, setUploadKind] = useState<'image' | 'video' | null>(null);
+  const [uploadPct, setUploadPct] = useState(0); // 0~1 (동영상 업로드 진행률)
   const [actionMsg, setActionMsg] = useState<ChatMessage | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [viewerImage, setViewerImage] = useState<string | null>(null);
@@ -343,21 +345,21 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
         v.src = URL.createObjectURL(file);
       });
       if (dur > 31) { alert('동영상은 30초 이하만 보낼 수 있어 🎬'); return; }
-      setUploading(true);
+      setUploadKind('video'); setUploadPct(0); setUploading(true);
       try {
-        const url = await uploadChatVideo(file);
+        const url = await uploadChatVideo(file, setUploadPct);
         onSend('', undefined, undefined, replyTo ?? undefined, undefined, { url, dur: Math.round(dur) });
         setReplyTo(null);
       } catch { alert('동영상 전송에 실패했어. 다시 시도해줘.'); }
-      setUploading(false);
+      setUploading(false); setUploadKind(null); setUploadPct(0);
       return;
     }
 
     // 사진
-    setUploading(true);
+    setUploadKind('image'); setUploading(true);
     try { const url = await uploadChatImage(file); onSend('', url, undefined, replyTo ?? undefined); setReplyTo(null); }
     catch { /* 무시 */ }
-    setUploading(false);
+    setUploading(false); setUploadKind(null);
   };
 
   // ── 음성 메시지 녹음 ──
@@ -572,7 +574,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                         // 자동재생 X — 스크롤마다 재다운로드 방지(대역폭). 탭해서 재생.
                         <div className="relative inline-block max-w-[76%]">
                           <video
-                            src={m.videoUrl} controls playsInline preload="metadata"
+                            // #t=0.1 → 재생 전에도 첫 프레임을 썸네일로 보여줌(iOS는 poster 없으면 검은 박스)
+                            src={`${m.videoUrl}#t=0.1`} controls playsInline preload="metadata"
                             className="w-full rounded-2xl shadow-sm bg-black"
                             style={{ maxHeight: 320 }}
                           />
@@ -705,6 +708,33 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           {/* 입력 */}
           <div className="px-3 pt-2 bg-[#FBF8F2]/95 backdrop-blur-xl border-t border-black/[0.04]"
             style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1.25rem)' }}>
+            {/* 업로드 진행 — 동영상은 실제 % 바, 사진은 짧아서 간단한 진행 표시 */}
+            <AnimatePresence>
+              {uploading && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: 8, height: 0 }}
+                  className="mb-2 rounded-2xl bg-white ring-1 ring-black/[0.06] shadow-sm px-3.5 py-2.5 overflow-hidden"
+                >
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="text-[12.5px] font-semibold text-slate-600">
+                      {uploadKind === 'video' ? '🎬 동영상 올리는 중…' : '📷 사진 올리는 중…'}
+                    </span>
+                    {uploadKind === 'video' && (
+                      <span className="text-[12px] font-bold tabular-nums text-[#FB7BA8]">{Math.round(uploadPct * 100)}%</span>
+                    )}
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
+                    <motion.div
+                      className="h-full rounded-full bg-[#FB7BA8]"
+                      animate={{ width: uploadKind === 'video' ? `${Math.max(3, uploadPct * 100)}%` : '100%' }}
+                      transition={uploadKind === 'video' ? { ease: 'linear', duration: 0.2 } : { duration: 0.9, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             {recording ? (
               <div className="flex items-center gap-3 h-11 px-2">
                 <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />

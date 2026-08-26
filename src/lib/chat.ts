@@ -6,7 +6,7 @@ import {
   query, orderBy, limit, onSnapshot, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { ref as dbRef, set as dbSet, onValue, onDisconnect } from 'firebase/database';
-import { ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref as sRef, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 export interface ReplyRef { id: string; from: string; text: string }
 
@@ -69,11 +69,20 @@ export async function uploadChatImage(file: File): Promise<string> {
   return getDownloadURL(r);
 }
 
-// 동영상 업로드 → 다운로드 URL. Storage chat-video/ 아래. (사진과 동일 방식, 파일만 큼)
-export async function uploadChatVideo(file: File): Promise<string> {
+// 동영상 업로드 → 다운로드 URL. Storage chat-video/ 아래. 파일이 커서 진행률 콜백 지원(resumable).
+export async function uploadChatVideo(file: File, onProgress?: (pct: number) => void): Promise<string> {
   const key = `chat-video/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.mp4`;
   const r = sRef(storage, key);
-  await uploadBytes(r, file, { contentType: file.type || 'video/mp4' });
+  const meta = { contentType: file.type || 'video/mp4' };
+  if (!onProgress) { await uploadBytes(r, file, meta); return getDownloadURL(r); }
+  const task = uploadBytesResumable(r, file, meta);
+  await new Promise<void>((resolve, reject) => {
+    task.on('state_changed',
+      (snap) => onProgress(snap.totalBytes ? snap.bytesTransferred / snap.totalBytes : 0),
+      reject,
+      () => resolve(),
+    );
+  });
   return getDownloadURL(r);
 }
 
