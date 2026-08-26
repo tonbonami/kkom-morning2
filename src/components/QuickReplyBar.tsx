@@ -122,8 +122,35 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
 
   return (
     <>
-      {/* 보낸 확인 — 사이담식. 큰 중앙 오버레이 대신 리액션 독 '바로 위'에 영수증 한 장.
-          실제로 나간 랜덤 중계 문구가 도착하면 3줄로 뜬다. (포차코 이모티콘은 독 버튼에 이미 있음) */}
+      {/* 보낼 때 '가운데 크게' 포차코 축하 컷 — 글자 없이 그림만(텍스트는 아래 영수증이 전담).
+          예전 2단계 혼란은 가운데에 문구까지 넣어서였음 → 이번엔 순수 비주얼. 팡 뜨고 ~1.1초 후 사라짐. */}
+      <AnimatePresence>
+        {activeKind && (() => {
+          const item = QUICK.find((q) => q.kind === activeKind);
+          if (!item) return null;
+          return (
+            <motion.div
+              key={activeKind}
+              initial={{ scale: 0.4, opacity: 0, y: 44 }}
+              animate={{ scale: 1, opacity: 1, y: 0, rotate: [0, -5, 4, 0] }}
+              exit={{ scale: 0.85, opacity: 0, y: -16 }}
+              transition={{
+                scale: { type: 'spring', stiffness: 340, damping: 17 },
+                y: { type: 'spring', stiffness: 340, damping: 17 },
+                opacity: { duration: 0.15 },
+                rotate: { duration: 0.7, ease: 'easeInOut' },
+              }}
+              className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={item.image} alt="" width={180} height={180}
+                className="drop-shadow-[0_18px_36px_rgba(0,0,0,0.20)]" />
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* 보낸 확인 — 사이담식. 리액션 독 '바로 위'에 영수증 한 장. 실제로 나간 랜덤 중계 문구가 도착하면 3줄로 뜬다. */}
       <AnimatePresence>
         {sentPhrase && (
           <motion.div
