@@ -262,6 +262,13 @@ export function preview(m: ChatMessage): string {
   if (m.videoUrl) return '동영상';
   if (m.imageUrl) return '사진';
   if (m.audioUrl) return '음성 메시지';
+  // 링크는 주소 그대로 노출하지 않고 종류 라벨로 — 홈 꼼톡 미리보기/답장 미리보기 공통.
+  const url = firstUrl(m.text);
+  if (url) {
+    const tag = youTubeId(url) ? '▶️ 유튜브 영상' : '🔗 링크';
+    const rest = stripEmo(m.text.replace(/https?:\/\/[^\s<]+/gi, '').trim());
+    return rest ? `${rest} ${tag}` : tag;
+  }
   return stripEmo(m.text);
 }
 

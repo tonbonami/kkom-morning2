@@ -6,6 +6,7 @@ import {
   query, orderBy, limit, onSnapshot, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { ref as dbRef, set as dbSet, onValue, onDisconnect } from 'firebase/database';
+import { firstUrl, youTubeId } from './links';
 import { ref as sRef, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 export interface ReplyRef { id: string; from: string; text: string }
@@ -47,7 +48,16 @@ export async function sendMessage(
   await addDoc(collection(db, 'messages'), payload);
   if (!partnerOnline) {
     const to = from === '우댕' ? '꼼이' : '우댕';
-    const plain = clipped.replace(/\[\[e:[a-z]+\]\]/g, '🐶').slice(0, 140); // 미니 이모티콘 토큰 → 🐶
+    // 링크는 잠금화면에도 주소 대신 종류 라벨로.
+    const linkUrl = firstUrl(clipped);
+    const withLinkLabel = linkUrl
+      ? (() => {
+          const tag = youTubeId(linkUrl) ? '▶️ 유튜브 영상' : '🔗 링크';
+          const rest = clipped.replace(/https?:\/\/[^\s<]+/gi, '').trim();
+          return (rest ? `${rest} ${tag}` : tag);
+        })()
+      : clipped;
+    const plain = withLinkLabel.replace(/\[\[e:[a-z]+\]\]/g, '🐶').slice(0, 140); // 미니 이모티콘 토큰 → 🐶
     const pushText = video ? '동영상을 보냈어 🎬'
       : audio ? '음성 메시지를 보냈어 🎤'
       : sticker ? '이모티콘을 보냈어 🐶'
