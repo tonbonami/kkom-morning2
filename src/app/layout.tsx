@@ -16,6 +16,11 @@ export const viewport: Viewport = {
   themeColor: '#10b981',
 };
 
+// ⚠️ 배포가 폰에 바로 반영되게 — 정적 프리렌더/ISR 엣지 캐시를 끈다.
+// 2인 앱이라 트래픽이 적어 ISR 재검증이 안 돌면 옛 HTML(=옛 JS 번들=옛 코드)이 계속 남는다.
+// force-dynamic이면 매 요청 최신 렌더 + no-store라 엣지·WKWebView 둘 다 stale 안 남는다.
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: Readonly<{
