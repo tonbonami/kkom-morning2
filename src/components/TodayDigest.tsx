@@ -29,10 +29,15 @@ export default function TodayDigest({ me }: { me: Sender }) {
     { id: 'memory', label: '추억', unit: '장', Icon: ImageIcon, count: s?.memories[partner] ?? 0 },
   ].filter((u) => u.count > 0);
 
+  // 범프 — 종류별 이모지 + 횟수로 (그냥 '범프 N번'이면 뭘 보냈는지 모름)
   const b = s?.bumps;
-  const bumpTotal = b
-    ? (b.miss[partner] + b.love[partner] + b.hug[partner] + b.kiss[partner] + b.whitening[partner])
-    : 0;
+  const BUMP_EMOJI: { key: 'miss' | 'love' | 'hug' | 'kiss' | 'whitening'; emoji: string }[] = [
+    { key: 'miss', emoji: '💚' }, { key: 'love', emoji: '❤️' }, { key: 'hug', emoji: '🤗' },
+    { key: 'kiss', emoji: '😘' }, { key: 'whitening', emoji: '😬' },
+  ];
+  const bumps = b
+    ? BUMP_EMOJI.map(({ key, emoji }) => ({ emoji, count: b[key][partner] ?? 0 })).filter((x) => x.count > 0)
+    : [];
 
   const hasUpdates = updates.length > 0;
   const isSingle = updates.length === 1;
@@ -65,14 +70,18 @@ export default function TodayDigest({ me }: { me: Sender }) {
         </div>
       ) : (
         <div className="py-1 text-[13px] font-medium text-[#A29890]">
-          {bumpTotal > 0 ? '오늘 업데이트된 콘텐츠 없음' : '오늘 업데이트 없음'}
+          {bumps.length > 0 ? '오늘 업데이트된 콘텐츠 없음' : '오늘 업데이트 없음'}
         </div>
       ))}
 
-      {!loading && bumpTotal > 0 && (
-        <div className="mt-3 border-t border-[#EEE5DA] pt-2.5 text-[11px] font-medium text-[#A79C92]">
-          <span className="mr-1.5">○</span>
-          범프 <span className="font-semibold text-[#91867C]">{bumpTotal}번</span>
+      {!loading && bumps.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[#EEE5DA] pt-2.5">
+          {bumps.map((x, i) => (
+            <span key={i} className="inline-flex items-center">
+              <span className="text-[14px] leading-none">{x.emoji}</span>
+              <span className="ml-1 text-[12.5px] font-semibold tabular-nums text-[#91867C]">×{x.count}</span>
+            </span>
+          ))}
         </div>
       )}
     </section>

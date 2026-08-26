@@ -106,52 +106,26 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
 
   return (
     <>
-      {/* 화면 중앙 confirmation — 보낸 직후 큰 포차코가 솟아올라 유지되다 사라짐.
-          (사용자 요청: 시선 이동 없이 바로 확인 + 실제로 나간 랜덤 중계 문구를 여기서 보여준다) */}
+      {/* 보낸 확인 — 사이담식. 큰 중앙 오버레이 대신 리액션 독 '바로 위'에 영수증 한 장.
+          실제로 나간 랜덤 중계 문구가 도착하면 3줄로 뜬다. (포차코 이모티콘은 독 버튼에 이미 있음) */}
       <AnimatePresence>
-        {activeKind && (() => {
-          const item = QUICK.find((q) => q.kind === activeKind);
-          if (!item) return null;
-          return (
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0, y: 60 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: -24 }}
-              transition={{ type: 'spring', stiffness: 320, damping: 20 }}
-              className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none px-8"
-            >
-              <div className="flex flex-col items-center gap-3 w-full">
-                <img
-                  src={item.image}
-                  alt=""
-                  width={168}
-                  height={168}
-                  className="drop-shadow-[0_20px_40px_rgba(0,0,0,0.18)]"
-                />
-                {/* 사이담식 — 실제 나간 중계 문구가 도착하면 '한 번에' 3줄로 뜬다.
-                    (예전엔 '사랑해!' 먼저 뜨고 문구로 바뀌어 2단계로 헷갈렸음) */}
-                <AnimatePresence>
-                  {sentPhrase && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-                      className="bg-white/95 backdrop-blur-md px-5 py-3 rounded-[22px] shadow-[0_10px_30px_rgba(15,23,42,0.18)] border border-white max-w-[300px] text-center"
-                    >
-                      <p className="font-extrabold text-[12px] text-emerald-600 flex items-center justify-center gap-1">
-                        <Check size={13} strokeWidth={3.5} />
-                        {partner}한테 보냈어
-                      </p>
-                      <p className="font-bold text-[14px] text-slate-800 leading-snug break-keep mt-1">{sentPhrase.title}</p>
-                      <p className="text-[12.5px] text-slate-500 break-keep mt-0.5">{sentPhrase.body}</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </motion.div>
-          );
-        })()}
+        {sentPhrase && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+            className="fixed left-4 right-4 mx-auto max-w-md z-50 pointer-events-none bottom-[calc(104px+env(safe-area-inset-bottom))]"
+          >
+            <div className="bg-white/[0.97] backdrop-blur-md rounded-[18px] px-4 py-3 shadow-[0_12px_32px_-10px_rgba(91,68,42,0.35)] border border-[#F0E4D5]">
+              <p className="font-extrabold text-[11.5px] text-emerald-600 flex items-center gap-1 mb-1">
+                <Check size={12} strokeWidth={3.5} /> {partner}한테 보냈어
+              </p>
+              <p className="font-bold text-[14px] text-slate-800 leading-snug break-keep">{sentPhrase.title}</p>
+              <p className="text-[12.5px] text-slate-500 break-keep mt-0.5">{sentPhrase.body}</p>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* 상단 보조 토스트 — partner 이름 함께 (작게 유지) */}
