@@ -128,23 +128,26 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
                   height={168}
                   className="drop-shadow-[0_20px_40px_rgba(0,0,0,0.18)]"
                 />
-                <motion.div
-                  layout
-                  className="bg-white/95 backdrop-blur-md px-5 py-3 rounded-[22px] shadow-[0_10px_30px_rgba(15,23,42,0.18)] border border-white max-w-[300px] text-center"
-                >
-                  <p className="font-extrabold text-[12px] text-emerald-600 flex items-center justify-center gap-1">
-                    <Check size={13} strokeWidth={3.5} />
-                    {partner}한테 보냈어
-                  </p>
-                  {sentPhrase ? (
-                    <>
+                {/* 사이담식 — 실제 나간 중계 문구가 도착하면 '한 번에' 3줄로 뜬다.
+                    (예전엔 '사랑해!' 먼저 뜨고 문구로 바뀌어 2단계로 헷갈렸음) */}
+                <AnimatePresence>
+                  {sentPhrase && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                      className="bg-white/95 backdrop-blur-md px-5 py-3 rounded-[22px] shadow-[0_10px_30px_rgba(15,23,42,0.18)] border border-white max-w-[300px] text-center"
+                    >
+                      <p className="font-extrabold text-[12px] text-emerald-600 flex items-center justify-center gap-1">
+                        <Check size={13} strokeWidth={3.5} />
+                        {partner}한테 보냈어
+                      </p>
                       <p className="font-bold text-[14px] text-slate-800 leading-snug break-keep mt-1">{sentPhrase.title}</p>
                       <p className="text-[12.5px] text-slate-500 break-keep mt-0.5">{sentPhrase.body}</p>
-                    </>
-                  ) : (
-                    <p className="font-black text-[15px] text-slate-800 mt-0.5">{item.label}!</p>
+                    </motion.div>
                   )}
-                </motion.div>
+                </AnimatePresence>
               </div>
             </motion.div>
           );

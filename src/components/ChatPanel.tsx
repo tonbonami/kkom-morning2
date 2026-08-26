@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass } from 'lucide-react';
 import {
   type ChatMessage, type ReplyRef,
-  subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage, uploadChatAudio,
+  subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage, uploadChatAudio, uploadChatVideo,
   toggleReaction, deleteMessage, toggleStar, fetchRecentMessages,
 } from '@/lib/chat';
 import { MOOD_OPTIONS } from '@/lib/moods';
@@ -65,7 +65,7 @@ interface Props {
   messages: ChatMessage[];
   open: boolean;
   onClose: () => void;
-  onSend: (text: string, imageUrl?: string, sticker?: string, replyTo?: ReplyRef, audio?: { url: string; dur: number }) => void;
+  onSend: (text: string, imageUrl?: string, sticker?: string, replyTo?: ReplyRef, audio?: { url: string; dur: number }, video?: { url: string; dur?: number }) => void;
   partnerOnline: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
@@ -183,6 +183,7 @@ function renderRich(text: string): React.ReactNode {
 
 export function preview(m: ChatMessage): string {
   if (m.sticker) return '이모티콘';
+  if (m.videoUrl) return '동영상';
   if (m.imageUrl) return '사진';
   if (m.audioUrl) return '음성 메시지';
   return stripEmo(m.text);
@@ -321,6 +322,29 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+
+    // 동영상 — 라이브러리에서 고른 파일. 상한: 30초 · 60MB (개인앱이라 Storage 부담 거의 없음).
+    if (file.type.startsWith('video/')) {
+      if (file.size > 60 * 1024 * 1024) { alert('동영상이 너무 커요 — 60MB 이하로 보내줘 🎬'); return; }
+      const dur = await new Promise<number>((resolve) => {
+        const v = document.createElement('video');
+        v.preload = 'metadata';
+        v.onloadedmetadata = () => resolve(v.duration || 0);
+        v.onerror = () => resolve(0);
+        v.src = URL.createObjectURL(file);
+      });
+      if (dur > 31) { alert('동영상은 30초 이하만 보낼 수 있어 🎬'); return; }
+      setUploading(true);
+      try {
+        const url = await uploadChatVideo(file);
+        onSend('', undefined, undefined, replyTo ?? undefined, undefined, { url, dur: Math.round(dur) });
+        setReplyTo(null);
+      } catch { alert('동영상 전송에 실패했어. 다시 시도해줘.'); }
+      setUploading(false);
+      return;
+    }
+
+    // 사진
     setUploading(true);
     try { const url = await uploadChatImage(file); onSend('', url, undefined, replyTo ?? undefined); setReplyTo(null); }
     catch { /* 무시 */ }
@@ -535,6 +559,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           className="max-w-[68%] rounded-2xl shadow-sm object-cover cursor-pointer"
                           style={{ maxHeight: 280 }}
                         />
+                      ) : m.videoUrl ? (
+                        // 자동재생 X — 스크롤마다 재다운로드 방지(대역폭). 탭해서 재생.
+                        <video
+                          src={m.videoUrl} controls playsInline preload="metadata"
+                          className="max-w-[76%] rounded-2xl shadow-sm bg-black"
+                          style={{ maxHeight: 320 }}
+                        />
                       ) : m.audioUrl ? (
                         <VoiceBubble url={m.audioUrl} dur={m.audioDur ?? 0} mine={mine} />
                       ) : (
@@ -668,12 +699,12 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               </div>
             ) : (
               <div className="flex items-end gap-2">
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
+                <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={onFile} />
                 <button onClick={() => setStickerOpen((v) => !v)} aria-label="이모티콘"
                   className={`shrink-0 w-11 h-11 rounded-full border border-black/5 flex items-center justify-center active:scale-95 transition ${stickerOpen ? 'bg-[#FB7BA8] text-white' : 'bg-white text-slate-400'}`}>
                   <Smile size={20} />
                 </button>
-                <button onClick={() => { setStickerOpen(false); fileRef.current?.click(); }} disabled={uploading} aria-label="사진"
+                <button onClick={() => { setStickerOpen(false); fileRef.current?.click(); }} disabled={uploading} aria-label="사진·동영상"
                   className="shrink-0 w-11 h-11 rounded-full bg-white border border-black/5 text-slate-400 flex items-center justify-center disabled:opacity-40 active:scale-95 transition">
                   <ImagePlus size={20} />
                 </button>

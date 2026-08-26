@@ -18,6 +18,8 @@ export interface ChatMessage {
   sticker?: string;  // 포차코 표정 이미지 경로 (/pochacco/face_*.png)
   audioUrl?: string; // 음성 메시지
   audioDur?: number; // 음성 길이(초)
+  videoUrl?: string; // 동영상 메시지
+  videoDur?: number; // 동영상 길이(초)
   replyTo?: ReplyRef; // 답장 대상
   reactions?: Record<string, string>; // userKey('udaeng'|'kkomi') → 이모지
   deleted?: boolean;
@@ -31,20 +33,23 @@ export async function sendMessage(
   from: string, text: string, partnerOnline: boolean,
   imageUrl?: string, sticker?: string, replyTo?: ReplyRef,
   audio?: { url: string; dur: number },
+  video?: { url: string; dur?: number },
 ): Promise<void> {
   const t = text.trim();
-  if (!t && !imageUrl && !sticker && !audio) return;
+  if (!t && !imageUrl && !sticker && !audio && !video) return;
   const clipped = t.slice(0, 2000);
   const payload: Record<string, unknown> = { from, text: clipped, createdAt: serverTimestamp() };
   if (imageUrl) payload.imageUrl = imageUrl;
   if (sticker) payload.sticker = sticker;
   if (audio) { payload.audioUrl = audio.url; payload.audioDur = audio.dur; }
+  if (video) { payload.videoUrl = video.url; if (video.dur != null) payload.videoDur = video.dur; }
   if (replyTo) payload.replyTo = { id: replyTo.id, from: replyTo.from, text: replyTo.text.slice(0, 80) };
   await addDoc(collection(db, 'messages'), payload);
   if (!partnerOnline) {
     const to = from === '우댕' ? '꼼이' : '우댕';
     const plain = clipped.replace(/\[\[e:[a-z]+\]\]/g, '🐶').slice(0, 140); // 미니 이모티콘 토큰 → 🐶
-    const pushText = audio ? '음성 메시지를 보냈어 🎤'
+    const pushText = video ? '동영상을 보냈어 🎬'
+      : audio ? '음성 메시지를 보냈어 🎤'
       : sticker ? '이모티콘을 보냈어 🐶'
       : imageUrl ? (plain || '사진을 보냈어 📷')
       : plain;
@@ -61,6 +66,14 @@ export async function uploadChatImage(file: File): Promise<string> {
   const key = `chat/${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const r = sRef(storage, key);
   await uploadBytes(r, file, { contentType: file.type || 'image/jpeg' });
+  return getDownloadURL(r);
+}
+
+// 동영상 업로드 → 다운로드 URL. Storage chat-video/ 아래. (사진과 동일 방식, 파일만 큼)
+export async function uploadChatVideo(file: File): Promise<string> {
+  const key = `chat-video/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.mp4`;
+  const r = sRef(storage, key);
+  await uploadBytes(r, file, { contentType: file.type || 'video/mp4' });
   return getDownloadURL(r);
 }
 
@@ -116,7 +129,7 @@ export async function toggleReaction(messageId: string, userKey: string, emoji: 
 // 메시지 삭제 — 양쪽에서 '삭제된 메시지'로 표시(soft delete).
 export async function deleteMessage(messageId: string): Promise<void> {
   await updateDoc(doc(db, 'messages', messageId), {
-    deleted: true, text: '', imageUrl: deleteField(), sticker: deleteField(),
+    deleted: true, text: '', imageUrl: deleteField(), sticker: deleteField(), videoUrl: deleteField(),
   });
 }
 
@@ -138,6 +151,7 @@ export async function fetchRecentMessages(max = 300): Promise<ChatMessage[]> {
         id: d.id, from: (data.from as string) ?? '', text: (data.text as string) ?? '',
         imageUrl: data.imageUrl as string | undefined, sticker: data.sticker as string | undefined,
         audioUrl: data.audioUrl as string | undefined, audioDur: data.audioDur as number | undefined,
+        videoUrl: data.videoUrl as string | undefined, videoDur: data.videoDur as number | undefined,
         replyTo: data.replyTo as ReplyRef | undefined, reactions: data.reactions as Record<string, string> | undefined,
         deleted: data.deleted as boolean | undefined, starred: data.starred as boolean | undefined,
         capsule: data.capsule as boolean | undefined,
@@ -157,13 +171,14 @@ export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): 
         .map((d) => {
           const data = d.data() as {
             from?: string; text?: string; imageUrl?: string; sticker?: string;
-            audioUrl?: string; audioDur?: number;
+            audioUrl?: string; audioDur?: number; videoUrl?: string; videoDur?: number;
             replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; starred?: boolean; capsule?: boolean; createdAt?: Timestamp;
           };
           return {
             id: d.id, from: data.from ?? '', text: data.text ?? '',
             imageUrl: data.imageUrl, sticker: data.sticker,
-            audioUrl: data.audioUrl, audioDur: data.audioDur, replyTo: data.replyTo,
+            audioUrl: data.audioUrl, audioDur: data.audioDur,
+            videoUrl: data.videoUrl, videoDur: data.videoDur, replyTo: data.replyTo,
             reactions: data.reactions, deleted: data.deleted, starred: data.starred, capsule: data.capsule,
             createdAt: data.createdAt?.toDate?.() ?? null,
           };

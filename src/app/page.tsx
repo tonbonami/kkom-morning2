@@ -1209,7 +1209,7 @@ export default function KkomMorningHome() {
           messages={messages}
           open={chatOpen}
           onClose={() => setChatOpen(false)}
-          onSend={(text, imageUrl, sticker, replyTo, audio) => sendMessage(userName, text, isTogetherNow(partnerPresence), imageUrl, sticker, replyTo, audio)}
+          onSend={(text, imageUrl, sticker, replyTo, audio, video) => sendMessage(userName, text, isTogetherNow(partnerPresence), imageUrl, sticker, replyTo, audio, video)}
           partnerOnline={isTogetherNow(partnerPresence)}
           onLoadMore={() => setMsgLimit((l) => l + 40)}
           hasMore={messages.length >= msgLimit}
