@@ -2,7 +2,8 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass } from 'lucide-react';
+import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2 } from 'lucide-react';
+import { saveMedia } from '@/lib/saveMedia';
 import {
   type ChatMessage, type ReplyRef,
   subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage, uploadChatAudio, uploadChatVideo,
@@ -199,6 +200,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [actionMsg, setActionMsg] = useState<ChatMessage | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [viewerImage, setViewerImage] = useState<string | null>(null);
+  const [savingUrl, setSavingUrl] = useState<string | null>(null); // 원본 저장 중인 미디어 URL
   const [recording, setRecording] = useState(false);
   const [recSec, setRecSec] = useState(0);
   const [effect, setEffect] = useState<ChatEffect | null>(null);
@@ -316,6 +318,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     requestAnimationFrame(() => {
       if (ta) { ta.focus(); const pos = start + token.length; ta.setSelectionRange(pos, pos); }
     });
+  };
+
+  // 원본 사진·동영상 저장 — 중복 탭 방지용 saving 상태만 관리, 실제 저장은 saveMedia가 플랫폼별로.
+  const handleSave = async (url: string, kind: 'image' | 'video') => {
+    if (savingUrl) return;
+    setSavingUrl(url);
+    try { await saveMedia(url, kind); } finally { setSavingUrl(null); }
   };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -561,11 +570,20 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                         />
                       ) : m.videoUrl ? (
                         // 자동재생 X — 스크롤마다 재다운로드 방지(대역폭). 탭해서 재생.
-                        <video
-                          src={m.videoUrl} controls playsInline preload="metadata"
-                          className="max-w-[76%] rounded-2xl shadow-sm bg-black"
-                          style={{ maxHeight: 320 }}
-                        />
+                        <div className="relative inline-block max-w-[76%]">
+                          <video
+                            src={m.videoUrl} controls playsInline preload="metadata"
+                            className="w-full rounded-2xl shadow-sm bg-black"
+                            style={{ maxHeight: 320 }}
+                          />
+                          <button
+                            onClick={() => handleSave(m.videoUrl!, 'video')}
+                            aria-label="동영상 원본 저장"
+                            className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-transform active:scale-90"
+                          >
+                            {savingUrl === m.videoUrl ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} strokeWidth={2.2} />}
+                          </button>
+                        </div>
                       ) : m.audioUrl ? (
                         <VoiceBubble url={m.audioUrl} dur={m.audioDur ?? 0} mine={mine} />
                       ) : (
@@ -885,9 +903,17 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             {viewerImage && (
               <motion.div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/90"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setViewerImage(null)}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleSave(viewerImage!, 'image'); }}
+                  aria-label="사진 원본 저장"
+                  className="absolute top-12 left-4 flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-2 text-[13px] font-semibold text-white backdrop-blur-sm transition-transform active:scale-95"
+                >
+                  {savingUrl === viewerImage ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} strokeWidth={2.2} />}
+                  저장
+                </button>
                 <button onClick={() => setViewerImage(null)} aria-label="닫기" className="absolute top-12 right-4 text-white/80 p-2"><X size={26} /></button>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={viewerImage} alt="사진" className="max-w-full max-h-full object-contain" />
+                <img src={viewerImage} alt="사진" className="max-w-full max-h-full object-contain" onClick={(e) => e.stopPropagation()} />
               </motion.div>
             )}
           </AnimatePresence>
