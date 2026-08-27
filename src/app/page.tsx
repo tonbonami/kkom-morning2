@@ -60,6 +60,17 @@ const getAirTheme = (grade?: string) => {
   }
 };
 
+// 기분별 미세 모션 (framer-motion). 여기 없는 기분은 정지 — 행복·평온·슬픔·보고싶음·미안·고마워.
+// 값은 사이담 세션과 공유해 맞춤. 신남은 예전 '동동' 이중 바운스 순정 복원.
+const MOOD_ANIM: Record<string, { animate: Record<string, number[]>; transition: Record<string, unknown> }> = {
+  excited: { animate: { y: [0, -8, 0, -4, 0] },            transition: { duration: 1.2, repeat: Infinity, ease: 'easeInOut' } },
+  love:    { animate: { scale: [1, 1.14, 1, 1.14, 1] },    transition: { duration: 1.1, times: [0, 0.14, 0.28, 0.42, 0.62], repeat: Infinity, ease: 'easeInOut' } },
+  sleepy:  { animate: { y: [0, 4, 0] },                    transition: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' } },
+  sulky:   { animate: { rotate: [0, -9, 0] },              transition: { duration: 2.6, repeat: Infinity, ease: 'easeInOut' } },
+  angry:   { animate: { x: [0, -1.5, 1.5, -1.5, 0] },      transition: { duration: 0.32, repeat: Infinity, ease: 'easeInOut' } },
+  sick:    { animate: { rotate: [0, 4, -2, 3, 0] },        transition: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' } },
+};
+
 export default function KkomMorningHome() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -401,30 +412,18 @@ export default function KkomMorningHome() {
     try { await setMyMood(userName, opt.id); } catch (e) { console.error(e); }
   };
 
-  // 저장된 키(신규 id 또는 옛날 이모지) → 화면 표시
-  // 표시 사이즈 = 69 (이전 60에서 +15%). 피커 셀(40) 과는 무관.
-  // '신남'(excited) 선택 시 위아래 통통 튀는 모션.
+  // 저장된 키(신규 id 또는 옛날 이모지) → 화면 표시. 표시 사이즈 = 69. 피커 셀(40)과는 무관.
+  // 기분별 미세 모션(MOOD_ANIM) — 홈엔 내/상대 각 1개뿐이라 시끄럽지 않음. 없는 기분은 정지.
   const renderMoodFace = (key: string | undefined, size = 69) => {
     const m = moodFromKey(key);
     if (m) {
-      const isExcited = m.id === 'excited';
       const img = (
-        <Image
-          src={m.image}
-          alt={m.label}
-          width={size}
-          height={size}
-          className="drop-shadow-sm"
-        />
+        <Image src={m.image} alt={m.label} width={size} height={size} className="drop-shadow-sm" />
       );
-      if (isExcited) {
+      const anim = MOOD_ANIM[m.id];
+      if (anim) {
         return (
-          <motion.div
-            // 더 차분하고 부드러운 호흡: 작은 진폭(3px) + 느린 주기(2.2초)
-            animate={{ y: [0, -3, 0] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-            style={{ width: size, height: size }}
-          >
+          <motion.div animate={anim.animate} transition={anim.transition} style={{ width: size, height: size }}>
             {img}
           </motion.div>
         );
