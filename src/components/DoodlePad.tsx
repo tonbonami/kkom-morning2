@@ -41,7 +41,7 @@ const CANVAS_W = 320;
 const CANVAS_H = 200;
 const PEN_COLOR = '#334155';
 const PEN_WIDTH = 2.5;
-const PF_SIZE = 5.5; // perfect-freehand 브러시 굵기 (낙서장 엔진과 동일 계열)
+const PF_SIZE = 3.5; // perfect-freehand 브러시 굵기 — 편지 손글씨용으로 얇게(낙서장 5.5보다 가늘게)
 const BG_COLOR = '#FFFCF7';
 
 // DoodlePad 점([x,y,t] 픽셀) → perfect-freehand 채움 Path2D. 속도로 의사필압을 계산해
