@@ -800,54 +800,56 @@ export default function KkomMorningHome() {
           </div>
         </div>
 
-        {/* 기분 & D-Day */}
-        <div className="bg-white rounded-[32px] shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-stretch overflow-hidden">
-          <div className="flex-1 p-5 flex flex-col justify-center border-r border-slate-100">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-3">
-              <Smile size={16} strokeWidth={2.5} />
-              <span className="text-xs font-bold">오늘의 기분</span>
-            </div>
+        {/* 기분 · D-day — 사이담식 1x1 나란히. 틀만 교체, pickMood·renderMoodFace·moods·dDay 그대로 */}
+        <div className="grid grid-cols-2 gap-4 auto-rows-min">
+          {/* 오늘의 기분 (1x1 흰 카드) */}
+          <div className="sd-card col-span-1 min-h-[104px] px-4 py-4 flex flex-col" style={{ background: 'var(--sd-card-solid)' }}>
+            <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+              <Smile size={16} /> 오늘의 기분
+            </span>
             {moodOpen ? (
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
                 {MOOD_OPTIONS.map((opt) => (
                   <button
                     key={opt.id}
                     onClick={() => pickMood(opt)}
                     title={opt.label}
                     aria-label={opt.label}
-                    className="aspect-square rounded-xl bg-slate-50 hover:bg-emerald-50 active:scale-90 transition-all flex flex-col items-center justify-center gap-0.5 p-1"
+                    className="aspect-square rounded-xl bg-black/[0.03] active:scale-90 transition-all flex items-center justify-center p-1"
                   >
-                    <Image src={opt.image} alt={opt.label} width={36} height={36} className="drop-shadow-sm" />
-                    <span className="text-[10px] font-bold text-slate-500 leading-none whitespace-nowrap">
-                      {opt.label}
-                    </span>
+                    <Image src={opt.image} alt={opt.label} width={30} height={30} className="drop-shadow-sm" />
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="flex justify-between px-2 items-center">
+              <div className="mt-auto flex items-center justify-center gap-5">
                 <div className="flex flex-col items-center gap-1">
-                  {renderMoodFace(moods[partner]?.emoji)}
-                  <span className="text-[10px] font-bold text-slate-400">{partner}</span>
+                  {renderMoodFace(moods[partner]?.emoji, 54)}
+                  <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>{partner}</span>
                 </div>
-                <div className="w-8 h-[1px] bg-slate-100" />
                 <button onClick={() => setMoodOpen(true)} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
-                  {moods[userName]?.emoji
-                    ? renderMoodFace(moods[userName]?.emoji)
-                    : <span className="text-5xl leading-none drop-shadow-sm text-[#10B981]">＋</span>}
-                  <span className="text-[10px] font-bold text-[#10B981]">{userName}</span>
+                  {moods[userName]?.emoji ? (
+                    renderMoodFace(moods[userName]?.emoji, 54)
+                  ) : (
+                    <span className="w-[54px] h-[54px] flex items-end justify-center gap-[6px] pb-3" aria-label="아직 기분을 안 골랐어요">
+                      {[0, 1, 2].map((i) => (
+                        <span key={i} className="w-[7px] h-[7px] rounded-full" style={{ background: 'var(--sd-faint)', opacity: 0.55 }} />
+                      ))}
+                    </span>
+                  )}
+                  <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>{userName}</span>
                 </button>
               </div>
             )}
           </div>
 
+          {/* D-day (1x1 흰 카드) */}
           <button
             onClick={() => router.push('/dday')}
-            className="flex-[0.8] p-5 flex flex-col justify-center bg-gradient-to-br from-white to-[#EAF8F5]/30 text-left active:scale-[0.98] transition-transform relative"
             aria-label="우리 D-day 상세 보기"
+            className="sd-card col-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-center relative text-left transition-transform active:scale-[.98]"
+            style={{ background: 'var(--sd-card-solid)' }}
           >
-            {/* ⏱ 임시 D-day 어텐션 — 24h 후 자동 안 뜸. 추후 삭제 */}
-            <DdayAttentionV2 />
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5 text-rose-300">
                 <Heart size={16} strokeWidth={2.5} fill="currentColor" />
