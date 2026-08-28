@@ -44,6 +44,7 @@ export interface Props {
   onWriteLetter: () => void;
   onBack?: () => void;
   onHeart: (letterId: string) => Promise<void>;
+  onEdit?: (letterId: string, body: string) => Promise<void>; // 내가 보낸 편지 본문 수정
   subscribeComments: (letterId: string, cb: (comments: Comment[]) => void) => () => void;
   addComment: (letterId: string, text: string) => Promise<void>;
   deleteComment: (letterId: string, commentId: string) => Promise<void>;
@@ -166,7 +167,7 @@ function HeartButton({
 // -----------------------------------------------------------------
 export default function LetterInboxV3({
   me, letters, initialOpenLetterId, hasMore, onLoadMore, loading, onWriteLetter, onBack,
-  onHeart, subscribeComments, addComment, deleteComment
+  onHeart, onEdit, subscribeComments, addComment, deleteComment
 }: Props) {
   const [filter, setFilter] = useState<FilterType>('all');
   // Claude 참고: selectedLetter를 직접 state로 가지면 letters prop 갱신 시 stale snapshot이 되어
@@ -394,6 +395,7 @@ export default function LetterInboxV3({
             letter={selectedLetter}
             onClose={() => setSelectedLetter(null)}
             onHeart={() => onHeart(selectedLetter.id)}
+            onEdit={onEdit}
             subscribeComments={subscribeComments}
             addComment={addComment}
             deleteComment={deleteComment}
@@ -409,12 +411,13 @@ export default function LetterInboxV3({
 // Letter Modal Sub-Component
 // -----------------------------------------------------------------
 function LetterModal({
-  me, letter, onClose, onHeart, subscribeComments, addComment, deleteComment
+  me, letter, onClose, onHeart, onEdit, subscribeComments, addComment, deleteComment
 }: {
   me: '우댕' | '꼼이';
   letter: Letter;
   onClose: () => void;
   onHeart: () => void;
+  onEdit?: Props['onEdit'];
   subscribeComments: Props['subscribeComments'];
   addComment: Props['addComment'];
   deleteComment: Props['deleteComment'];
@@ -423,6 +426,23 @@ function LetterModal({
   const [commentText, setCommentText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const commentsEndRef = useRef<HTMLDivElement>(null);
+
+  // 본문 수정 — 내가 보낸 편지만. 저장 후 즉시 반영 위해 로컬 오버라이드 사용.
+  const isMine = letter.from === me;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(letter.body);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [bodyOverride, setBodyOverride] = useState<string | null>(null);
+  const shownBody = bodyOverride ?? letter.body;
+  const startEdit = () => { setDraft(shownBody); setEditing(true); };
+  const saveEdit = async () => {
+    if (savingEdit || !onEdit) return;
+    const t = draft.trim();
+    setSavingEdit(true);
+    try { await onEdit(letter.id, t); setBodyOverride(t); setEditing(false); }
+    catch { /* 실패 시 편집 상태 유지 */ }
+    finally { setSavingEdit(false); }
+  };
 
   // Subscribe to comments dynamically
   useEffect(() => {
@@ -476,7 +496,7 @@ function LetterModal({
             <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white shadow-inner ${avatarColor(letter.from)}`}>
               <Mail size={22} />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-black text-slate-800">
                 {letter.from}의 편지
               </h2>
@@ -484,12 +504,42 @@ function LetterModal({
                 {formatFullDate(letter.createdAt)}
               </p>
             </div>
+            {isMine && onEdit && !editing && (
+              <button
+                onClick={startEdit}
+                className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-[12.5px] font-bold text-slate-500 hover:bg-slate-200 active:scale-95"
+              >
+                <Pencil size={12} /> 수정
+              </button>
+            )}
           </div>
 
-          {/* Body */}
-          {letter.body ? (
+          {/* Body — 내가 보낸 편지는 수정 가능(수정 모드면 textarea) */}
+          {editing ? (
+            <div className="mb-6">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={5}
+                autoFocus
+                placeholder="편지 내용을 고쳐 써줘…"
+                className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-[16px] leading-[1.7] text-slate-700 outline-none focus:border-emerald-300 focus:bg-white"
+              />
+              <div className="mt-2 flex items-center justify-end gap-2">
+                <button
+                  onClick={() => { setEditing(false); setDraft(shownBody); }}
+                  className="rounded-full px-4 py-2 text-[13px] font-bold text-slate-400 hover:text-slate-600"
+                >취소</button>
+                <button
+                  onClick={saveEdit}
+                  disabled={savingEdit}
+                  className="rounded-full bg-emerald-500 px-4 py-2 text-[13px] font-bold text-white hover:bg-emerald-600 disabled:opacity-50 active:scale-95"
+                >{savingEdit ? '저장 중…' : '저장'}</button>
+              </div>
+            </div>
+          ) : shownBody ? (
             <div className="text-[16px] text-slate-700 leading-[1.7] whitespace-pre-wrap mb-6">
-              {letter.body}
+              {shownBody}
             </div>
           ) : (letter.emoticonIds?.length ?? 0) > 0 ? (
             <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-[13px] font-black text-emerald-700">

@@ -2,6 +2,8 @@ import { db, storage } from './firebase';
 import {
   collection,
   addDoc,
+  doc,
+  updateDoc,
   query,
   where,
   orderBy,
@@ -253,6 +255,16 @@ export async function sendLetter(
       isScheduled,
     }),
   }).catch(() => {});
+}
+
+// 보낸 편지 수정 — 본인이 보낸 편지의 본문을 고친다. editedAt 기록(수정됨 표시용).
+// 도착 푸시는 다시 보내지 않는다(수정은 조용히). 손글씨·음성·이모티콘 수정은 추후 확장.
+export async function updateLetter(id: string, patch: { body?: string }): Promise<void> {
+  const data: Record<string, unknown> = { editedAt: serverTimestamp() };
+  if (patch.body != null) data.body = patch.body.trim();
+  // updateDoc의 UpdateData 제네릭 마찰 회피
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await updateDoc(doc(db, 'letters', id), data as any);
 }
 
 // 음성 Blob을 Firebase Storage에 올리고 다운로드 URL 반환.

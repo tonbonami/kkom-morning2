@@ -7,6 +7,7 @@ import {
   subscribeRecentLetters,
   toInboxLetter,
   nameFromCode,
+  updateLetter,
   type Letter as FsLetter,
 } from '@/lib/letters';
 import {
@@ -70,6 +71,7 @@ function LettersPageInner() {
       onWriteLetter={() => router.push('/letter/new')}
       onBack={() => router.push('/')}
       onHeart={(id) => incrementHeartsAt(COLLECTION, id)}
+      onEdit={(id, body) => updateLetter(id, { body })}
       subscribeComments={(id, cb) =>
         subscribeCommentsAt(COLLECTION, id, (cs) => cb(cs as unknown as ViewComment[]))
       }
