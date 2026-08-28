@@ -530,7 +530,7 @@ export default function KkomMorningHome() {
           return (
             <button
               onClick={openDoodle}
-              className="relative w-full text-left bg-white rounded-[24px] p-5 -rotate-[1.5deg] active:scale-[0.98] active:rotate-0 transition-all"
+              className="relative w-full text-left bg-white rounded-[24px] p-5 active:scale-[0.98] transition-all"
               style={{ boxShadow: '0px 12px 32px rgba(120,100,80,0.08)' }}
               aria-label="우리 낙서장 열기"
             >
@@ -860,7 +860,7 @@ export default function KkomMorningHome() {
         </div>
 
         {/* 오늘의 편지 — 다이어리 핑크 메모지 톤 (Gemini 리뷰 P0) */}
-        <div className="relative bg-[#FBEBF6] rounded-2xl p-6 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#F1E0EE] -rotate-[0.5deg] overflow-hidden">
+        <div className="relative bg-[#FBEBF6] rounded-2xl p-6 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#F1E0EE] overflow-hidden">
           <div className="tape-mint absolute -top-2 left-8 w-14 rotate-2 z-10" />
           <div className="flex justify-between items-start mb-4">
             <div className="flex flex-col gap-0.5">
@@ -952,7 +952,7 @@ export default function KkomMorningHome() {
         {latestMemory && (
           <button
             onClick={() => router.push('/memories')}
-            className="relative w-full bg-white rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-slate-100 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]"
+            className="relative w-full bg-white rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-slate-100 flex items-center gap-4 text-left active:scale-[0.98] transition-all"
           >
             <div className="tape absolute -top-2 right-6 w-12 -rotate-6 z-10" />
             {/* 배지가 overflow-hidden에 잘리지 않게 relative wrapper로 빼냄 */}
@@ -978,170 +978,132 @@ export default function KkomMorningHome() {
           </button>
         )}
 
-        {/* 칭찬 다이어리 진입 카드 — 옅은 종이 톤 + 핑크 테이프 (Gemini 리뷰 P1) */}
-        <button
-          onClick={() => {
-            localStorage.setItem(`praiseSeen:${kstDayKey(new Date())}`, String(praiseCount));
-            setPraiseSeen(praiseCount);
-            router.push('/praise');
-          }}
-          className="relative w-full bg-[#FFF2DB] rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#EEE6D8] flex items-center gap-4 text-left active:scale-[0.98] transition-all"
-        >
-          <div className="sd-tape absolute -top-2 -left-2 h-4 w-14 -rotate-12 z-10 rounded-[1px]" />
-          <div className="relative w-12 h-12 rounded-xl bg-[#EEE6D8] flex items-center justify-center shrink-0 text-[#94640D]">
-            <Award size={22} strokeWidth={2.5} />
-            {/* 안 읽은 칭찬 숫자 배지 — 실시간. /praise 열면 확인 처리되어 사라짐 */}
+        {/* keep 카드 — 사이담식 2열 모듈 그리드. 틀만 교체, onClick·데이터·뱃지 전부 그대로 */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* 칭찬 */}
+          <button
+            onClick={() => {
+              localStorage.setItem(`praiseSeen:${kstDayKey(new Date())}`, String(praiseCount));
+              setPraiseSeen(praiseCount);
+              router.push('/praise');
+            }}
+            className="relative flex flex-col justify-between min-h-[116px] rounded-[18px] p-3.5 text-left active:scale-[.98] transition-transform shadow-[0_1px_3px_rgba(70,55,60,0.05),0_12px_24px_-16px_rgba(70,55,60,0.3)]"
+            style={{ background: '#FFF2DB' }}
+          >
             {praiseCount - praiseSeen > 0 && (
-              <span className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-400 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[#94640D] text-white text-[10.5px] font-black flex items-center justify-center">
                 {praiseCount - praiseSeen > 99 ? '99+' : praiseCount - praiseSeen}
               </span>
             )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 text-[#94640D]/70 mb-1">
-              <span className="text-xs font-bold tracking-wider uppercase">Praise Diary</span>
+            <div className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: '#94640D' }}>
+              <Award size={17} strokeWidth={2.4} /> 칭찬
             </div>
-            <p className="text-sm font-bold text-[#4F4741]">칭찬 다이어리</p>
-          </div>
-          {/* 우측 별/하트 이모지 제거 — 깔끔한 단색 Sparkles SVG로 (사용자 요청) */}
-          <Sparkles size={16} className="text-[#94640D]/60 shrink-0" strokeWidth={2.5} />
-          <ChevronRight size={20} className="text-[#B9A98A] shrink-0" />
-        </button>
-
-        {/* Share List — amber 종이 + 민트 테이프 (Gemini P1) */}
-        <button
-          onClick={() => router.push('/share')}
-          className="relative w-full bg-[#FFF7DC] rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#EDE7D7] flex items-center gap-4 text-left active:scale-[0.98] transition-all -rotate-[0.5deg]"
-        >
-          <div className="sd-tape absolute -top-2 left-1/2 -translate-x-1/2 h-4 w-14 -rotate-2 z-10 rounded-[1px]" />
-          <div className="relative w-12 h-12 rounded-xl bg-[#EDE7D7] flex items-center justify-center shrink-0 text-[#906C07]">
-            <Sparkles size={22} strokeWidth={2.5} fill="currentColor" />
+            <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug">칭찬 다이어리</p>
+          </button>
+          {/* 공유 리스트 */}
+          <button
+            onClick={() => router.push('/share')}
+            className="relative flex flex-col justify-between min-h-[116px] rounded-[18px] p-3.5 text-left active:scale-[.98] transition-transform shadow-[0_1px_3px_rgba(70,55,60,0.05),0_12px_24px_-16px_rgba(70,55,60,0.3)]"
+            style={{ background: '#FFF7DC' }}
+          >
             {shares.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-500 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[#906C07] text-white text-[10.5px] font-black flex items-center justify-center">
                 {shares.length > 99 ? '99+' : shares.length}
               </span>
             )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-              <span className="text-xs font-bold">Share List</span>
+            <div className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: '#906C07' }}>
+              <Sparkles size={17} strokeWidth={2.4} fill="currentColor" /> 공유 리스트
             </div>
-            <p className="text-sm font-bold text-slate-700">
-              {`${vocativeOf(userName)} 이거 봐봐 💚`}
-            </p>
-          </div>
-          <ChevronRight size={20} className="text-slate-400 shrink-0" />
-        </button>
+            <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug break-keep">{`${vocativeOf(userName)} 이거 봐봐 💚`}</p>
+          </button>
 
-        {/* 위시리스트 — 흰 종이 + 핑크 테이프 (Gemini P1) */}
-        <button
-          onClick={() => router.push('/wishlist')}
-          className="relative w-full bg-[#FDEAF1] rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#F5DFE7] flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]"
-        >
-          <div className="sd-tape absolute -top-2 left-1/2 -translate-x-1/2 h-4 w-14 rotate-2 z-10 rounded-[1px]" />
-          <div className="relative w-12 h-12 rounded-xl bg-[#F5DFE7] flex items-center justify-center shrink-0 text-[#C23768]">
-            <Sparkles size={22} strokeWidth={2.5} />
+          {/* 위시리스트 */}
+          <button
+            onClick={() => router.push('/wishlist')}
+            className="relative flex flex-col justify-between min-h-[116px] rounded-[18px] p-3.5 text-left active:scale-[.98] transition-transform shadow-[0_1px_3px_rgba(70,55,60,0.05),0_12px_24px_-16px_rgba(70,55,60,0.3)]"
+            style={{ background: '#FDEAF1' }}
+          >
             {wishes.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#C23768] text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[#C23768] text-white text-[10.5px] font-black flex items-center justify-center">
                 {wishes.length > 99 ? '99+' : wishes.length}
               </span>
             )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-              <span className="text-xs font-bold">우리의 위시리스트</span>
+            <div className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: '#C23768' }}>
+              <Sparkles size={17} strokeWidth={2.4} /> 위시리스트
             </div>
-            <p className="text-sm font-bold text-slate-700">먹고 싶은 곳 · 가고 싶은 곳 · 보고 싶은 거</p>
-          </div>
-          <ChevronRight size={20} className="text-slate-400 shrink-0" />
-        </button>
-
-        {/* 또 갈래 — 옅은 teal 종이 + 노랑 테이프 (Gemini P2) */}
-        <button
-          onClick={() => router.push('/again')}
-          className="relative w-full bg-[#E4F5EE] rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#D9EAE5] flex items-center gap-4 text-left active:scale-[0.98] transition-all"
-        >
-          <div className="sd-tape absolute -top-2 right-8 h-4 w-12 rotate-6 z-10 rounded-[1px]" />
-          <div className="relative w-12 h-12 rounded-xl bg-[#D9EAE5] flex items-center justify-center shrink-0 text-[#137C5C]">
-            <CheckCircle2 size={22} strokeWidth={2.5} />
+            <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug break-keep">먹고싶은 곳 · 가고싶은 곳</p>
+          </button>
+          {/* 또 갈래 */}
+          <button
+            onClick={() => router.push('/again')}
+            className="relative flex flex-col justify-between min-h-[116px] rounded-[18px] p-3.5 text-left active:scale-[.98] transition-transform shadow-[0_1px_3px_rgba(70,55,60,0.05),0_12px_24px_-16px_rgba(70,55,60,0.3)]"
+            style={{ background: '#E4F5EE' }}
+          >
             {agains.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#137C5C] text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[#137C5C] text-white text-[10.5px] font-black flex items-center justify-center">
                 {agains.length > 99 ? '99+' : agains.length}
               </span>
             )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-              <span className="text-xs font-bold">또 갈래</span>
+            <div className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: '#137C5C' }}>
+              <CheckCircle2 size={17} strokeWidth={2.4} /> 또 갈래
             </div>
-            <p className="text-sm font-bold text-slate-700">또 가고 싶은 곳 · 단골</p>
-          </div>
-          <ChevronRight size={20} className="text-slate-400 shrink-0" />
-        </button>
+            <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug break-keep">또 가고 싶은 곳 · 단골</p>
+          </button>
 
-        {/* 우리의 레시피 — 서재 자리에 새로 박음 (오렌지 톤, ChefHat 아이콘) */}
-        <button onClick={() => router.push('/recipes')} className="relative w-full bg-[#FDEDE3] rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#F2E3DC] flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]">
-          <div className="sd-tape absolute -top-2 right-6 h-4 w-14 -rotate-3 z-10 rounded-[1px]" />
-          <div className="relative w-12 h-12 rounded-xl bg-[#F2E3DC] flex items-center justify-center shrink-0 text-[#B05124]">
-            <ChefHat size={22} strokeWidth={2.5} />
+          {/* 레시피 */}
+          <button
+            onClick={() => router.push('/recipes')}
+            className="relative flex flex-col justify-between min-h-[116px] rounded-[18px] p-3.5 text-left active:scale-[.98] transition-transform shadow-[0_1px_3px_rgba(70,55,60,0.05),0_12px_24px_-16px_rgba(70,55,60,0.3)]"
+            style={{ background: '#FDEDE3' }}
+          >
             {recipes.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#B05124] text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[#B05124] text-white text-[10.5px] font-black flex items-center justify-center">
                 {recipes.length > 99 ? '99+' : recipes.length}
               </span>
             )}
-            {/* 상대가 24h 이내 추가한 레시피 있으면 작은 NEW 점 */}
             {(() => {
               const now = Date.now();
               const DAY = 24 * 60 * 60 * 1000;
               const hasNew = recipes.some((r) => r.by !== userName && (now - r.createdAt.getTime() < DAY));
               return hasNew ? (
-                <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
+                <span className="absolute top-2 left-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
               ) : null;
             })()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 text-orange-500 mb-1">
-              <span className="text-xs font-bold tracking-wider uppercase">Our Recipes</span>
+            <div className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: '#B05124' }}>
+              <ChefHat size={17} strokeWidth={2.4} /> 레시피
             </div>
-            <p className="text-sm font-bold text-orange-900">우리의 레시피</p>
-          </div>
-          <ChevronRight size={20} className="text-orange-400 shrink-0" />
-        </button>
-
-        {/* 우리의 시집 — 신규 (서재 자리 옆) */}
-        <button onClick={() => router.push('/poems')} className="relative w-full bg-purple-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-purple-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all -rotate-[0.5deg]">
-          <div className="tape-pink absolute -top-2 left-8 w-14 rotate-3 z-10" />
-          <div className="relative w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center shrink-0 text-purple-600">
-            <BookText size={22} strokeWidth={2.5} />
+            <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug break-keep">같이 해먹은 걸 적어요</p>
+          </button>
+          {/* 시집 */}
+          <button
+            onClick={() => router.push('/poems')}
+            className="relative flex flex-col justify-between min-h-[116px] rounded-[18px] p-3.5 text-left active:scale-[.98] transition-transform shadow-[0_1px_3px_rgba(70,55,60,0.05),0_12px_24px_-16px_rgba(70,55,60,0.3)]"
+            style={{ background: '#ECEEFB' }}
+          >
             {poems.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-purple-500 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[#4A52B5] text-white text-[10.5px] font-black flex items-center justify-center">
                 {poems.length > 99 ? '99+' : poems.length}
               </span>
             )}
-            {/* 아직 안 본 새 시 — 열어볼 때까지 안 사라짐 */}
             {(() => {
               const n = countNewPoems(poems, poemsLastSeen);
               return n > 0 ? (
-                <span className="absolute -bottom-1.5 -left-1.5 min-w-[20px] h-[20px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center shadow-md ring-2 ring-white animate-pulse">
-                  +{n}
-                </span>
+                <span className="absolute top-2 left-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
               ) : null;
             })()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 text-purple-500 mb-1">
-              <span className="text-xs font-bold tracking-wider uppercase">Our Poems</span>
+            <div className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: '#4A52B5' }}>
+              <BookText size={17} strokeWidth={2.4} /> 시집
             </div>
-            <p className="text-sm font-bold text-purple-900">우리의 시집</p>
             {(() => {
               const n = countNewPoems(poems, poemsLastSeen);
-              return n > 0 ? (
-                <p className="text-[11px] font-black text-rose-500 mt-0.5">✨ 새 시 {n}편이 올라왔어</p>
-              ) : null;
+              return (
+                <p className="text-[12.5px] font-semibold leading-snug break-keep" style={{ color: n > 0 ? '#E4685E' : '#8C8178' }}>
+                  {n > 0 ? `✨ 새 시 ${n}편` : '오늘 마음은 어떤 시'}
+                </p>
+              );
             })()}
-          </div>
-          <ChevronRight size={20} className="text-purple-400 shrink-0" />
-        </button>
+          </button>
+        </div>
 
         {/* 우리 낙서장 카드는 홈 최상단 히어로로 이동 (헤더 바로 아래) */}
 
@@ -1150,7 +1112,7 @@ export default function KkomMorningHome() {
           href="https://dang-s-library.vercel.app/"
           target="_blank"
           rel="noopener noreferrer"
-          className="relative w-full bg-emerald-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-emerald-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]"
+          className="relative w-full bg-emerald-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-emerald-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all"
         >
           <div className="tape absolute -top-2 right-6 w-14 -rotate-3 z-10" />
           <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-600">
