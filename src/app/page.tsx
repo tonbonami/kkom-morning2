@@ -530,65 +530,29 @@ export default function KkomMorningHome() {
           return (
             <button
               onClick={openDoodle}
-              className="relative w-full text-left bg-white rounded-[24px] p-5 active:scale-[0.98] transition-all"
-              style={{ boxShadow: '0px 12px 32px rgba(120,100,80,0.08)' }}
+              className="sd-card relative w-full min-h-[150px] px-4 py-4 flex flex-col text-left active:scale-[.98] transition-transform"
+              style={{ background: online ? 'var(--m-doodle)' : 'var(--m-doodle)' }}
               aria-label="우리 낙서장 열기"
             >
-              {/* 민트 마스킹 테이프 */}
-              <div className="tape tape-mint absolute -top-2 left-1/2 -translate-x-1/2 w-16 rotate-2 z-10" />
-
-              {/* 헤더: 상태 배지 + 타이틀 */}
-              <div className="flex items-start justify-between gap-2 mb-3">
-                {online ? (
-                  <span
-                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-bold"
-                    style={{ background: 'rgba(228,104,94,0.12)', color: '#E4685E' }}
-                  >
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#E4685E] opacity-60 animate-ping" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[#E4685E]" />
-                    </span>
-                    {partnerDrawing ? (
-                      <>{partner}가 끄적이는 중 <span className="animate-doodle-wiggle">✍️</span></>
-                    ) : (
-                      <>{partner} 지금 함께 💚</>
-                    )}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: '#94A3B8' }}>
-                    <span className="h-2 w-2 rounded-full border border-slate-300" />
-                    {partner} · {formatPresenceRelative(partnerPresence)}
-                  </span>
-                )}
-                <span className="font-handwriting text-[30px] leading-none text-slate-700 shrink-0">우리 낙서장 ✏️</span>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+                  <PenLine size={16} /> 낙서장
+                </span>
+                <span className="font-handwriting text-[26px] leading-none shrink-0" style={{ color: 'var(--sd-muted)' }}>
+                  우리 낙서장 ✏️
+                </span>
               </div>
-
-              {/* 캔버스 프리뷰 (도트그리드 종이) */}
-              <div
-                className="relative rounded-2xl overflow-hidden"
-                style={{ height: 140, background: '#FFFCF5', border: '1px solid rgba(0,0,0,0.05)' }}
-              >
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    backgroundImage: 'radial-gradient(rgba(226,232,240,0.6) 1.4px, transparent 1.4px)',
-                    backgroundSize: '22px 22px',
-                  }}
-                />
-                {/* 최근 낙서 미니 썸네일 (현재 페이지) */}
+              {/* 캔버스 프리뷰 (도트그리드 종이) — 사이담과 동일 */}
+              <div className="relative flex-1 min-h-[100px] rounded-2xl overflow-hidden"
+                   style={{ background: '#FFFCF5', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.05)' }}>
+                <div className="absolute inset-0" style={{
+                  backgroundImage: 'radial-gradient(rgba(200,190,185,.55) 1.4px, transparent 1.4px)',
+                  backgroundSize: '22px 22px',
+                }} />
                 <DoodleThumb strokes={heroStrokes} />
-                {online ? (
-                  <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: 'inset 0 0 26px rgba(16,185,129,0.18)' }} />
-                ) : (
-                  <div className="absolute inset-0 bg-white/20" />
-                )}
-
-                {/* CTA — 우측 하단에 걸친 알약 버튼 */}
-                <span
-                  className="absolute bottom-2.5 right-2.5 h-10 px-4 rounded-[20px] inline-flex items-center shadow-[0_4px_12px_rgba(0,0,0,0.12)]"
-                  style={{ background: online ? '#E4685E' : '#FBBF24' }}
-                >
-                  <span className="font-handwriting text-[24px] leading-none text-white">종이 펼치기</span>
+                <span className="absolute bottom-2 right-2 h-9 px-3.5 rounded-[18px] inline-flex items-center shadow-[0_4px_12px_rgba(0,0,0,.12)]"
+                      style={{ background: 'var(--m-doodle-ac)' }}>
+                  <span className="font-handwriting text-[22px] leading-none text-white">종이 펼치기</span>
                 </span>
               </div>
             </button>
@@ -601,16 +565,18 @@ export default function KkomMorningHome() {
         <div className="relative z-10 px-6 pt-1 pb-2">
           <button
             onClick={() => { setChatOpen(true); setChatUnread(false); }}
-            className="relative w-full text-left bg-white rounded-[24px] p-5 active:scale-[0.98] transition-all"
-            style={{ boxShadow: '0px 12px 32px rgba(120,100,80,0.08)' }}
+            className="sd-card relative w-full min-h-[140px] px-4 py-4 flex flex-col text-left active:scale-[.98] transition-transform"
+            style={{ background: 'var(--sd-card-solid)' }}
             aria-label="꼼톡 열기"
           >
-            <div className="flex items-center justify-between mb-1.5">
-              <div className="flex items-center gap-2">
-                <span className="font-handwriting text-[26px] leading-none text-slate-700">꼼톡 💬</span>
+            {/* 주황 워시테이프 — 사이담 사이챗과 동일 */}
+            <span className="sd-tape -top-[7px] left-7 w-[52px] h-[17px] rounded-[2px] -rotate-[7deg]" />
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+                <MessageCircle size={16} /> 꼼톡
                 {chatUnread && <span className="inline-flex h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />}
-              </div>
-              <ChevronRight size={16} className="text-slate-300" />
+              </span>
+              <ChevronRight size={14} style={{ color: 'var(--sd-faint)' }} />
             </div>
             {(() => {
               const recent = messages.slice(-3);
@@ -625,22 +591,23 @@ export default function KkomMorningHome() {
                 return `${Math.floor(s / 86400)}일 전`;
               })();
               return (
-                <div className="flex flex-col gap-1.5">
+                <div className="mt-2.5 flex-1 flex flex-col justify-end gap-1.5">
                   {recent.map((m, i) => {
                     const mine = m.from === userName;
                     return (
                       <div key={m.id ?? i} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                         <span
-                          className={`max-w-[82%] rounded-2xl px-3 py-1.5 text-[12.5px] font-semibold leading-snug line-clamp-2 ${
-                            mine ? 'bg-slate-800 text-white' : 'bg-[#FCE7EF] text-slate-700'
-                          }`}
+                          className="max-w-[82%] rounded-2xl px-3 py-1.5 text-[12.5px] font-semibold leading-snug line-clamp-2"
+                          style={mine
+                            ? { background: 'var(--sd-ink-btn)', color: 'var(--sd-card-solid)' }
+                            : { background: 'var(--sd-rel-soft)', color: 'var(--sd-ink)' }}
                         >
                           {preview(m)}
                         </span>
                       </div>
                     );
                   })}
-                  {rel && <p suppressHydrationWarning className="text-[11px] font-semibold text-slate-400 mt-0.5">{rel}</p>}
+                  {rel && <p suppressHydrationWarning className="text-[12.5px] mt-0.5" style={{ color: 'var(--sd-faint)' }}>{rel}</p>}
                 </div>
               );
             })()}
