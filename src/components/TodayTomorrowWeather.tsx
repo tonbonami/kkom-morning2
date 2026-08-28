@@ -78,7 +78,7 @@ export default function TodayTomorrowWeather({ location, current, today, tomorro
             </div>
             <div className="mt-2 flex items-center text-[14px] font-bold text-slate-400">
               {isCurrentMissing ? (
-                '곧 연결돼요'
+                '아직 못 불러왔어'
               ) : (
                 <>지금 {location && <span className="mx-1.5">·</span>} {location}</>
               )}

@@ -753,40 +753,27 @@ export default function KkomMorningHome() {
           </AnimatePresence>
         </motion.button>
 
-        {/* 옷차림 · 달력 — 사이담식 1x1 나란히 (옷차림=흰, 달력=라벤더 --m-calendar) */}
-        <div className="grid grid-cols-2 gap-4 auto-rows-min">
-          {/* 오늘의 옷차림 (1x1) */}
-          <div className="sd-card col-span-1 min-h-[104px] px-4 py-4 flex flex-col" style={{ background: 'var(--sd-card-solid)' }}>
-            <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-              <Shirt size={16} /> 오늘의 옷차림
-            </span>
-            <div className="mt-auto flex items-center gap-2">
-              <span className="text-2xl shrink-0">{outfit?.icon || '👕'}</span>
-              <p className="text-[13px] font-semibold leading-snug line-clamp-2" style={{ color: 'var(--sd-ink)' }}>{outfit?.text || '추천 준비 중'}</p>
+        {/* 달력 — 사이담 calendar 카드. (옷차림/착장 추천은 사용자 요청으로 제거) */}
+        <button
+          onClick={() => router.push('/calendar')}
+          aria-label="달력 보기"
+          className="sd-card w-full min-h-[104px] px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
+          style={{ background: 'var(--m-calendar)' }}
+        >
+          <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+            <CalendarDays size={16} /> 달력
+          </span>
+          {nextEvent ? (
+            <div className="mt-auto">
+              <p className="text-[14px] font-semibold line-clamp-1" style={{ color: 'var(--sd-ink)' }}>{nextEvent.title}</p>
+              <span className="text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>
+                {(() => { const p = nextEvent.date.split('-'); return `${+p[1]}월 ${+p[2]}일`; })()}
+              </span>
             </div>
-          </div>
-          {/* 달력 (1x1) — 사이담 calendar 카드 그대로. 다음 일정 = nextEvent */}
-          <button
-            onClick={() => router.push('/calendar')}
-            aria-label="달력 보기"
-            className="sd-card col-span-1 min-h-[104px] px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
-            style={{ background: 'var(--m-calendar)' }}
-          >
-            <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-              <CalendarDays size={16} /> 달력
-            </span>
-            {nextEvent ? (
-              <div className="mt-auto">
-                <p className="text-[14px] font-semibold line-clamp-1" style={{ color: 'var(--sd-ink)' }}>{nextEvent.title}</p>
-                <span className="text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>
-                  {(() => { const p = nextEvent.date.split('-'); return `${+p[1]}월 ${+p[2]}일`; })()}
-                </span>
-              </div>
-            ) : (
-              <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>다가오는 일정이 없어요</p>
-            )}
-          </button>
-        </div>
+          ) : (
+            <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>다가오는 일정이 없어요</p>
+          )}
+        </button>
 
         {/* 기분 · D-day — 사이담식 1x1 나란히. 틀만 교체, pickMood·renderMoodFace·moods·dDay 그대로 */}
         <div className="grid grid-cols-2 gap-4 auto-rows-min">
