@@ -466,7 +466,7 @@ export default function KkomMorningHome() {
     <div className="sd-app w-full max-w-md mx-auto min-h-screen text-slate-800 relative overflow-x-hidden pb-[calc(110px+env(safe-area-inset-bottom))] selection:bg-[#99E6D9]/40"
       onTouchStart={onHomeTouchStart} onTouchEnd={onHomeTouchEnd}>
       {/* 상단 등급색 그라데이션 — 전체를 하나의 흐름으로 */}
-      <div className={`absolute top-0 left-0 w-full h-80 bg-gradient-to-b ${theme.gradient} to-[#F7F9F9] -z-0`} />
+      <div className={`absolute top-0 left-0 w-full h-80 bg-gradient-to-b ${theme.gradient} to-transparent -z-0`} />
 
       {/* 1. Header */}
       <header className="relative z-10 px-6 pt-12 pb-4 flex justify-between items-start">
@@ -860,7 +860,7 @@ export default function KkomMorningHome() {
         </div>
 
         {/* 오늘의 편지 — 다이어리 핑크 메모지 톤 (Gemini 리뷰 P0) */}
-        <div className="relative bg-rose-50/60 rounded-2xl p-6 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-rose-100/60 -rotate-[0.5deg] overflow-hidden">
+        <div className="relative bg-[#FBEBF6] rounded-2xl p-6 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#F1E0EE] -rotate-[0.5deg] overflow-hidden">
           <div className="tape-mint absolute -top-2 left-8 w-14 rotate-2 z-10" />
           <div className="flex justify-between items-start mb-4">
             <div className="flex flex-col gap-0.5">
@@ -985,10 +985,10 @@ export default function KkomMorningHome() {
             setPraiseSeen(praiseCount);
             router.push('/praise');
           }}
-          className="relative w-full bg-emerald-50 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-emerald-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all"
+          className="relative w-full bg-[#FFF2DB] rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#EEE6D8] flex items-center gap-4 text-left active:scale-[0.98] transition-all"
         >
-          <div className="tape-pink absolute -top-2 -left-2 w-14 -rotate-12 z-10" />
-          <div className="relative w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-600">
+          <div className="sd-tape absolute -top-2 -left-2 h-4 w-14 -rotate-12 z-10 rounded-[1px]" />
+          <div className="relative w-12 h-12 rounded-xl bg-[#EEE6D8] flex items-center justify-center shrink-0 text-[#94640D]">
             <Award size={22} strokeWidth={2.5} />
             {/* 안 읽은 칭찬 숫자 배지 — 실시간. /praise 열면 확인 처리되어 사라짐 */}
             {praiseCount - praiseSeen > 0 && (
@@ -998,23 +998,23 @@ export default function KkomMorningHome() {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 text-emerald-500 mb-1">
+            <div className="flex items-center gap-1.5 text-[#94640D]/70 mb-1">
               <span className="text-xs font-bold tracking-wider uppercase">Praise Diary</span>
             </div>
-            <p className="text-sm font-bold text-emerald-800">칭찬 다이어리</p>
+            <p className="text-sm font-bold text-[#4F4741]">칭찬 다이어리</p>
           </div>
           {/* 우측 별/하트 이모지 제거 — 깔끔한 단색 Sparkles SVG로 (사용자 요청) */}
-          <Sparkles size={16} className="text-emerald-500/80 shrink-0" strokeWidth={2.5} />
-          <ChevronRight size={20} className="text-emerald-500/70 shrink-0" />
+          <Sparkles size={16} className="text-[#94640D]/60 shrink-0" strokeWidth={2.5} />
+          <ChevronRight size={20} className="text-[#B9A98A] shrink-0" />
         </button>
 
         {/* Share List — amber 종이 + 민트 테이프 (Gemini P1) */}
         <button
           onClick={() => router.push('/share')}
-          className="relative w-full bg-amber-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-amber-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all -rotate-[0.5deg]"
+          className="relative w-full bg-[#FFF7DC] rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#EDE7D7] flex items-center gap-4 text-left active:scale-[0.98] transition-all -rotate-[0.5deg]"
         >
-          <div className="tape-mint absolute -top-2 left-1/2 -translate-x-1/2 w-14 -rotate-2 z-10" />
-          <div className="relative w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center shrink-0 text-[#FCD34D]">
+          <div className="sd-tape absolute -top-2 left-1/2 -translate-x-1/2 h-4 w-14 -rotate-2 z-10 rounded-[1px]" />
+          <div className="relative w-12 h-12 rounded-xl bg-[#EDE7D7] flex items-center justify-center shrink-0 text-[#906C07]">
             <Sparkles size={22} strokeWidth={2.5} fill="currentColor" />
             {shares.length > 0 && (
               <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-500 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
@@ -1036,13 +1036,13 @@ export default function KkomMorningHome() {
         {/* 위시리스트 — 흰 종이 + 핑크 테이프 (Gemini P1) */}
         <button
           onClick={() => router.push('/wishlist')}
-          className="relative w-full bg-white rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-slate-100 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]"
+          className="relative w-full bg-[#FDEAF1] rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#F5DFE7] flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]"
         >
-          <div className="tape-pink absolute -top-2 left-1/2 -translate-x-1/2 w-14 rotate-2 z-10" />
-          <div className="relative w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 text-[#10B981]">
+          <div className="sd-tape absolute -top-2 left-1/2 -translate-x-1/2 h-4 w-14 rotate-2 z-10 rounded-[1px]" />
+          <div className="relative w-12 h-12 rounded-xl bg-[#F5DFE7] flex items-center justify-center shrink-0 text-[#C23768]">
             <Sparkles size={22} strokeWidth={2.5} />
             {wishes.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-emerald-500 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#C23768] text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
                 {wishes.length > 99 ? '99+' : wishes.length}
               </span>
             )}
@@ -1059,13 +1059,13 @@ export default function KkomMorningHome() {
         {/* 또 갈래 — 옅은 teal 종이 + 노랑 테이프 (Gemini P2) */}
         <button
           onClick={() => router.push('/again')}
-          className="relative w-full bg-teal-50/40 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-teal-100/50 flex items-center gap-4 text-left active:scale-[0.98] transition-all"
+          className="relative w-full bg-[#E4F5EE] rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#D9EAE5] flex items-center gap-4 text-left active:scale-[0.98] transition-all"
         >
-          <div className="tape absolute -top-2 right-8 w-12 rotate-6 z-10" />
-          <div className="relative w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 text-[#10B981]">
+          <div className="sd-tape absolute -top-2 right-8 h-4 w-12 rotate-6 z-10 rounded-[1px]" />
+          <div className="relative w-12 h-12 rounded-xl bg-[#D9EAE5] flex items-center justify-center shrink-0 text-[#137C5C]">
             <CheckCircle2 size={22} strokeWidth={2.5} />
             {agains.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-teal-500 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#137C5C] text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
                 {agains.length > 99 ? '99+' : agains.length}
               </span>
             )}
@@ -1080,12 +1080,12 @@ export default function KkomMorningHome() {
         </button>
 
         {/* 우리의 레시피 — 서재 자리에 새로 박음 (오렌지 톤, ChefHat 아이콘) */}
-        <button onClick={() => router.push('/recipes')} className="relative w-full bg-orange-50/60 rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-orange-100/60 flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]">
-          <div className="tape-mint absolute -top-2 right-6 w-14 -rotate-3 z-10" />
-          <div className="relative w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center shrink-0 text-orange-600">
+        <button onClick={() => router.push('/recipes')} className="relative w-full bg-[#FDEDE3] rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#F2E3DC] flex items-center gap-4 text-left active:scale-[0.98] transition-all rotate-[0.5deg]">
+          <div className="sd-tape absolute -top-2 right-6 h-4 w-14 -rotate-3 z-10 rounded-[1px]" />
+          <div className="relative w-12 h-12 rounded-xl bg-[#F2E3DC] flex items-center justify-center shrink-0 text-[#B05124]">
             <ChefHat size={22} strokeWidth={2.5} />
             {recipes.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-orange-500 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
+              <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#B05124] text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white">
                 {recipes.length > 99 ? '99+' : recipes.length}
               </span>
             )}
