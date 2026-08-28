@@ -466,7 +466,7 @@ export default function KkomMorningHome() {
     <div className="sd-app w-full max-w-md mx-auto min-h-screen text-slate-800 relative overflow-x-hidden pb-[calc(110px+env(safe-area-inset-bottom))] selection:bg-[#99E6D9]/40"
       onTouchStart={onHomeTouchStart} onTouchEnd={onHomeTouchEnd}>
       {/* 상단 등급색 그라데이션 — 전체를 하나의 흐름으로 */}
-      <div className={`absolute top-0 left-0 w-full h-80 bg-gradient-to-b ${theme.gradient} to-transparent -z-0`} />
+      <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-[#F5EFE8] to-transparent -z-0" />
 
       {/* 1. Header */}
       <header className="relative z-10 px-6 pt-12 pb-4 flex justify-between items-start">
@@ -475,7 +475,7 @@ export default function KkomMorningHome() {
           <h1 className="text-3xl font-extrabold tracking-tight">안녕, {userName} 👋</h1>
           {/* 상대 접속 시각 — presenceTick으로 매 1분 재계산 */}
           <p className="text-xs font-bold text-slate-500 mt-1.5">
-            <span className="text-[#10B981]">{partner}</span>
+            <span className="text-[#E4685E]">{partner}</span>
             <span className="text-slate-400"> · </span>
             <span suppressHydrationWarning>{formatPresenceRelative(partnerPresence)}</span>
             {/* presenceTick 참조로 매분 리렌더 */}
@@ -542,11 +542,11 @@ export default function KkomMorningHome() {
                 {online ? (
                   <span
                     className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-bold"
-                    style={{ background: 'rgba(251,123,168,0.10)', color: '#10B981' }}
+                    style={{ background: 'rgba(228,104,94,0.12)', color: '#E4685E' }}
                   >
                     <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#10B981] opacity-60 animate-ping" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[#10B981]" />
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#E4685E] opacity-60 animate-ping" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[#E4685E]" />
                     </span>
                     {partnerDrawing ? (
                       <>{partner}가 끄적이는 중 <span className="animate-doodle-wiggle">✍️</span></>
@@ -586,7 +586,7 @@ export default function KkomMorningHome() {
                 {/* CTA — 우측 하단에 걸친 알약 버튼 */}
                 <span
                   className="absolute bottom-2.5 right-2.5 h-10 px-4 rounded-[20px] inline-flex items-center shadow-[0_4px_12px_rgba(0,0,0,0.12)]"
-                  style={{ background: online ? '#10B981' : '#FBBF24' }}
+                  style={{ background: online ? '#E4685E' : '#FBBF24' }}
                 >
                   <span className="font-handwriting text-[24px] leading-none text-white">종이 펼치기</span>
                 </span>
@@ -677,7 +677,7 @@ export default function KkomMorningHome() {
                 key={k}
                 onClick={() => changeLoc(k)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors ${
-                  active ? 'bg-[#10B981] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  active ? 'bg-[#E4685E] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 <Icon size={12} strokeWidth={2.5} />
