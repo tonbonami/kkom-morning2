@@ -988,76 +988,76 @@ export default function KkomMorningHome() {
               router.push('/praise');
             }}
             className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-            style={{ background: '#FFF2DB' }}
+            style={{ background: 'var(--m-praise)' }}
           >
             {praiseCount - praiseSeen > 0 && (
-              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[#94640D] text-white text-[10.5px] font-black flex items-center justify-center">
+              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-praise-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
                 {praiseCount - praiseSeen > 99 ? '99+' : praiseCount - praiseSeen}
               </span>
             )}
             <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
               <Award size={16} strokeWidth={2.2} /> 칭찬
             </div>
-            <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug">칭찬 다이어리</p>
+            <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug">칭찬 다이어리</p>
           </button>
           {/* 공유 리스트 */}
           <button
             onClick={() => router.push('/share')}
             className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-            style={{ background: '#FFF7DC' }}
+            style={{ background: 'var(--m-share)' }}
           >
             {shares.length > 0 && (
-              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[#906C07] text-white text-[10.5px] font-black flex items-center justify-center">
+              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-share-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
                 {shares.length > 99 ? '99+' : shares.length}
               </span>
             )}
             <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
               <Link2 size={16} strokeWidth={2.2} /> 공유 리스트
             </div>
-            <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug break-keep">{`${vocativeOf(userName)} 이거 봐봐 💚`}</p>
+            <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">{`${vocativeOf(userName)} 이거 봐봐 💚`}</p>
           </button>
 
           {/* 위시리스트 */}
           <button
             onClick={() => router.push('/wishlist')}
             className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-            style={{ background: '#FDEAF1' }}
+            style={{ background: 'var(--m-wishlist)' }}
           >
             {wishes.length > 0 && (
-              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[#C23768] text-white text-[10.5px] font-black flex items-center justify-center">
+              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-wishlist-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
                 {wishes.length > 99 ? '99+' : wishes.length}
               </span>
             )}
             <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
               <Heart size={16} strokeWidth={2.2} /> 위시리스트
             </div>
-            <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug break-keep">먹고싶은 곳 · 가고싶은 곳</p>
+            <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">먹고싶은 곳 · 가고싶은 곳</p>
           </button>
           {/* 또 갈래 */}
           <button
             onClick={() => router.push('/again')}
             className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-            style={{ background: '#E4F5EE' }}
+            style={{ background: 'var(--m-again)' }}
           >
             {agains.length > 0 && (
-              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[#137C5C] text-white text-[10.5px] font-black flex items-center justify-center">
+              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-again-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
                 {agains.length > 99 ? '99+' : agains.length}
               </span>
             )}
             <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
               <MapPin size={16} strokeWidth={2.2} /> 또 갈래
             </div>
-            <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug break-keep">또 가고 싶은 곳 · 단골</p>
+            <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">또 가고 싶은 곳 · 단골</p>
           </button>
 
           {/* 레시피 */}
           <button
             onClick={() => router.push('/recipes')}
             className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-            style={{ background: '#FDEDE3' }}
+            style={{ background: 'var(--m-recipes)' }}
           >
             {recipes.length > 0 && (
-              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[#B05124] text-white text-[10.5px] font-black flex items-center justify-center">
+              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-recipes-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
                 {recipes.length > 99 ? '99+' : recipes.length}
               </span>
             )}
@@ -1072,16 +1072,16 @@ export default function KkomMorningHome() {
             <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
               <ChefHat size={16} strokeWidth={2.2} /> 레시피
             </div>
-            <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug break-keep">같이 해먹은 걸 적어요</p>
+            <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">같이 해먹은 걸 적어요</p>
           </button>
           {/* 시집 */}
           <button
             onClick={() => router.push('/poems')}
             className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-            style={{ background: '#ECEEFB' }}
+            style={{ background: 'var(--m-poems)' }}
           >
             {poems.length > 0 && (
-              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[#4A52B5] text-white text-[10.5px] font-black flex items-center justify-center">
+              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-poems-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
                 {poems.length > 99 ? '99+' : poems.length}
               </span>
             )}
@@ -1097,7 +1097,7 @@ export default function KkomMorningHome() {
             {(() => {
               const n = countNewPoems(poems, poemsLastSeen);
               return (
-                <p className="text-[12.5px] font-semibold leading-snug break-keep" style={{ color: n > 0 ? '#E4685E' : '#8C8178' }}>
+                <p className="text-[12.5px] font-semibold leading-snug break-keep" style={{ color: n > 0 ? 'var(--sd-rel)' : 'var(--sd-faint)' }}>
                   {n > 0 ? `✨ 새 시 ${n}편` : '오늘 마음은 어떤 시'}
                 </p>
               );
