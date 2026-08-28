@@ -7,7 +7,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
   Wind, Heart, PenLine, BookOpen, ChefHat, BookText,
   RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award, CalendarDays,
-  Library, ExternalLink,
+  Library, ExternalLink, Link2, MapPin,
 } from 'lucide-react';
 
 // 화면에서 보는 위치 (알림 cron과 별개로 사용자가 선택)
@@ -979,7 +979,7 @@ export default function KkomMorningHome() {
         )}
 
         {/* keep 카드 — 사이담식 2열 모듈 그리드. 틀만 교체, onClick·데이터·뱃지 전부 그대로 */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4 auto-rows-min">
           {/* 칭찬 */}
           <button
             onClick={() => {
@@ -987,7 +987,7 @@ export default function KkomMorningHome() {
               setPraiseSeen(praiseCount);
               router.push('/praise');
             }}
-            className="relative flex flex-col justify-between min-h-[116px] rounded-[18px] p-3.5 text-left active:scale-[.98] transition-transform shadow-[0_1px_3px_rgba(70,55,60,0.05),0_12px_24px_-16px_rgba(70,55,60,0.3)]"
+            className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
             style={{ background: '#FFF2DB' }}
           >
             {praiseCount - praiseSeen > 0 && (
@@ -995,15 +995,15 @@ export default function KkomMorningHome() {
                 {praiseCount - praiseSeen > 99 ? '99+' : praiseCount - praiseSeen}
               </span>
             )}
-            <div className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: '#94640D' }}>
-              <Award size={17} strokeWidth={2.4} /> 칭찬
+            <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+              <Award size={16} strokeWidth={2.2} /> 칭찬
             </div>
             <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug">칭찬 다이어리</p>
           </button>
           {/* 공유 리스트 */}
           <button
             onClick={() => router.push('/share')}
-            className="relative flex flex-col justify-between min-h-[116px] rounded-[18px] p-3.5 text-left active:scale-[.98] transition-transform shadow-[0_1px_3px_rgba(70,55,60,0.05),0_12px_24px_-16px_rgba(70,55,60,0.3)]"
+            className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
             style={{ background: '#FFF7DC' }}
           >
             {shares.length > 0 && (
@@ -1011,8 +1011,8 @@ export default function KkomMorningHome() {
                 {shares.length > 99 ? '99+' : shares.length}
               </span>
             )}
-            <div className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: '#906C07' }}>
-              <Sparkles size={17} strokeWidth={2.4} fill="currentColor" /> 공유 리스트
+            <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+              <Link2 size={16} strokeWidth={2.2} /> 공유 리스트
             </div>
             <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug break-keep">{`${vocativeOf(userName)} 이거 봐봐 💚`}</p>
           </button>
@@ -1020,7 +1020,7 @@ export default function KkomMorningHome() {
           {/* 위시리스트 */}
           <button
             onClick={() => router.push('/wishlist')}
-            className="relative flex flex-col justify-between min-h-[116px] rounded-[18px] p-3.5 text-left active:scale-[.98] transition-transform shadow-[0_1px_3px_rgba(70,55,60,0.05),0_12px_24px_-16px_rgba(70,55,60,0.3)]"
+            className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
             style={{ background: '#FDEAF1' }}
           >
             {wishes.length > 0 && (
@@ -1028,15 +1028,15 @@ export default function KkomMorningHome() {
                 {wishes.length > 99 ? '99+' : wishes.length}
               </span>
             )}
-            <div className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: '#C23768' }}>
-              <Sparkles size={17} strokeWidth={2.4} /> 위시리스트
+            <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+              <Heart size={16} strokeWidth={2.2} /> 위시리스트
             </div>
             <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug break-keep">먹고싶은 곳 · 가고싶은 곳</p>
           </button>
           {/* 또 갈래 */}
           <button
             onClick={() => router.push('/again')}
-            className="relative flex flex-col justify-between min-h-[116px] rounded-[18px] p-3.5 text-left active:scale-[.98] transition-transform shadow-[0_1px_3px_rgba(70,55,60,0.05),0_12px_24px_-16px_rgba(70,55,60,0.3)]"
+            className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
             style={{ background: '#E4F5EE' }}
           >
             {agains.length > 0 && (
@@ -1044,8 +1044,8 @@ export default function KkomMorningHome() {
                 {agains.length > 99 ? '99+' : agains.length}
               </span>
             )}
-            <div className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: '#137C5C' }}>
-              <CheckCircle2 size={17} strokeWidth={2.4} /> 또 갈래
+            <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+              <MapPin size={16} strokeWidth={2.2} /> 또 갈래
             </div>
             <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug break-keep">또 가고 싶은 곳 · 단골</p>
           </button>
@@ -1053,7 +1053,7 @@ export default function KkomMorningHome() {
           {/* 레시피 */}
           <button
             onClick={() => router.push('/recipes')}
-            className="relative flex flex-col justify-between min-h-[116px] rounded-[18px] p-3.5 text-left active:scale-[.98] transition-transform shadow-[0_1px_3px_rgba(70,55,60,0.05),0_12px_24px_-16px_rgba(70,55,60,0.3)]"
+            className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
             style={{ background: '#FDEDE3' }}
           >
             {recipes.length > 0 && (
@@ -1069,15 +1069,15 @@ export default function KkomMorningHome() {
                 <span className="absolute top-2 left-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
               ) : null;
             })()}
-            <div className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: '#B05124' }}>
-              <ChefHat size={17} strokeWidth={2.4} /> 레시피
+            <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+              <ChefHat size={16} strokeWidth={2.2} /> 레시피
             </div>
             <p className="text-[12.5px] font-semibold text-[#8C8178] leading-snug break-keep">같이 해먹은 걸 적어요</p>
           </button>
           {/* 시집 */}
           <button
             onClick={() => router.push('/poems')}
-            className="relative flex flex-col justify-between min-h-[116px] rounded-[18px] p-3.5 text-left active:scale-[.98] transition-transform shadow-[0_1px_3px_rgba(70,55,60,0.05),0_12px_24px_-16px_rgba(70,55,60,0.3)]"
+            className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
             style={{ background: '#ECEEFB' }}
           >
             {poems.length > 0 && (
@@ -1091,8 +1091,8 @@ export default function KkomMorningHome() {
                 <span className="absolute top-2 left-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
               ) : null;
             })()}
-            <div className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: '#4A52B5' }}>
-              <BookText size={17} strokeWidth={2.4} /> 시집
+            <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+              <BookText size={16} strokeWidth={2.2} /> 시집
             </div>
             {(() => {
               const n = countNewPoems(poems, poemsLastSeen);
