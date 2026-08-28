@@ -438,7 +438,7 @@ export default function KkomMorningHome() {
     return <span className="text-4xl drop-shadow-sm">{key || '…'}</span>;
   };
 
-  if (!mounted) return <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />;
+  if (!mounted) return <div className="sd-app min-h-screen max-w-md mx-auto" />;
 
   // 홈에서 왼쪽으로 스와이프 → 꼼톡 열기. 가로 스크롤 요소(미니 이모티콘 줄 등) 위에선 무시.
   const onHomeTouchStart = (e: any) => {
@@ -463,7 +463,7 @@ export default function KkomMorningHome() {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-[#F7F9F9] min-h-screen text-slate-800 relative overflow-x-hidden pb-[calc(110px+env(safe-area-inset-bottom))] selection:bg-[#99E6D9]/40"
+    <div className="sd-app w-full max-w-md mx-auto min-h-screen text-slate-800 relative overflow-x-hidden pb-[calc(110px+env(safe-area-inset-bottom))] selection:bg-[#99E6D9]/40"
       onTouchStart={onHomeTouchStart} onTouchEnd={onHomeTouchEnd}>
       {/* 상단 등급색 그라데이션 — 전체를 하나의 흐름으로 */}
       <div className={`absolute top-0 left-0 w-full h-80 bg-gradient-to-b ${theme.gradient} to-[#F7F9F9] -z-0`} />

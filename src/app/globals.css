@@ -2,6 +2,84 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── 사이담 디자인 토큰 이식 (saidam/src/app/globals.css 원본 값 그대로) ──
+   핵심: "휘황찬란"의 원인은 카드 색이 아니라 분홍빛 바탕. 바탕을 채도14% 중립으로.
+   따뜻함은 바탕이 아니라 카드·글자가 만든다. 카드 면=옅게, 강조는 아이콘·숫자에만. */
+:root {
+  --sd-grad-1: #FCFAF7;  --sd-grad-2: #F9F7F4;  --sd-grad-3: #F7F6F7;
+  --sd-card: rgba(255,255,255,.74);
+  --sd-card-live: rgba(255,255,255,.88);
+  --sd-card-quiet: rgba(255,255,255,.58);
+  --sd-card-solid: #FFFFFF;
+  /* 모듈 색 — 면 / 강조(-ac) / 카드 안 타일(-tile) */
+  --m-chat:#FFF0EA;     --m-chat-ac:#C83E28;     --m-chat-tile:#F6E0DD;
+  --m-mood:#FFF4E4;     --m-mood-ac:#A26016;     --m-mood-tile:#F0E6DA;
+  --m-calendar:#F1EEFC; --m-calendar-ac:#6455C7; --m-calendar-tile:#E6E4F6;
+  --m-weather:#E8F1FC;  --m-weather-ac:#2E6FB4;  --m-weather-tile:#DEE8F3;
+  --m-air:#E6F2F0;      --m-air-ac:#0E7C6E;      --m-air-tile:#D8EAE8;
+  --m-wishlist:#FDEAF1; --m-wishlist-ac:#C23768; --m-wishlist-tile:#F5DFE7;
+  --m-share:#FFF7DC;    --m-share-ac:#906C07;    --m-share-tile:#EDE7D7;
+  --m-again:#E4F5EE;    --m-again-ac:#137C5C;    --m-again-tile:#D9EAE5;
+  --m-letter:#FBEBF6;   --m-letter-ac:#A63E93;   --m-letter-tile:#F1E0EE;
+  --m-recipes:#FDEDE3;  --m-recipes-ac:#B05124;  --m-recipes-tile:#F2E3DC;
+  --m-memories:#FBEFE9; --m-memories-ac:#9A5A2E; --m-memories-tile:#EFE5DE;
+  --m-poems:#ECEEFB;    --m-poems-ac:#4A52B5;    --m-poems-tile:#E2E3F3;
+  --m-praise:#FFF2DB;   --m-praise-ac:#94640D;   --m-praise-tile:#EEE6D8;
+  --m-doodle:#EEF3E8;   --m-doodle-ac:#4E7839;   --m-doodle-tile:#E3E9DF;
+  /* 잉크 */
+  --sd-ink:#2E1D26; --sd-ink-btn:#382830; --sd-muted:#6E5457; --sd-faint:#806668;
+  --sd-cardlabel:#9C8A8C; --sd-line:#E4D2D2; --sd-surface-2:#F1EBEA;
+  /* 관계색 — 꼼모닝은 연인 고정이라 코랄을 기본 --sd-rel 로 */
+  --sd-couple:#E4685E; --sd-couple-2:#EE7C6C; --sd-couple-soft:#FDEBE6; --sd-crit:#C9524F;
+  --sd-rel:var(--sd-couple); --sd-rel-2:var(--sd-couple-2); --sd-rel-soft:var(--sd-couple-soft);
+  --sd-rel-shadow:0 12px 26px -12px rgba(228,104,94,.5);
+  /* 테이프·그림자 */
+  --sd-tape:rgba(248,226,210,.58); --sd-tape-grid:rgba(232,193,172,.45);
+  --sd-shadow-card:0 1px 3px rgba(70,55,60,.07), 0 14px 28px -14px rgba(70,55,60,.30);
+  --sd-shadow-btn:0 10px 22px -10px rgba(46,29,38,.45);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sd-grad-1:#241A20; --sd-grad-2:#221A22; --sd-grad-3:#1E1A26;
+    --sd-card:rgba(255,255,255,.07); --sd-card-live:rgba(255,255,255,.12);
+    --sd-card-quiet:rgba(255,255,255,.045); --sd-card-solid:#2A2028;
+    --sd-ink:#F2E8EA; --sd-ink-btn:#F2E8EA; --sd-muted:#C9B4B9; --sd-faint:#A18C92;
+    --sd-cardlabel:#8C7A80; --sd-line:#453843; --sd-surface-2:#2E2530;
+    --m-chat:color-mix(in srgb,#C83E28 16%,#221A22);     --m-chat-ac:color-mix(in srgb,#C83E28 55%,#FFF);     --m-chat-tile:color-mix(in srgb,#C83E28 26%,#221A22);
+    --m-mood:color-mix(in srgb,#A26016 16%,#221A22);     --m-mood-ac:color-mix(in srgb,#A26016 55%,#FFF);     --m-mood-tile:color-mix(in srgb,#A26016 26%,#221A22);
+    --m-calendar:color-mix(in srgb,#6455C7 16%,#221A22); --m-calendar-ac:color-mix(in srgb,#6455C7 55%,#FFF); --m-calendar-tile:color-mix(in srgb,#6455C7 26%,#221A22);
+    --m-weather:color-mix(in srgb,#2E6FB4 16%,#221A22);  --m-weather-ac:color-mix(in srgb,#2E6FB4 55%,#FFF);  --m-weather-tile:color-mix(in srgb,#2E6FB4 26%,#221A22);
+    --m-air:color-mix(in srgb,#0E7C6E 16%,#221A22);      --m-air-ac:color-mix(in srgb,#0E7C6E 55%,#FFF);      --m-air-tile:color-mix(in srgb,#0E7C6E 26%,#221A22);
+    --m-wishlist:color-mix(in srgb,#C23768 16%,#221A22); --m-wishlist-ac:color-mix(in srgb,#C23768 55%,#FFF); --m-wishlist-tile:color-mix(in srgb,#C23768 26%,#221A22);
+    --m-share:color-mix(in srgb,#906C07 16%,#221A22);    --m-share-ac:color-mix(in srgb,#906C07 55%,#FFF);    --m-share-tile:color-mix(in srgb,#906C07 26%,#221A22);
+    --m-again:color-mix(in srgb,#137C5C 16%,#221A22);    --m-again-ac:color-mix(in srgb,#137C5C 55%,#FFF);    --m-again-tile:color-mix(in srgb,#137C5C 26%,#221A22);
+    --m-letter:color-mix(in srgb,#A63E93 16%,#221A22);   --m-letter-ac:color-mix(in srgb,#A63E93 55%,#FFF);   --m-letter-tile:color-mix(in srgb,#A63E93 26%,#221A22);
+    --m-recipes:color-mix(in srgb,#B05124 16%,#221A22);  --m-recipes-ac:color-mix(in srgb,#B05124 55%,#FFF);  --m-recipes-tile:color-mix(in srgb,#B05124 26%,#221A22);
+    --m-memories:color-mix(in srgb,#9A5A2E 16%,#221A22); --m-memories-ac:color-mix(in srgb,#9A5A2E 55%,#FFF); --m-memories-tile:color-mix(in srgb,#9A5A2E 26%,#221A22);
+    --m-poems:color-mix(in srgb,#4A52B5 16%,#221A22);    --m-poems-ac:color-mix(in srgb,#4A52B5 55%,#FFF);    --m-poems-tile:color-mix(in srgb,#4A52B5 26%,#221A22);
+    --m-praise:color-mix(in srgb,#94640D 16%,#221A22);   --m-praise-ac:color-mix(in srgb,#94640D 55%,#FFF);   --m-praise-tile:color-mix(in srgb,#94640D 26%,#221A22);
+    --m-doodle:color-mix(in srgb,#4E7839 16%,#221A22);   --m-doodle-ac:color-mix(in srgb,#4E7839 55%,#FFF);   --m-doodle-tile:color-mix(in srgb,#4E7839 26%,#221A22);
+    --sd-couple-soft:#3A2429; --sd-crit:#F0736D; --sd-rel-soft:var(--sd-couple-soft);
+    --sd-tape:rgba(247,220,201,.3); --sd-tape-grid:rgba(238,201,183,.38);
+    --sd-shadow-card:0 1px 2px rgba(0,0,0,.3), 0 18px 38px -16px rgba(0,0,0,.7);
+    --sd-shadow-btn:0 10px 24px -10px rgba(0,0,0,.65);
+  }
+}
+/* 앱 바탕 — 따뜻한 중립 그라디언트 */
+.sd-app { background: linear-gradient(168deg, var(--sd-grad-1) 0%, var(--sd-grad-2) 58%, var(--sd-grad-3) 100%); }
+/* 카드 — 테두리 없이 그림자+투명도로만 경계. backdrop-filter 안 씀(유리로 읽힘). */
+.sd-card { background: var(--sd-card); border-radius: 28px; box-shadow: var(--sd-shadow-card); }
+.sd-card--live  { background: var(--sd-card-live); }
+.sd-card--quiet { background: var(--sd-card-quiet); box-shadow: 0 1px 2px rgba(90,60,70,.03), 0 10px 22px -14px rgba(90,60,70,.26); }
+/* 살구빛 워시테이프 */
+.sd-tape {
+  position: absolute; pointer-events: none; background-color: var(--sd-tape);
+  background-image:
+    repeating-linear-gradient(0deg, var(--sd-tape-grid) 0 1px, transparent 1px 14px),
+    repeating-linear-gradient(90deg, var(--sd-tape-grid) 0 1px, transparent 1px 14px);
+  box-shadow: 0 2px 5px rgba(90,60,70,.07);
+}
+
 /* Claude 참고: Dongle은 글자가 좀 작게 렌더되는 폰트라
    text-[20px]가 PT Sans의 14px 정도 체감. 시각 사이즈를 일관되게 보정.
    font-handwriting 클래스는 자간/줄간만 살짝 정리하고 사이즈 보정은 site-wide로. */
