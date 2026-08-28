@@ -127,6 +127,7 @@ const DANG_STICKERS: { word: string; image: string }[] = [
   { word: '귀엽꼬미', image: '/pochacco_dang/cutekkomi.png' },
   { word: '앙 귀여워', image: '/pochacco_dang/angcute.png' },
   { word: '치카치카', image: '/pochacco_dang/dangchicca.png' },
+  { word: '푸데데', image: '/pochacco_dang/dangpudede.png' },
 ];
 // kkom's 탭 — 꼼이(여자 포차코) 스티커
 const KKOM_STICKERS: { word: string; image: string }[] = [
@@ -135,7 +136,7 @@ const KKOM_STICKERS: { word: string; image: string }[] = [
   { word: '치카치카', image: '/pochacco_kkom/kkomchicca.png' },
   { word: '얍', image: '/pochacco_kkom/kkomiyap.png' },
   { word: '푸데데', image: '/pochacco_kkom/kkomipudede.png' },
-  { word: '저리가', image: '/pochacco_kkom/pochaccofly.png' },
+  { word: '인싸강아지', image: '/pochacco_kkom/pochaccofly.png' },
 ];
 
 // 답장 미리보기/푸시용 — 미니는 🐶, 텍스트 스티커는 괄호만 벗겨 단어로.
