@@ -466,7 +466,7 @@ export default function KkomMorningHome() {
     <div className="sd-app w-full max-w-md mx-auto min-h-screen text-slate-800 relative overflow-x-hidden pb-[calc(110px+env(safe-area-inset-bottom))] selection:bg-[#99E6D9]/40"
       onTouchStart={onHomeTouchStart} onTouchEnd={onHomeTouchEnd}>
       {/* 상단 등급색 그라데이션 — 전체를 하나의 흐름으로 */}
-      <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-[#F5EFE8] to-transparent -z-0" />
+      {/* 사이담은 페이지 바탕이 .sd-app 그라디언트 하나뿐 — 여분 상단 wash 제거(더 진해 보이던 원인) */}
 
       {/* 1. Header */}
       <header className="relative z-10 px-6 pt-12 pb-4 flex justify-between items-start">
