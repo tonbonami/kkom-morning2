@@ -388,15 +388,19 @@ export default function KkomMorningHome() {
   };
 
   const getPochacco = () => {
-    // 우선순위: 미세먼지 보호 > 더위/추위 > 기본
+    // 사이담 말티푸 8종. 우선순위: 미세먼지 > 더위/추위 > 강수 > 기본
     if (air?.grade === '나쁨' || air?.grade === '매우 나쁨') {
-      return '/pochacco/pochacco_dust.png'; // 마스크 + 후드 ver
+      return '/pochacco/sai_cloudy.png'; // 나쁜 공기 = 우중충 (전용 마스크 포즈는 없음)
     }
     const t = weather?.current?.temp ?? 0;
-    if (t >= 28) return '/pochacco/pochacco_sohot.png'; // 아주 더움 — 땀 닦는 민소매 ver
-    if (t >= 10) return '/pochacco_picnic.png';
-    if (t <= -1) return '/pochacco_cold.png';
-    return '/pochacco.png';
+    // /api/weather의 current엔 pty가 있으나 WeatherData 타입엔 없어 캐스팅으로 읽음
+    const pty = (weather?.current as { pty?: string | null } | null | undefined)?.pty;
+    if (t >= 28) return '/pochacco/sai_hot.png';   // 아주 더움
+    if (t <= -1) return '/pochacco/sai_cold.png';  // 아주 추움
+    if (pty === '1' || pty === '2' || pty === '4') return '/pochacco/sai_rain.png'; // 비
+    if (pty === '3') return '/pochacco/sai_snow.png'; // 눈
+    if (t >= 10) return '/pochacco/sai_sunny.png';  // 따뜻·맑음
+    return '/pochacco/sai_partly.png';              // 선선한 기본
   };
 
   const partner = partnerOf(userName);

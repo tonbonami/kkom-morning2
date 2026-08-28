@@ -15,13 +15,15 @@ const LOCATIONS = {
 } as const;
 type LocKey = keyof typeof LOCATIONS;
 
-// 날씨 등급 → 포차코 기상캐스터 이미지
+// 날씨 등급 → 기상캐스터 이미지 (사이담 말티푸 8종). 강수 > 극한기온 > 하늘상태 순.
 function pickCaster(sky: string | null, pty: string | null, temp: number | null): string {
-  if (pty === '1' || pty === '2') return '/pochacco/cast_rain.png';
-  if (pty === '3') return '/pochacco/cast_snow.png';
-  if (sky === '1') return '/pochacco/cast_sunny.png';
-  if (sky === '3') return '/pochacco/cast_cloudy.png';
-  return '/pochacco/cast_overcast.png';
+  if (pty === '1' || pty === '2') return '/pochacco/sai_rain.png';
+  if (pty === '3') return '/pochacco/sai_snow.png';
+  if (temp != null && temp >= 28) return '/pochacco/sai_hot.png';
+  if (temp != null && temp <= -1) return '/pochacco/sai_cold.png';
+  if (sky === '1') return '/pochacco/sai_sunny.png';   // 맑음
+  if (sky === '3') return '/pochacco/sai_partly.png';  // 구름많음
+  return '/pochacco/sai_cloudy.png';                   // 흐림
 }
 
 // 날씨 → 캐릭터 한 마디
