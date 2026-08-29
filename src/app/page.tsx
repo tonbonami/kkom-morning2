@@ -656,61 +656,48 @@ export default function KkomMorningHome() {
         </div>
       </div>
 
-      {/* 2. 포차코 + 미세먼지 (카드 아닌 공간으로 존재) */}
-      <section className="relative z-10 px-6 pt-2 pb-8">
-        {/* 배경에 블렌딩되는 포차코 */}
-        <div className="absolute right-2 -top-12 w-32 h-32 z-0 rounded-[36px] overflow-hidden drop-shadow-[0_16px_28px_rgba(16,185,129,0.3)]">
-          <Image src={getPochacco()} alt="포차코" fill className="object-cover" priority />
-        </div>
-
-        <div className="relative z-10 flex flex-col gap-6">
-          <div className="pt-10">
-            <div className="flex items-center gap-1.5 mb-2 opacity-80">
-              <Wind size={16} className={theme.text} strokeWidth={2.5} />
-              <span className="text-sm font-bold text-slate-600">{air?.location || '금곡동'} 미세먼지</span>
-            </div>
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <h2 className={`text-5xl font-extrabold tracking-tight ${theme.text}`}>
+      {/* 미세먼지 — 사이담 air 카드. 흰 sd-card + 등급(등급별 색) + PM + AirSkyVisual + 내일 + 알림토글.
+          (말티푸/포차코 캐릭터는 사이담 air엔 없어서 제거함 — 원하면 재배치) */}
+      <section className="relative z-10 px-5 pt-2 pb-2">
+        <div className="sd-card overflow-hidden" style={{ background: 'var(--sd-card-solid)' }}>
+          <button onClick={() => router.push('/weather')} className="block w-full text-left px-4 pt-4 pb-1 active:opacity-90" aria-label="미세먼지 상세">
+            <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+              <Wind size={16} /> {air?.location || '금곡동'} 미세먼지
+            </span>
+            <div className="mt-2 flex items-baseline gap-2.5 flex-wrap">
+              <span className={`text-[34px] font-extrabold leading-none tracking-tight ${theme.text}`}>
                 {hasGrade ? air.grade : '불러오는 중'}
-              </h2>
-              <span className="text-sm font-medium text-slate-500">
-                PM10 <strong className="text-slate-700">{air?.pm10 ?? '--'}</strong> · PM2.5 <strong className="text-slate-700">{air?.pm25 ?? '--'}</strong>
               </span>
+              {air && (
+                <span className="text-[12.5px]" style={{ color: 'var(--sd-muted)' }}>
+                  PM10 <b style={{ color: 'var(--sd-ink)' }}>{air.pm10 ?? '--'}</b> · PM2.5 <b style={{ color: 'var(--sd-ink)' }}>{air.pm25 ?? '--'}</b>
+                </span>
+              )}
             </div>
-          </div>
-
-          {/* SVG 하늘 — 등급별 비주얼 (맑은하늘/뿌연하늘/먼지) + 내일 예보 + 알림 토글 */}
-          <div className="bg-white rounded-[32px] overflow-hidden shadow-[0_2px_24px_rgba(0,0,0,0.03)] border border-white/40">
-            <AirSkyVisual grade={air?.grade} height={170} />
-            <div className="px-5 py-3.5 border-t border-slate-100 flex items-center justify-between text-sm">
-              <span className="font-semibold text-slate-600">내일 예보</span>
-              <span className="text-slate-500">{air?.tomorrow?.summary || (air?.tomorrow?.grade ? `${air.tomorrow.grade} 예상` : '준비 중')}</span>
+          </button>
+          <div className="mt-3 overflow-hidden">
+            <AirSkyVisual grade={air?.grade} height={132} />
+            <div className="px-4 py-3 flex items-center justify-between text-[12.5px]" style={{ borderTop: '1px solid rgba(0,0,0,.06)' }}>
+              <span className="font-bold" style={{ color: 'var(--sd-muted)' }}>내일 예보</span>
+              <span style={{ color: 'var(--sd-faint)' }}>{air?.tomorrow?.summary || (air?.tomorrow?.grade ? `${air.tomorrow.grade} 예상` : '준비 중')}</span>
             </div>
-            {/* 미세먼지 알림 토글 — 폰 푸시 (매일 아침 7시, 나쁨 이상이면 알림) */}
             {pushState !== 'unknown' && pushState !== 'unsupported' && (
-              <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-slate-600">
+              <div className="px-4 py-3 flex items-center justify-between text-[12.5px]" style={{ borderTop: '1px solid rgba(0,0,0,.06)' }}>
+                <div className="flex items-center gap-2" style={{ color: 'var(--sd-muted)' }}>
                   {pushState === 'on'
-                    ? <Bell size={14} strokeWidth={2.5} className="text-[#10B981]" />
-                    : <BellOff size={14} strokeWidth={2.5} className="text-slate-400" />}
-                  <span className="font-semibold">미세먼지 알림</span>
-                  <span className="text-[11px] font-medium text-slate-400">매일 아침 7시</span>
+                    ? <Bell size={14} strokeWidth={2.5} style={{ color: 'var(--m-air-ac)' }} />
+                    : <BellOff size={14} strokeWidth={2.5} style={{ color: 'var(--sd-faint)' }} />}
+                  <span className="font-bold">미세먼지 알림</span>
+                  <span className="text-[11px]" style={{ color: 'var(--sd-faint)' }}>매일 아침 7시</span>
                 </div>
                 {pushState === 'denied' ? (
-                  <span className="text-[11px] font-bold text-slate-400">권한 차단됨</span>
+                  <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>권한 차단됨</span>
                 ) : (
-                  <button
-                    onClick={togglePush}
-                    role="switch"
-                    aria-checked={pushState === 'on'}
-                    aria-label="미세먼지 알림 토글"
+                  <button onClick={togglePush} role="switch" aria-checked={pushState === 'on'} aria-label="미세먼지 알림 토글"
                     className="relative w-10 h-6 rounded-full transition-colors duration-200 shrink-0"
-                    style={{ backgroundColor: pushState === 'on' ? '#10B981' : '#CBD5E1' }}
-                  >
-                    <span
-                      className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200"
-                      style={{ transform: pushState === 'on' ? 'translateX(16px)' : 'translateX(0)' }}
-                    />
+                    style={{ backgroundColor: pushState === 'on' ? 'var(--m-air-ac)' : '#CBD5E1' }}>
+                    <span className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200"
+                      style={{ transform: pushState === 'on' ? 'translateX(16px)' : 'translateX(0)' }} />
                   </button>
                 )}
               </div>
@@ -894,35 +881,32 @@ export default function KkomMorningHome() {
           )}
         </button>
 
-        {/* 우리의 추억 — 폴라로이드 톤 (Gemini 리뷰 P0) */}
-        {latestMemory && (
-          <button
-            onClick={() => router.push('/memories')}
-            className="relative w-full bg-white rounded-2xl p-4 shadow-[2px_3px_0px_rgba(0,0,0,0.05)] border border-slate-100 flex items-center gap-4 text-left active:scale-[0.98] transition-all"
-          >
-            <div className="tape absolute -top-2 right-6 w-12 -rotate-6 z-10" />
-            {/* 배지가 overflow-hidden에 잘리지 않게 relative wrapper로 빼냄 */}
-            <div className="relative shrink-0">
-              <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100">
-                <img src={latestMemory.imageUrl} alt={latestMemory.title} className="w-full h-full object-cover" />
+        {/* 추억 — 사이담 memories 카드. 큰 사진 썸네일 + 제목 오버레이 + N장. peach --m-memories */}
+        <button
+          onClick={() => router.push('/memories')}
+          aria-label="추억"
+          className="sd-card w-full min-h-[140px] px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
+          style={{ background: 'var(--m-memories)', ['--m-ac' as string]: 'var(--m-memories-ac)' } as React.CSSProperties}
+        >
+          <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+            <Camera size={16} /> 추억
+          </span>
+          {latestMemory ? (
+            <div className="relative flex-1 min-h-[92px] mt-2 rounded-2xl overflow-hidden" style={{ background: 'var(--sd-card)' }}>
+              <img src={latestMemory.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-x-0 bottom-0 px-3 pt-6 pb-2" style={{ background: 'linear-gradient(to top, rgba(0,0,0,.55), transparent)' }}>
+                <p className="text-[12.5px] font-bold text-white line-clamp-1">{latestMemory.title || '추억'}</p>
               </div>
               {memoryCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-slate-800 text-white text-[11px] font-black flex items-center justify-center shadow-md ring-2 ring-white z-10">
-                  {memoryCount > 99 ? '99+' : memoryCount}
+                <span className="absolute top-2 right-2 text-[11px] font-extrabold px-2 py-0.5 rounded-full tabular-nums" style={{ background: 'rgba(255,255,255,.9)', color: 'var(--m-ac)' }}>
+                  {memoryCount > 99 ? '99+' : memoryCount}장
                 </span>
               )}
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-                <Camera size={14} strokeWidth={2.5} />
-                <span className="text-xs font-bold">우리의 추억</span>
-              </div>
-              <p className="text-sm font-bold text-slate-700 truncate">{latestMemory.title || '소중한 순간'}</p>
-              <p className="text-[11px] text-slate-400">모두 보기</p>
-            </div>
-            <ChevronRight size={20} className="text-slate-400 shrink-0" />
-          </button>
-        )}
+          ) : (
+            <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>같이 찍은 사진을 모아요</p>
+          )}
+        </button>
 
         {/* keep 카드 — 사이담식 2열 모듈 그리드. 틀만 교체, onClick·데이터·뱃지 전부 그대로 */}
         <div className="grid grid-cols-2 gap-4 auto-rows-min">
