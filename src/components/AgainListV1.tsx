@@ -7,7 +7,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
   ArrowLeft, MapPin, ExternalLink, Trash2, Utensils, Map, MonitorPlay,
-  CheckCircle2, Camera, Undo2,
+  CheckCircle2, Camera, Undo2, Plus, X, Loader2,
 } from 'lucide-react';
 
 export type Category = 'food' | 'place' | 'watch';
@@ -33,7 +33,15 @@ interface Props {
   onDelete: (id: string) => Promise<void>;
   onAddPhoto?: (item: AgainItem) => void;   // 갤러리로 점프
   onSendBack?: (item: AgainItem) => void;   // 위시리스트로 되돌리기
+  onAdd?: (draft: { category: Category; title: string; url?: string; location?: string; memo?: string }) => Promise<void>; // 직접 추가
 }
+
+// 또 갈래는 '이미 다녀온 곳'을 적는 자리 — 위시(가볼 곳)와 카테고리는 같고 라벨만 과거형.
+const ADD_CATS: { id: Category; label: string; icon: React.ReactNode; color: string }[] = [
+  { id: 'food', label: '먹은 곳', icon: <Utensils size={14} />, color: 'bg-[#FCA5A5]' },
+  { id: 'place', label: '간 곳', icon: <Map size={14} />, color: 'bg-[#10B981]' },
+  { id: 'watch', label: '본 것', icon: <MonitorPlay size={14} />, color: 'bg-[#C4B5FD]' },
+];
 
 const CATEGORY_COLORS: Record<Category, string> = {
   food: 'bg-[#FCA5A5]',
@@ -126,7 +134,7 @@ function AgainCard({
 
           <div className="mt-3 flex items-center gap-3 text-[11px] font-bold text-slate-400">
             <span className="flex items-center gap-1 text-[#10B981]">
-              <CheckCircle2 size={12} /> {item.sentBy}이(가) 보냄 · {relTime(item.sentAt)}
+              <CheckCircle2 size={12} /> {item.sentBy}이(가) {item.by === item.sentBy ? '추가함' : '보냄'} · {relTime(item.sentAt)}
             </span>
           </div>
 
@@ -178,8 +186,40 @@ function AgainCard({
   );
 }
 
-export default function AgainListV1({ me, items, onBack, onOpen, onDelete, onAddPhoto, onSendBack }: Props) {
+export default function AgainListV1({ me, items, onBack, onOpen, onDelete, onAddPhoto, onSendBack, onAdd }: Props) {
   const sorted = useMemo(() => [...items].sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime()), [items]);
+
+  // 직접 추가 시트
+  const [isAdding, setIsAdding] = useState(false);
+  const [draftCategory, setDraftCategory] = useState<Category>('food');
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftUrl, setDraftUrl] = useState('');
+  const [draftLocation, setDraftLocation] = useState('');
+  const [draftMemo, setDraftMemo] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const openSheet = () => {
+    setDraftCategory('food'); setDraftTitle(''); setDraftUrl(''); setDraftLocation(''); setDraftMemo('');
+    setIsAdding(true);
+  };
+  const submitAdd = async () => {
+    if (!onAdd || !draftTitle.trim() || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await onAdd({
+        category: draftCategory,
+        title: draftTitle.trim(),
+        url: draftUrl.trim() || undefined,
+        location: draftLocation.trim() || undefined,
+        memo: draftMemo.trim() || undefined,
+      });
+      setIsAdding(false);
+    } catch (e) {
+      console.error('또갈래 직접 추가 실패:', e);
+      alert('추가하지 못했어요. 다시 시도해주세요.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-[#F7F9F9] max-w-md mx-auto overflow-hidden font-sans text-slate-900 pb-20">
@@ -192,7 +232,12 @@ export default function AgainListV1({ me, items, onBack, onOpen, onDelete, onAdd
             <h1 className="text-lg font-black tracking-tight">또 갈래</h1>
             <p className="text-[12px] font-bold text-slate-400 mt-0.5">총 {sorted.length}개 · 또 가고 싶은 곳</p>
           </div>
-          <div className="w-10" />
+          {onAdd ? (
+            <motion.button whileTap={{ scale: 0.9 }} onClick={openSheet} aria-label="또 갈래에 직접 추가"
+              className="w-10 h-10 -mr-1 rounded-full grid place-items-center bg-[#10B981] text-white shadow-[0_4px_12px_rgba(16,185,129,0.3)]">
+              <Plus size={22} strokeWidth={2.5} />
+            </motion.button>
+          ) : <div className="w-10" />}
         </div>
       </header>
 
@@ -208,8 +253,14 @@ export default function AgainListV1({ me, items, onBack, onOpen, onDelete, onAdd
               </div>
               <h3 className="text-lg font-bold text-slate-800 mb-2">아직 또 가고 싶은 곳이 없어요</h3>
               <p className="text-[14px] font-medium text-slate-500 leading-relaxed">
-                위시리스트에서 ✓ 체크하면<br />여기로 자동 이동돼요
+                좋았던 곳을 바로 적어두거나,<br />위시리스트에서 ✓ 체크하면 여기로 와요
               </p>
+              {onAdd && (
+                <button onClick={openSheet}
+                  className="mt-6 px-6 py-3 bg-[#10B981] text-white font-bold rounded-full shadow-[0_4px_16px_rgba(16,185,129,0.25)] flex items-center gap-2 active:scale-95 transition-transform">
+                  <Plus size={18} /> 직접 추가하기
+                </button>
+              )}
             </motion.div>
           )}
           {sorted.map((item, i) => (
@@ -232,6 +283,114 @@ export default function AgainListV1({ me, items, onBack, onOpen, onDelete, onAdd
           ))}
         </AnimatePresence>
       </main>
+
+      {/* 직접 추가 시트 — 위시리스트 톤 그대로, 단 사진 없음(다녀온 곳은 '추억'이 맡음) */}
+      <AnimatePresence>
+        {isAdding && onAdd && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => !isSubmitting && setIsAdding(false)}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 max-w-md mx-auto"
+            />
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[32px] z-50 overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="px-6 pt-5 pb-3 flex items-center justify-between bg-white sticky top-0 z-10">
+                <h2 className="text-xl font-bold text-slate-800">다녀온 곳 추가</h2>
+                <button onClick={() => !isSubmitting && setIsAdding(false)} className="p-2 bg-slate-50 rounded-full text-slate-400 hover:bg-slate-100 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="px-6 pb-8 overflow-y-auto custom-scrollbar">
+                {/* 카테고리 (과거형) */}
+                <div className="flex gap-3 mb-6">
+                  {ADD_CATS.map((cat) => {
+                    const isSel = draftCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setDraftCategory(cat.id)}
+                        className={`flex-1 py-3 rounded-2xl flex flex-col items-center gap-1.5 transition-colors border-2 ${
+                          isSel ? `border-transparent ${cat.color} text-white shadow-md` : 'border-slate-100 bg-white text-slate-400 hover:bg-slate-50'
+                        }`}
+                      >
+                        {cat.icon}
+                        <span className="text-[13px] font-bold">{cat.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-4">
+                  {/* 이름 (필수) — text-16으로 iOS 포커스 자동확대 방지 */}
+                  <div>
+                    <label className="block text-[13px] font-bold text-slate-500 mb-1.5 ml-1">이름 (필수)</label>
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="어디 다녀왔어?"
+                      value={draftTitle}
+                      onChange={(e) => setDraftTitle(e.target.value)}
+                      className="w-full bg-[#F7F9F9] rounded-[20px] px-5 py-4 text-[16px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 transition-shadow"
+                    />
+                  </div>
+
+                  {/* 링크 (선택) */}
+                  <div>
+                    <label className="block text-[13px] font-bold text-slate-500 mb-1.5 ml-1">링크 (선택)</label>
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={draftUrl}
+                      onChange={(e) => setDraftUrl(e.target.value)}
+                      className="w-full bg-[#F7F9F9] rounded-[20px] px-5 py-4 text-[16px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 transition-shadow"
+                    />
+                  </div>
+
+                  {/* 위치 (선택) */}
+                  <div>
+                    <label className="block text-[13px] font-bold text-slate-500 mb-1.5 ml-1">위치 (선택)</label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><MapPin size={18} /></div>
+                      <input
+                        type="text"
+                        placeholder="어디에 있어?"
+                        value={draftLocation}
+                        onChange={(e) => setDraftLocation(e.target.value)}
+                        className="w-full bg-[#F7F9F9] rounded-[20px] py-4 pl-12 pr-5 text-[16px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 transition-shadow"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 메모 (선택) */}
+                  <div>
+                    <label className="block text-[13px] font-bold text-slate-500 mb-1.5 ml-1">메모 (선택)</label>
+                    <textarea
+                      placeholder="어땠어? 다시 가고 싶은 이유"
+                      value={draftMemo}
+                      onChange={(e) => setDraftMemo(e.target.value)}
+                      className="w-full bg-[#F7F9F9] rounded-[20px] px-5 py-4 min-h-[90px] resize-none text-[16px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 transition-shadow"
+                    />
+                  </div>
+
+                  <button
+                    onClick={submitAdd}
+                    disabled={!draftTitle.trim() || isSubmitting}
+                    className="w-full py-4 mt-2 bg-[#10B981] text-white font-bold rounded-full shadow-[0_4px_16px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.98] transition-transform"
+                  >
+                    {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} strokeWidth={2.5} />}
+                    또 갈래에 추가
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

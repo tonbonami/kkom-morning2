@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AgainListV1, { type AgainItem } from '@/components/AgainListV1';
 import MediaPreviewModal from '@/components/MediaPreviewModal';
-import { subscribeAgain, deleteAgain, type AgainItemView } from '@/lib/again';
-import { addWish } from '@/lib/wishlist';
+import { subscribeAgain, deleteAgain, addAgain, type AgainItemView } from '@/lib/again';
+import { addWish, fetchOgPreview } from '@/lib/wishlist';
 import { nameFromCode } from '@/lib/letters';
 
 export default function AgainPage() {
@@ -32,6 +32,20 @@ export default function AgainPage() {
         items={items as unknown as AgainItem[]}
         onBack={() => router.push('/')}
         onDelete={deleteAgain}
+        onAdd={async (draft) => {
+          // 직접 추가 = 처음 적는 것 → by === sentBy === me, wishlistCreatedAt 없음
+          const preview = draft.url ? (await fetchOgPreview(draft.url)) ?? undefined : undefined;
+          await addAgain({
+            category: draft.category,
+            title: draft.title,
+            url: draft.url,
+            preview,
+            location: draft.location,
+            memo: draft.memo,
+            by: me,
+            sentBy: me,
+          });
+        }}
         onAddPhoto={() => router.push('/memories')}
         onOpen={(item) => {
           if (!item.url) return;
