@@ -8,6 +8,7 @@ import {
   Wind, Heart, PenLine, BookOpen, ChefHat, BookText,
   RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award, CalendarDays,
   Library, ExternalLink, Link2, MapPin, CloudSun, Mail, LayoutGrid, GripVertical, Check, LoaderCircle,
+  type LucideIcon,
 } from 'lucide-react';
 
 // 화면에서 보는 위치 (알림 cron과 별개로 사용자가 선택)
@@ -234,8 +235,8 @@ export default function KkomMorningHome() {
   const [pushState, setPushState] = useState<PushState>('unknown');
   const [locKey, setLocKey] = useState<LocKey>('home'); // 화면 위치 선택
   const [shares, setShares] = useState<ShareItemView[]>([]);
-  const [wishes, setWishes] = useState<{ id: string; createdAt: Date }[]>([]);
-  const [agains, setAgains] = useState<{ id: string; createdAt: Date }[]>([]);
+  const [wishes, setWishes] = useState<{ id: string; title: string; createdAt: Date }[]>([]);
+  const [agains, setAgains] = useState<{ id: string; title: string; createdAt: Date }[]>([]);
   const [recipes, setRecipes] = useState<RecipeItemView[]>([]);
   // 시집 — 카드 총편수 배지 + 안읽은 새 시 숫자 배지
   const [poems, setPoems] = useState<PoemItemView[]>([]);
@@ -286,11 +287,11 @@ export default function KkomMorningHome() {
     const unsubShares = subscribeShareList(setShares);
     // 위시리스트 — 카드 배지 + 매일매일 꼼모닝 헤더 정확한 오늘 카운트용 (dailyStats 대신)
     const unsubWishes = subscribeWishlist((items) => {
-      setWishes(items.filter((i) => !i.done).map((i) => ({ id: i.id, createdAt: i.createdAt })));
+      setWishes(items.filter((i) => !i.done).map((i) => ({ id: i.id, title: i.title, createdAt: i.createdAt })));
     });
     // 또갈래 — 카드 배지용
     const unsubAgains = subscribeAgain((items) => {
-      setAgains(items.map((i) => ({ id: i.id, createdAt: i.createdAt })));
+      setAgains(items.map((i) => ({ id: i.id, title: i.title, createdAt: i.createdAt })));
     });
     // 레시피 — 카드 NEW 배지 + 매일매일 꼼모닝 헤더 정확한 오늘 카운트용
     const unsubRecipes = subscribeRecipes(setRecipes);
@@ -600,6 +601,45 @@ export default function KkomMorningHome() {
     }
   };
 
+  // ── 리스트 카드 '알림' = 숫자 뱃지 대신 사이담식 최근 항목 제목 + 개수 노출 ──
+  const shareTop = shares[0];
+  const shareText = shareTop
+    ? (shareTop.preview?.title?.trim() || shareTop.memo?.trim() || shareTop.url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0])
+    : '';
+  const wishText = wishes[0]?.title ?? '';
+  const againText = agains[0]?.title ?? '';
+  const recipeText = recipes[0]?.title ?? '';
+  const poemText = poems[0]?.title ?? '';
+  const newPoemN = countNewPoems(poems, poemsLastSeen);
+  const newRecipe = (() => { const now = Date.now(); const DAY = 864e5; return recipes.some((r) => r.by !== userName && (now - r.createdAt.getTime() < DAY)); })();
+  const praiseUnread = praiseCount - praiseSeen;
+
+  // 리스트 카드 한 장(사이담식): 라벨 → 최근 제목(굵게) → 개수(새 글이면 강조색). 코너 숫자뱃지 제거.
+  const renderListCard = (o: {
+    Icon: LucideIcon; name: string; onClick: () => void; bg: string; ac: string;
+    recent: string; empty: string; count: number; unit: string; newText?: string;
+  }) => (
+    <button onClick={o.onClick}
+      className="sd-card w-full h-full px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
+      style={{ background: o.bg }}>
+      <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+        <o.Icon size={16} strokeWidth={2.2} /> {o.name}
+      </div>
+      <div className="mt-auto pt-2">
+        {o.recent ? (
+          <p className="text-[13.5px] font-bold line-clamp-1" style={{ color: 'var(--sd-ink)' }}>{o.recent}</p>
+        ) : (
+          <p className="text-[12.5px] font-semibold leading-snug break-keep" style={{ color: 'var(--sd-faint)' }}>{o.empty}</p>
+        )}
+        {o.count > 0 && (
+          <p className="text-[12px] font-bold mt-0.5 tabular-nums" style={{ color: o.newText ? o.ac : 'var(--sd-faint)' }}>
+            {o.count}{o.unit}{o.newText ? ` · ${o.newText}` : ''}
+          </p>
+        )}
+      </div>
+    </button>
+  );
+
   // ── 모듈 카드 본문 — 틀만 사이담식, 안의 데이터·onClick·이모티콘 전부 그대로. 각 카드는 h-full로 격자칸을 채운다.
   const moduleNodes: Record<string, React.ReactNode> = {
     doodle: (
@@ -893,115 +933,59 @@ export default function KkomMorningHome() {
     praise: (
       <button
         onClick={() => { localStorage.setItem(`praiseSeen:${kstDayKey(new Date())}`, String(praiseCount)); setPraiseSeen(praiseCount); router.push('/praise'); }}
-        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
+        className="sd-card w-full h-full px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
         style={{ background: 'var(--m-praise)' }}
       >
-        {praiseCount - praiseSeen > 0 && (
-          <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-praise-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
-            {praiseCount - praiseSeen > 99 ? '99+' : praiseCount - praiseSeen}
-          </span>
-        )}
         <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
           <Award size={16} strokeWidth={2.2} /> 칭찬
         </div>
-        <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug">칭찬 다이어리</p>
-      </button>
-    ),
-    share: (
-      <button
-        onClick={() => router.push('/share')}
-        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-        style={{ background: 'var(--m-share)' }}
-      >
-        {shares.length > 0 && (
-          <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-share-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
-            {shares.length > 99 ? '99+' : shares.length}
-          </span>
-        )}
-        <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-          <Link2 size={16} strokeWidth={2.2} /> 공유 리스트
+        <div className="mt-auto pt-2">
+          {praiseCount > 0 ? (
+            <p className="text-[13.5px] font-bold line-clamp-1" style={{ color: 'var(--sd-ink)' }}>오늘 받은 칭찬</p>
+          ) : (
+            <p className="text-[12.5px] font-semibold leading-snug" style={{ color: 'var(--sd-faint)' }}>칭찬 다이어리</p>
+          )}
+          {praiseCount > 0 && (
+            <p className="text-[12px] font-bold mt-0.5 tabular-nums" style={{ color: praiseUnread > 0 ? 'var(--m-praise-ac)' : 'var(--sd-faint)' }}>
+              {praiseCount}개{praiseUnread > 0 ? ` · 새 ${praiseUnread}` : ''}
+            </p>
+          )}
         </div>
-        <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">{`${vocativeOf(userName)} 이거 봐봐 💚`}</p>
       </button>
     ),
-    wishlist: (
-      <button
-        onClick={() => router.push('/wishlist')}
-        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-        style={{ background: 'var(--m-wishlist)' }}
-      >
-        {wishes.length > 0 && (
-          <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-wishlist-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
-            {wishes.length > 99 ? '99+' : wishes.length}
-          </span>
-        )}
-        <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-          <Heart size={16} strokeWidth={2.2} /> 위시리스트
-        </div>
-        <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">먹고싶은 곳 · 가고싶은 곳</p>
-      </button>
-    ),
-    again: (
-      <button
-        onClick={() => router.push('/again')}
-        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-        style={{ background: 'var(--m-again)' }}
-      >
-        {agains.length > 0 && (
-          <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-again-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
-            {agains.length > 99 ? '99+' : agains.length}
-          </span>
-        )}
-        <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-          <MapPin size={16} strokeWidth={2.2} /> 또 갈래
-        </div>
-        <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">또 가고 싶은 곳 · 단골</p>
-      </button>
-    ),
-    recipes: (
-      <button
-        onClick={() => router.push('/recipes')}
-        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-        style={{ background: 'var(--m-recipes)' }}
-      >
-        {recipes.length > 0 && (
-          <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-recipes-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
-            {recipes.length > 99 ? '99+' : recipes.length}
-          </span>
-        )}
-        {(() => {
-          const now = Date.now(); const DAY = 24 * 60 * 60 * 1000;
-          const hasNew = recipes.some((r) => r.by !== userName && (now - r.createdAt.getTime() < DAY));
-          return hasNew ? <span className="absolute top-2 left-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" /> : null;
-        })()}
-        <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-          <ChefHat size={16} strokeWidth={2.2} /> 레시피
-        </div>
-        <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">같이 해먹은 걸 적어요</p>
-      </button>
-    ),
-    poems: (
-      <button
-        onClick={() => router.push('/poems')}
-        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-        style={{ background: 'var(--m-poems)' }}
-      >
-        {poems.length > 0 && (
-          <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-poems-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
-            {poems.length > 99 ? '99+' : poems.length}
-          </span>
-        )}
-        {(() => { const n = countNewPoems(poems, poemsLastSeen); return n > 0 ? <span className="absolute top-2 left-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" /> : null; })()}
-        <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-          <BookText size={16} strokeWidth={2.2} /> 시집
-        </div>
-        {(() => { const n = countNewPoems(poems, poemsLastSeen); return (
-          <p className="text-[12.5px] font-semibold leading-snug break-keep" style={{ color: n > 0 ? 'var(--sd-rel)' : 'var(--sd-faint)' }}>
-            {n > 0 ? `✨ 새 시 ${n}편` : '오늘 마음은 어떤 시'}
-          </p>
-        ); })()}
-      </button>
-    ),
+    share: renderListCard({
+      Icon: Link2, name: '공유 리스트', onClick: () => router.push('/share'),
+      bg: 'var(--m-share)', ac: 'var(--m-share-ac)',
+      recent: shareText, empty: `${vocativeOf(userName)} 이거 봐봐 💚`,
+      count: shares.length, unit: '개',
+      newText: (() => { const u = shares.filter((s) => !s.seenBy.includes(userName as '우댕' | '꼼이')).length; return u > 0 ? `새 ${u}` : undefined; })(),
+    }),
+    wishlist: renderListCard({
+      Icon: Heart, name: '위시리스트', onClick: () => router.push('/wishlist'),
+      bg: 'var(--m-wishlist)', ac: 'var(--m-wishlist-ac)',
+      recent: wishText, empty: '먹고싶은 곳 · 가고싶은 곳',
+      count: wishes.length, unit: '개',
+    }),
+    again: renderListCard({
+      Icon: MapPin, name: '또 갈래', onClick: () => router.push('/again'),
+      bg: 'var(--m-again)', ac: 'var(--m-again-ac)',
+      recent: againText, empty: '또 가고 싶은 곳 · 단골',
+      count: agains.length, unit: '개',
+    }),
+    recipes: renderListCard({
+      Icon: ChefHat, name: '레시피', onClick: () => router.push('/recipes'),
+      bg: 'var(--m-recipes)', ac: 'var(--m-recipes-ac)',
+      recent: recipeText, empty: '같이 해먹은 걸 적어요',
+      count: recipes.length, unit: '개',
+      newText: newRecipe ? '새 글' : undefined,
+    }),
+    poems: renderListCard({
+      Icon: BookText, name: '시집', onClick: () => router.push('/poems'),
+      bg: 'var(--m-poems)', ac: 'var(--m-poems-ac)',
+      recent: poemText, empty: '오늘 마음은 어떤 시',
+      count: poems.length, unit: '편',
+      newText: newPoemN > 0 ? `새 ${newPoemN}편` : undefined,
+    }),
   };
 
   return (
