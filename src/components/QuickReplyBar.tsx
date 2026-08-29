@@ -1,244 +1,160 @@
 'use client';
 
+// 범프 독 — 사이담 BumpDock 구조 그대로(흰 종이 카드 + 라인 아이콘 + 스탬프 + 영수증).
+// 꼼모닝 것만 유지: 5종(보고싶어/사랑해/안아줘/뽀뽀/화이트닝), fetch(from/to/kind), 키보드 올라오면 숨김.
+// 설계(사이담): ①독은 손그림·푸시는 이모지 ②기록 안 남김, 보낸 직후 '무엇이 갔는지' 영수증
+//   ③누를 때 가운데 큰 그림/반짝이 없음 — 버튼 자리에서 로더→체크 스탬프만.
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check } from 'lucide-react';
+import { LoaderCircle, Check } from 'lucide-react';
 import { haptic } from '@/lib/feedback';
+import { BUMP_ICON } from './BumpIcons';
 
-// Claude 참고: 'night'(잘자) 제거 + 'hug'(안아줘), 'whitening'(우댕꼼이 암호) 추가.
-// 화이트닝 = 꼼이가 치아미백 약 발라서 하얘짐 → 둘만의 화이팅 구호.
-// emoji → 포차코 일러스트 5종으로 교체 (public/quickbar/{kind}.webp, 평균 3.5KB).
 type Kind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening';
+interface Item { kind: Kind; Icon: React.ComponentType<{ size?: number }>; label: string }
 
-const QUICK: { kind: Kind; image: string; emoji: string; label: string }[] = [
-  { kind: 'miss',      image: '/quickbar/miss.webp',      emoji: '💚', label: '보고싶어' },
-  { kind: 'love',      image: '/quickbar/love.webp',      emoji: '❤️', label: '사랑해' },
-  { kind: 'hug',       image: '/quickbar/hug.webp',       emoji: '🤗', label: '안아줘' },
-  { kind: 'kiss',      image: '/quickbar/kiss.webp',      emoji: '😘', label: '뽀뽀' },
-  { kind: 'whitening', image: '/quickbar/whitening.webp', emoji: '😬', label: '화이트닝' },
+const ITEMS: Item[] = [
+  { kind: 'miss',      Icon: BUMP_ICON.miss,      label: '보고싶어' },
+  { kind: 'love',      Icon: BUMP_ICON.love,      label: '사랑해' },
+  { kind: 'hug',       Icon: BUMP_ICON.hug,       label: '안아줘' },
+  { kind: 'kiss',      Icon: BUMP_ICON.kiss,      label: '뽀뽀' },
+  { kind: 'whitening', Icon: BUMP_ICON.whitening, label: '화이트닝' },
 ];
 
-const COOLDOWN_MS = 2500; // 클라이언트 스팸 가드
-
-// 탭 시 포차코 주위로 톡톡 터지는 반짝이 — 얼굴을 덮지 않게 둘레에만. 원 4 + 별(✦) 2.
-// (GPT 디자인 스펙 통합, 수정0)
-const SPARKLES: { x: number; y: number; size: number; delay: number; star?: boolean }[] = [
-  { x: -19, y: -14, size: 4, delay: 0.0 },
-  { x: 1, y: -22, size: 3, delay: 0.03, star: true },
-  { x: 20, y: -11, size: 5, delay: 0.06 },
-  { x: -23, y: 6, size: 3, delay: 0.04 },
-  { x: 19, y: 12, size: 4, delay: 0.08, star: true },
-  { x: 3, y: 20, size: 3, delay: 0.1 },
-];
-
-function Sparkles({ show }: { show: boolean }) {
-  return (
-    <AnimatePresence>
-      {show &&
-        SPARKLES.map((s, i) => (
-          <motion.span
-            key={i}
-            className={`pointer-events-none absolute left-1/2 top-[26px] leading-none ${s.star ? 'text-[#EFCF77]' : 'rounded-full bg-[#FFE59A]'}`}
-            style={s.star ? { fontSize: s.size + 6 } : { width: s.size, height: s.size }}
-            initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
-            animate={{ x: s.x, y: s.y, scale: [0, 1.25, 0.8], opacity: [0, 1, 0] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.42, delay: s.delay, ease: 'easeOut' }}
-          >
-            {s.star ? '✦' : null}
-          </motion.span>
-        ))}
-    </AnimatePresence>
-  );
-}
+interface Receipt { title: string; body: string }
 
 export default function QuickReplyBar({ me, partner }: { me: string; partner: string }) {
-  const [toast, setToast] = useState<string | null>(null);
-  const [lastSent, setLastSent] = useState(0);
-  const [activeKind, setActiveKind] = useState<Kind | null>(null);
-  // 실제로 상대에게 나간 랜덤 중계 문구 — 보낸 사람도 독 위 영수증에서 본다
-  const [sentPhrase, setSentPhrase] = useState<{ title: string; body: string } | null>(null);
-  // 타이머 두 개를 ref로 붙든다 — 연타 시 앞 타이머가 새로 뜬 영수증/팝을 지우면 안 됨(사이담 ④).
-  const dismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const popRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (dismissRef.current) clearTimeout(dismissRef.current);
-    if (popRef.current) clearTimeout(popRef.current);
-  }, []);
-  const dismissReceipt = () => {
-    if (dismissRef.current) clearTimeout(dismissRef.current);
-    setSentPhrase(null);
-  };
+  const [sending, setSending] = useState<Kind | null>(null);
+  const [stamped, setStamped] = useState<Kind | null>(null);
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // 키보드 올라오면 hide — iOS Safari PWA fixed bottom이 키보드 영역 위로 떠오르거나 화면 중간에 박히는 버그 회피.
-  // visualViewport API로 viewport 높이 변화 감지 (키보드 = viewport 줄어듦).
+  // ⚠️ 연타 시 앞 타이머가 새 영수증을 지운다 — 하나만 살려두고 갈아끼운다(사이담).
+  const dismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const armDismiss = (clear: (v: null) => void, ms: number) => {
+    if (dismissRef.current) clearTimeout(dismissRef.current);
+    dismissRef.current = setTimeout(() => clear(null), ms);
+  };
+  useEffect(() => () => { if (dismissRef.current) clearTimeout(dismissRef.current); }, []);
+
+  // 키보드 올라오면 hide — iOS PWA fixed bottom이 키보드 위로 떠오르는 버그 회피(꼼모닝 전용).
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
     const vv = window.visualViewport;
-    const check = () => {
-      const diff = window.innerHeight - vv.height;
-      setKeyboardOpen(diff > 150); // 150px 이상 줄어들면 키보드 떴다고 판단
-    };
+    const check = () => setKeyboardOpen(window.innerHeight - vv.height > 150);
     vv.addEventListener('resize', check);
     vv.addEventListener('scroll', check);
     check();
-    return () => {
-      vv.removeEventListener('resize', check);
-      vv.removeEventListener('scroll', check);
-    };
+    return () => { vv.removeEventListener('resize', check); vv.removeEventListener('scroll', check); };
   }, []);
 
-  const send = async (q: typeof QUICK[number]) => {
-    const now = Date.now();
-    if (now - lastSent < COOLDOWN_MS) {
-      // 빠른 연타 무시
-      return;
-    }
-    setLastSent(now);
-    setActiveKind(q.kind);
+  const send = async (it: Item) => {
+    if (sending) return;                       // 연타로 두 번 가지 않게
+    setSending(it.kind);
+    setError(null);
     haptic(40);
-    // 독 버튼 팝/반짝이는 짧게만 — 연타 시 앞 타이머로 덮어쓰기.
-    if (popRef.current) clearTimeout(popRef.current);
-    popRef.current = setTimeout(() => setActiveKind(null), 1100);
-
     try {
       const res = await fetch('/api/bump', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: me, to: partner, kind: q.kind }),
+        body: JSON.stringify({ from: me, to: partner, kind: it.kind }),
       });
-      const j = await res.json().catch(() => ({} as { sent?: { title: string; body: string } }));
-      if (res.ok && j?.sent?.title) {
-        setSentPhrase(j.sent);
-        // 영수증 유지 — 두 줄 한글을 읽을 시간. 연타 시 ref로 교체(앞 타이머가 새 영수증 못 지움).
-        if (dismissRef.current) clearTimeout(dismissRef.current);
-        dismissRef.current = setTimeout(() => setSentPhrase(null), 4500);
-      }
+      const j = await res.json().catch(() => ({} as { sent?: Receipt }));
+      if (!res.ok) throw new Error();
+      // '보냈어'까지만 — 서버 성공이 잠금화면 표시까지 보장하진 않는다.
+      setStamped(it.kind);
+      setReceipt(j?.sent ?? null);
+      setTimeout(() => setStamped(null), 700);
+      // 영수증의 랜덤 중계 문구가 이 기능의 핵심 — 두 줄 읽을 시간을 준다.
+      armDismiss(setReceipt, 5200);
     } catch {
-      // 네트워크 에러는 조용히 — 독 버튼 팝은 이미 떴으니 UX 안 깨짐
+      setError('못 보냈어요. 한 번 더 눌러주세요.');
+      armDismiss(setError, 3400);
+    } finally {
+      setSending(null);
     }
   };
 
   return (
     <>
-      {/* 보낼 때 '가운데 크게' 포차코 축하 컷 — 글자 없이 그림만(텍스트는 아래 영수증이 전담).
-          예전 2단계 혼란은 가운데에 문구까지 넣어서였음 → 이번엔 순수 비주얼. 팡 뜨고 ~1.1초 후 사라짐. */}
+      {/* 보낸 확인 — 리액션 독 '바로 위'에 종이 영수증 한 장. 실제로 나간 랜덤 문구가 3줄로. */}
       <AnimatePresence>
-        {activeKind && (() => {
-          const item = QUICK.find((q) => q.kind === activeKind);
-          if (!item) return null;
-          return (
-            <motion.div
-              key={activeKind}
-              initial={{ scale: 0.4, opacity: 0, y: 44 }}
-              animate={{ scale: 1, opacity: 1, y: 0, rotate: [0, -5, 4, 0] }}
-              exit={{ scale: 0.85, opacity: 0, y: -16 }}
-              transition={{
-                scale: { type: 'spring', stiffness: 340, damping: 17 },
-                y: { type: 'spring', stiffness: 340, damping: 17 },
-                opacity: { duration: 0.15 },
-                rotate: { duration: 0.7, ease: 'easeInOut' },
-              }}
-              className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={item.image} alt="" width={180} height={180}
-                className="drop-shadow-[0_18px_36px_rgba(0,0,0,0.20)]" />
-            </motion.div>
-          );
-        })()}
-      </AnimatePresence>
-
-      {/* 보낸 확인 — 사이담식. 리액션 독 '바로 위'에 영수증 한 장. 실제로 나간 랜덤 중계 문구가 도착하면 3줄로 뜬다. */}
-      <AnimatePresence>
-        {sentPhrase && (
+        {(receipt || error) && (
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
+            onClick={() => { if (dismissRef.current) clearTimeout(dismissRef.current); setReceipt(null); setError(null); }}
+            role="button"
+            aria-label="확인 닫기"
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
+            exit={{ opacity: 0, y: 6 }}
             transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-            className="fixed left-4 right-4 mx-auto max-w-md z-50 pointer-events-none bottom-[calc(104px+env(safe-area-inset-bottom))]"
+            className="fixed left-4 right-4 z-50 mx-auto max-w-md px-4 py-3 cursor-pointer"
+            style={{
+              bottom: 'calc(env(safe-area-inset-bottom) + 88px)',
+              background: 'var(--sd-card-solid)',
+              borderRadius: '18px 16px 20px 15px', // 살짝 비대칭인 종이 모서리
+              boxShadow: '0 12px 30px -12px rgba(70,55,60,.4)',
+            }}
           >
-            <div
-              onClick={dismissReceipt}
-              role="button"
-              aria-label="확인 닫기"
-              className="pointer-events-auto cursor-pointer bg-white/[0.97] backdrop-blur-md rounded-[18px] px-4 py-3 shadow-[0_12px_32px_-10px_rgba(91,68,42,0.35)] border border-[#F0E4D5]"
-            >
-              <p className="font-extrabold text-[11.5px] text-emerald-600 flex items-center gap-1 mb-1">
-                <Check size={12} strokeWidth={3.5} /> {partner}한테 보냈어
-              </p>
-              <p className="font-bold text-[14px] text-slate-800 leading-snug break-keep">{sentPhrase.title}</p>
-              <p className="text-[12.5px] text-slate-500 break-keep mt-0.5">{sentPhrase.body}</p>
-            </div>
+            {error ? (
+              <p className="text-[13px] font-bold" style={{ color: 'var(--sd-crit)' }}>{error}</p>
+            ) : (
+              <>
+                <p className="text-[11.5px] font-extrabold flex items-center gap-1 mb-1" style={{ color: 'var(--sd-rel)' }}>
+                  <Check size={12} strokeWidth={3.5} /> {partner}한테 보냈어
+                </p>
+                <p className="text-[13.5px] font-bold leading-snug break-keep" style={{ color: 'var(--sd-ink)' }}>{receipt?.title}</p>
+                <p className="text-[12.5px] mt-0.5 break-keep" style={{ color: 'var(--sd-muted)' }}>{receipt?.body}</p>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 상단 보조 토스트 — partner 이름 함께 (작게 유지) */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ type: 'spring', damping: 24, stiffness: 280 }}
-            className="fixed top-6 left-1/2 -translate-x-1/2 bg-[#10B981] text-white px-4 py-2 rounded-full font-bold text-[12px] shadow-[0_8px_24px_rgba(16,185,129,0.35)] z-50 flex items-center gap-2 max-w-[calc(100%-2rem)]"
-          >
-            <Check size={12} strokeWidth={3} />
-            <span className="truncate">{toast}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 하단 고정 독 — "포차코 선반" (GPT 디자인 스펙 통합, 수정0).
-          개별 버튼을 캡슐에 가두지 않고 크림색 선반 하나에 포차코 5마리를 진열.
-          글래스/큰그림자 금지 — 포차코보다 독이 먼저 보이면 안 됨. 키보드 올라오면 hide. */}
+      {/* 하단 고정 독 — 흰 종이 카드 하나에 라인 아이콘 5개. 관계색은 눌렸을 때만 물든다. */}
       <div
-        className={`fixed left-4 right-4 mx-auto max-w-md bottom-[calc(10px+env(safe-area-inset-bottom))] pointer-events-none z-40 transition-transform duration-200 ${
+        className={`fixed left-4 right-4 z-40 mx-auto max-w-md transition-transform duration-200 ${
           keyboardOpen ? 'translate-y-[135%] opacity-0' : 'translate-y-0 opacity-100'
         }`}
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}
       >
-        <div className="grid grid-cols-5 h-[84px] items-center rounded-[22px] border border-[#F0E4D5] bg-[#FFF9EF] px-2 py-2 shadow-[0_3px_12px_rgba(91,68,42,0.08),0_1px_2px_rgba(91,68,42,0.05)] pointer-events-auto">
-          {QUICK.map((q) => {
-            const isActive = activeKind === q.kind;
+        {/* 마스킹테이프는 흔적일 뿐 — 작게 하나만 */}
+        <span className="sd-tape absolute -top-[6px] left-1/2 -translate-x-1/2 w-[30px] h-[13px] rounded-[2px] -rotate-[4deg]" />
+        <div
+          className="grid gap-0.5 px-2 py-2"
+          style={{
+            gridTemplateColumns: `repeat(${ITEMS.length}, 1fr)`,
+            background: 'var(--sd-card-solid)',
+            borderRadius: '18px 16px 20px 15px',
+            boxShadow: '0 1px 2px rgba(70,55,60,.05), 0 14px 32px -14px rgba(70,55,60,.38)',
+          }}
+        >
+          {ITEMS.map((it) => {
+            const busy = sending === it.kind;
+            const done = stamped === it.kind;
             return (
-              <motion.button
-                key={q.kind}
-                whileTap={{ scale: 0.94 }}
-                onClick={() => send(q)}
-                aria-label={`${partner}한테 ${q.label} 보내기`}
-                className="relative flex min-w-0 flex-col items-center justify-center rounded-[16px] py-1 select-none"
+              <button
+                key={it.kind}
+                onClick={() => send(it)}
+                disabled={!!sending}
+                aria-label={`${partner}한테 ${it.label} 보내기`}
+                className="h-[56px] rounded-[15px] grid place-items-center transition-transform active:scale-[.92] disabled:opacity-45"
+                style={done ? { background: 'var(--sd-rel-soft)', color: 'var(--sd-rel)' } : { color: 'var(--sd-ink)' }}
               >
-                {/* 눌린 크림 얼룩 — 캡슐 아님, 포근한 얼룩이 잠깐 */}
-                <AnimatePresence>
-                  {isActive && (
-                    <motion.span
-                      className="absolute inset-[3px] -z-10 rounded-[15px] bg-[#FFF1DD]"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: [0, 1, 0], scale: [0.9, 1, 1] }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.42 }}
-                    />
-                  )}
-                </AnimatePresence>
-                <Sparkles show={isActive} />
-                <motion.img
-                  src={q.image}
-                  alt={q.label}
-                  width={48}
-                  height={48}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-[48px] w-[48px] object-contain drop-shadow-[0_2px_3px_rgba(120,95,60,0.22)]"
-                  animate={isActive ? { scale: [1, 0.95, 1.08, 1], y: [0, 1, -3, 0] } : {}}
-                  transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-                />
-                <span className="mt-[2px] whitespace-nowrap text-[11px] font-medium leading-none text-[#625950]">
-                  {q.label}
-                </span>
-              </motion.button>
+                {busy ? (
+                  <LoaderCircle size={18} className="animate-spin" style={{ color: 'var(--sd-faint)' }} />
+                ) : done ? (
+                  <Check size={22} strokeWidth={2.6} />
+                ) : (
+                  <span className="flex flex-col items-center gap-0.5">
+                    <it.Icon size={26} />
+                    <span className="text-[10px] font-bold leading-none truncate max-w-full" style={{ color: 'var(--sd-muted)' }}>
+                      {it.label}
+                    </span>
+                  </span>
+                )}
+              </button>
             );
           })}
         </div>
