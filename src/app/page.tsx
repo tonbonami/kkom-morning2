@@ -114,7 +114,6 @@ const WHITE_CARDS = new Set(['chat', 'weather', 'mood', 'air', 'letter']);
 // enabledModules 저장 뒤 '나중에' 추가할 모듈 id를 여기 넣으면 기존 사용자도 기본 켬(사이담 함정 대응).
 // 지금은 첫 배포라 저장된 배치가 없음(=전부 켬) → 비워둠. 향후 카드 추가 시 그 id를 넣을 것.
 const ADDED_LATER: string[] = [];
-const DIGEST_AFTER = 4; // 오늘의 조각을 풀폭 라이브 4장(낙서장·꼼톡·미세먼지·날씨) 뒤에 끼운다
 // 저장된 순서를 적용하되 그 뒤 추가된 모듈은 기본 순서상 '제자리'에 끼운다(맨 밑 밀림 방지).
 function applyModuleOrder(order: string[] | undefined): ModuleDef[] {
   if (!order?.length) return MODULES;
@@ -988,6 +987,30 @@ export default function KkomMorningHome() {
     }),
   };
 
+  // 위치 토글은 미세먼지 카드 위(없으면 날씨 위)에 작게. 둘 다 꺼져 있으면 안 띄움.
+  const locAnchorId = shownModules.some((m) => m.id === 'air') ? 'air'
+    : shownModules.some((m) => m.id === 'weather') ? 'weather' : null;
+  const locToggleEl = (
+    <div key="__loc" className="col-span-2 flex justify-start -mb-2">
+      <div className="inline-flex bg-white/70 backdrop-blur-md rounded-full p-0.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+        {(['home', 'work'] as const).map((k) => {
+          const active = locKey === k;
+          const loc = LOCATIONS[k];
+          const Icon = k === 'home' ? Home : Building2;
+          return (
+            <button key={k} onClick={() => changeLoc(k)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors ${
+                active ? 'bg-[#E4685E] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}>
+              <Icon size={11} strokeWidth={2.5} />
+              {loc.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
     <div className="sd-app w-full max-w-md mx-auto min-h-screen text-slate-800 relative overflow-x-hidden pb-[calc(110px+env(safe-area-inset-bottom))] selection:bg-[#99E6D9]/40"
       onTouchStart={onHomeTouchStart} onTouchEnd={onHomeTouchEnd}>
@@ -1053,28 +1076,7 @@ export default function KkomMorningHome() {
         );
       })()}
 
-      {/* 위치 토글 — 화면 표시 위치 (알림 정책과 별개) */}
-      <div className="relative z-10 px-6 pt-2 pb-1">
-        <div className="inline-flex bg-white/70 backdrop-blur-md rounded-full p-1 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          {(['home', 'work'] as const).map((k) => {
-            const active = locKey === k;
-            const loc = LOCATIONS[k];
-            const Icon = k === 'home' ? Home : Building2;
-            return (
-              <button
-                key={k}
-                onClick={() => changeLoc(k)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors ${
-                  active ? 'bg-[#E4685E] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                <Icon size={12} strokeWidth={2.5} />
-                {loc.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* 위치 토글(호평동/중구)은 미세먼지 카드 바로 위로 이동 — 아래 그리드 안에서 렌더 */}
 
       {/* 3. 대시보드 본문 — 사이담식 모듈 그리드 (순서·크기·표시 = settings/home, 둘이 같은 배치) */}
       <main className="relative z-10 px-5 flex flex-col gap-4">
@@ -1102,20 +1104,19 @@ export default function KkomMorningHome() {
           </div>
         ) : (
           <>
+            {/* 오늘의 조각 — 헤더 바로 아래(옛 위치토글 자리). 오늘 새로 생긴 것부터 */}
+            {(userName === '우댕' || userName === '꼼이') && (
+              <TodayDigest me={userName as '우댕' | '꼼이'} />
+            )}
             <div className="grid grid-cols-2 gap-4 auto-rows-min">
-              {shownModules.flatMap((m, i) => {
+              {shownModules.flatMap((m) => {
                 const cell = (
                   <div key={m.id} className={SIZE_CLASS[sizes[m.id] ?? DEFAULT_SIZE[m.id] ?? '1x1']}>
                     {moduleNodes[m.id]}
                   </div>
                 );
-                if (i === DIGEST_AFTER - 1 && (userName === '우댕' || userName === '꼼이')) {
-                  return [cell, (
-                    <div key="__digest" className="col-span-2">
-                      <TodayDigest me={userName as '우댕' | '꼼이'} />
-                    </div>
-                  )];
-                }
+                // 위치 토글(호평동/중구)을 미세먼지(없으면 날씨) 카드 바로 위에 작게 띄운다
+                if (m.id === locAnchorId) return [locToggleEl, cell];
                 return [cell];
               })}
             </div>
