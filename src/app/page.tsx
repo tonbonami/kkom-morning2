@@ -7,7 +7,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
   Wind, Heart, PenLine, BookOpen, ChefHat, BookText,
   RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award, CalendarDays,
-  Library, ExternalLink, Link2, MapPin, CloudSun,
+  Library, ExternalLink, Link2, MapPin, CloudSun, Mail,
 } from 'lucide-react';
 
 // 화면에서 보는 위치 (알림 cron과 별개로 사용자가 선택)
@@ -874,94 +874,25 @@ export default function KkomMorningHome() {
           </button>
         </div>
 
-        {/* 오늘의 편지 — 다이어리 핑크 메모지 톤 (Gemini 리뷰 P0) */}
-        <div className="relative bg-[#FBEBF6] rounded-2xl p-6 shadow-[2px_3px_0px_rgba(0,0,0,0.04)] border border-[#F1E0EE] overflow-hidden">
-          <div className="tape-mint absolute -top-2 left-8 w-14 rotate-2 z-10" />
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex flex-col gap-0.5">
-              <div className="flex items-center gap-2 text-[#10B981]">
-                <div className="p-1.5 bg-[#EAF8F5] rounded-xl"><PenLine size={16} strokeWidth={2.5} /></div>
-                <span className="text-sm font-bold">{partner}에게서 온 편지</span>
-              </div>
-              {latestLetterAt && (
-                <span className="text-[11px] font-medium text-slate-400 ml-10" suppressHydrationWarning>
-                  {(() => {
-                    // KST 고정 표시 (디바이스 타임존 무관) — lib/kst.ts
-                    const d = latestLetterAt;
-                    const now = new Date();
-                    const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
-                    const time = formatKstTime(d);
-                    if (diffDays === 0) return `오늘 ${time} 도착`;
-                    if (diffDays === 1) return `어제 ${time} 도착`;
-                    if (diffDays < 7) return `${diffDays}일 전 ${time} 도착`;
-                    return `${formatKstMonthDay(d)} ${time} 도착`;
-                  })()}
-                </span>
-              )}
-            </div>
-            <button onClick={() => router.push('/letters')} className="text-[11px] font-bold text-slate-400 hover:text-slate-600 bg-slate-50 px-3 py-1.5 rounded-full transition-colors">지난 편지</button>
-          </div>
+        {/* 편지 — 사이담식 Count 카드. 미리보기 없음(사용자 요청). 흰 카드 + 테이프.
+            hasLetter·latestLetterId 데이터 유지, 탭하면 편지함(읽기+쓰기). */}
+        <button
+          onClick={() => router.push(latestLetterId ? `/letters?open=${latestLetterId}` : '/letters')}
+          aria-label="편지"
+          className="sd-card w-full min-h-[104px] px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
+          style={{ background: 'var(--sd-card-solid)', ['--m-ac' as string]: 'var(--m-letter-ac)' } as React.CSSProperties}
+        >
+          <span className="sd-tape -top-[7px] left-6 w-[52px] h-[17px] rounded-[2px] rotate-[9deg]" />
+          {hasLetter && <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />}
+          <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+            <Mail size={16} /> 편지
+          </span>
           {hasLetter ? (
-            <button
-              type="button"
-              onClick={() => latestLetterId && router.push(`/letters?open=${latestLetterId}`)}
-              className="block w-full text-left mb-5 px-1 space-y-3 active:scale-[0.99] transition-transform"
-              aria-label="편지 자세히 보기"
-            >
-              {dailyMessage.trim() && (
-                <p className="text-[15px] font-medium text-slate-700 leading-relaxed tracking-tight whitespace-pre-wrap">&ldquo;{dailyMessage}&rdquo;</p>
-              )}
-              {latestVoice && (() => {
-                const isUrl = /^https?:\/\//i.test(latestVoice.data);
-                const src = isUrl ? latestVoice.data : `data:${latestVoice.mime};base64,${latestVoice.data}`;
-                return (
-                  <VoicePlayer
-                    src={src}
-                    mime={latestVoice.mime}
-                    durationHint={latestVoice.duration}
-                    accent="emerald"
-                    compact
-                  />
-                );
-              })()}
-              {/* 손글씨/이모티콘 미리보기 — 사용자 신고: 미리보기에 안 보여 포함 여부 몰랐음 */}
-              {(latestLetterHasDoodle || latestLetterEmoticonIds.length > 0) && (
-                <div className="flex items-center gap-2 flex-wrap pt-1">
-                  {latestLetterHasDoodle && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-rose-500 bg-white/70 px-2.5 py-1 rounded-full">
-                      ✏️ 손글씨 포함
-                    </span>
-                  )}
-                  {latestLetterEmoticonIds.length > 0 && (() => {
-                    const items = getEmoticonsByIds(latestLetterEmoticonIds).slice(0, 3);
-                    return items.length > 0 ? (
-                      <div className="flex items-center gap-1">
-                        {items.map((it, i) => (
-                          <img
-                            key={`${it.id}-${i}`}
-                            src={it.imageUrl}
-                            alt={it.label}
-                            className="w-9 h-9 object-contain drop-shadow-sm"
-                          />
-                        ))}
-                        {latestLetterEmoticonIds.length > 3 && (
-                          <span className="text-[11px] font-black text-slate-400 ml-0.5">
-                            +{latestLetterEmoticonIds.length - 3}
-                          </span>
-                        )}
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
-              )}
-            </button>
+            <p className="mt-auto text-[13.5px] font-semibold" style={{ color: 'var(--m-ac)' }}>💌 {partner}에게서 새 편지</p>
           ) : (
-            <p className="text-center text-[14px] text-slate-400 py-3 mb-2">아직 도착한 편지가 없어요 💌</p>
+            <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>마음이 생기면 천천히</p>
           )}
-          <button onClick={() => router.push('/letter/new')} className="w-full py-3.5 bg-[#F7F9F9] hover:bg-[#EAF8F5] text-[#10B981] rounded-2xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
-            <PenLine size={15} /> 편지 쓰기
-          </button>
-        </div>
+        </button>
 
         {/* 우리의 추억 — 폴라로이드 톤 (Gemini 리뷰 P0) */}
         {latestMemory && (
