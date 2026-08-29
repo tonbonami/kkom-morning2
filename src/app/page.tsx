@@ -7,7 +7,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
   Wind, Heart, PenLine, BookOpen, ChefHat, BookText,
   RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award, CalendarDays,
-  Library, ExternalLink, Link2, MapPin,
+  Library, ExternalLink, Link2, MapPin, CloudSun,
 } from 'lucide-react';
 
 // 화면에서 보는 위치 (알림 cron과 별개로 사용자가 선택)
@@ -17,6 +17,7 @@ const LOCATIONS = {
 } as const;
 type LocKey = keyof typeof LOCATIONS;
 import TodayTomorrowWeather from '@/components/TodayTomorrowWeather';
+import SkyArt from '@/components/SkyArt';
 import { getInitialData } from '@/lib/api';
 import { subscribeLatestLetterTo, nameFromCode, partnerOf, vocativeOf, type Voice } from '@/lib/letters';
 import { getEmoticonsByIds } from '@/lib/emoticons';
@@ -729,15 +730,52 @@ export default function KkomMorningHome() {
         <motion.button
           animate={weatherShake}
           onClick={() => router.push('/weather')}
-          className="w-full text-left active:scale-[0.99] transition-transform relative"
+          className="sd-card w-full min-h-[140px] px-4 py-4 flex flex-col text-left active:scale-[0.99] transition-transform relative"
+          style={{ background: 'var(--sd-card-solid)' }}
           aria-label="날씨 상세 보기"
         >
-          <TodayTomorrowWeather
-            location={air?.location || '호평동'}
-            current={(weather as any)?.current || { temp: null, sky: null, pty: null, humidity: null }}
-            today={(weather as any)?.today || { high: null, low: null, sky: null, pty: null, precipProb: null }}
-            tomorrow={(weather as any)?.tomorrow || { high: null, low: null, sky: null, pty: null, precipProb: null }}
-          />
+          {(() => {
+            const w = (weather as any)?.current as { temp: number | null; sky: string | null; pty: string | null; humidity: number | null } | undefined;
+            const td = (weather as any)?.today as { high: number | null; low: number | null; precipProb: number | null } | undefined;
+            const tm = (weather as any)?.tomorrow as { high: number | null; low: number | null; precipProb: number | null } | undefined;
+            const skyText = (w?.pty === '1' || w?.pty === '2') ? '비' : w?.pty === '3' ? '눈'
+              : w?.sky === '1' ? '맑음' : w?.sky === '3' ? '구름많음' : w?.sky === '4' ? '흐림' : '';
+            const chip = 'text-[11.5px] rounded-full px-2.5 py-1 whitespace-nowrap';
+            return (
+              <div className="flex-1 flex flex-col" style={{ ['--m-ac' as string]: 'var(--m-weather-ac)', ['--m-tile' as string]: 'var(--m-weather-tile)' } as React.CSSProperties}>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+                    <CloudSun size={16} /> 오늘 밖
+                  </span>
+                  <ChevronRight size={14} style={{ color: 'var(--sd-faint)' }} />
+                </div>
+                {w ? (
+                  <>
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <div className="flex items-end gap-2.5">
+                        <p className="text-[38px] font-extrabold leading-none tabular-nums" style={{ color: 'var(--sd-ink)' }}>{w.temp ?? '—'}°</p>
+                        <p className="text-[13.5px] font-bold pb-1" style={{ color: 'var(--sd-muted)' }}>{skyText}</p>
+                      </div>
+                      <SkyArt sky={w.sky} pty={w.pty} size={64} className="shrink-0 -my-1" />
+                    </div>
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {td?.high != null && <span className={chip} style={{ background: 'var(--m-tile)', color: 'var(--sd-ink)' }}>최고 <b>{td.high}°</b>{td.low != null ? <> · 최저 <b>{td.low}°</b></> : null}</span>}
+                      {td?.precipProb != null && <span className={chip} style={{ background: 'var(--m-tile)', color: 'var(--sd-ink)' }}>비 <b>{td.precipProb}%</b></span>}
+                      {w.humidity != null && <span className={chip} style={{ background: 'var(--m-tile)', color: 'var(--sd-ink)' }}>습도 <b>{w.humidity}%</b></span>}
+                    </div>
+                    {(tm?.high != null || tm?.precipProb != null) && (
+                      <p className="mt-2.5 pt-2.5 text-[12.5px] font-semibold flex items-center gap-1.5 flex-wrap" style={{ borderTop: '1px solid rgba(0,0,0,.06)', color: 'var(--sd-muted)' }}>
+                        <span style={{ color: 'var(--m-ac)' }}>내일</span>
+                        {tm?.high != null && <span>↑{tm.high}° ↓{tm.low}°</span>}
+                        {tm?.precipProb != null && <span>· 비 {tm.precipProb}%</span>}
+                        {(tm?.precipProb ?? 0) >= 50 && <span className="rounded-full px-2 py-0.5 text-[11.5px] font-extrabold" style={{ background: 'var(--m-tile)', color: 'var(--m-ac)' }}>우산 챙겨!</span>}
+                      </p>
+                    )}
+                  </>
+                ) : <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>불러오는 중…</p>}
+              </div>
+            );
+          })()}
           {/* Onboarding 토스트 — 첫 진입 한 번만 */}
           <AnimatePresence>
             {showWeatherHint && (
