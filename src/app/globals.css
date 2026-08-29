@@ -6,6 +6,9 @@
    핵심: "휘황찬란"의 원인은 카드 색이 아니라 분홍빛 바탕. 바탕을 채도14% 중립으로.
    따뜻함은 바탕이 아니라 카드·글자가 만든다. 카드 면=옅게, 강조는 아이콘·숫자에만. */
 :root {
+  /* 꼼모닝은 라이트 전용 — 기기가 다크여도 앱은 항상 밝은 파스텔 톤 유지(둘이 같은 화면).
+     color-scheme를 light로 고정해 폼/스크롤바/웹뷰가 시스템 다크에 딸려 어두워지지 않게. */
+  color-scheme: light;
   --sd-grad-1: #FCFAF7;  --sd-grad-2: #F9F7F4;  --sd-grad-3: #F7F6F7;
   --sd-card: rgba(255,255,255,.74);
   --sd-card-live: rgba(255,255,255,.88);
@@ -38,8 +41,10 @@
   --sd-shadow-card:0 1px 3px rgba(70,55,60,.07), 0 14px 28px -14px rgba(70,55,60,.30);
   --sd-shadow-btn:0 10px 22px -10px rgba(46,29,38,.45);
 }
+/* ⛔ 다크 토큰은 보존만 하고 '자동' 적용은 끔 — 시스템이 다크여도 앱은 라이트 고정.
+   되살리려면 아래 선택자를 :root[data-theme="dark"] → :root 로 되돌리면 시스템 다크를 다시 따른다. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root[data-theme="dark"] {
     --sd-grad-1:#241A20; --sd-grad-2:#221A22; --sd-grad-3:#1E1A26;
     --sd-card:rgba(255,255,255,.07); --sd-card-live:rgba(255,255,255,.12);
     --sd-card-quiet:rgba(255,255,255,.045); --sd-card-solid:#2A2028;
