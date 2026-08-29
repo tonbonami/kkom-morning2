@@ -8,17 +8,17 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoaderCircle, Check } from 'lucide-react';
 import { haptic } from '@/lib/feedback';
-import { BUMP_ICON } from './BumpIcons';
 
 type Kind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening';
-interface Item { kind: Kind; Icon: React.ComponentType<{ size?: number }>; label: string }
+interface Item { kind: Kind; image: string; label: string }
 
+// 포차코 손그림(ChatGPT 생성, public/quickbar). 흰 독 위에서 깨끗하게 읽히도록 가공(트림·정사각·헤이즈 정리).
 const ITEMS: Item[] = [
-  { kind: 'miss',      Icon: BUMP_ICON.miss,      label: '보고싶어' },
-  { kind: 'love',      Icon: BUMP_ICON.love,      label: '사랑해' },
-  { kind: 'hug',       Icon: BUMP_ICON.hug,       label: '안아줘' },
-  { kind: 'kiss',      Icon: BUMP_ICON.kiss,      label: '뽀뽀' },
-  { kind: 'whitening', Icon: BUMP_ICON.whitening, label: '화이트닝' },
+  { kind: 'miss',      image: '/quickbar/miss.png',      label: '보고싶어' },
+  { kind: 'love',      image: '/quickbar/love.png',      label: '사랑해' },
+  { kind: 'hug',       image: '/quickbar/hug.png',       label: '안아줘' },
+  { kind: 'kiss',      image: '/quickbar/kiss.png',      label: '뽀뽀' },
+  { kind: 'whitening', image: '/quickbar/whitening.png', label: '화이트닝' },
 ];
 
 interface Receipt { title: string; body: string }
@@ -139,16 +139,18 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
                 onClick={() => send(it)}
                 disabled={!!sending}
                 aria-label={`${partner}한테 ${it.label} 보내기`}
-                className="h-[56px] rounded-[15px] grid place-items-center transition-transform active:scale-[.92] disabled:opacity-45"
+                className="h-[66px] rounded-[15px] grid place-items-center transition-transform active:scale-[.92] disabled:opacity-45"
                 style={done ? { background: 'var(--sd-rel-soft)', color: 'var(--sd-rel)' } : { color: 'var(--sd-ink)' }}
               >
                 {busy ? (
-                  <LoaderCircle size={18} className="animate-spin" style={{ color: 'var(--sd-faint)' }} />
+                  <LoaderCircle size={20} className="animate-spin" style={{ color: 'var(--sd-faint)' }} />
                 ) : done ? (
-                  <Check size={22} strokeWidth={2.6} />
+                  <Check size={24} strokeWidth={2.6} />
                 ) : (
                   <span className="flex flex-col items-center gap-0.5">
-                    <it.Icon size={26} />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={it.image} alt={it.label} width={42} height={42}
+                      className="h-[42px] w-[42px] object-contain" loading="lazy" decoding="async" draggable={false} />
                     <span className="text-[10px] font-bold leading-none truncate max-w-full" style={{ color: 'var(--sd-muted)' }}>
                       {it.label}
                     </span>
