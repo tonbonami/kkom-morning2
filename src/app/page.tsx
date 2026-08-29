@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { motion, AnimatePresence, useAnimation } from 'framer-motion';
+import { motion, AnimatePresence, useAnimation, Reorder, useDragControls } from 'framer-motion';
 import {
   Wind, Heart, PenLine, BookOpen, ChefHat, BookText,
   RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award, CalendarDays,
-  Library, ExternalLink, Link2, MapPin, CloudSun, Mail,
+  Library, ExternalLink, Link2, MapPin, CloudSun, Mail, LayoutGrid, GripVertical, Check, LoaderCircle,
 } from 'lucide-react';
 
 // 화면에서 보는 위치 (알림 cron과 별개로 사용자가 선택)
@@ -45,6 +45,7 @@ import { subscribeCalendar } from '@/lib/calendar';
 import { todayYmd } from '@/lib/calendarLayout';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
 import AirSkyVisual from '@/components/AirSkyVisual';
+import { subscribeHomeLayout, saveHomeLayout, type HomeLayout } from '@/lib/homeLayout';
 import { Bell, BellOff, MessageCircle } from 'lucide-react';
 import ChatPanel, { preview } from '@/components/ChatPanel';
 import { subscribeMessages, sendMessage, sendCapsule, type ChatMessage } from '@/lib/chat';
@@ -72,9 +73,132 @@ const MOOD_ANIM: Record<string, { animate: Record<string, number[]>; transition:
   sick:    { animate: { rotate: [0, 4, -2, 3, 0] },        transition: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' } },
 };
 
+// ── 홈 모듈 시스템 (사이담 space/[id]/page.tsx 구조 그대로) ───────────────
+// 카드는 1x1 / 2x1 / 2x2 를 섞는다. 순서·크기·on-off는 settings/home 에 저장(둘이 같은 배치).
+type CardSize = '1x1' | '2x1' | '2x2';
+interface ModuleDef { id: string; name: string }
+// 순서 = 기본 배치. 상단은 '지금'(낙서장/꼼톡/미세먼지/날씨 풀폭) → 조각 → 짝지은 1칸들 → 추억 → 보관 리스트.
+// ⚠️ 1칸(1x1) 카드는 반드시 짝수쌍으로 이웃하게 둔다(2x1이 더 높아 옆에 1칸이 오면 반칸이 빈다 — 사이담 함정).
+const MODULES: ModuleDef[] = [
+  { id: 'doodle',   name: '낙서장' },
+  { id: 'chat',     name: '꼼톡' },
+  { id: 'air',      name: '미세먼지' },
+  { id: 'weather',  name: '오늘 밖' },
+  { id: 'mood',     name: '오늘의 기분' },
+  { id: 'dday',     name: '함께한 지' },
+  { id: 'calendar', name: '달력' },
+  { id: 'letter',   name: '편지' },
+  { id: 'memories', name: '추억' },
+  { id: 'praise',   name: '칭찬' },
+  { id: 'share',    name: '공유 리스트' },
+  { id: 'wishlist', name: '위시리스트' },
+  { id: 'again',    name: '또 갈래' },
+  { id: 'recipes',  name: '레시피' },
+  { id: 'poems',    name: '시집' },
+];
+// ⚠️ 2x1 이 1x1 보다 높다(핵심). 풀폭 카드 = 2x1, 짝지은 1칸 = 1x1.
+const DEFAULT_SIZE: Record<string, CardSize> = {
+  doodle: '2x1', chat: '2x1', air: '2x1', weather: '2x1', memories: '2x1',
+  mood: '1x1', dday: '1x1', calendar: '1x1', letter: '1x1',
+  praise: '1x1', share: '1x1', wishlist: '1x1', again: '1x1', recipes: '1x1', poems: '1x1',
+};
+const SIZE_CLASS: Record<CardSize, string> = {
+  '1x1': 'col-span-1 row-span-1 min-h-[104px]',
+  '2x1': 'col-span-2 row-span-1 min-h-[140px]',
+  '2x2': 'col-span-2 row-span-2 min-h-[220px]',
+};
+const SIZE_CYCLE: CardSize[] = ['1x1', '2x1', '2x2'];
+// 순백으로 둘 카드(눈 쉬는 자리). 나머지는 --m-{id} 옅은 틴트.
+const WHITE_CARDS = new Set(['chat', 'weather', 'mood', 'air', 'letter']);
+// enabledModules 저장 뒤 '나중에' 추가할 모듈 id를 여기 넣으면 기존 사용자도 기본 켬(사이담 함정 대응).
+// 지금은 첫 배포라 저장된 배치가 없음(=전부 켬) → 비워둠. 향후 카드 추가 시 그 id를 넣을 것.
+const ADDED_LATER: string[] = [];
+const DIGEST_AFTER = 4; // 오늘의 조각을 풀폭 라이브 4장(낙서장·꼼톡·미세먼지·날씨) 뒤에 끼운다
+// 저장된 순서를 적용하되 그 뒤 추가된 모듈은 기본 순서상 '제자리'에 끼운다(맨 밑 밀림 방지).
+function applyModuleOrder(order: string[] | undefined): ModuleDef[] {
+  if (!order?.length) return MODULES;
+  const byId = new Map(MODULES.map((m) => [m.id, m]));
+  const result = order.map((id) => byId.get(id)).filter((m): m is ModuleDef => !!m);
+  const present = new Set(result.map((m) => m.id));
+  MODULES.forEach((m, i) => {
+    if (present.has(m.id)) return;
+    let insertAt = result.length;
+    for (let j = i - 1; j >= 0; j--) {
+      const idx = result.findIndex((r) => r.id === MODULES[j].id);
+      if (idx >= 0) { insertAt = idx + 1; break; }
+    }
+    result.splice(insertAt, 0, m);
+    present.add(m.id);
+  });
+  return result;
+}
+
+// 편집모드 한 줄 — 끌기핸들 + 크기순환 + on/off. (Reorder.Item은 훅을 쓰므로 컴포넌트로 분리)
+function EditRow({ module, size, enabled, onCycleSize, onToggle }: {
+  module: ModuleDef; size: CardSize; enabled: boolean; onCycleSize: () => void; onToggle: () => void;
+}) {
+  const controls = useDragControls();
+  const sizeLabel = size === '1x1' ? '작게' : size === '2x1' ? '넓게' : '크게';
+  return (
+    <Reorder.Item value={module} dragListener={false} dragControls={controls}
+      className="sd-card flex items-center gap-2.5 px-3 py-2.5" style={{ background: 'var(--sd-card-solid)' }}>
+      <button onPointerDown={(e) => controls.start(e)} className="cursor-grab touch-none p-1 -ml-1" style={{ color: 'var(--sd-faint)' }} aria-label="끌어서 이동">
+        <GripVertical size={18} />
+      </button>
+      <span className="flex-1 text-[14px] font-bold truncate" style={{ color: enabled ? 'var(--sd-ink)' : 'var(--sd-faint)' }}>{module.name}</span>
+      <button onClick={onCycleSize} disabled={!enabled}
+        className="px-2.5 py-1 rounded-full text-[12px] font-bold transition-opacity"
+        style={{ background: 'var(--sd-surface-2)', color: 'var(--sd-muted)', opacity: enabled ? 1 : 0.35 }}>
+        {sizeLabel}
+      </button>
+      <button onClick={onToggle} role="switch" aria-checked={enabled} aria-label={`${module.name} 표시`}
+        className="relative w-10 h-6 rounded-full transition-colors shrink-0"
+        style={{ backgroundColor: enabled ? 'var(--sd-rel)' : '#CBD5E1' }}>
+        <span className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform"
+          style={{ transform: enabled ? 'translateX(16px)' : 'translateX(0)' }} />
+      </button>
+    </Reorder.Item>
+  );
+}
+
 export default function KkomMorningHome() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  // ── 홈 모듈 배치 (settings/home 실시간 구독) ──
+  const [layout, setLayout] = useState<HomeLayout>({});
+  useEffect(() => subscribeHomeLayout(setLayout), []);
+  const ordered = useMemo(() => applyModuleOrder(layout.moduleOrder), [layout.moduleOrder]);
+  const sizes = useMemo<Record<string, CardSize>>(() => ({ ...DEFAULT_SIZE, ...(layout.moduleSizes || {}) }), [layout.moduleSizes]);
+  const enabledSet = useMemo(() => {
+    const saved = layout.enabledModules;
+    if (!saved) return new Set(MODULES.map((m) => m.id)); // 이전 배치 = 전부 켬(사이담 함정: undefined vs [])
+    return new Set([...saved, ...ADDED_LATER.filter((id) => !saved.includes(id))]);
+  }, [layout.enabledModules]);
+  const shownModules = useMemo(() => ordered.filter((m) => enabledSet.has(m.id)), [ordered, enabledSet]);
+  const [editing, setEditing] = useState(false);
+  const [draftOrder, setDraftOrder] = useState<ModuleDef[]>(MODULES);
+  const [draftSizes, setDraftSizes] = useState<Record<string, CardSize>>(DEFAULT_SIZE);
+  const [draftEnabled, setDraftEnabled] = useState<Set<string>>(new Set());
+  const [savingLayout, setSavingLayout] = useState(false);
+  useEffect(() => {
+    if (editing) { setDraftOrder(ordered); setDraftSizes(sizes); setDraftEnabled(new Set(enabledSet)); }
+  }, [editing]); // eslint-disable-line react-hooks/exhaustive-deps
+  const finishEditing = async () => {
+    setSavingLayout(true);
+    try {
+      await saveHomeLayout({ moduleOrder: draftOrder.map((m) => m.id), moduleSizes: draftSizes, enabledModules: [...draftEnabled] });
+      setEditing(false);
+    } catch (e) { console.error('배치 저장 실패', e); alert('배치를 저장하지 못했어요.'); }
+    finally { setSavingLayout(false); }
+  };
+  const cycleDraftSize = (id: string) => setDraftSizes((s) => {
+    const cur = s[id] ?? DEFAULT_SIZE[id] ?? '1x1';
+    const next = SIZE_CYCLE[(SIZE_CYCLE.indexOf(cur) + 1) % SIZE_CYCLE.length];
+    return { ...s, [id]: next };
+  });
+  const toggleDraftEnabled = (id: string) => setDraftEnabled((prev) => {
+    const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n;
+  });
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [air, setAir] = useState<any>(null);
   const [outfit, setOutfit] = useState<OutfitGuide | null>(null);
@@ -463,6 +587,423 @@ export default function KkomMorningHome() {
     setChatOpen(true); setChatUnread(false);
   };
 
+  // 낙서장 열기 — 네이티브면 KkomCanvas, 웹이면 /canvas (doodle 노드·편집모드 공용)
+  const openDoodle = async () => {
+    const { Capacitor, registerPlugin } = await import('@capacitor/core');
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await (registerPlugin('Canvas') as { open(o: { me: string }): Promise<void> })
+          .open({ me: userName === '우댕' ? 'udaeng' : 'kkomi' });
+      } catch { router.push('/canvas'); }
+    } else {
+      router.push('/canvas');
+    }
+  };
+
+  // ── 모듈 카드 본문 — 틀만 사이담식, 안의 데이터·onClick·이모티콘 전부 그대로. 각 카드는 h-full로 격자칸을 채운다.
+  const moduleNodes: Record<string, React.ReactNode> = {
+    doodle: (
+      <button
+        onClick={openDoodle}
+        className="sd-card relative w-full h-full min-h-[150px] px-4 py-4 flex flex-col text-left active:scale-[.98] transition-transform"
+        style={{ background: 'var(--m-doodle)' }}
+        aria-label="우리 낙서장 열기"
+      >
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+            <PenLine size={16} /> 낙서장
+          </span>
+          <span className="font-handwriting text-[26px] leading-none shrink-0" style={{ color: 'var(--sd-muted)' }}>우리 낙서장 ✏️</span>
+        </div>
+        <div className="relative flex-1 min-h-[100px] rounded-2xl overflow-hidden" style={{ background: '#FFFCF5', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.05)' }}>
+          <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(rgba(200,190,185,.55) 1.4px, transparent 1.4px)', backgroundSize: '22px 22px' }} />
+          <DoodleThumb strokes={heroStrokes} />
+          <span className="absolute bottom-2 right-2 h-9 px-3.5 rounded-[18px] inline-flex items-center shadow-[0_4px_12px_rgba(0,0,0,.12)]" style={{ background: 'var(--m-doodle-ac)' }}>
+            <span className="font-handwriting text-[22px] leading-none text-white">종이 펼치기</span>
+          </span>
+        </div>
+      </button>
+    ),
+    chat: (
+      <button
+        onClick={() => { setChatOpen(true); setChatUnread(false); }}
+        className="sd-card relative w-full h-full min-h-[140px] px-4 py-4 flex flex-col text-left active:scale-[.98] transition-transform"
+        style={{ background: 'var(--sd-card-solid)' }}
+        aria-label="꼼톡 열기"
+      >
+        <span className="sd-tape -top-[7px] left-7 w-[52px] h-[17px] rounded-[2px] -rotate-[7deg]" />
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+            <MessageCircle size={16} /> 꼼톡
+            {chatUnread && <span className="inline-flex h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />}
+          </span>
+          <ChevronRight size={14} style={{ color: 'var(--sd-faint)' }} />
+        </div>
+        {messages.length > 0 ? (() => {
+          const recent = messages.slice(-3);
+          const last = recent[recent.length - 1];
+          const rel = (() => {
+            const d = last?.createdAt;
+            if (!d) return '';
+            const s = Math.floor((Date.now() - d.getTime()) / 1000);
+            if (s < 60) return '방금';
+            if (s < 3600) return `${Math.floor(s / 60)}분 전`;
+            if (s < 86400) return `${Math.floor(s / 3600)}시간 전`;
+            return `${Math.floor(s / 86400)}일 전`;
+          })();
+          return (
+            <div className="mt-2.5 flex-1 flex flex-col justify-end gap-1.5">
+              {recent.map((m, i) => {
+                const mine = m.from === userName;
+                return (
+                  <div key={m.id ?? i} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                    <span className="max-w-[82%] rounded-2xl px-3 py-1.5 text-[12.5px] font-semibold leading-snug line-clamp-2"
+                      style={mine ? { background: 'var(--sd-ink-btn)', color: 'var(--sd-card-solid)' } : { background: 'var(--sd-rel-soft)', color: 'var(--sd-ink)' }}>
+                      {preview(m)}
+                    </span>
+                  </div>
+                );
+              })}
+              {rel && <p suppressHydrationWarning className="text-[12.5px] mt-0.5" style={{ color: 'var(--sd-faint)' }}>{rel}</p>}
+            </div>
+          );
+        })() : (
+          <p className="mt-auto text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>탭해서 대화를 시작해요</p>
+        )}
+      </button>
+    ),
+    air: (
+      <div className="sd-card overflow-hidden w-full h-full flex flex-col" style={{ background: 'var(--sd-card-solid)' }}>
+        <button onClick={() => router.push('/weather')} className="block w-full text-left px-4 pt-4 pb-1 active:opacity-90" aria-label="미세먼지 상세">
+          <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+            <Wind size={16} /> {air?.location || '금곡동'} 미세먼지
+          </span>
+          <div className="mt-2 flex items-baseline gap-2.5 flex-wrap">
+            <span className={`text-[34px] font-extrabold leading-none tracking-tight ${theme.text}`}>{hasGrade ? air.grade : '불러오는 중'}</span>
+            {air && (
+              <span className="text-[12.5px]" style={{ color: 'var(--sd-muted)' }}>
+                PM10 <b style={{ color: 'var(--sd-ink)' }}>{air.pm10 ?? '--'}</b> · PM2.5 <b style={{ color: 'var(--sd-ink)' }}>{air.pm25 ?? '--'}</b>
+              </span>
+            )}
+          </div>
+        </button>
+        <div className="mt-3 overflow-hidden flex-1">
+          <AirSkyVisual grade={air?.grade} height={132} />
+          <div className="px-4 py-3 flex items-center justify-between text-[12.5px]" style={{ borderTop: '1px solid rgba(0,0,0,.06)' }}>
+            <span className="font-bold" style={{ color: 'var(--sd-muted)' }}>내일 예보</span>
+            <span style={{ color: 'var(--sd-faint)' }}>{air?.tomorrow?.summary || (air?.tomorrow?.grade ? `${air.tomorrow.grade} 예상` : '준비 중')}</span>
+          </div>
+          {pushState !== 'unknown' && pushState !== 'unsupported' && (
+            <div className="px-4 py-3 flex items-center justify-between text-[12.5px]" style={{ borderTop: '1px solid rgba(0,0,0,.06)' }}>
+              <div className="flex items-center gap-2" style={{ color: 'var(--sd-muted)' }}>
+                {pushState === 'on' ? <Bell size={14} strokeWidth={2.5} style={{ color: 'var(--m-air-ac)' }} /> : <BellOff size={14} strokeWidth={2.5} style={{ color: 'var(--sd-faint)' }} />}
+                <span className="font-bold">미세먼지 알림</span>
+                <span className="text-[11px]" style={{ color: 'var(--sd-faint)' }}>매일 아침 7시</span>
+              </div>
+              {pushState === 'denied' ? (
+                <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>권한 차단됨</span>
+              ) : (
+                <button onClick={togglePush} role="switch" aria-checked={pushState === 'on'} aria-label="미세먼지 알림 토글"
+                  className="relative w-10 h-6 rounded-full transition-colors duration-200 shrink-0"
+                  style={{ backgroundColor: pushState === 'on' ? 'var(--m-air-ac)' : '#CBD5E1' }}>
+                  <span className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200"
+                    style={{ transform: pushState === 'on' ? 'translateX(16px)' : 'translateX(0)' }} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    ),
+    weather: (
+      <motion.button
+        animate={weatherShake}
+        onClick={() => router.push('/weather')}
+        className="sd-card w-full h-full min-h-[140px] px-4 py-4 flex flex-col text-left active:scale-[0.99] transition-transform relative"
+        style={{ background: 'var(--sd-card-solid)' }}
+        aria-label="날씨 상세 보기"
+      >
+        {(() => {
+          const w = (weather as any)?.current as { temp: number | null; sky: string | null; pty: string | null; humidity: number | null } | undefined;
+          const td = (weather as any)?.today as { high: number | null; low: number | null; precipProb: number | null } | undefined;
+          const tm = (weather as any)?.tomorrow as { high: number | null; low: number | null; precipProb: number | null } | undefined;
+          const skyText = (w?.pty === '1' || w?.pty === '2') ? '비' : w?.pty === '3' ? '눈'
+            : w?.sky === '1' ? '맑음' : w?.sky === '3' ? '구름많음' : w?.sky === '4' ? '흐림' : '';
+          const chip = 'text-[11.5px] rounded-full px-2.5 py-1 whitespace-nowrap';
+          return (
+            <div className="flex-1 flex flex-col" style={{ ['--m-ac' as string]: 'var(--m-weather-ac)', ['--m-tile' as string]: 'var(--m-weather-tile)' } as React.CSSProperties}>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+                  <CloudSun size={16} /> 오늘 밖
+                </span>
+                <ChevronRight size={14} style={{ color: 'var(--sd-faint)' }} />
+              </div>
+              {w ? (
+                <>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <div className="flex items-end gap-2.5">
+                      <p className="text-[38px] font-extrabold leading-none tabular-nums" style={{ color: 'var(--sd-ink)' }}>{w.temp ?? '—'}°</p>
+                      <p className="text-[13.5px] font-bold pb-1" style={{ color: 'var(--sd-muted)' }}>{skyText}</p>
+                    </div>
+                    <SkyArt sky={w.sky} pty={w.pty} size={64} className="shrink-0 -my-1" />
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {td?.high != null && <span className={chip} style={{ background: 'var(--m-tile)', color: 'var(--sd-ink)' }}>최고 <b>{td.high}°</b>{td.low != null ? <> · 최저 <b>{td.low}°</b></> : null}</span>}
+                    {td?.precipProb != null && <span className={chip} style={{ background: 'var(--m-tile)', color: 'var(--sd-ink)' }}>비 <b>{td.precipProb}%</b></span>}
+                    {w.humidity != null && <span className={chip} style={{ background: 'var(--m-tile)', color: 'var(--sd-ink)' }}>습도 <b>{w.humidity}%</b></span>}
+                  </div>
+                  {(tm?.high != null || tm?.precipProb != null) && (
+                    <p className="mt-2.5 pt-2.5 text-[12.5px] font-semibold flex items-center gap-1.5 flex-wrap" style={{ borderTop: '1px solid rgba(0,0,0,.06)', color: 'var(--sd-muted)' }}>
+                      <span style={{ color: 'var(--m-ac)' }}>내일</span>
+                      {tm?.high != null && <span>↑{tm.high}° ↓{tm.low}°</span>}
+                      {tm?.precipProb != null && <span>· 비 {tm.precipProb}%</span>}
+                      {(tm?.precipProb ?? 0) >= 50 && <span className="rounded-full px-2 py-0.5 text-[11.5px] font-extrabold" style={{ background: 'var(--m-tile)', color: 'var(--m-ac)' }}>우산 챙겨!</span>}
+                    </p>
+                  )}
+                </>
+              ) : <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>불러오는 중…</p>}
+            </div>
+          );
+        })()}
+        <AnimatePresence>
+          {showWeatherHint && (
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[12px] font-bold px-3 py-1.5 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.2)] whitespace-nowrap z-10">
+              💡 탭하면 시간대별 날씨가 나와!
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.button>
+    ),
+    calendar: (
+      <button
+        onClick={() => router.push('/calendar')}
+        aria-label="달력 보기"
+        className="sd-card w-full h-full px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
+        style={{ background: 'var(--m-calendar)' }}
+      >
+        <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+          <CalendarDays size={16} /> 달력
+        </span>
+        {nextEvent ? (
+          <div className="mt-auto">
+            <p className="text-[14px] font-semibold line-clamp-1" style={{ color: 'var(--sd-ink)' }}>{nextEvent.title}</p>
+            <span className="text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>{(() => { const p = nextEvent.date.split('-'); return `${+p[1]}월 ${+p[2]}일`; })()}</span>
+          </div>
+        ) : (
+          <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>다가오는 일정이 없어요</p>
+        )}
+      </button>
+    ),
+    mood: (
+      <div className="sd-card w-full h-full px-4 py-4 flex flex-col" style={{ background: 'var(--sd-card-solid)' }}>
+        <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+          <Smile size={16} /> 오늘의 기분
+        </span>
+        {moodOpen ? (
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            {MOOD_OPTIONS.map((opt) => (
+              <button key={opt.id} onClick={() => pickMood(opt)} title={opt.label} aria-label={opt.label}
+                className="aspect-square rounded-xl bg-black/[0.03] active:scale-90 transition-all flex items-center justify-center p-1">
+                <Image src={opt.image} alt={opt.label} width={30} height={30} className="drop-shadow-sm" />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-auto flex items-center justify-center gap-5">
+            <div className="flex flex-col items-center gap-1">
+              {renderMoodFace(moods[partner]?.emoji, 54)}
+              <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>{partner}</span>
+            </div>
+            <button onClick={() => setMoodOpen(true)} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+              {moods[userName]?.emoji ? renderMoodFace(moods[userName]?.emoji, 54) : (
+                <span className="w-[54px] h-[54px] flex items-end justify-center gap-[6px] pb-3" aria-label="아직 기분을 안 골랐어요">
+                  {[0, 1, 2].map((i) => (<span key={i} className="w-[7px] h-[7px] rounded-full" style={{ background: 'var(--sd-faint)', opacity: 0.55 }} />))}
+                </span>
+              )}
+              <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>{userName}</span>
+            </button>
+          </div>
+        )}
+      </div>
+    ),
+    dday: (
+      <button
+        onClick={() => router.push('/dday')}
+        aria-label="우리 D-day 상세 보기"
+        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-center relative text-left transition-transform active:scale-[.98]"
+        style={{ background: 'var(--sd-card-solid)' }}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5 text-rose-300">
+            <Heart size={16} strokeWidth={2.5} fill="currentColor" />
+            <span className="text-xs font-bold">함께한 지</span>
+          </div>
+          <ChevronRight size={14} className="text-slate-300" />
+        </div>
+        <p className="text-2xl font-extrabold text-slate-800 tracking-tight">D+{dDay}</p>
+      </button>
+    ),
+    letter: (
+      <button
+        onClick={() => router.push(latestLetterId ? `/letters?open=${latestLetterId}` : '/letters')}
+        aria-label="편지"
+        className="sd-card w-full h-full px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
+        style={{ background: 'var(--sd-card-solid)', ['--m-ac' as string]: 'var(--m-letter-ac)' } as React.CSSProperties}
+      >
+        <span className="sd-tape -top-[7px] left-6 w-[52px] h-[17px] rounded-[2px] rotate-[9deg]" />
+        {hasLetter && <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />}
+        <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+          <Mail size={16} /> 편지
+        </span>
+        {hasLetter ? (
+          <p className="mt-auto text-[13.5px] font-semibold" style={{ color: 'var(--m-ac)' }}>💌 {partner}에게서 새 편지</p>
+        ) : (
+          <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>마음이 생기면 천천히</p>
+        )}
+      </button>
+    ),
+    memories: (
+      <button
+        onClick={() => router.push('/memories')}
+        aria-label="추억"
+        className="sd-card w-full h-full min-h-[140px] px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
+        style={{ background: 'var(--m-memories)', ['--m-ac' as string]: 'var(--m-memories-ac)' } as React.CSSProperties}
+      >
+        <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+          <Camera size={16} /> 추억
+        </span>
+        {latestMemory ? (
+          <div className="relative flex-1 min-h-[92px] mt-2 rounded-2xl overflow-hidden" style={{ background: 'var(--sd-card)' }}>
+            <img src={latestMemory.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-x-0 bottom-0 px-3 pt-6 pb-2" style={{ background: 'linear-gradient(to top, rgba(0,0,0,.55), transparent)' }}>
+              <p className="text-[12.5px] font-bold text-white line-clamp-1">{latestMemory.title || '추억'}</p>
+            </div>
+            {memoryCount > 0 && (
+              <span className="absolute top-2 right-2 text-[11px] font-extrabold px-2 py-0.5 rounded-full tabular-nums" style={{ background: 'rgba(255,255,255,.9)', color: 'var(--m-ac)' }}>
+                {memoryCount > 99 ? '99+' : memoryCount}장
+              </span>
+            )}
+          </div>
+        ) : (
+          <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>같이 찍은 사진을 모아요</p>
+        )}
+      </button>
+    ),
+    praise: (
+      <button
+        onClick={() => { localStorage.setItem(`praiseSeen:${kstDayKey(new Date())}`, String(praiseCount)); setPraiseSeen(praiseCount); router.push('/praise'); }}
+        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
+        style={{ background: 'var(--m-praise)' }}
+      >
+        {praiseCount - praiseSeen > 0 && (
+          <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-praise-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
+            {praiseCount - praiseSeen > 99 ? '99+' : praiseCount - praiseSeen}
+          </span>
+        )}
+        <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+          <Award size={16} strokeWidth={2.2} /> 칭찬
+        </div>
+        <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug">칭찬 다이어리</p>
+      </button>
+    ),
+    share: (
+      <button
+        onClick={() => router.push('/share')}
+        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
+        style={{ background: 'var(--m-share)' }}
+      >
+        {shares.length > 0 && (
+          <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-share-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
+            {shares.length > 99 ? '99+' : shares.length}
+          </span>
+        )}
+        <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+          <Link2 size={16} strokeWidth={2.2} /> 공유 리스트
+        </div>
+        <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">{`${vocativeOf(userName)} 이거 봐봐 💚`}</p>
+      </button>
+    ),
+    wishlist: (
+      <button
+        onClick={() => router.push('/wishlist')}
+        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
+        style={{ background: 'var(--m-wishlist)' }}
+      >
+        {wishes.length > 0 && (
+          <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-wishlist-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
+            {wishes.length > 99 ? '99+' : wishes.length}
+          </span>
+        )}
+        <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+          <Heart size={16} strokeWidth={2.2} /> 위시리스트
+        </div>
+        <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">먹고싶은 곳 · 가고싶은 곳</p>
+      </button>
+    ),
+    again: (
+      <button
+        onClick={() => router.push('/again')}
+        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
+        style={{ background: 'var(--m-again)' }}
+      >
+        {agains.length > 0 && (
+          <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-again-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
+            {agains.length > 99 ? '99+' : agains.length}
+          </span>
+        )}
+        <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+          <MapPin size={16} strokeWidth={2.2} /> 또 갈래
+        </div>
+        <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">또 가고 싶은 곳 · 단골</p>
+      </button>
+    ),
+    recipes: (
+      <button
+        onClick={() => router.push('/recipes')}
+        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
+        style={{ background: 'var(--m-recipes)' }}
+      >
+        {recipes.length > 0 && (
+          <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-recipes-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
+            {recipes.length > 99 ? '99+' : recipes.length}
+          </span>
+        )}
+        {(() => {
+          const now = Date.now(); const DAY = 24 * 60 * 60 * 1000;
+          const hasNew = recipes.some((r) => r.by !== userName && (now - r.createdAt.getTime() < DAY));
+          return hasNew ? <span className="absolute top-2 left-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" /> : null;
+        })()}
+        <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+          <ChefHat size={16} strokeWidth={2.2} /> 레시피
+        </div>
+        <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">같이 해먹은 걸 적어요</p>
+      </button>
+    ),
+    poems: (
+      <button
+        onClick={() => router.push('/poems')}
+        className="sd-card w-full h-full px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
+        style={{ background: 'var(--m-poems)' }}
+      >
+        {poems.length > 0 && (
+          <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-poems-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
+            {poems.length > 99 ? '99+' : poems.length}
+          </span>
+        )}
+        {(() => { const n = countNewPoems(poems, poemsLastSeen); return n > 0 ? <span className="absolute top-2 left-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" /> : null; })()}
+        <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+          <BookText size={16} strokeWidth={2.2} /> 시집
+        </div>
+        {(() => { const n = countNewPoems(poems, poemsLastSeen); return (
+          <p className="text-[12.5px] font-semibold leading-snug break-keep" style={{ color: n > 0 ? 'var(--sd-rel)' : 'var(--sd-faint)' }}>
+            {n > 0 ? `✨ 새 시 ${n}편` : '오늘 마음은 어떤 시'}
+          </p>
+        ); })()}
+      </button>
+    ),
+  };
+
   return (
     <div className="sd-app w-full max-w-md mx-auto min-h-screen text-slate-800 relative overflow-x-hidden pb-[calc(110px+env(safe-area-inset-bottom))] selection:bg-[#99E6D9]/40"
       onTouchStart={onHomeTouchStart} onTouchEnd={onHomeTouchEnd}>
@@ -510,111 +1051,6 @@ export default function KkomMorningHome() {
         </div>
       </header>
 
-      {/* 우리 낙서장 — 홈 최상단 히어로 (실시간 대화 채널). 상대 접속·끄적임 연동. 디자인: Gemini */}
-      <div className="relative z-10 px-6 pt-1 pb-2">
-        {(() => {
-          // 헤더 서브라인과 동일 기준(active+90초 이내)이라야 '지금 함께'가 서로 안 어긋남.
-          // 상대가 네이티브 캔버스에서 필기 중이면(웹 presence는 stale해도) 무조건 온라인.
-          const online = partnerDrawing || isTogetherNow(partnerPresence);
-          const openDoodle = async () => {
-            // 네이티브(Capacitor)면 끊김 없는 네이티브 캔버스, 웹이면 기존 /canvas
-            const { Capacitor, registerPlugin } = await import('@capacitor/core');
-            if (Capacitor.isNativePlatform()) {
-              try {
-                await (registerPlugin('Canvas') as { open(o: { me: string }): Promise<void> })
-                  .open({ me: userName === '우댕' ? 'udaeng' : 'kkomi' });
-              } catch { router.push('/canvas'); }
-            } else {
-              router.push('/canvas');
-            }
-          };
-          return (
-            <button
-              onClick={openDoodle}
-              className="sd-card relative w-full min-h-[150px] px-4 py-4 flex flex-col text-left active:scale-[.98] transition-transform"
-              style={{ background: online ? 'var(--m-doodle)' : 'var(--m-doodle)' }}
-              aria-label="우리 낙서장 열기"
-            >
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-                  <PenLine size={16} /> 낙서장
-                </span>
-                <span className="font-handwriting text-[26px] leading-none shrink-0" style={{ color: 'var(--sd-muted)' }}>
-                  우리 낙서장 ✏️
-                </span>
-              </div>
-              {/* 캔버스 프리뷰 (도트그리드 종이) — 사이담과 동일 */}
-              <div className="relative flex-1 min-h-[100px] rounded-2xl overflow-hidden"
-                   style={{ background: '#FFFCF5', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.05)' }}>
-                <div className="absolute inset-0" style={{
-                  backgroundImage: 'radial-gradient(rgba(200,190,185,.55) 1.4px, transparent 1.4px)',
-                  backgroundSize: '22px 22px',
-                }} />
-                <DoodleThumb strokes={heroStrokes} />
-                <span className="absolute bottom-2 right-2 h-9 px-3.5 rounded-[18px] inline-flex items-center shadow-[0_4px_12px_rgba(0,0,0,.12)]"
-                      style={{ background: 'var(--m-doodle-ac)' }}>
-                  <span className="font-handwriting text-[22px] leading-none text-white">종이 펼치기</span>
-                </span>
-              </div>
-            </button>
-          );
-        })()}
-      </div>
-
-      {/* 꼼톡 미리보기 — 사이담식: 안읽음 '숫자'가 아니라 '최근에 쓴 말'을 보여준다. 탭하면 꼼톡 열림. */}
-      {messages.length > 0 && (
-        <div className="relative z-10 px-6 pt-1 pb-2">
-          <button
-            onClick={() => { setChatOpen(true); setChatUnread(false); }}
-            className="sd-card relative w-full min-h-[140px] px-4 py-4 flex flex-col text-left active:scale-[.98] transition-transform"
-            style={{ background: 'var(--sd-card-solid)' }}
-            aria-label="꼼톡 열기"
-          >
-            {/* 주황 워시테이프 — 사이담 사이챗과 동일 */}
-            <span className="sd-tape -top-[7px] left-7 w-[52px] h-[17px] rounded-[2px] -rotate-[7deg]" />
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-                <MessageCircle size={16} /> 꼼톡
-                {chatUnread && <span className="inline-flex h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />}
-              </span>
-              <ChevronRight size={14} style={{ color: 'var(--sd-faint)' }} />
-            </div>
-            {(() => {
-              const recent = messages.slice(-3);
-              const last = recent[recent.length - 1];
-              const rel = (() => {
-                const d = last?.createdAt;
-                if (!d) return '';
-                const s = Math.floor((Date.now() - d.getTime()) / 1000);
-                if (s < 60) return '방금';
-                if (s < 3600) return `${Math.floor(s / 60)}분 전`;
-                if (s < 86400) return `${Math.floor(s / 3600)}시간 전`;
-                return `${Math.floor(s / 86400)}일 전`;
-              })();
-              return (
-                <div className="mt-2.5 flex-1 flex flex-col justify-end gap-1.5">
-                  {recent.map((m, i) => {
-                    const mine = m.from === userName;
-                    return (
-                      <div key={m.id ?? i} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                        <span
-                          className="max-w-[82%] rounded-2xl px-3 py-1.5 text-[12.5px] font-semibold leading-snug line-clamp-2"
-                          style={mine
-                            ? { background: 'var(--sd-ink-btn)', color: 'var(--sd-card-solid)' }
-                            : { background: 'var(--sd-rel-soft)', color: 'var(--sd-ink)' }}
-                        >
-                          {preview(m)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  {rel && <p suppressHydrationWarning className="text-[12.5px] mt-0.5" style={{ color: 'var(--sd-faint)' }}>{rel}</p>}
-                </div>
-              );
-            })()}
-          </button>
-        </div>
-      )}
 
       {/* Share List 알림 바 — 미확인 카드 있을 때만 (홈 only) */}
       {(() => {
@@ -656,387 +1092,59 @@ export default function KkomMorningHome() {
         </div>
       </div>
 
-      {/* 미세먼지 — 사이담 air 카드. 흰 sd-card + 등급(등급별 색) + PM + AirSkyVisual + 내일 + 알림토글.
-          (말티푸/포차코 캐릭터는 사이담 air엔 없어서 제거함 — 원하면 재배치) */}
-      <section className="relative z-10 px-5 pt-2 pb-2">
-        <div className="sd-card overflow-hidden" style={{ background: 'var(--sd-card-solid)' }}>
-          <button onClick={() => router.push('/weather')} className="block w-full text-left px-4 pt-4 pb-1 active:opacity-90" aria-label="미세먼지 상세">
-            <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-              <Wind size={16} /> {air?.location || '금곡동'} 미세먼지
-            </span>
-            <div className="mt-2 flex items-baseline gap-2.5 flex-wrap">
-              <span className={`text-[34px] font-extrabold leading-none tracking-tight ${theme.text}`}>
-                {hasGrade ? air.grade : '불러오는 중'}
-              </span>
-              {air && (
-                <span className="text-[12.5px]" style={{ color: 'var(--sd-muted)' }}>
-                  PM10 <b style={{ color: 'var(--sd-ink)' }}>{air.pm10 ?? '--'}</b> · PM2.5 <b style={{ color: 'var(--sd-ink)' }}>{air.pm25 ?? '--'}</b>
-                </span>
-              )}
-            </div>
-          </button>
-          <div className="mt-3 overflow-hidden">
-            <AirSkyVisual grade={air?.grade} height={132} />
-            <div className="px-4 py-3 flex items-center justify-between text-[12.5px]" style={{ borderTop: '1px solid rgba(0,0,0,.06)' }}>
-              <span className="font-bold" style={{ color: 'var(--sd-muted)' }}>내일 예보</span>
-              <span style={{ color: 'var(--sd-faint)' }}>{air?.tomorrow?.summary || (air?.tomorrow?.grade ? `${air.tomorrow.grade} 예상` : '준비 중')}</span>
-            </div>
-            {pushState !== 'unknown' && pushState !== 'unsupported' && (
-              <div className="px-4 py-3 flex items-center justify-between text-[12.5px]" style={{ borderTop: '1px solid rgba(0,0,0,.06)' }}>
-                <div className="flex items-center gap-2" style={{ color: 'var(--sd-muted)' }}>
-                  {pushState === 'on'
-                    ? <Bell size={14} strokeWidth={2.5} style={{ color: 'var(--m-air-ac)' }} />
-                    : <BellOff size={14} strokeWidth={2.5} style={{ color: 'var(--sd-faint)' }} />}
-                  <span className="font-bold">미세먼지 알림</span>
-                  <span className="text-[11px]" style={{ color: 'var(--sd-faint)' }}>매일 아침 7시</span>
-                </div>
-                {pushState === 'denied' ? (
-                  <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>권한 차단됨</span>
-                ) : (
-                  <button onClick={togglePush} role="switch" aria-checked={pushState === 'on'} aria-label="미세먼지 알림 토글"
-                    className="relative w-10 h-6 rounded-full transition-colors duration-200 shrink-0"
-                    style={{ backgroundColor: pushState === 'on' ? 'var(--m-air-ac)' : '#CBD5E1' }}>
-                    <span className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200"
-                      style={{ transform: pushState === 'on' ? 'translateX(16px)' : 'translateX(0)' }} />
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* 3. 대시보드 본문 — 하나의 일관된 그리드 */}
+      {/* 3. 대시보드 본문 — 사이담식 모듈 그리드 (순서·크기·표시 = settings/home, 둘이 같은 배치) */}
       <main className="relative z-10 px-5 flex flex-col gap-4">
-        {/* 오늘의 조각 — 오늘 새로 생긴 콘텐츠를 놓치지 않는 2열 업데이트 보드 (GPT 스펙, 수정0) */}
-        {(userName === '우댕' || userName === '꼼이') && (
-          <TodayDigest me={userName as '우댕' | '꼼이'} />
+        {editing ? (
+          /* ── 편집 모드: 끌어서 순서 · 칩으로 크기 · 스위치로 표시 ── */
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center justify-between px-1 pb-0.5">
+              <p className="text-[12.5px] font-semibold" style={{ color: 'var(--sd-muted)' }}>끌어서 순서 · 칩으로 크기 · 스위치로 표시</p>
+              <button onClick={finishEditing} disabled={savingLayout}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold text-white active:scale-95 transition-transform"
+                style={{ background: 'var(--sd-ink-btn)' }}>
+                {savingLayout ? <LoaderCircle size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.5} />}
+                완료
+              </button>
+            </div>
+            <Reorder.Group axis="y" values={draftOrder} onReorder={setDraftOrder} className="flex flex-col gap-2.5">
+              {draftOrder.map((m) => (
+                <EditRow key={m.id} module={m}
+                  size={draftSizes[m.id] ?? DEFAULT_SIZE[m.id] ?? '1x1'}
+                  enabled={draftEnabled.has(m.id)}
+                  onCycleSize={() => cycleDraftSize(m.id)}
+                  onToggle={() => toggleDraftEnabled(m.id)} />
+              ))}
+            </Reorder.Group>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-4 auto-rows-min">
+              {shownModules.flatMap((m, i) => {
+                const cell = (
+                  <div key={m.id} className={SIZE_CLASS[sizes[m.id] ?? DEFAULT_SIZE[m.id] ?? '1x1']}>
+                    {moduleNodes[m.id]}
+                  </div>
+                );
+                if (i === DIGEST_AFTER - 1 && (userName === '우댕' || userName === '꼼이')) {
+                  return [cell, (
+                    <div key="__digest" className="col-span-2">
+                      <TodayDigest me={userName as '우댕' | '꼼이'} />
+                    </div>
+                  )];
+                }
+                return [cell];
+              })}
+            </div>
+            {/* 카드 배치 바꾸기 — 사이담과 동일 위치(그리드 하단) */}
+            <button onClick={() => setEditing(true)}
+              className="mt-1 inline-flex items-center justify-center gap-2 self-center px-4 py-2.5 rounded-full text-[13px] font-bold active:scale-95 transition-transform"
+              style={{ background: 'var(--sd-surface-2)', color: 'var(--sd-muted)' }}>
+              <LayoutGrid size={15} strokeWidth={2.3} /> 카드 배치 바꾸기
+            </button>
+          </>
         )}
 
-        {/* 날씨 V2 — 탭하면 상세 페이지. 첫 진입 시 살짝 흔들리고 토스트로 알려줌 */}
-        <motion.button
-          animate={weatherShake}
-          onClick={() => router.push('/weather')}
-          className="sd-card w-full min-h-[140px] px-4 py-4 flex flex-col text-left active:scale-[0.99] transition-transform relative"
-          style={{ background: 'var(--sd-card-solid)' }}
-          aria-label="날씨 상세 보기"
-        >
-          {(() => {
-            const w = (weather as any)?.current as { temp: number | null; sky: string | null; pty: string | null; humidity: number | null } | undefined;
-            const td = (weather as any)?.today as { high: number | null; low: number | null; precipProb: number | null } | undefined;
-            const tm = (weather as any)?.tomorrow as { high: number | null; low: number | null; precipProb: number | null } | undefined;
-            const skyText = (w?.pty === '1' || w?.pty === '2') ? '비' : w?.pty === '3' ? '눈'
-              : w?.sky === '1' ? '맑음' : w?.sky === '3' ? '구름많음' : w?.sky === '4' ? '흐림' : '';
-            const chip = 'text-[11.5px] rounded-full px-2.5 py-1 whitespace-nowrap';
-            return (
-              <div className="flex-1 flex flex-col" style={{ ['--m-ac' as string]: 'var(--m-weather-ac)', ['--m-tile' as string]: 'var(--m-weather-tile)' } as React.CSSProperties}>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-                    <CloudSun size={16} /> 오늘 밖
-                  </span>
-                  <ChevronRight size={14} style={{ color: 'var(--sd-faint)' }} />
-                </div>
-                {w ? (
-                  <>
-                    <div className="mt-1 flex items-center justify-between gap-2">
-                      <div className="flex items-end gap-2.5">
-                        <p className="text-[38px] font-extrabold leading-none tabular-nums" style={{ color: 'var(--sd-ink)' }}>{w.temp ?? '—'}°</p>
-                        <p className="text-[13.5px] font-bold pb-1" style={{ color: 'var(--sd-muted)' }}>{skyText}</p>
-                      </div>
-                      <SkyArt sky={w.sky} pty={w.pty} size={64} className="shrink-0 -my-1" />
-                    </div>
-                    <div className="mt-2.5 flex flex-wrap gap-1.5">
-                      {td?.high != null && <span className={chip} style={{ background: 'var(--m-tile)', color: 'var(--sd-ink)' }}>최고 <b>{td.high}°</b>{td.low != null ? <> · 최저 <b>{td.low}°</b></> : null}</span>}
-                      {td?.precipProb != null && <span className={chip} style={{ background: 'var(--m-tile)', color: 'var(--sd-ink)' }}>비 <b>{td.precipProb}%</b></span>}
-                      {w.humidity != null && <span className={chip} style={{ background: 'var(--m-tile)', color: 'var(--sd-ink)' }}>습도 <b>{w.humidity}%</b></span>}
-                    </div>
-                    {(tm?.high != null || tm?.precipProb != null) && (
-                      <p className="mt-2.5 pt-2.5 text-[12.5px] font-semibold flex items-center gap-1.5 flex-wrap" style={{ borderTop: '1px solid rgba(0,0,0,.06)', color: 'var(--sd-muted)' }}>
-                        <span style={{ color: 'var(--m-ac)' }}>내일</span>
-                        {tm?.high != null && <span>↑{tm.high}° ↓{tm.low}°</span>}
-                        {tm?.precipProb != null && <span>· 비 {tm.precipProb}%</span>}
-                        {(tm?.precipProb ?? 0) >= 50 && <span className="rounded-full px-2 py-0.5 text-[11.5px] font-extrabold" style={{ background: 'var(--m-tile)', color: 'var(--m-ac)' }}>우산 챙겨!</span>}
-                      </p>
-                    )}
-                  </>
-                ) : <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>불러오는 중…</p>}
-              </div>
-            );
-          })()}
-          {/* Onboarding 토스트 — 첫 진입 한 번만 */}
-          <AnimatePresence>
-            {showWeatherHint && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[12px] font-bold px-3 py-1.5 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.2)] whitespace-nowrap z-10"
-              >
-                💡 탭하면 시간대별 날씨가 나와!
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.button>
-
-        {/* 달력 — 사이담 calendar 카드. (옷차림/착장 추천은 사용자 요청으로 제거) */}
-        <button
-          onClick={() => router.push('/calendar')}
-          aria-label="달력 보기"
-          className="sd-card w-full min-h-[104px] px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
-          style={{ background: 'var(--m-calendar)' }}
-        >
-          <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-            <CalendarDays size={16} /> 달력
-          </span>
-          {nextEvent ? (
-            <div className="mt-auto">
-              <p className="text-[14px] font-semibold line-clamp-1" style={{ color: 'var(--sd-ink)' }}>{nextEvent.title}</p>
-              <span className="text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>
-                {(() => { const p = nextEvent.date.split('-'); return `${+p[1]}월 ${+p[2]}일`; })()}
-              </span>
-            </div>
-          ) : (
-            <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>다가오는 일정이 없어요</p>
-          )}
-        </button>
-
-        {/* 기분 · D-day — 사이담식 1x1 나란히. 틀만 교체, pickMood·renderMoodFace·moods·dDay 그대로 */}
-        <div className="grid grid-cols-2 gap-4 auto-rows-min">
-          {/* 오늘의 기분 (1x1 흰 카드) */}
-          <div className="sd-card col-span-1 min-h-[104px] px-4 py-4 flex flex-col" style={{ background: 'var(--sd-card-solid)' }}>
-            <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-              <Smile size={16} /> 오늘의 기분
-            </span>
-            {moodOpen ? (
-              <div className="mt-2 grid grid-cols-3 gap-1.5">
-                {MOOD_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => pickMood(opt)}
-                    title={opt.label}
-                    aria-label={opt.label}
-                    className="aspect-square rounded-xl bg-black/[0.03] active:scale-90 transition-all flex items-center justify-center p-1"
-                  >
-                    <Image src={opt.image} alt={opt.label} width={30} height={30} className="drop-shadow-sm" />
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-auto flex items-center justify-center gap-5">
-                <div className="flex flex-col items-center gap-1">
-                  {renderMoodFace(moods[partner]?.emoji, 54)}
-                  <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>{partner}</span>
-                </div>
-                <button onClick={() => setMoodOpen(true)} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
-                  {moods[userName]?.emoji ? (
-                    renderMoodFace(moods[userName]?.emoji, 54)
-                  ) : (
-                    <span className="w-[54px] h-[54px] flex items-end justify-center gap-[6px] pb-3" aria-label="아직 기분을 안 골랐어요">
-                      {[0, 1, 2].map((i) => (
-                        <span key={i} className="w-[7px] h-[7px] rounded-full" style={{ background: 'var(--sd-faint)', opacity: 0.55 }} />
-                      ))}
-                    </span>
-                  )}
-                  <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>{userName}</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* D-day (1x1 흰 카드) */}
-          <button
-            onClick={() => router.push('/dday')}
-            aria-label="우리 D-day 상세 보기"
-            className="sd-card col-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-center relative text-left transition-transform active:scale-[.98]"
-            style={{ background: 'var(--sd-card-solid)' }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5 text-rose-300">
-                <Heart size={16} strokeWidth={2.5} fill="currentColor" />
-                <span className="text-xs font-bold">함께한 지</span>
-              </div>
-              <ChevronRight size={14} className="text-slate-300" />
-            </div>
-            <p className="text-2xl font-extrabold text-slate-800 tracking-tight">D+{dDay}</p>
-          </button>
-        </div>
-
-        {/* 편지 — 사이담식 Count 카드. 미리보기 없음(사용자 요청). 흰 카드 + 테이프.
-            hasLetter·latestLetterId 데이터 유지, 탭하면 편지함(읽기+쓰기). */}
-        <button
-          onClick={() => router.push(latestLetterId ? `/letters?open=${latestLetterId}` : '/letters')}
-          aria-label="편지"
-          className="sd-card w-full min-h-[104px] px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
-          style={{ background: 'var(--sd-card-solid)', ['--m-ac' as string]: 'var(--m-letter-ac)' } as React.CSSProperties}
-        >
-          <span className="sd-tape -top-[7px] left-6 w-[52px] h-[17px] rounded-[2px] rotate-[9deg]" />
-          {hasLetter && <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />}
-          <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-            <Mail size={16} /> 편지
-          </span>
-          {hasLetter ? (
-            <p className="mt-auto text-[13.5px] font-semibold" style={{ color: 'var(--m-ac)' }}>💌 {partner}에게서 새 편지</p>
-          ) : (
-            <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>마음이 생기면 천천히</p>
-          )}
-        </button>
-
-        {/* 추억 — 사이담 memories 카드. 큰 사진 썸네일 + 제목 오버레이 + N장. peach --m-memories */}
-        <button
-          onClick={() => router.push('/memories')}
-          aria-label="추억"
-          className="sd-card w-full min-h-[140px] px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
-          style={{ background: 'var(--m-memories)', ['--m-ac' as string]: 'var(--m-memories-ac)' } as React.CSSProperties}
-        >
-          <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-            <Camera size={16} /> 추억
-          </span>
-          {latestMemory ? (
-            <div className="relative flex-1 min-h-[92px] mt-2 rounded-2xl overflow-hidden" style={{ background: 'var(--sd-card)' }}>
-              <img src={latestMemory.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-              <div className="absolute inset-x-0 bottom-0 px-3 pt-6 pb-2" style={{ background: 'linear-gradient(to top, rgba(0,0,0,.55), transparent)' }}>
-                <p className="text-[12.5px] font-bold text-white line-clamp-1">{latestMemory.title || '추억'}</p>
-              </div>
-              {memoryCount > 0 && (
-                <span className="absolute top-2 right-2 text-[11px] font-extrabold px-2 py-0.5 rounded-full tabular-nums" style={{ background: 'rgba(255,255,255,.9)', color: 'var(--m-ac)' }}>
-                  {memoryCount > 99 ? '99+' : memoryCount}장
-                </span>
-              )}
-            </div>
-          ) : (
-            <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>같이 찍은 사진을 모아요</p>
-          )}
-        </button>
-
-        {/* keep 카드 — 사이담식 2열 모듈 그리드. 틀만 교체, onClick·데이터·뱃지 전부 그대로 */}
-        <div className="grid grid-cols-2 gap-4 auto-rows-min">
-          {/* 칭찬 */}
-          <button
-            onClick={() => {
-              localStorage.setItem(`praiseSeen:${kstDayKey(new Date())}`, String(praiseCount));
-              setPraiseSeen(praiseCount);
-              router.push('/praise');
-            }}
-            className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-            style={{ background: 'var(--m-praise)' }}
-          >
-            {praiseCount - praiseSeen > 0 && (
-              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-praise-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
-                {praiseCount - praiseSeen > 99 ? '99+' : praiseCount - praiseSeen}
-              </span>
-            )}
-            <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-              <Award size={16} strokeWidth={2.2} /> 칭찬
-            </div>
-            <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug">칭찬 다이어리</p>
-          </button>
-          {/* 공유 리스트 */}
-          <button
-            onClick={() => router.push('/share')}
-            className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-            style={{ background: 'var(--m-share)' }}
-          >
-            {shares.length > 0 && (
-              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-share-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
-                {shares.length > 99 ? '99+' : shares.length}
-              </span>
-            )}
-            <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-              <Link2 size={16} strokeWidth={2.2} /> 공유 리스트
-            </div>
-            <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">{`${vocativeOf(userName)} 이거 봐봐 💚`}</p>
-          </button>
-
-          {/* 위시리스트 */}
-          <button
-            onClick={() => router.push('/wishlist')}
-            className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-            style={{ background: 'var(--m-wishlist)' }}
-          >
-            {wishes.length > 0 && (
-              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-wishlist-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
-                {wishes.length > 99 ? '99+' : wishes.length}
-              </span>
-            )}
-            <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-              <Heart size={16} strokeWidth={2.2} /> 위시리스트
-            </div>
-            <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">먹고싶은 곳 · 가고싶은 곳</p>
-          </button>
-          {/* 또 갈래 */}
-          <button
-            onClick={() => router.push('/again')}
-            className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-            style={{ background: 'var(--m-again)' }}
-          >
-            {agains.length > 0 && (
-              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-again-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
-                {agains.length > 99 ? '99+' : agains.length}
-              </span>
-            )}
-            <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-              <MapPin size={16} strokeWidth={2.2} /> 또 갈래
-            </div>
-            <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">또 가고 싶은 곳 · 단골</p>
-          </button>
-
-          {/* 레시피 */}
-          <button
-            onClick={() => router.push('/recipes')}
-            className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-            style={{ background: 'var(--m-recipes)' }}
-          >
-            {recipes.length > 0 && (
-              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-recipes-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
-                {recipes.length > 99 ? '99+' : recipes.length}
-              </span>
-            )}
-            {(() => {
-              const now = Date.now();
-              const DAY = 24 * 60 * 60 * 1000;
-              const hasNew = recipes.some((r) => r.by !== userName && (now - r.createdAt.getTime() < DAY));
-              return hasNew ? (
-                <span className="absolute top-2 left-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
-              ) : null;
-            })()}
-            <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-              <ChefHat size={16} strokeWidth={2.2} /> 레시피
-            </div>
-            <p className="text-[12.5px] font-semibold text-[var(--sd-faint)] leading-snug break-keep">같이 해먹은 걸 적어요</p>
-          </button>
-          {/* 시집 */}
-          <button
-            onClick={() => router.push('/poems')}
-            className="sd-card col-span-1 row-span-1 min-h-[104px] px-4 py-4 flex flex-col justify-between relative text-left transition-transform active:scale-[.98]"
-            style={{ background: 'var(--m-poems)' }}
-          >
-            {poems.length > 0 && (
-              <span className="absolute top-2.5 right-2.5 min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--m-poems-ac)] text-white text-[10.5px] font-black flex items-center justify-center">
-                {poems.length > 99 ? '99+' : poems.length}
-              </span>
-            )}
-            {(() => {
-              const n = countNewPoems(poems, poemsLastSeen);
-              return n > 0 ? (
-                <span className="absolute top-2 left-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
-              ) : null;
-            })()}
-            <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-              <BookText size={16} strokeWidth={2.2} /> 시집
-            </div>
-            {(() => {
-              const n = countNewPoems(poems, poemsLastSeen);
-              return (
-                <p className="text-[12.5px] font-semibold leading-snug break-keep" style={{ color: n > 0 ? 'var(--sd-rel)' : 'var(--sd-faint)' }}>
-                  {n > 0 ? `✨ 새 시 ${n}편` : '오늘 마음은 어떤 시'}
-                </p>
-              );
-            })()}
-          </button>
-        </div>
-
-        {/* 우리 낙서장 카드는 홈 최상단 히어로로 이동 (헤더 바로 아래) */}
-
+        {!editing && (<>
         {/* 댕's 서재 — 외부 영어 원서 읽기 사이트(새 탭). 시집 아래, 옛 서재 자리 */}
         <a
           href="https://dang-s-library.vercel.app/"
@@ -1084,6 +1192,7 @@ export default function KkomMorningHome() {
             {userName} 로그아웃
           </button>
         </div>
+        </>)}
       </main>
 
       {/* 라이브 하트 — 둘 다 접속 중일 때만 중앙 큰 하트 + 양방향 폭탄 */}
