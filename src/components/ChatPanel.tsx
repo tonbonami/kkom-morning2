@@ -139,6 +139,21 @@ const KKOM_STICKERS: { word: string; image: string }[] = [
   { word: '인싸강아지', image: '/pochacco_kkom/pochaccofly.png' },
 ];
 
+// 사이 탭 — 사이담에서 온 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
+const SAI_STICKERS: { word: string; image: string }[] = [
+  { word: '맛점', image: '/emo/sai/lunch.webp' },
+  { word: 'ㅋㅋㅋ', image: '/emo/sai/kkk.webp' },
+  { word: '뭐해?', image: '/emo/sai/what.webp' },
+  { word: '굿모닝', image: '/emo/sai/goodmorning.webp' },
+  { word: '출근중', image: '/emo/sai/towork.webp' },
+  { word: '배고파', image: '/emo/sai/hungry.webp' },
+  { word: '졸려', image: '/emo/sai/sleepy.webp' },
+  { word: '도착!', image: '/emo/sai/arrival.webp' },
+  { word: '미안', image: '/emo/sai/apple.webp' },
+  { word: '배불러', image: '/emo/sai/full.webp' },
+  { word: '심심해', image: '/emo/sai/simsim.webp' },
+];
+
 // 답장 미리보기/푸시용 — 미니는 🐶, 텍스트 스티커는 괄호만 벗겨 단어로.
 function stripEmo(text: string): string {
   return text.replace(EMO_RE, '🐶').replace(STICKER_RE, '$1');
@@ -279,7 +294,7 @@ export function preview(m: ChatMessage): string {
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
-  const [stickerMode, setStickerMode] = useState<'sticker' | 'mini' | 'couple' | 'dang' | 'kkom'>('sticker');
+  const [stickerMode, setStickerMode] = useState<'sticker' | 'mini' | 'couple' | 'dang' | 'kkom' | 'sai'>('sticker');
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -662,7 +677,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ scale: { type: 'spring', stiffness: 300, damping: 20 }, opacity: { duration: 0.2 } }} />
                         ) : (
-                          <motion.img src={m.sticker} alt="이모티콘" className="w-28 h-28 object-contain drop-shadow-sm"
+                          // 사이 팩은 글자가 그림 안에 있어 조금 더 크게(144px) — 그래야 읽힌다. 포차코 스티커는 112px 유지.
+                          <motion.img src={m.sticker} alt="이모티콘"
+                            className={`${m.sticker.startsWith('/emo/sai/') ? 'w-36 h-36' : 'w-28 h-28'} object-contain drop-shadow-sm`}
                             initial={{ scale: 0.4, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1, rotate: [0, -5, 5, -3, 0] }}
                             transition={{ scale: { type: 'spring', stiffness: 420, damping: 14 }, opacity: { duration: 0.15 }, rotate: { duration: 1.8, repeat: Infinity, repeatDelay: 2.4, ease: 'easeInOut' } }} />
@@ -752,6 +769,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 <button onClick={() => setStickerMode('couple')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'couple' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>커플</button>
                 <button onClick={() => setStickerMode('dang')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'dang' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>Dang&apos;s</button>
                 <button onClick={() => setStickerMode('kkom')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'kkom' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>kkom&apos;s</button>
+                <button onClick={() => setStickerMode('sai')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'sai' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>사이</button>
                 {stickerMode === 'mini' && <span className="ml-1 shrink-0 whitespace-nowrap text-[11px] text-slate-400">글자 사이에 콕콕 넣기</span>}
                 {stickerMode === 'couple' && <span className="ml-1 shrink-0 whitespace-nowrap text-[11px] text-slate-400">움직이는 커플 · 톡엔 (단어)로도</span>}
               </div>
@@ -784,6 +802,17 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               ) : stickerMode === 'kkom' ? (
                 <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
                   {KKOM_STICKERS.map((s) => (
+                    <button key={s.word}
+                      onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
+                      aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={s.image} alt={s.word} className="h-full w-auto object-contain" />
+                    </button>
+                  ))}
+                </div>
+              ) : stickerMode === 'sai' ? (
+                <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
+                  {SAI_STICKERS.map((s) => (
                     <button key={s.word}
                       onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
                       aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
