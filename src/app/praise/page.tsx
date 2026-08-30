@@ -131,48 +131,6 @@ function StickerWrap({ src, emoji, count }: { src?: string; emoji?: string; coun
   );
 }
 
-// 100개 달성 모먼트 — 시각적으로만 일기 맨 위에 박는 가상 카드 (Firestore 데이터 안 건드림)
-function RoyalCard({ index, total }: { index: number; total: number }) {
-  const ROYAL_SRC = '/praise/classic/9.webp';
-  const tilt = index % 2 === 0 ? '-rotate-2' : 'rotate-2';
-  // 콘페티 — 카드 안에 흩뿌리기 (위치 + 회전 + 살짝 떨림 애니메이션)
-  const confetti = [
-    { e: '🎉', pos: 'top-1 left-3', rot: '-rotate-12', size: 'text-2xl', delay: '0s' },
-    { e: '✨', pos: 'top-2 right-4', rot: 'rotate-12', size: 'text-xl', delay: '0.2s' },
-    { e: '🎊', pos: 'top-1/2 -right-1', rot: '-rotate-6', size: 'text-2xl', delay: '0.4s' },
-    { e: '⭐', pos: 'bottom-3 left-2', rot: 'rotate-12', size: 'text-lg', delay: '0.1s' },
-    { e: '💫', pos: 'bottom-1 right-8', rot: '-rotate-6', size: 'text-lg', delay: '0.3s' },
-    { e: '🌟', pos: 'top-6 left-1/2', rot: 'rotate-12', size: 'text-lg', delay: '0.5s' },
-  ];
-  return (
-    <article className={cn('relative rounded-[24px] bg-gradient-to-br from-amber-100 via-yellow-50 to-amber-50 px-5 py-5 shadow-[0_10px_28px_rgba(217,119,6,0.22)] border-2 border-amber-200 overflow-visible', tilt)}>
-      <div className="tape -top-2 left-1/2 -translate-x-1/2 w-16 -rotate-3 z-10" />
-      {/* 콘페티 — 카드 안 흩뿌리기 + bounce 애니메이션 */}
-      {confetti.map((c, i) => (
-        <span
-          key={i}
-          className={cn('absolute pointer-events-none drop-shadow-sm', c.pos, c.rot, c.size)}
-          style={{ animation: `bounce 1.4s ${c.delay} ease-in-out infinite alternate` }}
-        >
-          {c.e}
-        </span>
-      ))}
-      <div className="flex items-center gap-3 relative z-[1]">
-        <img src={ROYAL_SRC} alt="" width={72} height={72} className="drop-shadow-md shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-black text-amber-700 tracking-wider">{index}번째 왕칭찬</p>
-          <p className="font-handwriting text-[22px] text-amber-900 leading-tight">
-            🎉 {total}개 모았어!
-          </p>
-          <p className="font-handwriting text-[15px] text-amber-700/80 leading-tight mt-0.5">
-            100개마다 자동으로 박혀
-          </p>
-        </div>
-      </div>
-    </article>
-  );
-}
-
 function PraiseRow({
   item,
   me,
@@ -630,11 +588,46 @@ export default function PraisePage() {
 
         {/* 다이어리 피드 — 카드 사이 간격 넓혀서 노트 줄이 잘 보이게 */}
         <section className="space-y-6 pt-2">
-          {/* 100개 달성 모먼트 — 받은 view일 때만, 다이어리 맨 위 */}
+          {/* 왕칭찬 트로피 선반 (Gemini A안) — 도배되던 풀사이즈 카드 N개를 얇은 스트립 하나로 압축.
+              ≤3개는 👑 나열(방금 100달성 땐 통통), 4개+는 '👑 × N' 칩. 실제 칭찬을 안 가림. */}
           {view === 'received' && royalCount > 0 && (
-            Array.from({ length: royalCount }).map((_, i) => (
-              <RoyalCard key={`royal-${i}`} index={i + 1} total={(i + 1) * 100} />
-            ))
+            <div className="relative flex items-center justify-between rounded-[20px] bg-[#FFF8D9]/70 px-5 py-3 shadow-[0_2px_10px_rgba(251,191,36,0.08)] border border-amber-200/50">
+              {/* 마스킹 테이프 장식 (정중앙 상단에 살짝 삐뚤게) */}
+              <div className="tape absolute -top-2 left-1/2 w-14 -translate-x-1/2 -rotate-2 opacity-90 z-10" />
+
+              {/* 텍스트 영역 */}
+              <div className="flex flex-col">
+                <span className="font-handwriting text-[20px] font-bold text-amber-800 leading-tight">
+                  모아둔 왕칭찬 컬렉션
+                </span>
+                <span className="text-[11px] font-medium text-amber-600/80 mt-0.5">
+                  서로의 마음이 100번 닿을 때마다 ✨
+                </span>
+              </div>
+
+              {/* 왕관 스티커 압축 표시 */}
+              <div className="flex items-center gap-1">
+                {royalCount <= 3 ? (
+                  // 3개 이하는 스티커를 그대로 나열 (새로 받은 건 통통 튀게)
+                  Array.from({ length: royalCount }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={`text-2xl drop-shadow-sm ${i === royalCount - 1 && receivedTotal % 100 === 0 ? 'animate-bounce' : ''}`}
+                    >
+                      👑
+                    </span>
+                  ))
+                ) : (
+                  // 4개 이상부터는 칩 형태로 깔끔하게 축약
+                  <div className="flex items-center gap-1.5 rounded-full bg-amber-100/60 px-3 py-1 shadow-inner border border-amber-200/50">
+                    <span className="text-xl drop-shadow-sm">👑</span>
+                    <span className="font-handwriting text-[22px] font-bold text-amber-700 mt-1">
+                      × {royalCount}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {diaryItems.length === 0 ? (
