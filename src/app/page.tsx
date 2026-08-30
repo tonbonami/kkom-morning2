@@ -694,12 +694,24 @@ export default function KkomMorningHome() {
             <div className="mt-2.5 flex-1 flex flex-col justify-end gap-1.5">
               {recent.map((m, i) => {
                 const mine = m.from === userName;
+                // 사이담 스타일: 미리보기에서도 스티커를 '이모티콘' 텍스트가 아니라 그림으로.
+                // 높이 38px·폭 자동, 말풍선 없음(투명 그림에 배경 깔면 상자에 갇혀 보임). 좌우 정렬은 유지.
+                const isVid = m.sticker ? /\.(mp4|webm|mov)$/i.test(m.sticker) : false;
                 return (
                   <div key={m.id ?? i} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                    <span className="max-w-[82%] rounded-2xl px-3 py-1.5 text-[12.5px] font-semibold leading-snug line-clamp-2"
-                      style={mine ? { background: 'var(--sd-ink-btn)', color: 'var(--sd-card-solid)' } : { background: 'var(--sd-rel-soft)', color: 'var(--sd-ink)' }}>
-                      {preview(m)}
-                    </span>
+                    {m.sticker ? (
+                      isVid ? (
+                        <video src={m.sticker} muted loop playsInline autoPlay className="h-[38px] w-auto block rounded-md" />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={m.sticker} alt="이모티콘" className="h-[38px] w-auto block" />
+                      )
+                    ) : (
+                      <span className="max-w-[82%] rounded-2xl px-3 py-1.5 text-[12.5px] font-semibold leading-snug line-clamp-2"
+                        style={mine ? { background: 'var(--sd-ink-btn)', color: 'var(--sd-card-solid)' } : { background: 'var(--sd-rel-soft)', color: 'var(--sd-ink)' }}>
+                        {preview(m)}
+                      </span>
+                    )}
                   </div>
                 );
               })}
