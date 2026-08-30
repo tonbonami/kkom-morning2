@@ -143,6 +143,7 @@ const KKOM_STICKERS: { word: string; image: string }[] = [
 const SAI_STICKERS: { word: string; image: string }[] = [
   { word: '맛점', image: '/emo/sai/lunch.webp' },
   { word: 'ㅋㅋㅋ', image: '/emo/sai/kkk.webp' },
+  { word: '헐', image: '/emo/sai/hul.webp' },
   { word: '뭐해?', image: '/emo/sai/what.webp' },
   { word: '굿모닝', image: '/emo/sai/goodmorning.webp' },
   { word: '출근중', image: '/emo/sai/towork.webp' },
