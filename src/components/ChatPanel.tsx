@@ -139,11 +139,11 @@ const KKOM_STICKERS: { word: string; image: string }[] = [
   { word: '인싸강아지', image: '/pochacco_kkom/pochaccofly.png' },
 ];
 
-// 사이 탭 — 사이담에서 온 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
+// 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
+// 순서는 사이담 EMOTICONS(setId=SAI) 정의 순서 그대로(우댕 지시 "순서도 그대로").
 const SAI_STICKERS: { word: string; image: string }[] = [
   { word: '맛점', image: '/emo/sai/lunch.webp' },
   { word: 'ㅋㅋㅋ', image: '/emo/sai/kkk.webp' },
-  { word: '헐', image: '/emo/sai/hul.webp' },
   { word: '뭐해?', image: '/emo/sai/what.webp' },
   { word: '굿모닝', image: '/emo/sai/goodmorning.webp' },
   { word: '출근중', image: '/emo/sai/towork.webp' },
@@ -153,6 +153,37 @@ const SAI_STICKERS: { word: string; image: string }[] = [
   { word: '미안', image: '/emo/sai/apple.webp' },
   { word: '배불러', image: '/emo/sai/full.webp' },
   { word: '심심해', image: '/emo/sai/simsim.webp' },
+  { word: '헐', image: '/emo/sai/hul.webp' },
+  { word: 'ㄴㄴ', image: '/emo/sai/nono.webp' },
+  { word: '가는중', image: '/emo/sai/ontheway.webp' },
+  { word: '굿밤', image: '/emo/sai/goodnight.webp' },
+  { word: '바빠', image: '/emo/sai/busy.webp' },
+];
+
+// 사이담이 탭 — 사이담 말티푸 표정·몸짓 21종. 사이담 EMOTICONS(setId=BASIC) 정의 순서 그대로.
+// 파일은 사이담 /mood + /praise/saidam 공유본을 꼼모닝 /emo/saidami/로 네임스페이스 복사(우리 /pochacco 무버 안 건드림).
+const SAIDAMI_STICKERS: { word: string; image: string }[] = [
+  { word: '행복', image: '/emo/saidami/happy.webp' },
+  { word: '사랑해', image: '/emo/saidami/love.webp' },
+  { word: '신나', image: '/emo/saidami/excited.webp' },
+  { word: '평온', image: '/emo/saidami/calm.webp' },
+  { word: '졸려', image: '/emo/saidami/sleepy.webp' },
+  { word: '속상해', image: '/emo/saidami/sad.webp' },
+  { word: '화났어', image: '/emo/saidami/angry.webp' },
+  { word: '보고파', image: '/emo/saidami/missing.webp' },
+  { word: '아파', image: '/emo/saidami/sick.webp' },
+  { word: '미안해', image: '/emo/saidami/sorry.webp' },
+  { word: '고마워', image: '/emo/saidami/thanks.webp' },
+  { word: '삐졌어', image: '/emo/saidami/sulky.webp' },
+  { word: '반짝', image: '/emo/saidami/star.webp' },
+  { word: '하트', image: '/emo/saidami/heart.webp' },
+  { word: '짝짝짝', image: '/emo/saidami/clap.webp' },
+  { word: '잘했어', image: '/emo/saidami/medal.webp' },
+  { word: '꽃다발', image: '/emo/saidami/flower.webp' },
+  { word: '칭찬해줘', image: '/emo/saidami/please.webp' },
+  { word: '힘내', image: '/emo/saidami/jump.webp' },
+  { word: '최고야', image: '/emo/saidami/crown.webp' },
+  { word: '안아줘', image: '/emo/saidami/hug.webp' },
 ];
 
 // 답장 미리보기/푸시용 — 미니는 🐶, 텍스트 스티커는 괄호만 벗겨 단어로.
@@ -295,7 +326,7 @@ export function preview(m: ChatMessage): string {
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
-  const [stickerMode, setStickerMode] = useState<'sticker' | 'mini' | 'couple' | 'dang' | 'kkom' | 'sai'>('sticker');
+  const [stickerMode, setStickerMode] = useState<'sticker' | 'mini' | 'couple' | 'dang' | 'kkom' | 'sai' | 'saidami'>('sticker');
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -771,6 +802,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 <button onClick={() => setStickerMode('dang')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'dang' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>Dang&apos;s</button>
                 <button onClick={() => setStickerMode('kkom')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'kkom' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>kkom&apos;s</button>
                 <button onClick={() => setStickerMode('sai')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'sai' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>사이</button>
+                <button onClick={() => setStickerMode('saidami')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'saidami' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>사이담이</button>
                 {stickerMode === 'mini' && <span className="ml-1 shrink-0 whitespace-nowrap text-[11px] text-slate-400">글자 사이에 콕콕 넣기</span>}
                 {stickerMode === 'couple' && <span className="ml-1 shrink-0 whitespace-nowrap text-[11px] text-slate-400">움직이는 커플 · 톡엔 (단어)로도</span>}
               </div>
@@ -814,6 +846,17 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               ) : stickerMode === 'sai' ? (
                 <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
                   {SAI_STICKERS.map((s) => (
+                    <button key={s.word}
+                      onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
+                      aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={s.image} alt={s.word} className="h-full w-auto object-contain" />
+                    </button>
+                  ))}
+                </div>
+              ) : stickerMode === 'saidami' ? (
+                <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
+                  {SAIDAMI_STICKERS.map((s) => (
                     <button key={s.word}
                       onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
                       aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
