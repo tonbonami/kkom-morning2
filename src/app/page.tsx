@@ -481,31 +481,40 @@ export default function KkomMorningHome() {
     else alert(r.error || '알림을 켤 수 없어요.');
   };
 
-  // 미세먼지: locKey 바뀔 때마다 재구독 (5분 갱신)
+  // 미세먼지: locKey 바뀔 때마다 재구독 (5분 갱신).
+  // ⚠️ 카드를 껐거나(모듈 off) 화면이 안 보일 때(백그라운드)는 폴링 안 함 — data.go.kr 일 호출한도 아낌.
   useEffect(() => {
+    if (!enabledSet.has('air')) return;
     const loc = LOCATIONS[locKey];
     let active = true;
     const url = `/api/air?station=${encodeURIComponent(loc.station)}&region=${encodeURIComponent(loc.region)}`;
-    const load = () => fetch(url).then((r) => r.json()).then((a) => { if (active) setAir(a); }).catch(() => {});
+    const load = () => { if (document.hidden) return; fetch(url).then((r) => r.json()).then((a) => { if (active) setAir(a); }).catch(() => {}); };
     load();
     const id = setInterval(load, 5 * 60 * 1000);
-    return () => { active = false; clearInterval(id); };
-  }, [locKey]);
+    const onVis = () => { if (!document.hidden) load(); }; // 다시 보이면 즉시 갱신
+    document.addEventListener('visibilitychange', onVis);
+    return () => { active = false; clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [locKey, enabledSet]);
 
-  // 날씨: locKey 바뀔 때마다 재구독 (10분 갱신)
+  // 날씨: locKey 바뀔 때마다 재구독 (10분 갱신). 카드 off·백그라운드면 폴링 안 함(위 미세먼지와 동일).
   useEffect(() => {
+    if (!enabledSet.has('weather')) return;
     const loc = LOCATIONS[locKey];
     let active = true;
     const url = `/api/weather?nx=${loc.nx}&ny=${loc.ny}`;
-    const load = () =>
+    const load = () => {
+      if (document.hidden) return;
       fetch(url)
         .then((r) => r.json())
         .then((w) => { if (active && w && (w.current || w.today)) setWeather(w as any); })
         .catch(() => {});
+    };
     load();
     const id = setInterval(load, 10 * 60 * 1000);
-    return () => { active = false; clearInterval(id); };
-  }, [locKey]);
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { active = false; clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [locKey, enabledSet]);
 
   const changeLoc = (k: LocKey) => {
     setLocKey(k);
