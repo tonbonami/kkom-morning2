@@ -149,7 +149,7 @@ const SAI_STICKERS: { word: string; image: string }[] = [
   { word: '졸려', image: '/emo/sai/sleepy.webp' },
   { word: '도착!', image: '/emo/sai/arrival.webp' },
   { word: '미안', image: '/emo/sai/apple.webp' },
-  { word: '배불러', image: '/emo/sai/full2.webp' },
+  { word: '배불러', image: '/emo/sai/full.webp?v=2' },
   { word: '심심해', image: '/emo/sai/simsim.webp' },
   { word: '헐', image: '/emo/sai/hul.webp' },
   { word: 'ㄴㄴ', image: '/emo/sai/nono.webp' },
