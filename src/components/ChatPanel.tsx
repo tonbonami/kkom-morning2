@@ -116,10 +116,8 @@ const FULL_STICKERS = new Set(['/pochacco_couple/heli.webp']);
 // 스티커 소스가 동영상(mp4/webm/mov)인지 → <video>로 진짜 재생. 아니면 정지 이미지.
 const isVideoSrc = (src: string) => /\.(mp4|webm|mov)$/i.test(src);
 const posterOf = (src: string) => src.replace(/\.(mp4|webm|mov)$/i, '-poster.webp');
-const STICKER_ALT = Object.keys(TEXT_STICKERS).join('|');
-// [[e:id]] 미니 이모티콘 OR (단어) 텍스트 스티커 둘 다 매칭
-const RICH_RE = new RegExp(`\\[\\[e:([a-z]+)\\]\\]|\\((${STICKER_ALT})\\)`, 'g');
-const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
+// (단어) 매칭 정규식(STICKER_ALT/RICH_RE/STICKER_RE)은 꼼이미니(SAIDAMI) 단어까지 합쳐야 해서
+// SAIDAMI_STICKERS 정의 뒤(아래)에서 만든다.
 // 스티커 포켓 그리드 — 텍스트 스티커들을 탭해서 큰 단독 스티커로 전송(투명 배경, 말풍선 없음).
 const POCKET_STICKERS = Object.entries(TEXT_STICKERS).map(([word, image]) => ({ word, image }));
 // Dang's 탭 — 단독 스티커(탭해서 크게 전송). 추가하려면 여기 { word, image } 한 줄.
@@ -186,6 +184,16 @@ const SAIDAMI_STICKERS: { word: string; image: string }[] = [
   { word: '안아줘', image: '/emo/saidami/hug.webp' },
 ];
 
+// 꼼이미니 = 카톡식 (단어) 인라인 미니(32px). 라벨→이미지 룩업.
+// 겹치는 단어(사랑해·보고파·하트는 커플 스티커에도 있음)는 꼼이미니(말티푸)가 렌더 우선.
+// 커플 스티커는 '커플' 탭 탭전송(단독 스티커)으로 그대로 살아있어 손실 없음.
+const MINI_BY_WORD: Record<string, string> = Object.fromEntries(SAIDAMI_STICKERS.map((s) => [s.word, s.image]));
+// (단어) 매칭 = 꼼이미니 단어 + 커플 텍스트스티커(중복 제거). 손으로 쳐도 그림이 된다.
+const STICKER_ALT = [...new Set([...SAIDAMI_STICKERS.map((s) => s.word), ...Object.keys(TEXT_STICKERS)])].join('|');
+// [[e:id]] 포차코 미니 OR (단어) 스티커 둘 다 매칭
+const RICH_RE = new RegExp(`\\[\\[e:([a-z]+)\\]\\]|\\((${STICKER_ALT})\\)`, 'g');
+const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
+
 // 답장 미리보기/푸시용 — 미니는 🐶, 텍스트 스티커는 괄호만 벗겨 단어로.
 function stripEmo(text: string): string {
   return text.replace(EMO_RE, '🐶').replace(STICKER_RE, '$1');
@@ -225,6 +233,14 @@ function renderRich(text: string): React.ReactNode {
         parts.push(<img key={i++} src={opt.image} alt={opt.label} className="inline-block w-6 h-6 align-middle object-contain" />);
       } else parts.push(m[0]);
     } else if (m[2] !== undefined) {
+      // 꼼이미니(말티푸) 먼저 — 32px 인라인, 폭 자동, 말풍선 없음(사이담 스펙)
+      const miniSrc = MINI_BY_WORD[m![2]];
+      if (miniSrc) {
+        // eslint-disable-next-line @next/next/no-img-element
+        parts.push(<img key={i++} src={miniSrc} alt={m![2]} className="inline-block h-8 w-auto align-middle object-contain" />);
+        last = m.index + m[0].length;
+        continue;
+      }
       const src = TEXT_STICKERS[m![2]];
       if (isVideoSrc(src)) {
         // 진짜 동영상 스티커 (편지처럼 MP4 재생)
@@ -462,6 +478,19 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   // 미니 이모티콘 — 커서 위치에 [[e:id]] 토큰 삽입 (피커 열린 채 여러 개 가능)
   const insertMini = (id: string) => {
     const token = `[[e:${id}]]`;
+    const ta = taRef.current;
+    const start = ta?.selectionStart ?? draft.length;
+    const end = ta?.selectionEnd ?? start;
+    const next = draft.slice(0, start) + token + draft.slice(end);
+    setDraft(next);
+    requestAnimationFrame(() => {
+      if (ta) { ta.focus(); const pos = start + token.length; ta.setSelectionRange(pos, pos); }
+    });
+  };
+
+  // 꼼이미니 — 커서 위치에 카톡식 (단어) 삽입 (피커 열린 채 여러 개 가능). 렌더 시 32px 그림.
+  const insertParen = (word: string) => {
+    const token = `(${word})`;
     const ta = taRef.current;
     const start = ta?.selectionStart ?? draft.length;
     const end = ta?.selectionEnd ?? start;
@@ -802,8 +831,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 <button onClick={() => setStickerMode('dang')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'dang' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>Dang&apos;s</button>
                 <button onClick={() => setStickerMode('kkom')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'kkom' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>kkom&apos;s</button>
                 <button onClick={() => setStickerMode('sai')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'sai' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>꼼이</button>
-                <button onClick={() => setStickerMode('saidami')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'saidami' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>사이담이</button>
+                <button onClick={() => setStickerMode('saidami')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'saidami' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>꼼이미니</button>
                 {stickerMode === 'mini' && <span className="ml-1 shrink-0 whitespace-nowrap text-[11px] text-slate-400">글자 사이에 콕콕 넣기</span>}
+                {stickerMode === 'saidami' && <span className="ml-1 shrink-0 whitespace-nowrap text-[11px] text-slate-400">글자 사이에 콕콕 · (단어)로 톡에 넣기</span>}
                 {stickerMode === 'couple' && <span className="ml-1 shrink-0 whitespace-nowrap text-[11px] text-slate-400">움직이는 커플 · 톡엔 (단어)로도</span>}
               </div>
               {stickerMode === 'couple' ? (
@@ -855,13 +885,15 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   ))}
                 </div>
               ) : stickerMode === 'saidami' ? (
+                // 꼼이미니 = 미니 전용. 탭하면 큰 스티커 전송이 아니라 (단어)를 입력창에 꽂는다(피커 유지).
                 <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
                   {SAIDAMI_STICKERS.map((s) => (
                     <button key={s.word}
-                      onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
-                      aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
+                      onClick={() => insertParen(s.word)}
+                      aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex flex-col items-center justify-center gap-0.5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.image} alt={s.word} className="h-full w-auto object-contain" />
+                      <img src={s.image} alt={s.word} className="h-[52px] w-auto object-contain" />
+                      <span className="text-[9px] font-bold text-slate-400 leading-none">{s.word}</span>
                     </button>
                   ))}
                 </div>
