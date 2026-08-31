@@ -194,6 +194,18 @@ const STICKER_ALT = [...new Set([...SAIDAMI_STICKERS.map((s) => s.word), ...Obje
 const RICH_RE = new RegExp(`\\[\\[e:([a-z]+)\\]\\]|\\((${STICKER_ALT})\\)`, 'g');
 const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
 
+// 이모티콘 서랍 탭 — 사이챗과 동일 구조(썸네일 + 이름). id/데이터는 꼼모닝 것.
+type StickerMode = 'sticker' | 'mini' | 'couple' | 'dang' | 'kkom' | 'sai' | 'saidami';
+const STICKER_TABS: { id: StickerMode; title: string; thumb: string }[] = [
+  { id: 'sticker', title: '스티커',   thumb: '/pochacco/face_happy.png' },
+  { id: 'mini',    title: '미니',     thumb: '/pochacco/face_love.png' },
+  { id: 'couple',  title: '커플',     thumb: '/pochacco_couple/love.png' },
+  { id: 'dang',    title: "Dang's",   thumb: '/pochacco_dang/cutekkomi.png' },
+  { id: 'kkom',    title: "kkom's",   thumb: '/pochacco_kkom/kkomiyap.png' },
+  { id: 'sai',     title: '꼼이',     thumb: '/emo/sai/kkk.webp' },
+  { id: 'saidami', title: '꼼이미니',  thumb: '/emo/saidami/love.webp' },
+];
+
 // 답장 미리보기/푸시용 — 미니는 🐶, 텍스트 스티커는 괄호만 벗겨 단어로.
 function stripEmo(text: string): string {
   return text.replace(EMO_RE, '🐶').replace(STICKER_RE, '$1');
@@ -342,7 +354,7 @@ export function preview(m: ChatMessage): string {
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
-  const [stickerMode, setStickerMode] = useState<'sticker' | 'mini' | 'couple' | 'dang' | 'kkom' | 'sai' | 'saidami'>('sticker');
+  const [stickerMode, setStickerMode] = useState<StickerMode>('sticker');
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -499,6 +511,26 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     requestAnimationFrame(() => {
       if (ta) { ta.focus(); const pos = start + token.length; ta.setSelectionRange(pos, pos); }
     });
+  };
+
+  // 이모티콘 서랍 — 현재 탭의 항목(key/image/video). 라벨은 사이챗처럼 안 그림(그림 한 장으로).
+  const stickerItems = (mode: StickerMode): { key: string; image: string; video?: boolean }[] => {
+    switch (mode) {
+      case 'sticker':
+      case 'mini': return MOOD_OPTIONS.map((o) => ({ key: o.id, image: o.image }));
+      case 'couple': return POCKET_STICKERS.map((s) => ({ key: s.word, image: s.image, video: isVideoSrc(s.image) }));
+      case 'dang': return DANG_STICKERS.map((s) => ({ key: s.word, image: s.image }));
+      case 'kkom': return KKOM_STICKERS.map((s) => ({ key: s.word, image: s.image }));
+      case 'sai': return SAI_STICKERS.map((s) => ({ key: s.word, image: s.image }));
+      case 'saidami': return SAIDAMI_STICKERS.map((s) => ({ key: s.word, image: s.image }));
+      default: return [];
+    }
+  };
+  const pickSticker = (mode: StickerMode, key: string, image: string) => {
+    if (mode === 'mini') { insertMini(key); return; }      // [[e:id]] 인라인
+    if (mode === 'saidami') { insertParen(key); return; }  // (단어) 인라인
+    onSend('', undefined, image, replyTo ?? undefined);    // 나머지: 단독 스티커 전송
+    setReplyTo(null); setStickerOpen(false);
   };
 
   // 원본 사진·동영상 저장 — 중복 탭 방지용 saving 상태만 관리, 실제 저장은 saveMedia가 플랫폼별로.
@@ -821,97 +853,42 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             )}
           </div>
 
-          {/* 이모티콘 피커 (스티커=크게 따로 / 미니=글자 사이 인라인) */}
+
+          {/* 이모티콘 서랍 — 사이챗 그대로: 둥근 카드 + 썸네일 탭 + grid-cols-4 흰 정사각(74% 이미지, 라벨 없음) */}
           {stickerOpen && (
-            <div className="px-3 pt-2 pb-1 bg-white/80 backdrop-blur-md border-t border-black/5">
-              <div className="flex items-center gap-1 mb-2 overflow-x-auto">
-                <button onClick={() => setStickerMode('sticker')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'sticker' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>스티커</button>
-                <button onClick={() => setStickerMode('mini')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'mini' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>미니</button>
-                <button onClick={() => setStickerMode('couple')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'couple' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>커플</button>
-                <button onClick={() => setStickerMode('dang')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'dang' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>Dang&apos;s</button>
-                <button onClick={() => setStickerMode('kkom')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'kkom' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>kkom&apos;s</button>
-                <button onClick={() => setStickerMode('sai')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'sai' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>꼼이</button>
-                <button onClick={() => setStickerMode('saidami')} className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] font-bold transition ${stickerMode === 'saidami' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>꼼이미니</button>
-                {stickerMode === 'mini' && <span className="ml-1 shrink-0 whitespace-nowrap text-[11px] text-slate-400">글자 사이에 콕콕 넣기</span>}
-                {stickerMode === 'saidami' && <span className="ml-1 shrink-0 whitespace-nowrap text-[11px] text-slate-400">글자 사이에 콕콕 · (단어)로 톡에 넣기</span>}
-                {stickerMode === 'couple' && <span className="ml-1 shrink-0 whitespace-nowrap text-[11px] text-slate-400">움직이는 커플 · 톡엔 (단어)로도</span>}
+            <div className="mx-3 mb-2 rounded-3xl p-3" style={{ background: 'var(--sd-card)', boxShadow: 'var(--sd-shadow-card)' }}>
+              {/* 탭 줄 — 스크롤 밖(내려도 안 밀림) */}
+              <div className="flex gap-1.5 mb-2.5 overflow-x-auto pb-0.5">
+                {STICKER_TABS.map((st) => {
+                  const on = st.id === stickerMode;
+                  return (
+                    <button key={st.id} onClick={() => setStickerMode(st.id)} aria-pressed={on} aria-label={`${st.title} 이모티콘`}
+                      className="shrink-0 flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full text-[13px] font-extrabold transition-colors"
+                      style={on
+                        ? { background: 'var(--sd-rel-soft)', color: 'var(--sd-rel)' }
+                        : { background: 'var(--sd-card-solid)', color: 'var(--sd-muted)' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={st.thumb} alt="" className="w-6 h-6 object-contain" />
+                      {st.title}
+                    </button>
+                  );
+                })}
               </div>
-              {stickerMode === 'couple' ? (
-                <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
-                  {POCKET_STICKERS.map((s) => (
-                    <button key={s.word}
-                      onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
-                      aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
-                      {isVideoSrc(s.image) ? (
-                        <video src={s.image} poster={posterOf(s.image)} muted loop autoPlay playsInline className="h-full w-auto object-contain rounded-xl" />
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={s.image} alt={s.word} className="h-full w-auto object-contain" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              ) : stickerMode === 'dang' ? (
-                <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
-                  {DANG_STICKERS.map((s) => (
-                    <button key={s.word}
-                      onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
-                      aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.image} alt={s.word} className="h-full w-auto object-contain" />
-                    </button>
-                  ))}
-                </div>
-              ) : stickerMode === 'kkom' ? (
-                <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
-                  {KKOM_STICKERS.map((s) => (
-                    <button key={s.word}
-                      onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
-                      aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.image} alt={s.word} className="h-full w-auto object-contain" />
-                    </button>
-                  ))}
-                </div>
-              ) : stickerMode === 'sai' ? (
-                <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
-                  {SAI_STICKERS.map((s) => (
-                    <button key={s.word}
-                      onClick={() => { onSend('', undefined, s.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }}
-                      aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex items-center justify-center">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.image} alt={s.word} className="h-full w-auto object-contain" />
-                    </button>
-                  ))}
-                </div>
-              ) : stickerMode === 'saidami' ? (
-                // 꼼이미니 = 미니 전용. 탭하면 큰 스티커 전송이 아니라 (단어)를 입력창에 꽂는다(피커 유지).
-                <div className="flex flex-wrap gap-2 justify-center content-start max-h-52 overflow-y-auto py-1">
-                  {SAIDAMI_STICKERS.map((s) => (
-                    <button key={s.word}
-                      onClick={() => insertParen(s.word)}
-                      aria-label={s.word} className="h-[76px] p-1 rounded-2xl active:bg-black/5 transition flex flex-col items-center justify-center gap-0.5">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.image} alt={s.word} className="h-[52px] w-auto object-contain" />
-                      <span className="text-[9px] font-bold text-slate-400 leading-none">{s.word}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-4 gap-1.5 max-h-52 overflow-y-auto">
-                  {MOOD_OPTIONS.map((o) => (
-                    <button key={o.id}
-                      onClick={() => {
-                        if (stickerMode === 'mini') { insertMini(o.id); }
-                        else { onSend('', undefined, o.image, replyTo ?? undefined); setReplyTo(null); setStickerOpen(false); }
-                      }}
-                      aria-label={o.label} className="aspect-square p-1.5 rounded-2xl active:bg-black/5 transition">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={o.image} alt={o.label} className="w-full h-full object-contain" />
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* 그리드 — 흰 정사각 카드, 74% 이미지, 라벨 없음(그림 한 장으로) */}
+              <div className="grid grid-cols-4 gap-1.5 max-h-[42vh] overflow-y-auto">
+                {stickerItems(stickerMode).map((it) => (
+                  <button key={it.key} onClick={() => pickSticker(stickerMode, it.key, it.image)} aria-label={it.key}
+                    className="aspect-square rounded-2xl grid place-items-center active:scale-90 transition-transform"
+                    style={{ background: 'var(--sd-card-solid)' }}>
+                    {it.video ? (
+                      <video src={it.image} poster={posterOf(it.image)} muted loop autoPlay playsInline className="w-[74%] h-[74%] object-contain" />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={it.image} alt="" className="w-[74%] h-[74%] object-contain" />
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
