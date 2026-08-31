@@ -7,12 +7,14 @@
 //   · 0개 항목은 숨긴다 (0은 정보가 아니라 잡음). 하나면 full-width 행.
 //   · 빈 날 = "오늘 업데이트 없음" (재촉·감정 보완 문구 금지).
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Mail, Star, Heart, Image as ImageIcon } from 'lucide-react';
 import { subscribeTodayStats, type DailyStats } from '@/lib/dailyStats';
 
 type Sender = '우댕' | '꼼이';
 
 export default function TodayDigest({ me }: { me: Sender }) {
+  const router = useRouter();
   const partner: Sender = me === '우댕' ? '꼼이' : '우댕';
   const [stats, setStats] = useState<DailyStats | null>(null);
 
@@ -23,10 +25,10 @@ export default function TodayDigest({ me }: { me: Sender }) {
   const loading = s === null;
 
   const updates = [
-    { id: 'letter', label: '편지', unit: '통', Icon: Mail, count: s?.letters[partner] ?? 0 },
-    { id: 'praise', label: '칭찬', unit: '개', Icon: Star, count: s?.praiseStickers[partner] ?? 0 },
-    { id: 'wish', label: '위시리스트', unit: '개', Icon: Heart, count: s?.wishItems[partner] ?? 0 },
-    { id: 'memory', label: '추억', unit: '장', Icon: ImageIcon, count: s?.memories[partner] ?? 0 },
+    { id: 'letter', label: '편지', unit: '통', Icon: Mail, count: s?.letters[partner] ?? 0, route: '/letters' },
+    { id: 'praise', label: '칭찬', unit: '개', Icon: Star, count: s?.praiseStickers[partner] ?? 0, route: '/praise' },
+    { id: 'wish', label: '위시리스트', unit: '개', Icon: Heart, count: s?.wishItems[partner] ?? 0, route: '/wishlist' },
+    { id: 'memory', label: '추억', unit: '장', Icon: ImageIcon, count: s?.memories[partner] ?? 0, route: '/memories' },
   ].filter((u) => u.count > 0);
 
   // 범프 — 종류별 이모지 + 횟수로 (그냥 '범프 N번'이면 뭘 보냈는지 모름)
@@ -52,9 +54,11 @@ export default function TodayDigest({ me }: { me: Sender }) {
       {!loading && (hasUpdates ? (
         <div className={isSingle ? 'grid grid-cols-1' : 'grid grid-cols-2 gap-2'}>
           {updates.map((u) => (
-            <div
+            <button
               key={u.id}
-              className="flex min-h-[60px] items-center gap-2.5 rounded-[15px] border border-[#F2E9DE] bg-[#FFFCF7] px-3"
+              onClick={() => router.push(u.route)}
+              aria-label={`${u.label} ${u.count}${u.unit} 보러가기`}
+              className="flex min-h-[60px] items-center gap-2.5 rounded-[15px] border border-[#F2E9DE] bg-[#FFFCF7] px-3 text-left active:scale-[0.98] transition-transform"
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] bg-[#F8EEE7] text-[#B79688]">
                 <u.Icon size={15} strokeWidth={1.8} />
@@ -65,7 +69,7 @@ export default function TodayDigest({ me }: { me: Sender }) {
                   {u.count}{u.unit}
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       ) : (
