@@ -249,7 +249,7 @@ function renderRich(text: string): React.ReactNode {
       const miniSrc = MINI_BY_WORD[m![2]];
       if (miniSrc) {
         // eslint-disable-next-line @next/next/no-img-element
-        parts.push(<img key={i++} src={miniSrc} alt={m![2]} className="inline-block h-8 w-auto align-middle object-contain" />);
+        parts.push(<img key={i++} src={miniSrc} alt={m![2]} className="inline-block h-9 w-auto align-text-bottom object-contain mx-[2px]" />);
         last = m.index + m[0].length;
         continue;
       }
