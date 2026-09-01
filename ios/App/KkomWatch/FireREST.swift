@@ -5,6 +5,9 @@ import Foundation
 // apiKey·projectId는 공개값(웹 번들에도 그대로 노출됨).
 //   presence/{이름}      = { lastSeenAt: timestamp, active: bool }
 //   liveHearts/{받는이}  = { from, nonce, at }   (nonce 바뀌면 하트 도착)
+// 워치가 훑는 대화 한 줄. 짧게 보기용(스크롤로 과거 안 뒤짐).
+struct WatchMsg: Equatable { var text: String; var mine: Bool; var atMs: Double }
+
 enum Fire {
     static let projectId = "kkom-morning"
     static let apiKey = "AIzaSyBaIIIwJ5x19svwkmUvVtuQSio0VPcRkQg"
@@ -119,6 +122,65 @@ enum Fire {
         let from = (fields["from"] as? [String: Any])?["stringValue"] as? String ?? ""
         let emoji = (fields["emoji"] as? [String: Any])?["stringValue"] as? String ?? "❤️"
         return (from, nonce, emoji)
+    }
+
+    // ── 채팅 (꼼톡) ── messages 컬렉션 직접. 폰 채팅과 같은 스키마({from,text,createdAt}).
+    // 워치는 최근 몇 줄만 훑고, 답장은 받아쓰기/프리셋/꼼이미니 토큰. (단어) 토큰은 폰이 그림으로 렌더.
+    static func fetchRecentMessages(me: String, limit: Int = 3) async -> [WatchMsg]? {
+        guard let url = URL(string: "\(base):runQuery?key=\(apiKey)") else { return nil }
+        let q: [String: Any] = ["structuredQuery": [
+            "from": [["collectionId": "messages"]],
+            "orderBy": [["field": ["fieldPath": "createdAt"], "direction": "DESCENDING"]],
+            "limit": limit,
+        ]]
+        var req = URLRequest(url: url); req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: q)
+        guard let (data, _) = try? await URLSession.shared.data(for: req),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return nil }
+        var out: [WatchMsg] = []
+        for item in arr {
+            guard let doc = item["document"] as? [String: Any],
+                  let fields = doc["fields"] as? [String: Any] else { continue }
+            if (fields["deleted"] as? [String: Any])?["booleanValue"] as? Bool == true { continue }
+            let from = (fields["from"] as? [String: Any])?["stringValue"] as? String ?? ""
+            let text = (fields["text"] as? [String: Any])?["stringValue"] as? String ?? ""
+            let hasSticker = fields["sticker"] != nil
+            let hasImg = fields["imageUrl"] != nil
+            let hasVid = fields["videoUrl"] != nil
+            let hasAud = fields["audioUrl"] != nil
+            let display = !text.isEmpty ? text
+                : hasSticker ? "🐶 이모티콘"
+                : hasImg ? "📷 사진"
+                : hasVid ? "🎬 동영상"
+                : hasAud ? "🎤 음성" : ""
+            if display.isEmpty { continue }
+            var atMs: Double = 0
+            if let ts = (fields["createdAt"] as? [String: Any])?["timestampValue"] as? String { atMs = parseTS(ts) ?? 0 }
+            out.append(WatchMsg(text: display, mine: from == me, atMs: atMs))
+        }
+        return out.reversed()   // 오래된 → 최신 순
+    }
+
+    // 답장 보내기 — messages doc 생성(폰 addDoc과 동일) + /api/message로 상대 푸시.
+    static func sendChat(from: String, to: String, text: String) async {
+        if let url = URL(string: "\(base)/messages?key=\(apiKey)") {
+            let body: [String: Any] = ["fields": [
+                "from":      ["stringValue": from],
+                "text":      ["stringValue": text],
+                "createdAt": ["timestampValue": formatTS(Date())],
+            ]]
+            var req = URLRequest(url: url); req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            _ = try? await URLSession.shared.data(for: req)
+        }
+        if let url = URL(string: "\(webBase)/api/message") {
+            var req = URLRequest(url: url); req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: ["from": from, "to": to, "text": text])
+            _ = try? await URLSession.shared.data(for: req)
+        }
     }
 
     // ── 시각 헬퍼 ──

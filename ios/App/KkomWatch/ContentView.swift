@@ -36,6 +36,7 @@ struct ContentView: View {
                 ZStack {
                     TabView {
                         PresenceView()    // 접속 + D-day + 하트
+                        ChatPage()        // 꼼톡 — 최근 대화 + 답장(받아쓰기/프리셋/미니)
                         BumpPalette()     // 범프 (폰 그대로 재현)
                         MoodPicker()      // 기분
                         AirView()         // 미세먼지
@@ -201,6 +202,81 @@ struct ReceivedHeart: View {
                 withAnimation(.easeOut(duration: 0.9)) { show = true }
             }
             .onAppear { withAnimation(.easeOut(duration: 0.9)) { show = true } }
+    }
+}
+
+// ── 꼼톡 — 최근 대화 훑기 + 답장(받아쓰기/프리셋/미니 토큰). (단어)는 폰에서 꼼이미니 그림으로 렌더 ──
+struct ChatPage: View {
+    @EnvironmentObject var store: WatchStore
+    private let presets = ["응!", "ㅇㅋ", "곧 갈게", "뭐해?", "사랑해", "보고싶어"]
+    private let miniTokens: [(token: String, label: String)] = [
+        ("(사랑해)", "💗"), ("(안아줘)", "🤗"), ("(뽀뽀)", "😘"), ("(고마워)", "🙇"),
+    ]
+    private let cols = [GridItem(.adaptive(minimum: 62), spacing: 6)]
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 6) {
+                Text("꼼톡 💬").font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.55)).padding(.top, 2)
+
+                // 최근 대화 (최근 2줄만 — 손목은 훑는 물건, 과거는 안 뒤짐)
+                let recent = Array(store.recentMessages.suffix(2))
+                if recent.isEmpty {
+                    Text("아직 대화가 없어요")
+                        .font(.system(size: 12)).foregroundStyle(.white.opacity(0.4))
+                        .padding(.vertical, 6)
+                } else {
+                    ForEach(Array(recent.enumerated()), id: \.offset) { _, m in
+                        HStack(spacing: 0) {
+                            if m.mine { Spacer(minLength: 24) }
+                            Text(m.text)
+                                .font(.system(size: 13)).lineLimit(3)
+                                .padding(.horizontal, 9).padding(.vertical, 5)
+                                .background(m.mine ? cRose.opacity(0.85) : Color.white.opacity(0.12))
+                                .foregroundStyle(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            if !m.mine { Spacer(minLength: 24) }
+                        }
+                    }
+                }
+
+                // 받아쓰기 (watchOS 한국어는 키보드/스크리블 미지원 → 받아쓰기만)
+                TextFieldLink(prompt: Text("답장")) {
+                    Label("받아쓰기", systemImage: "mic.fill")
+                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 7)
+                        .background(cRose.opacity(0.35)).clipShape(Capsule())
+                } onSubmit: { text in
+                    store.sendChat(text)
+                }
+                .buttonStyle(.plain).padding(.top, 2)
+
+                // 프리셋 답장
+                LazyVGrid(columns: cols, spacing: 6) {
+                    ForEach(presets, id: \.self) { p in
+                        Button { store.sendChat(p) } label: {
+                            Text(p).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                                .frame(maxWidth: .infinity).padding(.vertical, 6)
+                                .background(Color.white.opacity(0.1)).clipShape(Capsule())
+                        }.buttonStyle(.plain)
+                    }
+                }
+
+                // 미니 이모지 — (단어) 토큰 전송 → 폰에서 꼼이미니 그림
+                HStack(spacing: 8) {
+                    ForEach(miniTokens, id: \.token) { m in
+                        Button { store.sendChat(m.token) } label: {
+                            Text(m.label).font(.system(size: 22))
+                                .frame(width: 40, height: 40)
+                                .background(Color.white.opacity(0.08)).clipShape(Circle())
+                        }.buttonStyle(.plain)
+                    }
+                }
+                .padding(.top, 2)
+            }
+            .padding(.horizontal, 6).padding(.bottom, 8)
+        }
+        .background(cBg.ignoresSafeArea())
     }
 }
 

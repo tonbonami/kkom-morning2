@@ -24,6 +24,7 @@ final class WatchStore: ObservableObject {
     @Published var airWork: AirInfo? = nil   // 서울 중구(꼼이)
     @Published var bumpFlash = 0             // 범프 보낸 확인 애니메이션 트리거
     @Published var bumpKind: String? = nil
+    @Published var recentMessages: [WatchMsg] = []   // 꼼톡 최근 몇 줄
 
     private var serverOffsetMs: Double = 0   // serverNow = deviceNow + offset
     private var lastHeartNonce: String? = nil
@@ -31,6 +32,7 @@ final class WatchStore: ObservableObject {
     private var loop: Task<Void, Never>? = nil
     private var lastWidgetReload: Double = 0
     private var lastAirFetch: Double = 0
+    private var lastMsgFetch: Double = 0
 
     var partner: String { role == "우댕" ? "꼼이" : "우댕" }
 
@@ -90,6 +92,22 @@ final class WatchStore: ObservableObject {
                 airWork = AirInfo(label: "서울 중구", grade: a.grade, pm10: a.pm10, pm25: a.pm25)
             }
         }
+        // 꼼톡 최근 대화 — 6초 스로틀(4초 폴링마다 runQuery는 과함)
+        if now - lastMsgFetch > 6 {
+            lastMsgFetch = now
+            if let msgs = await Fire.fetchRecentMessages(me: me) { recentMessages = msgs }
+        }
+    }
+
+    // 워치에서 답장 — 낙관적으로 내 말풍선 먼저, 서버엔 messages doc 생성 + 상대 푸시.
+    func sendChat(_ text: String) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let me = role, !t.isEmpty else { return }
+        playTapHaptic()
+        let to = partner
+        recentMessages.append(WatchMsg(text: t, mine: true, atMs: serverNow()))
+        if recentMessages.count > 8 { recentMessages.removeFirst(recentMessages.count - 8) }
+        Task { await Fire.sendChat(from: me, to: to, text: t) }
     }
 
     // 하트/스티커 날리기
