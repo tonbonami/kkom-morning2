@@ -208,7 +208,8 @@ struct ReceivedHeart: View {
 // ── 꼼톡 — 최근 대화 훑기 + 답장(받아쓰기/프리셋/미니 토큰). (단어)는 폰에서 꼼이미니 그림으로 렌더 ──
 struct ChatPage: View {
     @EnvironmentObject var store: WatchStore
-    private let presets = ["응!", "ㅇㅋ", "곧 갈게", "뭐해?", "사랑해", "보고싶어"]
+    // 직장에서 몰래 툭 보내는 안부 톤 (우댕 확정)
+    private let presets = ["사랑해", "보고싶어", "응!", "ㅇㅋ", "뭐해?", "밥 먹었어?", "잘 있어?", "바빠?", "생각나서 💭", "고마워"]
     private let miniTokens: [(token: String, label: String)] = [
         ("(사랑해)", "💗"), ("(안아줘)", "🤗"), ("(뽀뽀)", "😘"), ("(고마워)", "🙇"),
     ]
