@@ -51,6 +51,7 @@ final class WatchStore: ObservableObject {
     private func restart() {
         loop?.cancel()
         guard role != nil else { return }
+        lastMsgFetch = 0   // resume/역할변경 직후 첫 tick이 채팅을 즉시 갱신(손목 들어올리면 바로 최신)
         loop = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.tick()
@@ -105,9 +106,10 @@ final class WatchStore: ObservableObject {
         guard let me = role, !t.isEmpty else { return }
         playTapHaptic()
         let to = partner
-        recentMessages.append(WatchMsg(text: t, mine: true, atMs: serverNow()))
+        let atMs = serverNow()
+        recentMessages.append(WatchMsg(text: t, mine: true, atMs: atMs))
         if recentMessages.count > 8 { recentMessages.removeFirst(recentMessages.count - 8) }
-        Task { await Fire.sendChat(from: me, to: to, text: t) }
+        Task { await Fire.sendChat(from: me, to: to, text: t, atMs: atMs) }
     }
 
     // 하트/스티커 날리기

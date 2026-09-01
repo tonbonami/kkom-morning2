@@ -163,12 +163,15 @@ enum Fire {
     }
 
     // 답장 보내기 — messages doc 생성(폰 addDoc과 동일) + /api/message로 상대 푸시.
-    static func sendChat(from: String, to: String, text: String) async {
+    // ⚠️ createdAt은 워치 로컬시각이 아니라 **서버 보정시각(atMs)**을 쓴다 — open rules라 request.time
+    //    강제가 없어서, 시계 오차가 크면 폰이 보낸 것과 순서가 뒤집힌다. WatchStore가 serverNow()를 넘긴다.
+    static func sendChat(from: String, to: String, text: String, atMs: Double) async {
         if let url = URL(string: "\(base)/messages?key=\(apiKey)") {
+            let ts = formatTS(Date(timeIntervalSince1970: (atMs > 0 ? atMs : Date().timeIntervalSince1970 * 1000) / 1000))
             let body: [String: Any] = ["fields": [
                 "from":      ["stringValue": from],
                 "text":      ["stringValue": text],
-                "createdAt": ["timestampValue": formatTS(Date())],
+                "createdAt": ["timestampValue": ts],
             ]]
             var req = URLRequest(url: url); req.httpMethod = "POST"
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
