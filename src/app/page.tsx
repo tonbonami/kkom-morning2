@@ -36,7 +36,7 @@ import QuickReplyBar from '@/components/QuickReplyBar';
 import TodayDigest from '@/components/TodayDigest';
 import { subscribeTodayStats } from '@/lib/dailyStats';
 import LiveHeartLayer from '@/components/LiveHeartLayer';
-import { subscribeTodayMoods, setMyMood, moodFromKey, MOOD_OPTIONS, type MoodMap, type MoodOption } from '@/lib/moods';
+import { subscribeTodayMoods, moodFromKey, type MoodMap } from '@/lib/moods';
 import { touchPresence, subscribePresence, formatPresenceRelative, isTogetherNow, type Presence } from '@/lib/presence';
 import { subscribeLive, liveKey, DEFAULT_BOARD, DEFAULT_BOOK, subscribeCurrentPage, subscribeStrokes, type BoardStroke } from '@/lib/canvasBoard';
 import DoodleThumb from '@/components/DoodleThumb';
@@ -63,16 +63,8 @@ const getAirTheme = (grade?: string) => {
   }
 };
 
-// 기분별 미세 모션 (framer-motion). 여기 없는 기분은 정지 — 행복·평온·슬픔·보고싶음·미안·고마워.
-// 값은 사이담 세션과 공유해 맞춤. 신남은 예전 '동동' 이중 바운스 순정 복원.
-const MOOD_ANIM: Record<string, { animate: Record<string, number[]>; transition: Record<string, unknown> }> = {
-  excited: { animate: { y: [0, -8, 0, -4, 0] },            transition: { duration: 1.2, repeat: Infinity, ease: 'easeInOut' } },
-  love:    { animate: { scale: [1, 1.14, 1, 1.14, 1] },    transition: { duration: 1.1, times: [0, 0.14, 0.28, 0.42, 0.62], repeat: Infinity, ease: 'easeInOut' } },
-  sleepy:  { animate: { y: [0, 4, 0] },                    transition: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' } },
-  sulky:   { animate: { rotate: [0, -9, 0] },              transition: { duration: 2.6, repeat: Infinity, ease: 'easeInOut' } },
-  angry:   { animate: { x: [0, -1.5, 1.5, -1.5, 0] },      transition: { duration: 0.32, repeat: Infinity, ease: 'easeInOut' } },
-  sick:    { animate: { rotate: [0, 4, -2, 3, 0] },        transition: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' } },
-};
+// 기분별 미세 모션은 사이담과 동일하게 CSS 클래스(.mood-*, globals.css)로 처리.
+// 어느 기분이 움직이는지는 moods.ts 의 MoodOption.anim 에 있다(여섯뿐).
 
 // ── 홈 모듈 시스템 (사이담 space/[id]/page.tsx 구조 그대로) ───────────────
 // 카드는 1x1 / 2x1 / 2x2 를 섞는다. 순서·크기·on-off는 settings/home 에 저장(둘이 같은 배치).
@@ -213,7 +205,6 @@ export default function KkomMorningHome() {
   // 홈은 커버 1장 + 개수만 필요 (전체 배열 X — 코드리뷰 #8)
   const [latestMemory, setLatestMemory] = useState<Memory | null>(null);
   const [memoryCount, setMemoryCount] = useState(0);
-  const [moodOpen, setMoodOpen] = useState(false);
   const [userName, setUserName] = useState('');   // 빈값이어야 [userName] 이펙트 가드가 로그인 확정 전 실행을 막음(잘못된 상대·푸시토큰 방지)
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dDay, setDDay] = useState(0);
@@ -545,31 +536,21 @@ export default function KkomMorningHome() {
   const trend = allHourly.slice(-6);
   const maxPm = Math.max(50, ...allHourly.map((h: any) => h.pm10 || 0));
 
-  const pickMood = async (opt: MoodOption) => {
-    setMoodOpen(false);
-    try { await setMyMood(userName, opt.id); } catch (e) { console.error(e); }
-  };
-
-  // 저장된 키(신규 id 또는 옛날 이모지) → 화면 표시. 표시 사이즈 = 69. 피커 셀(40)과는 무관.
-  // 기분별 미세 모션(MOOD_ANIM) — 홈엔 내/상대 각 1개뿐이라 시끄럽지 않음. 없는 기분은 정지.
-  const renderMoodFace = (key: string | undefined, size = 69) => {
+  // 저장된 키(신규 id 또는 옛날 이모지) → 화면 표시. 애니메이션은 사이담과 동일한
+  // CSS 클래스(mood-*). 홈엔 내/상대 각 1개뿐이라 시끄럽지 않고, 여섯 기분만 움직인다.
+  const renderMoodFace = (key: string | undefined, size = 64) => {
     const m = moodFromKey(key);
-    if (m) {
-      const img = (
-        <Image src={m.image} alt={m.label} width={size} height={size} className="drop-shadow-sm" />
-      );
-      const anim = MOOD_ANIM[m.id];
-      if (anim) {
-        return (
-          <motion.div animate={anim.animate} transition={anim.transition} style={{ width: size, height: size }}>
-            {img}
-          </motion.div>
-        );
-      }
-      return img;
-    }
-    // 매칭 실패 — 레거시 이모지든 빈 값이든
-    return <span className="text-4xl drop-shadow-sm">{key || '…'}</span>;
+    if (!m) return <span className="text-4xl drop-shadow-sm">{key || '…'}</span>;
+    return (
+      <Image
+        src={m.image}
+        alt={m.label}
+        width={size}
+        height={size}
+        className={m.anim ? `mood-${m.anim} drop-shadow-sm` : 'drop-shadow-sm'}
+        style={{ maxWidth: 'none' }}
+      />
+    );
   };
 
   if (!mounted) return <div className="sd-app min-h-screen max-w-md mx-auto" />;
@@ -856,36 +837,40 @@ export default function KkomMorningHome() {
       </button>
     ),
     mood: (
-      <div className="sd-card w-full h-full px-4 py-4 flex flex-col" style={{ background: 'var(--sd-card-solid)' }}>
+      // 사이담과 동일 — 얼굴이 주인공. 카드 전체를 눌러 /quick/mood 로 간다(인라인 피커 X).
+      // 흰 면 + 가운데 + 큰 얼굴 + 제목 위 숨쉴 자리. 상대 얼굴을 눌러도 내 기분 고르기로 가고,
+      // 규칙상 내 기분만 바꿀 수 있으니 '· 바꾸기' 힌트는 내 쪽에만 단다.
+      <button
+        onClick={() => router.push('/quick/mood')}
+        aria-label="오늘 내 기분 고르기"
+        className="sd-card w-full h-full px-4 py-4 flex flex-col text-left transition-transform active:scale-[.98]"
+        style={{ background: 'var(--sd-card-solid)' }}
+      >
         <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
           <Smile size={16} /> 오늘의 기분
         </span>
-        {moodOpen ? (
-          <div className="mt-2 grid grid-cols-3 gap-1.5">
-            {MOOD_OPTIONS.map((opt) => (
-              <button key={opt.id} onClick={() => pickMood(opt)} title={opt.label} aria-label={opt.label}
-                className="aspect-square rounded-xl bg-black/[0.03] active:scale-90 transition-all flex items-center justify-center p-1">
-                <Image src={opt.image} alt={opt.label} width={30} height={30} className="drop-shadow-sm" />
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-auto flex items-center justify-center gap-5">
-            <div className="flex flex-col items-center gap-1">
-              {renderMoodFace(moods[partner]?.emoji, 54)}
-              <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>{partner}</span>
-            </div>
-            <button onClick={() => setMoodOpen(true)} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
-              {moods[userName]?.emoji ? renderMoodFace(moods[userName]?.emoji, 54) : (
-                <span className="w-[54px] h-[54px] flex items-end justify-center gap-[6px] pb-3" aria-label="아직 기분을 안 골랐어요">
-                  {[0, 1, 2].map((i) => (<span key={i} className="w-[7px] h-[7px] rounded-full" style={{ background: 'var(--sd-faint)', opacity: 0.55 }} />))}
+        <div className="mt-5 mb-auto flex w-full items-center justify-center gap-6">
+          {[userName, partner].filter(Boolean).map((person) => {
+            const isMe = person === userName;
+            const key = moods[person]?.emoji;
+            return (
+              <div key={person} className="flex flex-col items-center gap-1">
+                <span className="grid h-16 w-16 place-items-center">
+                  {key ? renderMoodFace(key, 64) : (
+                    <span className="flex items-end gap-[6px]" aria-label="아직 기분을 안 골랐어요">
+                      {[0, 1, 2].map((i) => (<span key={i} className="h-[7px] w-[7px] rounded-full" style={{ background: 'var(--sd-faint)', opacity: 0.55 }} />))}
+                    </span>
+                  )}
                 </span>
-              )}
-              <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>{userName}</span>
-            </button>
-          </div>
-        )}
-      </div>
+                <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>
+                  {isMe ? '나' : person}
+                  {isMe && <span className="ml-1" style={{ opacity: 0.7 }}>· 바꾸기</span>}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </button>
     ),
     dday: (
       <button
