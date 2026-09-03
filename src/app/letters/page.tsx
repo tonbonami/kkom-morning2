@@ -8,6 +8,8 @@ import {
   toInboxLetter,
   nameFromCode,
   updateLetter,
+  isLocked,
+  setLastReadLetterId,
   type Letter as FsLetter,
 } from '@/lib/letters';
 import {
@@ -57,6 +59,14 @@ function LettersPageInner() {
   }, [me, pageSize]);
 
   const letters = useMemo(() => raw.map(toInboxLetter), [raw]);
+
+  // 편지함을 열면 '읽음' 처리 — 상대가 보낸 도착한 최신 편지(홈 카드가 새 편지로 세는 것)의
+  // id 를 저장한다. 그러면 홈의 빨간 점이 꺼지고, 그보다 새 편지가 와야 다시 켜진다.
+  useEffect(() => {
+    if (!me || raw.length === 0) return;
+    const latestReceived = raw.find((l) => l.to === me && !isLocked(l) && l.sealed !== true);
+    if (latestReceived) setLastReadLetterId(me, latestReceived.id);
+  }, [me, raw]);
 
   if (!me) return <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />;
 

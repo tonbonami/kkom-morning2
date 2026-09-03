@@ -20,7 +20,7 @@ type LocKey = keyof typeof LOCATIONS;
 import TodayTomorrowWeather from '@/components/TodayTomorrowWeather';
 import SkyArt from '@/components/SkyArt';
 import { getInitialData } from '@/lib/api';
-import { subscribeLatestLetterTo, nameFromCode, partnerOf, vocativeOf, type Voice } from '@/lib/letters';
+import { subscribeLatestLetterTo, nameFromCode, partnerOf, vocativeOf, getLastReadLetterId, type Voice } from '@/lib/letters';
 import { getEmoticonsByIds } from '@/lib/emoticons';
 import { formatKstTime, formatKstMonthDay, kstDayKey } from '@/lib/kst';
 import { subscribeLatestMemory, fetchMemoryCount, type Memory } from '@/lib/memories';
@@ -200,7 +200,7 @@ export default function KkomMorningHome() {
   const [latestLetterId, setLatestLetterId] = useState<string | null>(null);
   const [latestLetterHasDoodle, setLatestLetterHasDoodle] = useState(false);
   const [latestLetterEmoticonIds, setLatestLetterEmoticonIds] = useState<string[]>([]);
-  const [hasLetter, setHasLetter] = useState(false);
+  const [lastReadLetterId, setLastReadLetterId] = useState<string | null>(null);
   const [moods, setMoods] = useState<MoodMap>({});
   // 홈은 커버 1장 + 개수만 필요 (전체 배열 X — 코드리뷰 #8)
   const [latestMemory, setLatestMemory] = useState<Memory | null>(null);
@@ -257,10 +257,12 @@ export default function KkomMorningHome() {
     if (!userStr) { router.push('/login'); return; }
     const me = nameFromCode(JSON.parse(userStr).로그인코드);
     setUserName(me);
+    // 편지 '새 편지' 점의 읽음 기준을 mount 때 불러온다. 편지함을 열면 갱신되고,
+    // 홈은 /letters 이동 시 언마운트됐다 돌아올 때 remount 되어 여기서 최신 읽음값을 다시 읽는다.
+    setLastReadLetterId(getLastReadLetterId(me));
 
     loadData();
     const unsubLetter = subscribeLatestLetterTo(me, (letter) => {
-      setHasLetter(!!letter);
       setDailyMessage(letter?.body || '');
       setLatestVoice(letter?.voice ?? null);
       setLatestLetterAt(letter?.createdAt?.toDate?.() ?? null);
@@ -628,6 +630,10 @@ export default function KkomMorningHome() {
       </div>
     </button>
   );
+
+  // 편지 '새 편지' 점 — 상대가 보낸 도착한 최신 편지가 '마지막으로 읽은' 것보다 새로울 때만.
+  // (편지함을 열면 lastReadLetterId 가 갱신되고, 홈은 remount 시 그 값을 다시 읽어 점이 꺼진다.)
+  const hasLetter = !!latestLetterId && latestLetterId !== lastReadLetterId;
 
   // ── 모듈 카드 본문 — 틀만 사이담식, 안의 데이터·onClick·이모티콘 전부 그대로. 각 카드는 h-full로 격자칸을 채운다.
   const moduleNodes: Record<string, React.ReactNode> = {
