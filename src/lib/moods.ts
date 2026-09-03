@@ -55,12 +55,13 @@ export async function setMyMood(name: string, emoji: string, note = ''): Promise
   });
 }
 
-// 오늘 두 사람의 기분을 실시간 구독
+// 오늘 두 사람의 기분을 실시간 구독.
+// ⚠️ 자정을 넘겨도 스스로 다시 건다. 예전엔 구독 시점에 day 를 한 번만 계산해서,
+//    앱을 켜 둔 채 자정을 넘겨 기분을 고르면 setMyMood 는 '새 날짜' 문서에 쓰는데
+//    구독은 어제 날짜를 계속 봐서 홈 기분 카드에 아무것도 안 떴다(앱 재시작해야 보임).
 export function subscribeTodayMoods(cb: (moods: MoodMap) => void): () => void {
-  const day = todayKst();
-  const q = query(collection(db, 'moods'), where('day', '==', day));
-  return onSnapshot(
-    q,
+  const listen = (day: string) => onSnapshot(
+    query(collection(db, 'moods'), where('day', '==', day)),
     (snap) => {
       const m: MoodMap = {};
       snap.forEach((d) => {
@@ -69,6 +70,21 @@ export function subscribeTodayMoods(cb: (moods: MoodMap) => void): () => void {
       });
       cb(m);
     },
-    () => cb({})
+    () => cb({}),
   );
+
+  let day = todayKst();
+  let off = listen(day);
+
+  // 1분마다 날짜만 확인한다. 화면 켜 둔 채 자정 넘기는 경우용이라 이 주기면 충분.
+  const timer = setInterval(() => {
+    const now = todayKst();
+    if (now === day) return;
+    day = now;
+    off();
+    cb({}); // ⚠️ 어제 얼굴이 '오늘의 기분' 자리에 남지 않게 새 스냅샷 전에 비운다
+    off = listen(day);
+  }, 60_000);
+
+  return () => { clearInterval(timer); off(); };
 }

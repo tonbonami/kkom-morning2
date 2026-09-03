@@ -100,16 +100,31 @@ function normalizeStats(data: any): DailyStats {
 
 // 헤더에서 실시간 구독 — 1 문서만 listen이라 비용 적음.
 // 우댕/꼼이 둘 다 같은 doc을 보면 *서로의 행동이 실시간으로 헤더에 반영*됨 (감정 온도계).
+// ⚠️ 자정을 넘겨도 스스로 다시 건다. 구독 시점 key 만 보면, 앱을 켜 둔 채 자정을
+//    넘겼을 때 새 날 카운트가 '오늘의 조각'에 안 잡히고 어제 숫자가 그대로 남는다.
 export function subscribeTodayStats(cb: (s: DailyStats) => void): () => void {
-  const ref = doc(db, 'dailyStats', todayKey());
-  return onSnapshot(
-    ref,
+  const listen = (key: string) => onSnapshot(
+    doc(db, 'dailyStats', key),
     (snap) => cb(snap.exists() ? normalizeStats(snap.data()) : emptyStats()),
     (err) => {
       console.error('dailyStats 구독 오류:', err);
       cb(emptyStats());
-    }
+    },
   );
+
+  let key = todayKey();
+  let off = listen(key);
+
+  const timer = setInterval(() => {
+    const now = todayKey();
+    if (now === key) return;
+    key = now;
+    off();
+    cb(emptyStats()); // 새 날은 0에서 시작 — 어제 숫자를 남기지 않는다
+    off = listen(key);
+  }, 60_000);
+
+  return () => { clearInterval(timer); off(); };
 }
 
 // 1회 fetch (필요 시)
