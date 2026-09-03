@@ -51,6 +51,25 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
+    // ⚠️ 봉인 해제 — 예약편지 본문은 letterVault 에 있다(받는 사람 앱은 안 읽음).
+    //    도착 시각이 됐으니 letters 로 옮기고 sealed 를 푼다. 이제야 받는 앱이 본문을 받는다.
+    //    멱등: vault 가 이미 없으면(재시도/레거시) 그냥 letters 의 내용으로 진행한다.
+    //    푸시 실패로 다음 cron 이 다시 돌아도 승격은 한 번만 일어난다(vault 삭제됨).
+    let content: any = data;
+    try {
+      const vaultRef = doc(db, 'letterVault', d.id);
+      const vaultSnap = await getDoc(vaultRef);
+      if (vaultSnap.exists()) {
+        const v = vaultSnap.data() as any;
+        await updateDoc(d.ref, { ...v, sealed: false });
+        await deleteDoc(vaultRef);
+        content = { ...data, ...v };
+      }
+    } catch (e) {
+      // 승격 실패 시 teaser 는 봉투(data)로 만들고 notifiedAt 은 안 찍어 다음 cron 이 재시도.
+      console.warn('편지 봉인 해제 실패:', d.id, e);
+    }
+
     const subSnap = await getDoc(doc(db, 'pushSubscriptions', to));
     if (!subSnap.exists()) {
       // 구독 없으면 더 이상 시도 안 하게 표시
@@ -60,8 +79,8 @@ export async function GET(req: NextRequest) {
     }
     const s = subSnap.data() as { endpoint: string; keys: { p256dh: string; auth: string } };
 
-    const hasVoice = !!data.voice?.data;
-    const emoticonIds = Array.isArray(data.emoticonIds) ? data.emoticonIds.filter((id: unknown) => typeof id === 'string') : [];
+    const hasVoice = !!content.voice?.data;
+    const emoticonIds = Array.isArray(content.emoticonIds) ? content.emoticonIds.filter((id: unknown) => typeof id === 'string') : [];
     const hasEmoticons = emoticonIds.length > 0;
     const emoji = hasVoice ? '🎙' : '💌';
     const teaser =
@@ -70,7 +89,7 @@ export async function GET(req: NextRequest) {
         : '예약 편지';
     const payload = JSON.stringify({
       title: hasEmoticons && !hasVoice
-        ? buildEmoticonNotificationTitle(from, data.body || '', emoticonIds)
+        ? buildEmoticonNotificationTitle(from, content.body || '', emoticonIds)
         : `${emoji} ${from}의 ${teaser}가 도착했어`,
       body: '꼼모닝에서 열어봐 💚',
       url: '/letters',

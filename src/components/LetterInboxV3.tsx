@@ -19,6 +19,7 @@ export type Letter = {
   body: string;
   createdAt: Date;
   openAt?: Date | null;
+  sealed?: boolean; // 예약편지 봉인(도착 전) — 본문 없음, 열 수 없음
   voice?: { src: string; mime?: string; duration?: number } | null;
   doodle?: DoodleData | null;
   emoticonIds?: string[];
@@ -270,8 +271,10 @@ export default function LetterInboxV3({
 
           {filteredLetters.map((letter, i) => {
             const isMeReceiving = letter.to === me;
-            const isLocked = isMeReceiving && letter.openAt && letter.openAt > now;
-            const isScheduledSent = !isMeReceiving && letter.openAt && letter.openAt > now;
+            // 예약편지 봉인 — 도착 전엔 본문이 letters 에 없다(letterVault). sealed 가 원천,
+            // openAt 은 레거시 예약편지(인라인 본문) 보정. 받는 사람도 보낸 사람도 못 연다
+            // (보낸 사람이 열어 수정하면 본문이 letters 로 다시 새어나가므로).
+            const sealed = letter.sealed === true || !!(letter.openAt && letter.openAt > now);
             const hasEmoticons = (letter.emoticonIds?.length ?? 0) > 0;
 
             return (
@@ -282,9 +285,9 @@ export default function LetterInboxV3({
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.3, delay: Math.min(i * 0.03, 0.3) }}
                 key={letter.id}
-                onClick={() => !isLocked && setSelectedLetter(letter)}
+                onClick={() => !sealed && setSelectedLetter(letter)}
                 className={`relative bg-white rounded-[28px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden ${
-                  isLocked ? 'bg-white/60' : 'cursor-pointer'
+                  sealed ? 'bg-white/60' : 'cursor-pointer'
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -299,12 +302,15 @@ export default function LetterInboxV3({
                   </span>
                 </div>
 
-                {isLocked ? (
+                {sealed ? (
                   <div className="py-6 flex flex-col items-center justify-center text-slate-400 gap-3 bg-slate-50/50 rounded-2xl border border-slate-100 border-dashed">
                     <Lock size={24} className="text-slate-300" />
                     <p className="text-[14px] font-bold text-slate-500">
                       {(() => { const p = kstParts(letter.openAt!); return `${p.month}월 ${p.day}일 ${p.hour}시에 도착해요`; })()}
                     </p>
+                    {!isMeReceiving && (
+                      <p className="text-[12px] font-medium text-slate-400">네가 예약한 편지예요 · 도착하면 열려요</p>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -345,7 +351,7 @@ export default function LetterInboxV3({
                   </>
                 )}
 
-                {isScheduledSent && (
+                {sealed && !isMeReceiving && (
                   <div className="absolute top-4 right-4 bg-[#FCA5A5]/10 text-[#FCA5A5] px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1">
                     <Clock size={12} /> 예약됨
                   </div>

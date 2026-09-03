@@ -3,6 +3,7 @@ import {
   collection,
   addDoc,
   doc,
+  setDoc,
   updateDoc,
   query,
   where,
@@ -56,6 +57,10 @@ export type Letter = {
   body: string;
   createdAt: Timestamp | null;
   openAt?: Timestamp | null; // 예약 도착 시각 (없으면 즉시)
+  // 예약편지 봉인 상태. 보낼 때 true — 본문은 letters 가 아니라 letterVault 에 있고,
+  // 도착 시각에 cron 이 본문을 옮기며 false 로 푼다. 클라는 sealed 동안 본문을 받지 않는다.
+  // (레거시 예약편지는 이 필드가 없고 본문이 인라인이라 openAt 기준으로 잠근다.)
+  sealed?: boolean;
   voice?: Voice | null;      // 보이스 편지 (Storage URL 또는 레거시 base64)
   // Firestore는 '배열 안에 배열' 금지 — points: [[x,y,t],...]가 그 위반이라 JSON 문자열로 저장.
   // 읽을 때 toInboxLetter가 parse. Doodle 객체로 들어와도 그대로 통과(미래 호환).
@@ -91,7 +96,9 @@ export function subscribeLatestLetterTo(
     (snap) => {
       const docs = snap.docs
         .map((d) => ({ id: d.id, ...(d.data() as Omit<Letter, 'id'>) }))
-        .filter((l) => !isLocked(l)); // 예약 미도착 편지는 제외
+        // 예약 미도착 편지 제외. sealed 도 제외 — openAt 이 막 지났지만 cron 승격(≤5분) 전이면
+        // 본문이 아직 letterVault 에 있어 빈 편지가 최신으로 뜰 수 있다.
+        .filter((l) => !isLocked(l) && l.sealed !== true);
       docs.sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
       cb(docs[0] ?? null);
     },
@@ -156,6 +163,7 @@ export type InboxLetter = {
   body: string;
   createdAt: Date;
   openAt?: Date | null;
+  sealed?: boolean; // 예약편지 봉인(도착 전) — 본문 없음, 열면 안 됨
   voice?: { src: string; mime?: string; duration?: number } | null;
   doodle?: Doodle | null;
   emoticonIds?: string[];
@@ -194,6 +202,7 @@ export function toInboxLetter(l: Letter): InboxLetter {
     body: l.body || '',
     createdAt,
     openAt,
+    sealed: l.sealed === true,
     voice,
     doodle,
     emoticonIds: Array.isArray(l.emoticonIds) ? l.emoticonIds.filter((id) => typeof id === 'string') : [],
@@ -216,36 +225,52 @@ export async function sendLetter(
 ): Promise<void> {
   const to = partnerOf(from);
   const cleanEmoticonIds = emoticonIds.filter((id) => typeof id === 'string' && id.trim().length > 0);
-  const data: Record<string, unknown> = {
-    from,
-    to,
-    body: body.trim(),
-    createdAt: serverTimestamp(),
-  };
-  if (openAt) data.openAt = Timestamp.fromDate(openAt);
-  if (voice && voice.data) data.voice = voice;
-  // Firestore '배열 안에 배열' 금지 회피 — doodle을 JSON 문자열로 직렬화
-  if (doodle && doodle.strokes && doodle.strokes.length > 0) {
-    data.doodle = JSON.stringify(doodle);
-  }
-  if (cleanEmoticonIds.length > 0) data.emoticonIds = cleanEmoticonIds;
-  if (animatedSticker && typeof animatedSticker === 'string') data.animatedSticker = animatedSticker;
-  const ref = await addDoc(collection(db, 'letters'), data);
+  const isScheduled = !!openAt;
 
-  // "매일매일 꼼모닝" 헤더용 카운트 (실패해도 본 기능 망치지 않게 fire-and-forget)
+  // 편지 '내용'(서프라이즈 대상). 예약편지면 이걸 letters 가 아니라 letterVault 로 뺀다.
+  const content: Record<string, unknown> = { body: body.trim() };
+  if (voice && voice.data) content.voice = voice;
+  // Firestore '배열 안에 배열' 금지 회피 — doodle을 JSON 문자열로 직렬화
+  if (doodle && doodle.strokes && doodle.strokes.length > 0) content.doodle = JSON.stringify(doodle);
+  if (cleanEmoticonIds.length > 0) content.emoticonIds = cleanEmoticonIds;
+  if (animatedSticker && typeof animatedSticker === 'string') content.animatedSticker = animatedSticker;
+
+  let letterId: string;
+
+  if (isScheduled) {
+    // ⚠️ 예약편지: 본문·음성·손글씨·이모티콘을 letters 에 넣지 않는다.
+    //    Firestore 규칙이 열려 있고 받는 사람 앱이 letters 를 통째로 구독하므로,
+    //    letters 에 넣으면 '도착 전에' 본문이 받는 사람 기기로 내려간다(화면만 잠금).
+    //    내용은 letterVault 에 두고, 도착 시각에 cron(notify-pending-letters)이 letters 로 옮긴다.
+    //    letters 엔 봉투(누가·언제 도착)만 + sealed:true.  (받는 앱은 letterVault 를 안 읽는다.)
+    const ref = doc(collection(db, 'letters'));
+    letterId = ref.id;
+    await setDoc(doc(db, 'letterVault', letterId), content);
+    await setDoc(ref, {
+      from,
+      to,
+      createdAt: serverTimestamp(),
+      openAt: Timestamp.fromDate(openAt!),
+      sealed: true,
+    });
+  } else {
+    const ref = await addDoc(collection(db, 'letters'), { from, to, createdAt: serverTimestamp(), ...content });
+    letterId = ref.id;
+  }
+
+  // "매일매일 꼼모닝" 헤더용 카운트 (실패해도 본 기능 망치지 않게 fire-and-forget).
+  // 예약편지도 보낸 날 집계한다 — 받는 사람은 어차피 '도착 예정' 봉인 카드로 예약 사실을 이미 안다.
   import('./dailyStats').then(({ incrementLetter }) => {
     if (from === '우댕' || from === '꼼이') incrementLetter(from);
   }).catch(() => {});
 
-  // 도착 푸시 — 즉시 편지면 곧바로, 예약 편지면 cron이 도착 시각에 보냄.
+  // 도착 푸시 — 즉시 편지면 곧바로, 예약 편지면 cron이 도착 시각에 보냄(notify-letter는 isScheduled면 skip).
   // KST 22-07시(방해 금지)면 서버에서 push 미루고 다음날 07:05 배치로.
-  // letterId 같이 전달해야 서버가 pendingNotify 표시 가능.
-  const isScheduled = !!openAt;
   fetch('/api/notify-letter', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      letterId: ref.id,
+      letterId,
       to,
       from,
       hasBody: !!body.trim(),
