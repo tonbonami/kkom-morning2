@@ -132,6 +132,17 @@ final class StrokeCanvasView: UIView {
     private var baked: UIImage?
     private var bakedSize: CGSize = .zero
 
+    // ── 현재 획 증분 렌더 (뚝뚝 끊김 해결) ──
+    // 예전엔 draw()가 touchesMoved마다 current 점 '전부'를 Catmull-Rom 재스무딩 + 외곽선 재생성 →
+    // 획당 O(n²), 120Hz 아이패드에서 프레임 드랍 → 라이브 잉크 끊김.
+    // Catmull-Rom은 로컬(구간=4점)이라, 확정된 앞부분은 liveBaked 이미지에 한 번만 굽고(겹침 append),
+    // 매 프레임엔 꼬리(마지막 몇 점)만 다시 그린다 → O(1)/프레임.
+    private var liveBaked: UIImage?          // 현재 획의 '확정된 앞부분' 캐시
+    private var liveBakedUpto: Int = 0       // liveBaked 에 담긴 current 인덱스(그 앞은 다시 안 그림)
+    private var predictedTail: [RawPt] = []  // predictedTouches — 지연 감추는 임시 꼬리(커밋 안 함)
+    private let liveTailKeep = 12             // 실시간으로 다시 그리는 꼬리 점 수
+    private let liveOverlap = 4               // 재굽기 시 겹침(이음새 매끄럽게)
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         isMultipleTouchEnabled = true
@@ -172,11 +183,13 @@ final class StrokeCanvasView: UIView {
         currentSize = controller?.lineWidth ?? 7
         currentId = UUID().uuidString
         current = [RawPt(loc: t.location(in: self), p: pressure(t))]
+        liveBaked = nil; liveBakedUpto = 0; predictedTail = []
         setNeedsDisplay()
     }
     // 진행 중이던 획을 커밋 없이 폐기 (팜으로 시작했다가 펜슬이 끼어들 때 — 팜 자국 제거)
     private func discardCurrent() {
         current = []; activeTouch = nil
+        liveBaked = nil; liveBakedUpto = 0; predictedTail = []
         sync?.publishLive(nil, id: currentId)
         setNeedsDisplay()
     }
@@ -214,12 +227,34 @@ final class StrokeCanvasView: UIView {
         let samples = event?.coalescedTouches(for: t) ?? [t]
         if controller?.eraser == true { for s in samples { eraseAt(s.location(in: self)) }; return }
         for s in samples { current.append(RawPt(loc: s.location(in: self), p: pressure(s))) }
+        // 예측 터치 — 다음 실제 업데이트에서 버리는 임시 꼬리(체감 지연 제거). 커밋·전송엔 안 넣음.
+        predictedTail = (event?.predictedTouches(for: t) ?? []).map { RawPt(loc: $0.location(in: self), p: pressure($0)) }
+        bakeSettledPrefixIfNeeded()
         let now = CACurrentMediaTime()
         if now - lastLiveSent > 0.05 {
             lastLiveSent = now
             sync?.publishLive(netStroke(current), id: currentId)
         }
         setNeedsDisplay()
+    }
+
+    // 확정된 앞부분(꼬리·겹침 남기고)을 liveBaked 이미지에 '새 구간만' 덧그려 캐시.
+    // Catmull-Rom이 로컬이라 확정분은 다시 안 바뀜 → 매번 전체 재스무딩할 필요가 없다.
+    private func bakeSettledPrefixIfNeeded() {
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        let settleTo = current.count - liveTailKeep          // 이 앞은 이제 안 변함
+        guard settleTo - liveBakedUpto > liveTailKeep else { return }  // 충분히 쌓였을 때만 굽는다
+        let from = max(0, liveBakedUpto - liveOverlap)       // 겹쳐 그려 이음새 제거(같은 색이라 무방)
+        let seg = Array(current[from ..< settleTo]).map {
+            InkPoint(location: $0.loc, width: widthPx(currentSize, $0.p, bounds.width))
+        }
+        let prev = liveBaked
+        let r = UIGraphicsImageRenderer(size: bounds.size)
+        liveBaked = r.image { ctx in
+            prev?.draw(at: .zero)                             // 기존 캐시 위에
+            drawStroke(seg, color: currentColor, in: ctx.cgContext)  // 새 구간만 덧그림 → O(꼬리)
+        }
+        liveBakedUpto = settleTo
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -240,6 +275,7 @@ final class StrokeCanvasView: UIView {
             rebuildBaked()
         }
         current = []; activeTouch = nil
+        liveBaked = nil; liveBakedUpto = 0; predictedTail = []
         sync?.publishLive(nil, id: currentId)
         setNeedsDisplay()
     }
@@ -314,10 +350,6 @@ final class StrokeCanvasView: UIView {
         return s.points.map { InkPoint(location: CGPoint(x: CGFloat($0.x) * W, y: CGFloat($0.y) * H),
                                        width: widthPx(CGFloat(s.size), $0.p, W)) }
     }
-    private func currentInk() -> [InkPoint] {
-        let W = bounds.width
-        return current.map { InkPoint(location: $0.loc, width: widthPx(currentSize, $0.p, W)) }
-    }
 
     // ── 베이크 ──
     private func rebuildBaked() {
@@ -338,9 +370,17 @@ final class StrokeCanvasView: UIView {
     override func draw(_ rect: CGRect) {
         guard let ctx = UIGraphicsGetCurrentContext() else { return }
         baked?.draw(at: .zero)
-        let cur = currentInk()
-        if cur.count > 1 { drawStroke(cur, color: currentColor, in: ctx) }
-        else if cur.count == 1 { drawStroke([cur[0], cur[0]], color: currentColor, in: ctx) }
+        // 현재 획 = 확정 앞부분(liveBaked, 한 번 구움) + 실시간 꼬리(마지막 몇 점 + 예측).
+        // 매 프레임 꼬리만 스무딩 → O(1)/프레임 → 120Hz에서도 안 끊김. 예측 꼬리로 지연도 감춤.
+        liveBaked?.draw(at: .zero)
+        if !current.isEmpty {
+            let tailStart = max(0, liveBakedUpto - liveOverlap)
+            var tail = Array(current[tailStart...])
+            tail.append(contentsOf: predictedTail)
+            let ink = tail.map { InkPoint(location: $0.loc, width: widthPx(currentSize, $0.p, bounds.width)) }
+            if ink.count > 1 { drawStroke(ink, color: currentColor, in: ctx) }
+            else if ink.count == 1 { drawStroke([ink[0], ink[0]], color: currentColor, in: ctx) }
+        }
         if let rl = remoteLive {
             let ip = inkPoints(rl)
             if ip.count > 1 { drawStroke(ip, color: UIColor(hex: rl.color), in: ctx) }
