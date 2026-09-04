@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Toaster } from '@/components/ui/toaster';
 import { PwaRegister } from '@/components/pwa-register';
 import PresenceHeartbeat from '@/components/PresenceHeartbeat';
+import AppViewportHeight from '@/components/AppViewportHeight';
 import './globals.css';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +36,7 @@ export default function RootLayout({
       </head>
       <body className={cn("font-body antialiased")}>
         {children}
+        <AppViewportHeight />
         <Toaster />
         <PwaRegister />
         <PresenceHeartbeat />

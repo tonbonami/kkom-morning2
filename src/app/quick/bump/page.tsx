@@ -41,7 +41,7 @@ export default function QuickBumpPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-rose-50 to-[#F7F9F9] max-w-md mx-auto flex flex-col items-center justify-center px-6 text-center">
+    <div className="min-h-app bg-gradient-to-b from-rose-50 to-[#F7F9F9] max-w-md mx-auto flex flex-col items-center justify-center px-6 text-center">
       <motion.div
         initial={{ scale: 0.6, opacity: 0 }}
         animate={status === 'sent'

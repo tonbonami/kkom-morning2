@@ -215,7 +215,7 @@ export default function MemoryGalleryV3({
   const selectedIndex = selectedMemoryId ? memories.findIndex((m) => m.id === selectedMemoryId) : -1;
 
   return (
-    <div className="relative min-h-screen bg-[#F7F9F9] max-w-md mx-auto overflow-hidden font-sans pb-24">
+    <div className="relative min-h-app bg-[#F7F9F9] max-w-md mx-auto overflow-hidden font-sans pb-24">
       {/* Header */}
       <header className="sticky top-0 z-20 flex items-center justify-between px-6 py-5 bg-[#F7F9F9]/90 backdrop-blur-md pt-safe">
         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">우리의 추억</h1>

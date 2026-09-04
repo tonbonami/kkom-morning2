@@ -134,13 +134,13 @@ export default function MemoryGalleryV2() {
     }
   };
 
-  if (!isMounted) return <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />;
+  if (!isMounted) return <div className="min-h-app bg-[#F7F9F9] max-w-md mx-auto" />;
 
   const hasMemories = memories.length > 0;
   const selectedMemory = selectedPhotoIndex !== null ? memories[selectedPhotoIndex] : null;
 
   return (
-    <div className="relative min-h-screen bg-[#F7F9F9] max-w-md mx-auto overflow-hidden font-sans pb-24">
+    <div className="relative min-h-app bg-[#F7F9F9] max-w-md mx-auto overflow-hidden font-sans pb-24">
       {/* Header */}
       <header className="sticky top-0 z-20 flex items-center justify-between px-6 py-5 bg-[#F7F9F9]/80 backdrop-blur-md">
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">우리의 추억</h1>

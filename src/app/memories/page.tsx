@@ -31,7 +31,7 @@ export default function MemoriesPage() {
     return () => unsub();
   }, [router]);
 
-  if (!me) return <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />;
+  if (!me) return <div className="min-h-app bg-[#F7F9F9] max-w-md mx-auto" />;
 
   return (
     <div className="relative">

@@ -388,3 +388,8 @@
   .mood-heartbeat, .mood-bounce, .mood-doze,
   .mood-sulk, .mood-fume, .mood-wobble { animation: none; }
 }
+
+/* 화면 높이 — Capacitor(contentInset)에서 100dvh 가 실제 뷰포트보다 큰 문제 보정.
+   AppViewportHeight 가 --app-vh 에 documentElement.clientHeight 를 넣는다.
+   폴백은 100dvh 라 var 가 없어도(브라우저/최초 렌더) 지금 동작 그대로 — 회귀 안전. */
+.min-h-app { min-height: 100dvh; min-height: var(--app-vh, 100dvh); }

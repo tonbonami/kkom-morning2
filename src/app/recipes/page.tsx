@@ -80,7 +80,7 @@ export default function RecipesPage() {
     return () => unsub();
   }, [commentItem]);
 
-  if (!me) return <div className="min-h-screen bg-[#FFFCF5] max-w-md mx-auto" />;
+  if (!me) return <div className="min-h-app bg-[#FFFCF5] max-w-md mx-auto" />;
 
   const showToast = (msg: string) => {
     if (typeof navigator !== 'undefined') { try { (navigator as any).vibrate?.(30); } catch {} }
@@ -146,7 +146,7 @@ export default function RecipesPage() {
     <>
       <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelected} />
 
-      <div className="min-h-[100dvh] bg-[#FFFCF5] notebook-bg text-slate-800">
+      <div className="min-h-app bg-[#FFFCF5] notebook-bg text-slate-800">
         <main className="max-w-md mx-auto px-5 pt-6 pb-32">
           <header className="flex items-center justify-between mb-5">
             <button

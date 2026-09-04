@@ -106,7 +106,7 @@ export default function WeatherDetailV1({
   const isRainingNow = current.pty === '1' || current.pty === '2';
 
   return (
-    <div className={`min-h-screen max-w-md mx-auto relative font-sans pb-12 transition-colors duration-500 ${isRainingNow ? 'bg-slate-50' : 'bg-[#F7F9F9]'}`}>
+    <div className={`min-h-app max-w-md mx-auto relative font-sans pb-12 transition-colors duration-500 ${isRainingNow ? 'bg-slate-50' : 'bg-[#F7F9F9]'}`}>
 
       {/* Header */}
       <header className="sticky top-0 z-30 bg-inherit/90 backdrop-blur-md pt-safe">

@@ -69,7 +69,7 @@ export default function DDayDetailV1({ firstMet, marriedAt, onBack }: Props) {
   }, []);
 
   if (!today) {
-    return <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />;
+    return <div className="min-h-app bg-[#F7F9F9] max-w-md mx-auto" />;
   }
 
   // --- Calculations ---
@@ -135,7 +135,7 @@ export default function DDayDetailV1({ firstMet, marriedAt, onBack }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto relative font-sans text-slate-900 pb-24 overflow-hidden selection:bg-[#FCA5A5]/30">
+    <div className="min-h-app bg-[#F7F9F9] max-w-md mx-auto relative font-sans text-slate-900 pb-24 overflow-hidden selection:bg-[#FCA5A5]/30">
 
       {/* Background Soft Glow */}
       <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-[#FCA5A5]/10 to-transparent pointer-events-none" />

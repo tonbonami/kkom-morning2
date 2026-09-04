@@ -528,10 +528,10 @@ export default function PraisePage() {
     return totalAll > visibleInFeed;
   }, [feedItems, allItems, me, view]);
 
-  if (!me) return <div className="min-h-[100dvh] bg-[#FFFCF5] max-w-md mx-auto" />;
+  if (!me) return <div className="min-h-app bg-[#FFFCF5] max-w-md mx-auto" />;
 
   return (
-    <div className="min-h-[100dvh] bg-[#FFFCF5] text-slate-800 notebook-bg">
+    <div className="min-h-app bg-[#FFFCF5] text-slate-800 notebook-bg">
       <main className="max-w-md mx-auto px-5 pt-6 pb-safe-bottom space-y-5">
         {/* 헤더 */}
         <header className="flex items-center justify-between">

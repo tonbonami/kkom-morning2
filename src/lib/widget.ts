@@ -41,6 +41,16 @@ export interface WidgetSnapshot {
   partnerMood?: string;        // 이모지
 }
 
+// 로그아웃 시 호출 — 위젯이 옛 상대를 계속 보여주지 않게 네이티브 앱그룹 스냅샷을 지운다.
+export async function clearWidgetSnapshot(): Promise<void> {
+  try {
+    const { Capacitor, registerPlugin } = await import('@capacitor/core');
+    if (!Capacitor.isNativePlatform()) return;
+    const bridge = registerPlugin('WidgetBridge') as { clear(): Promise<void> };
+    await bridge.clear();
+  } catch { /* 위젯 없거나 네이티브 아님 — 무시 */ }
+}
+
 export async function pushWidgetSnapshot(s: WidgetSnapshot): Promise<void> {
   try {
     const { Capacitor, registerPlugin } = await import('@capacitor/core');

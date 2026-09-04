@@ -99,7 +99,7 @@ export default function PoemsPage() {
     if (readerIdx !== null && readerIdx >= items.length) setReaderIdx(null);
   }, [items.length, readerIdx]);
 
-  if (!me) return <div className="min-h-screen bg-[#FFFCF5] max-w-md mx-auto" />;
+  if (!me) return <div className="min-h-app bg-[#FFFCF5] max-w-md mx-auto" />;
 
   const openSheet = () => {
     setDraftTitle('');
@@ -190,7 +190,7 @@ export default function PoemsPage() {
   const reading = readerIdx !== null ? items[readerIdx] : null;
 
   return (
-    <div className="min-h-[100dvh] bg-[#FFFCF5] text-slate-800">
+    <div className="min-h-app bg-[#FFFCF5] text-slate-800">
       {/* 책 표지 톤 헤더 */}
       <header className="relative pt-12 pb-7 border-b border-purple-100">
         <div className="absolute top-0 inset-x-0 h-1.5 bg-purple-300" />

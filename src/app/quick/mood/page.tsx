@@ -32,11 +32,11 @@ export default function QuickMoodPage() {
     }
   };
 
-  if (!me) return <div className="sd-app min-h-screen max-w-md mx-auto" />;
+  if (!me) return <div className="sd-app min-h-app max-w-md mx-auto" />;
 
   return (
     <main
-      className="sd-app min-h-screen max-w-md mx-auto px-6 pb-6"
+      className="sd-app min-h-app max-w-md mx-auto px-6 pb-6"
       style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))' }}
     >
       <button

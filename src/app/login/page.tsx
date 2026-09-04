@@ -2,7 +2,7 @@ import { PinInput } from '@/components/login/pin-input';
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100 flex items-center justify-center p-6">
+    <div className="min-h-app bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100 flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="text-6xl mb-4">💚</div>

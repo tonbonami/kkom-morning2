@@ -222,7 +222,7 @@ export default function AgainListV1({ me, items, onBack, onOpen, onDelete, onAdd
   };
 
   return (
-    <div className="relative min-h-screen bg-[#F7F9F9] max-w-md mx-auto overflow-hidden font-sans text-slate-900 pb-20">
+    <div className="relative min-h-app bg-[#F7F9F9] max-w-md mx-auto overflow-hidden font-sans text-slate-900 pb-20">
       <header className="sticky top-0 z-30 bg-[#F7F9F9]/90 backdrop-blur-md">
         <div className="flex items-center justify-between px-6 py-5">
           <motion.button whileTap={{ scale: 0.9 }} onClick={onBack} className="p-2 -ml-2 text-slate-800">

@@ -45,7 +45,7 @@ export default function NovelPage() {
   // import InkLoader from '@/components/novel/InkLoader';
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-app bg-background flex items-center justify-center">
         {/* TODO: InkLoader 구현 후 <InkLoader /> 로 교체 */}
         <div className="text-center space-y-4">
           <div className="relative">

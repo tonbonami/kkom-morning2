@@ -24,7 +24,7 @@ const COLLECTION = 'letters';
 
 export default function LettersPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />}>
+    <Suspense fallback={<div className="min-h-app bg-[#F7F9F9] max-w-md mx-auto" />}>
       <LettersPageInner />
     </Suspense>
   );
@@ -68,7 +68,7 @@ function LettersPageInner() {
     if (latestReceived) setLastReadLetterId(me, latestReceived.id);
   }, [me, raw]);
 
-  if (!me) return <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto" />;
+  if (!me) return <div className="min-h-app bg-[#F7F9F9] max-w-md mx-auto" />;
 
   return (
     <LetterInboxV3

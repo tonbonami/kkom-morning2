@@ -19,7 +19,8 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "WidgetBridgePlugin"
     public let jsName = "WidgetBridge"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise)
     ]
 
     @objc func update(_ call: CAPPluginCall) {
@@ -47,6 +48,16 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             if #available(iOS 14.0, *) { WidgetCenter.shared.reloadAllTimelines() }
         }
         // Live Activity 비활성화(우댕 요청): 시작·갱신 안 함. 남아있던 잠금화면 액티비티도 종료.
+        LiveActivityManager.shared.end()
+        call.resolve()
+    }
+
+    // 로그아웃/계정 교체 시 — 위젯이 '옛 상대'를 계속 보여주지 않게 앱그룹 스냅샷을 지운다.
+    // (kkomState 는 로그인된 신원 기준으로 쓰이는데, 웹 로그아웃은 localStorage 만 지워서
+    //  이 키가 남으면 위젯이 지난 상대를 계속 띄운다. 지운 뒤 위젯·액티비티도 새로고침.)
+    @objc func clear(_ call: CAPPluginCall) {
+        UserDefaults(suiteName: "group.com.tonbonami.kkommorning")?.removeObject(forKey: "kkomState")
+        if #available(iOS 14.0, *) { WidgetCenter.shared.reloadAllTimelines() }
         LiveActivityManager.shared.end()
         call.resolve()
     }

@@ -154,7 +154,7 @@ export default function WishlistV1({ me, items, onAdd, onToggleDone, onDelete, o
   };
 
   return (
-    <div className="relative min-h-screen bg-[#F7F9F9] max-w-md mx-auto overflow-hidden font-sans text-slate-900 pb-20">
+    <div className="relative min-h-app bg-[#F7F9F9] max-w-md mx-auto overflow-hidden font-sans text-slate-900 pb-20">
       {/* Header */}
       <header className="sticky top-0 z-20 bg-[#F7F9F9]/90 backdrop-blur-md">
         <div className="flex items-center justify-between px-6 pt-5 pb-3">

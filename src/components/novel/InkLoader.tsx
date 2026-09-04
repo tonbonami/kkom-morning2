@@ -44,7 +44,7 @@ export default function NovelPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-app bg-background flex items-center justify-center">
         <InkLoader />
       </div>
     );

@@ -196,7 +196,7 @@ export default function NewLetterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-app bg-background text-foreground">
       <div className="w-full max-w-md mx-auto p-6 space-y-5">
         <header className="flex items-center gap-3 pt-2">
           <button

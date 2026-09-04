@@ -73,10 +73,10 @@ export default function CalendarPage() {
   // 폼 초기 날짜 (추가 시 프리셋용)
   const [formDate, setFormDate] = useState(today);
 
-  if (!me) return <div className="min-h-screen bg-[#FFFCF5] max-w-md mx-auto" />;
+  if (!me) return <div className="min-h-app bg-[#FFFCF5] max-w-md mx-auto" />;
 
   return (
-    <div className="min-h-[100dvh] bg-[#FFFCF5] text-slate-800">
+    <div className="min-h-app bg-[#FFFCF5] text-slate-800">
       <main className="max-w-md mx-auto px-4 pt-6 pb-28">
         {/* 헤더 */}
         <header className="flex items-center justify-between mb-4 px-1">

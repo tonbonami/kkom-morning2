@@ -104,7 +104,7 @@ export default function RelayNovel({
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
+    <div className="min-h-app bg-background text-foreground relative overflow-x-hidden">
       <div
         className="pointer-events-none fixed inset-0 -z-10"
         style={{

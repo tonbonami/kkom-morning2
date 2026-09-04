@@ -232,7 +232,7 @@ export default function CanvasPage() {
     [strokes],
   );
 
-  if (!me) return <div className="min-h-screen bg-[#FFFCF5] max-w-md mx-auto" />;
+  if (!me) return <div className="min-h-app bg-[#FFFCF5] max-w-md mx-auto" />;
 
   return (
     <div className="fixed inset-0 flex flex-col bg-[#FFFCF5] text-slate-800 overscroll-none select-none [-webkit-touch-callout:none] [-webkit-user-select:none]">

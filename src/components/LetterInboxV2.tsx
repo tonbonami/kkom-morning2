@@ -76,7 +76,7 @@ export default function LetterInboxV2({
   const avatarColor = (person: string) => person === '우댕' ? 'bg-[#10B981]' : 'bg-[#FCA5A5]';
 
   return (
-    <div className="min-h-screen bg-[#F7F9F9] max-w-md mx-auto relative font-sans text-slate-900 pb-32">
+    <div className="min-h-app bg-[#F7F9F9] max-w-md mx-auto relative font-sans text-slate-900 pb-32">
       {/* Sticky Header */}
       <header className="sticky top-0 z-20 bg-[#F7F9F9]/90 backdrop-blur-md pt-safe">
         <div className="flex items-center justify-between px-6 py-4">
