@@ -144,8 +144,10 @@ const KKOM_STICKERS: { word: string; image: string }[] = [
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
 // 순서는 사이담 EMOTICONS(setId=SAI) 정의 순서 그대로(우댕 지시 "순서도 그대로").
 const SAI_STICKERS: { word: string; image: string }[] = [
-  // 사이담 애니 이모티콘(크림 푸들, 보고싶어). 우댕 지시로 꼼이 탭에 편입. 애니 webp → <img> 재생.
+  // 사이담 애니 이모티콘(크림 푸들). 애니 saidam 이모티콘을 꼼이 탭에 모음. 투명 배경 webp → <img> 재생(네모 없음).
   { word: '보고싶어', image: '/emo/sai-anim/missyou.webp' },
+  { word: '사랑해', image: '/emo/sai-anim/love.webp' },
+  { word: '고마워', image: '/emo/sai-anim/thanks.webp' },
   { word: '맛점', image: '/emo/sai/lunch.webp' },
   { word: 'ㅋㅋㅋ', image: '/emo/sai/kkk.webp' },
   { word: '뭐해?', image: '/emo/sai/what.webp' },
