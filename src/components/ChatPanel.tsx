@@ -122,6 +122,8 @@ const posterOf = (src: string) => src.replace(/\.(mp4|webm|mov)$/i, '-poster.web
 const POCKET_STICKERS = Object.entries(TEXT_STICKERS).map(([word, image]) => ({ word, image }));
 // Dang's 탭 — 단독 스티커(탭해서 크게 전송). 추가하려면 여기 { word, image } 한 줄.
 const DANG_STICKERS: { word: string; image: string }[] = [
+  // 사이담 애니 이모티콘(크림 푸들). 애니 webp라 <img>로 그대로 재생. 우댕 지시로 이 건만 예외 편입.
+  { word: '좋은 아침', image: '/emo/sai-anim/sunrise.webp' },
   { word: '귀엽꼬미', image: '/pochacco_dang/cutekkomi.png' },
   { word: '앙 귀여워', image: '/pochacco_dang/angcute.png' },
   { word: '치카치카', image: '/pochacco_dang/dangchicca.png' },
@@ -129,6 +131,8 @@ const DANG_STICKERS: { word: string; image: string }[] = [
 ];
 // kkom's 탭 — 꼼이(여자 포차코) 스티커
 const KKOM_STICKERS: { word: string; image: string }[] = [
+  // 사이담 애니 이모티콘(크림 푸들). 애니 webp라 <img>로 그대로 재생. 우댕 지시로 이 건만 예외 편입.
+  { word: '좋은 아침', image: '/emo/sai-anim/sunrise.webp' },
   { word: '달려가는 중', image: '/pochacco_kkom/kkomrun.png' },
   { word: '꾸미는 중', image: '/pochacco_kkom/kkommakeup.png' },
   { word: '치카치카', image: '/pochacco_kkom/kkomchicca.png' },
@@ -140,6 +144,8 @@ const KKOM_STICKERS: { word: string; image: string }[] = [
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
 // 순서는 사이담 EMOTICONS(setId=SAI) 정의 순서 그대로(우댕 지시 "순서도 그대로").
 const SAI_STICKERS: { word: string; image: string }[] = [
+  // 사이담 애니 이모티콘(크림 푸들, 보고싶어). 우댕 지시로 꼼이 탭에 편입. 애니 webp → <img> 재생.
+  { word: '보고싶어', image: '/emo/sai-anim/missyou.webp' },
   { word: '맛점', image: '/emo/sai/lunch.webp' },
   { word: 'ㅋㅋㅋ', image: '/emo/sai/kkk.webp' },
   { word: '뭐해?', image: '/emo/sai/what.webp' },
