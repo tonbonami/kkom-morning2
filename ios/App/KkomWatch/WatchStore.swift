@@ -24,11 +24,15 @@ final class WatchStore: ObservableObject {
     @Published var airWork: AirInfo? = nil   // 서울 중구(꼼이)
     @Published var bumpFlash = 0             // 범프 보낸 확인 애니메이션 트리거
     @Published var bumpKind: String? = nil
+    @Published var recvBumpFlash = 0         // 상대가 보낸 범프 수신 → 애니메이션 트리거
+    @Published var recvBumpKind: String? = nil  // 방금 받은 범프 종류(보고싶어 등)
     @Published var recentMessages: [WatchMsg] = []   // 꼼톡 최근 몇 줄
 
     private var serverOffsetMs: Double = 0   // serverNow = deviceNow + offset
     private var lastHeartNonce: String? = nil
     private var baselineSet = false          // 첫 조회는 baseline(햅틱 X)
+    private var lastBumpNonce: String? = nil
+    private var bumpBaselineSet = false       // 받은 범프도 첫 조회는 baseline(옛 범프 재발화 방지)
     private var loop: Task<Void, Never>? = nil
     private var lastWidgetReload: Double = 0
     private var lastAirFetch: Double = 0
@@ -40,6 +44,7 @@ final class WatchStore: ObservableObject {
         role = r
         UserDefaults(suiteName: APP_GROUP)?.set(r, forKey: "watchRole")
         lastHeartNonce = nil; baselineSet = false
+        lastBumpNonce = nil; bumpBaselineSet = false
         restart()
     }
 
@@ -79,6 +84,19 @@ final class WatchStore: ObservableObject {
             }
         } else {
             baselineSet = true   // 아직 하트 doc 없음 → baseline 확정
+        }
+        // 받은 범프 — liveBumps 폴링. 새 nonce면 '보고싶어' 등 라벨을 앱에 크게 띄운다(하트와 동일 방식).
+        if let b = await Fire.fetchBumpNonce(for: me) {
+            if !bumpBaselineSet {
+                lastBumpNonce = b.nonce; bumpBaselineSet = true
+            } else if b.nonce != lastBumpNonce {
+                lastBumpNonce = b.nonce
+                recvBumpKind = b.kind
+                recvBumpFlash += 1
+                playHeartHaptic()
+            }
+        } else {
+            bumpBaselineSet = true   // 아직 범프 doc 없음 → baseline 확정
         }
         // 미세먼지 — data.go.kr가 간헐적으로 빈 응답을 줌 → 실데이터만 반영(빈값으로 덮지 않음).
         // 데이터 있으면 10분마다, 아직 없으면 1분마다 재시도.

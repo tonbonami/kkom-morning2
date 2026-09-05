@@ -50,6 +50,10 @@ struct ContentView: View {
                     if store.bumpFlash > 0, let k = store.bumpKind {
                         BumpConfirm(trigger: store.bumpFlash, kind: k)
                     }
+                    // 상대가 보낸 범프 수신 — 어느 페이지에서든 '보고싶어' 등 무슨 범프인지 또렷이.
+                    if store.recvBumpFlash > 0, let k = store.recvBumpKind {
+                        ReceivedBump(trigger: store.recvBumpFlash, kind: k)
+                    }
                 }
             }
         }
@@ -316,6 +320,31 @@ struct BumpConfirm: View {
         VStack(spacing: 6) {
             Image(kind).resizable().scaledToFit().frame(width: 96, height: 96)
             Text("\(bumpLabel(kind)) 보냈어!")
+                .font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                .padding(.horizontal, 12).padding(.vertical, 5)
+                .background(.ultraThinMaterial).clipShape(Capsule())
+        }
+        .opacity(show ? 0 : 1)
+        .scaleEffect(show ? 1.15 : 0.5)
+        .offset(y: show ? -28 : 18)
+        .allowsHitTesting(false)
+        .onChange(of: trigger) { _, _ in
+            show = false
+            withAnimation(.easeOut(duration: 1.0)) { show = true }
+        }
+        .onAppear { withAnimation(.easeOut(duration: 1.0)) { show = true } }
+    }
+}
+
+// 상대가 보낸 범프 수신 표시 — BumpConfirm과 같은 모션, 문구만 '왔어'(무슨 범프인지 또렷이).
+struct ReceivedBump: View {
+    let trigger: Int
+    let kind: String
+    @State private var show = false
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(kind).resizable().scaledToFit().frame(width: 96, height: 96)
+            Text("\(bumpLabel(kind)) 왔어 💗")
                 .font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
                 .padding(.horizontal, 12).padding(.vertical, 5)
                 .background(.ultraThinMaterial).clipShape(Capsule())

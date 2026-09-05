@@ -6,7 +6,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import webpush from 'web-push';
 import { sendApns, keyForName } from '@/lib/apns';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, setDoc } from 'firebase/firestore';
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
 const PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY!;
@@ -148,6 +148,17 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         console.warn('[bump] 집계 실패:', e);
       }
+    }
+
+    // 워치용 — 받은 범프를 워치 앱에서 '보고싶어'처럼 또렷이 띄우게 liveBumps 문서에 남긴다.
+    //   푸시(코이한 랜덤 문구)만으론 워치에서 '무슨 범프인지' 안 보여서, 워치가 이 doc을 폴링해
+    //   kind로 라벨을 그린다(하트의 liveHearts와 같은 방식). nonce로 새 범프를 감지.
+    if (kind !== 'night') {
+      try {
+        await setDoc(doc(db, 'liveBumps', to), {
+          from, kind, nonce: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, at: Date.now(),
+        });
+      } catch (e) { console.warn('[bump] liveBumps 기록 실패:', e); }
     }
 
     // APNs(네이티브)와 웹푸시는 서로 독립 채널 — 나란히 보낸다(순차 X).

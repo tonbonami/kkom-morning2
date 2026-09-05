@@ -124,6 +124,19 @@ enum Fire {
         return (from, nonce, emoji)
     }
 
+    // 받은 범프 — liveBumps/{me} 폴링(/api/bump가 기록). kind로 워치에서 '보고싶어' 라벨을 그린다.
+    // 하트(liveHearts)와 같은 nonce 방식. 범프는 messages에 안 남아 이게 없으면 워치에 안 뜬다.
+    static func fetchBumpNonce(for me: String) async -> (from: String, nonce: String, kind: String)? {
+        guard let url = URL(string: "\(base)/liveBumps/\(enc(me))?key=\(apiKey)") else { return nil }
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let fields = obj["fields"] as? [String: Any],
+              let nonce = (fields["nonce"] as? [String: Any])?["stringValue"] as? String else { return nil }
+        let from = (fields["from"] as? [String: Any])?["stringValue"] as? String ?? ""
+        let kind = (fields["kind"] as? [String: Any])?["stringValue"] as? String ?? ""
+        return (from, nonce, kind)
+    }
+
     // ── 채팅 (꼼톡) ── messages 컬렉션 직접. 폰 채팅과 같은 스키마({from,text,createdAt}).
     // 워치는 최근 몇 줄만 훑고, 답장은 받아쓰기/프리셋/꼼이미니 토큰. (단어) 토큰은 폰이 그림으로 렌더.
     static func fetchRecentMessages(me: String, limit: Int = 3) async -> [WatchMsg]? {
