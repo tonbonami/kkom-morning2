@@ -47,17 +47,10 @@ struct CanvasScreen: View {
                 VStack {
                     // 상단: 닫기 + 페이지 넘기기 + presence + 나 배지
                     HStack(alignment: .center, spacing: 8) {
-                        // 나가기 — 예전엔 라벨 없는 작은 X라 '지우기'인지 '나가기'인지 헷갈렸고,
-                        // 전체화면 모달이라 스와이프로도 못 나가서 결국 앱을 껐다는 신고가 있었다.
-                        // 글자 라벨 + 넓은 탭 영역으로 '여기가 출구'임을 분명히 한다.
                         Button(action: onClose) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "chevron.left").font(.system(size: 13, weight: .bold))
-                                Text("나가기").font(.system(size: 14, weight: .bold))
-                            }
-                            .foregroundStyle(inkColor)
-                            .padding(.horizontal, 12).frame(height: 34)
-                            .background(.ultraThinMaterial).clipShape(Capsule())
+                            Image(systemName: "xmark").font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(inkColor).frame(width: 34, height: 34)
+                                .background(.ultraThinMaterial).clipShape(Circle())
                         }
                         pageNav
                         if controller.partnerActive { presenceTag }
