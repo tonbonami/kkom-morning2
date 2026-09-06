@@ -121,9 +121,19 @@ const posterOf = (src: string) => src.replace(/\.(mp4|webm|mov)$/i, '-poster.web
 // 스티커 포켓 그리드 — 텍스트 스티커들을 탭해서 큰 단독 스티커로 전송(투명 배경, 말풍선 없음).
 const POCKET_STICKERS = Object.entries(TEXT_STICKERS).map(([word, image]) => ({ word, image }));
 // Dang's 탭 — 단독 스티커(탭해서 크게 전송). 추가하려면 여기 { word, image } 한 줄.
+// 꼼이(별) 탭 — 움직이는 이모티콘 모음(사이담 제작, 투명 배경 애니 webp). 서랍의 첫 탭.
+// ⚠️ 서랍(피커)엔 정지컷(-still.png)만 띄우고, 보낼 때/채팅에선 webp가 재생된다.
+//    6개 움짤을 서랍에서 동시에 디코딩하면 저사양 기기가 버벅여서(사이담 경고).
+const ANIM_STICKERS: { word: string; image: string; still: string }[] = [
+  { word: '안녕!',     image: '/emo/sai-anim/hi.webp',      still: '/emo/sai-anim/hi-still.png' },
+  { word: '좋은 아침',  image: '/emo/sai-anim/sunrise.webp', still: '/emo/sai-anim/sunrise-still.png' },
+  { word: '두근두근',   image: '/emo/sai-anim/doki.webp',    still: '/emo/sai-anim/doki-still.png' },
+  { word: '사랑해',     image: '/emo/sai-anim/love.webp',    still: '/emo/sai-anim/love-still.png' },
+  { word: '보고싶어',   image: '/emo/sai-anim/missyou.webp', still: '/emo/sai-anim/missyou-still.png' },
+  { word: '고마워',     image: '/emo/sai-anim/thanks.webp',  still: '/emo/sai-anim/thanks-still.png' },
+];
+
 const DANG_STICKERS: { word: string; image: string }[] = [
-  // 사이담 애니 이모티콘(크림 푸들). 애니 webp라 <img>로 그대로 재생. 우댕 지시로 이 건만 예외 편입.
-  { word: '좋은 아침', image: '/emo/sai-anim/sunrise.webp' },
   { word: '귀엽꼬미', image: '/pochacco_dang/cutekkomi.png' },
   { word: '앙 귀여워', image: '/pochacco_dang/angcute.png' },
   { word: '치카치카', image: '/pochacco_dang/dangchicca.png' },
@@ -131,8 +141,6 @@ const DANG_STICKERS: { word: string; image: string }[] = [
 ];
 // kkom's 탭 — 꼼이(여자 포차코) 스티커
 const KKOM_STICKERS: { word: string; image: string }[] = [
-  // 사이담 애니 이모티콘(크림 푸들). 애니 webp라 <img>로 그대로 재생. 우댕 지시로 이 건만 예외 편입.
-  { word: '좋은 아침', image: '/emo/sai-anim/sunrise.webp' },
   { word: '달려가는 중', image: '/pochacco_kkom/kkomrun.png' },
   { word: '꾸미는 중', image: '/pochacco_kkom/kkommakeup.png' },
   { word: '치카치카', image: '/pochacco_kkom/kkomchicca.png' },
@@ -144,10 +152,6 @@ const KKOM_STICKERS: { word: string; image: string }[] = [
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
 // 순서는 사이담 EMOTICONS(setId=SAI) 정의 순서 그대로(우댕 지시 "순서도 그대로").
 const SAI_STICKERS: { word: string; image: string }[] = [
-  // 사이담 애니 이모티콘(크림 푸들). 애니 saidam 이모티콘을 꼼이 탭에 모음. 투명 배경 webp → <img> 재생(네모 없음).
-  { word: '보고싶어', image: '/emo/sai-anim/missyou.webp' },
-  { word: '사랑해', image: '/emo/sai-anim/love.webp' },
-  { word: '고마워', image: '/emo/sai-anim/thanks.webp' },
   { word: '맛점', image: '/emo/sai/lunch.webp' },
   { word: 'ㅋㅋㅋ', image: '/emo/sai/kkk.webp' },
   { word: '뭐해?', image: '/emo/sai/what.webp' },
@@ -203,8 +207,9 @@ const RICH_RE = new RegExp(`\\[\\[e:([a-z]+)\\]\\]|\\((${STICKER_ALT})\\)`, 'g')
 const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
 
 // 이모티콘 서랍 탭 — 사이챗과 동일 구조(썸네일 + 이름). id/데이터는 꼼모닝 것.
-type StickerMode = 'sticker' | 'mini' | 'couple' | 'dang' | 'kkom' | 'sai' | 'saidami';
+type StickerMode = 'anim' | 'sticker' | 'mini' | 'couple' | 'dang' | 'kkom' | 'sai' | 'saidami';
 const STICKER_TABS: { id: StickerMode; title: string; thumb: string }[] = [
+  { id: 'anim',    title: '꼼이',     thumb: '/emo/saidami/star.webp' },
   { id: 'sticker', title: '스티커',   thumb: '/pochacco/face_happy.png' },
   { id: 'mini',    title: '미니',     thumb: '/pochacco/face_love.png' },
   { id: 'couple',  title: '커플',     thumb: '/pochacco_couple/love.png' },
@@ -522,8 +527,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   };
 
   // 이모티콘 서랍 — 현재 탭의 항목(key/image/video). 라벨은 사이챗처럼 안 그림(그림 한 장으로).
-  const stickerItems = (mode: StickerMode): { key: string; image: string; video?: boolean }[] => {
+  const stickerItems = (mode: StickerMode): { key: string; image: string; video?: boolean; thumb?: string }[] => {
     switch (mode) {
+      // 서랍엔 정지컷(thumb), 전송·채팅엔 움짤(image). 6개 동시 디코딩 방지.
+      case 'anim': return ANIM_STICKERS.map((s) => ({ key: s.word, image: s.image, thumb: s.still }));
       case 'sticker':
       case 'mini': return MOOD_OPTIONS.map((o) => ({ key: o.id, image: o.image }));
       case 'couple': return POCKET_STICKERS.map((s) => ({ key: s.word, image: s.image, video: isVideoSrc(s.image) }));
@@ -892,7 +899,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       <video src={it.image} poster={posterOf(it.image)} muted loop autoPlay playsInline className="w-[74%] h-[74%] object-contain" />
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={it.image} alt="" className="w-[74%] h-[74%] object-contain" />
+                      // 움짤 탭은 정지컷(thumb)으로 — 서랍에서 여러 개 동시 애니 디코딩 방지. 보낼 땐 webp 재생.
+                      <img src={it.thumb ?? it.image} alt="" className="w-[74%] h-[74%] object-contain" />
                     )}
                   </button>
                 ))}
