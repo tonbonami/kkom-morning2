@@ -210,16 +210,15 @@ const RICH_RE = new RegExp(`\\[\\[e:([a-z]+)\\]\\]|\\((${STICKER_ALT})\\)`, 'g')
 const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
 
 // 이모티콘 서랍 탭 — 사이챗과 동일 구조(썸네일 + 이름). id/데이터는 꼼모닝 것.
-type StickerMode = 'anim' | 'sticker' | 'mini' | 'couple' | 'dang' | 'kkom' | 'sai' | 'saidami';
-const STICKER_TABS: { id: StickerMode; title: string; thumb: string }[] = [
-  { id: 'anim',    title: '꼼이',     thumb: '/emo/saidami/star.webp' },
-  { id: 'sticker', title: '스티커',   thumb: '/pochacco/face_happy.png' },
-  { id: 'mini',    title: '미니',     thumb: '/pochacco/face_love.png' },
-  { id: 'couple',  title: '커플',     thumb: '/pochacco_couple/love.png' },
-  { id: 'dang',    title: "Dang's",   thumb: '/pochacco_dang/cutekkomi.png' },
-  { id: 'kkom',    title: "kkom's",   thumb: '/pochacco_kkom/kkomiyap.png' },
-  { id: 'sai',     title: '꼼이',     thumb: '/emo/sai/kkk.webp' },
-  { id: 'saidami', title: '꼼이미니',  thumb: '/emo/saidami/love.webp' },
+// 제미나이 4탭 디자인 — 8탭(기능·캐릭터·세부가 한 뎁스에 평면으로 섞임)을 4개로 압축.
+//   ⭐움짤 / 🐶정적 말티푸 / 🐾포차코(내부 섹션) / 💬텍스트 미니(인라인, (단어)로 통일).
+//   '스티커'='미니' 중복과 지저분한 [[e:id]] 미니는 폐기(옛 메시지의 [[e:id]]는 renderRich가 그대로 렌더).
+type StickerMode = 'gif' | 'maltipoo' | 'pochacco' | 'mini';
+const STICKER_TABS: { id: StickerMode; icon: string; name: string }[] = [
+  { id: 'gif',      icon: '⭐', name: '꼼이 움짤' },
+  { id: 'maltipoo', icon: '🐶', name: '몽글 말티푸' },
+  { id: 'pochacco', icon: '🐾', name: '포차코 프렌즈' },
+  { id: 'mini',     icon: '💬', name: '텍스트 미니' },
 ];
 
 // 답장 미리보기/푸시용 — 미니는 🐶, 텍스트 스티커는 괄호만 벗겨 단어로.
@@ -370,7 +369,7 @@ export function preview(m: ChatMessage): string {
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
-  const [stickerMode, setStickerMode] = useState<StickerMode>('sticker');
+  const [stickerMode, setStickerMode] = useState<StickerMode>('pochacco');
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -513,20 +512,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     flashToast(`타임캡슐 예약됨 ⏳ ${when.getFullYear()}.${when.getMonth() + 1}.${when.getDate()} 도착`);
   };
 
-  // 미니 이모티콘 — 커서 위치에 [[e:id]] 토큰 삽입 (피커 열린 채 여러 개 가능)
-  const insertMini = (id: string) => {
-    const token = `[[e:${id}]]`;
-    const ta = taRef.current;
-    const start = ta?.selectionStart ?? draft.length;
-    const end = ta?.selectionEnd ?? start;
-    const next = draft.slice(0, start) + token + draft.slice(end);
-    setDraft(next);
-    requestAnimationFrame(() => {
-      if (ta) { ta.focus(); const pos = start + token.length; ta.setSelectionRange(pos, pos); }
-    });
-  };
-
-  // 꼼이미니 — 커서 위치에 카톡식 (단어) 삽입 (피커 열린 채 여러 개 가능). 렌더 시 32px 그림.
+  // 텍스트 미니 — 커서 위치에 카톡식 (단어) 삽입 (피커 열린 채 여러 개 가능). 렌더 시 32px 그림.
   const insertParen = (word: string) => {
     const token = `(${word})`;
     const ta = taRef.current;
@@ -539,24 +525,25 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     });
   };
 
-  // 이모티콘 서랍 — 현재 탭의 항목(key/image/video). 라벨은 사이챗처럼 안 그림(그림 한 장으로).
-  const stickerItems = (mode: StickerMode): { key: string; image: string; video?: boolean; thumb?: string }[] => {
+  // 이모티콘 서랍 — 현재 탭의 섹션 목록. 대부분 섹션 하나(label 없음)지만, '포차코'는 여러 섹션(sticky header)으로.
+  //   서랍엔 정지컷(thumb 있으면), 전송·채팅엔 image(움짤 webp 포함). label 있으면 소제목이 걸린다.
+  type SItem = { key: string; image: string; video?: boolean; thumb?: string };
+  const stickerSections = (mode: StickerMode): { label?: string; items: SItem[] }[] => {
     switch (mode) {
-      // 서랍엔 정지컷(thumb), 전송·채팅엔 움짤(image). 6개 동시 디코딩 방지.
-      case 'anim': return ANIM_STICKERS.map((s) => ({ key: s.word, image: s.image, thumb: s.still }));
-      case 'sticker':
-      case 'mini': return MOOD_OPTIONS.map((o) => ({ key: o.id, image: o.image }));
-      case 'couple': return POCKET_STICKERS.map((s) => ({ key: s.word, image: s.image, video: isVideoSrc(s.image) }));
-      case 'dang': return DANG_STICKERS.map((s) => ({ key: s.word, image: s.image }));
-      case 'kkom': return KKOM_STICKERS.map((s) => ({ key: s.word, image: s.image }));
-      case 'sai': return SAI_STICKERS.map((s) => ({ key: s.word, image: s.image }));
-      case 'saidami': return SAIDAMI_STICKERS.map((s) => ({ key: s.word, image: s.image }));
+      case 'gif': return [{ items: ANIM_STICKERS.map((s) => ({ key: s.word, image: s.image, thumb: s.still })) }];
+      case 'maltipoo': return [{ items: SAI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
+      case 'mini': return [{ items: SAIDAMI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
+      case 'pochacco': return [
+        { label: '🐶 기본', items: MOOD_OPTIONS.map((o) => ({ key: o.id, image: o.image })) },
+        { label: '👦 우댕', items: DANG_STICKERS.map((s) => ({ key: s.word, image: s.image })) },
+        { label: '👧 꼼이', items: KKOM_STICKERS.map((s) => ({ key: s.word, image: s.image })) },
+        { label: '💕 커플', items: POCKET_STICKERS.map((s) => ({ key: s.word, image: s.image, video: isVideoSrc(s.image) })) },
+      ];
       default: return [];
     }
   };
   const pickSticker = (mode: StickerMode, key: string, image: string) => {
-    if (mode === 'mini') { insertMini(key); return; }      // [[e:id]] 인라인
-    if (mode === 'saidami') { insertParen(key); return; }  // (단어) 인라인
+    if (mode === 'mini') { insertParen(key); return; }     // (단어) 인라인 미니
     onSend('', undefined, image, replyTo ?? undefined);    // 나머지: 단독 스티커 전송
     setReplyTo(null); setStickerOpen(false);
   };
@@ -890,40 +877,47 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           </div>
 
 
-          {/* 이모티콘 서랍 — 사이챗 그대로: 둥근 카드 + 썸네일 탭 + grid-cols-4 흰 정사각(74% 이미지, 라벨 없음) */}
+          {/* 이모티콘 서랍 — 제미나이 4탭 디자인: 알약 탭(이모지+이름) + 포차코 탭은 섹션 sticky header */}
           {stickerOpen && (
             <div className="mx-3 mb-2 rounded-3xl p-3" style={{ background: 'var(--sd-card)', boxShadow: 'var(--sd-shadow-card)' }}>
-              {/* 탭 줄 — 스크롤 밖(내려도 안 밀림) */}
-              <div className="flex gap-1.5 mb-2.5 overflow-x-auto pb-0.5">
+              {/* 탭 줄 — 알약(이모지+이름). 선택 시 로즈 배경+흰 글씨+그림자로 튀어나온 느낌. */}
+              <div className="flex gap-2 mb-2.5 overflow-x-auto pb-0.5">
                 {STICKER_TABS.map((st) => {
                   const on = st.id === stickerMode;
                   return (
-                    <button key={st.id} onClick={() => setStickerMode(st.id)} aria-pressed={on} aria-label={`${st.title} 이모티콘`}
-                      className="shrink-0 flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full text-[13px] font-extrabold transition-colors"
-                      style={on
-                        ? { background: 'var(--sd-rel-soft)', color: 'var(--sd-rel)' }
-                        : { background: 'var(--sd-card-solid)', color: 'var(--sd-muted)' }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={st.thumb} alt="" className="w-6 h-6 object-contain" />
-                      {st.title}
+                    <button key={st.id} onClick={() => setStickerMode(st.id)} aria-pressed={on} aria-label={`${st.name} 이모티콘`}
+                      className={`shrink-0 flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-bold transition-all ${
+                        on ? 'bg-[#FB7BA8] text-white shadow-[0_2px_8px_rgba(251,123,168,0.3)]' : 'bg-white text-[#64748B] shadow-sm'}`}>
+                      <span className="text-[15px]">{st.icon}</span>
+                      {st.name}
                     </button>
                   );
                 })}
               </div>
-              {/* 그리드 — 흰 정사각 카드, 74% 이미지, 라벨 없음(그림 한 장으로) */}
-              <div className="grid grid-cols-4 gap-1.5 max-h-[42vh] overflow-y-auto">
-                {stickerItems(stickerMode).map((it) => (
-                  <button key={it.key} onClick={() => pickSticker(stickerMode, it.key, it.image)} aria-label={it.key}
-                    className="aspect-square rounded-2xl grid place-items-center active:scale-90 transition-transform"
-                    style={{ background: 'var(--sd-card-solid)' }}>
-                    {it.video ? (
-                      <video src={it.image} poster={posterOf(it.image)} muted loop autoPlay playsInline className="w-[74%] h-[74%] object-contain" />
-                    ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      // 움짤 탭은 정지컷(thumb)으로 — 서랍에서 여러 개 동시 애니 디코딩 방지. 보낼 땐 webp 재생.
-                      <img src={it.thumb ?? it.image} alt="" className="w-[74%] h-[74%] object-contain" />
+              {/* 내용 — 포차코는 섹션(소제목 sticky), 나머지는 단일 그리드. 카드는 흰 정사각 74% 이미지. */}
+              <div className="max-h-[42vh] overflow-y-auto">
+                {stickerSections(stickerMode).map((sec, si) => (
+                  <div key={si} className={si > 0 ? 'mt-3' : ''}>
+                    {sec.label && (
+                      <div className="sticky top-0 z-10 mb-1.5 py-1" style={{ background: 'var(--sd-card)' }}>
+                        <span className="inline-block rounded-md bg-white px-2 py-0.5 text-[11px] font-bold text-[#64748B] shadow-sm">{sec.label}</span>
+                      </div>
                     )}
-                  </button>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {sec.items.map((it) => (
+                        <button key={it.key} onClick={() => pickSticker(stickerMode, it.key, it.image)} aria-label={it.key}
+                          className="aspect-square rounded-2xl grid place-items-center bg-white shadow-sm active:scale-90 transition-transform">
+                          {it.video ? (
+                            <video src={it.image} poster={posterOf(it.image)} muted loop autoPlay playsInline className="w-[74%] h-[74%] object-contain" />
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            // 움짤 탭은 정지컷(thumb)으로 — 서랍에서 여러 개 동시 애니 디코딩 방지. 보낼 땐 webp 재생.
+                            <img src={it.thumb ?? it.image} alt="" className="w-[74%] h-[74%] object-contain" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
