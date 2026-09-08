@@ -116,6 +116,8 @@ const FULL_STICKERS = new Set(['/pochacco_couple/heli.webp']);
 // 스티커 소스가 동영상(mp4/webm/mov)인지 → <video>로 진짜 재생. 아니면 정지 이미지.
 const isVideoSrc = (src: string) => /\.(mp4|webm|mov)$/i.test(src);
 const posterOf = (src: string) => src.replace(/\.(mp4|webm|mov)$/i, '-poster.webp');
+// 서랍 썸네일 — 움짤(sai-anim webp)은 정지컷(-still.png)으로. 서랍에서 여러 개 동시 애니 디코딩 방지.
+const drawerThumb = (src: string) => src.includes('/emo/sai-anim/') ? src.replace(/\.webp$/, '-still.png') : src;
 // (단어) 매칭 정규식(STICKER_ALT/RICH_RE/STICKER_RE)은 꼼이미니(SAIDAMI) 단어까지 합쳐야 해서
 // SAIDAMI_STICKERS 정의 뒤(아래)에서 만든다.
 // 스티커 포켓 그리드 — 텍스트 스티커들을 탭해서 큰 단독 스티커로 전송(투명 배경, 말풍선 없음).
@@ -210,16 +212,21 @@ const RICH_RE = new RegExp(`\\[\\[e:([a-z]+)\\]\\]|\\((${STICKER_ALT})\\)`, 'g')
 const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
 
 // 이모티콘 서랍 탭 — 사이챗과 동일 구조(썸네일 + 이름). id/데이터는 꼼모닝 것.
-// 제미나이 4탭 디자인 — 8탭(기능·캐릭터·세부가 한 뎁스에 평면으로 섞임)을 4개로 압축.
-//   ⭐움짤 / 🐶정적 말티푸 / 🐾포차코(내부 섹션) / 💬텍스트 미니(인라인, (단어)로 통일).
-//   '스티커'='미니' 중복과 지저분한 [[e:id]] 미니는 폐기(옛 메시지의 [[e:id]]는 renderRich가 그대로 렌더).
-type StickerMode = 'gif' | 'maltipoo' | 'pochacco' | 'mini';
+// 제미나이 2차 디자인 — 아이콘만 탭 + 카톡식 '최근·자주' 첫 탭(디폴트).
+//   🕒최근·자주 / ⭐움짤 / 🐶정적 말티푸 / 🐾포차코(내부 섹션) / 💬텍스트 미니(인라인 (단어)).
+//   탭은 글자 없이 아이콘 정사각만, 선택된 탭 이름만 그리드 위 sticky로.
+type StickerMode = 'recent' | 'gif' | 'maltipoo' | 'pochacco' | 'mini';
 const STICKER_TABS: { id: StickerMode; icon: string; name: string }[] = [
+  { id: 'recent',   icon: '🕒', name: '최근·자주' },
   { id: 'gif',      icon: '⭐', name: '꼼이 움짤' },
   { id: 'maltipoo', icon: '🐶', name: '몽글 말티푸' },
   { id: 'pochacco', icon: '🐾', name: '포차코 프렌즈' },
   { id: 'mini',     icon: '💬', name: '텍스트 미니' },
 ];
+
+// 최근·자주 쓴 이모티콘(기기별 localStorage). pick 할 때마다 기록.
+type EmoPick = { mode: StickerMode; key: string; image: string };
+const emoId = (p: { mode: StickerMode; key: string }) => `${p.mode}:${p.key}`;
 
 // 답장 미리보기/푸시용 — 미니는 🐶, 텍스트 스티커는 괄호만 벗겨 단어로.
 function stripEmo(text: string): string {
@@ -369,7 +376,35 @@ export function preview(m: ChatMessage): string {
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
-  const [stickerMode, setStickerMode] = useState<StickerMode>('pochacco');
+  const [stickerMode, setStickerMode] = useState<StickerMode>('recent');
+  // 최근·자주 쓴 이모티콘(기기별). 첫 탭이 이걸 보여주고, pick 할 때마다 기록된다.
+  const [recentPicks, setRecentPicks] = useState<EmoPick[]>([]);
+  const [freqPicks, setFreqPicks] = useState<Record<string, EmoPick & { count: number }>>({});
+  useEffect(() => {
+    if (!me) return;
+    try {
+      const r = JSON.parse(localStorage.getItem(`kkom-emo-recent-${me}`) || '[]');
+      const f = JSON.parse(localStorage.getItem(`kkom-emo-freq-${me}`) || '{}');
+      if (Array.isArray(r)) setRecentPicks(r);
+      if (f && typeof f === 'object') setFreqPicks(f);
+      // 기록이 아예 없으면(첫 사용) 빈 '최근' 대신 포차코 탭으로 시작한다.
+      if ((!Array.isArray(r) || r.length === 0) && (!f || Object.keys(f).length === 0)) setStickerMode('pochacco');
+    } catch { setStickerMode('pochacco'); }
+  }, [me]);
+  const recordPick = (p: EmoPick) => {
+    const id = emoId(p);
+    setRecentPicks((prev) => {
+      const next = [p, ...prev.filter((x) => emoId(x) !== id)].slice(0, 24);
+      try { localStorage.setItem(`kkom-emo-recent-${me}`, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    setFreqPicks((prev) => {
+      const next = { ...prev, [id]: { ...p, count: (prev[id]?.count ?? 0) + 1 } };
+      try { localStorage.setItem(`kkom-emo-freq-${me}`, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+  const frequentList = Object.values(freqPicks).sort((a, b) => b.count - a.count).slice(0, 8);
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -541,6 +576,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     }
   };
   const pickSticker = (mode: StickerMode, key: string, image: string) => {
+    recordPick({ mode, key, image });                      // 최근·자주 기록(원래 mode로)
     if (mode === 'mini') { insertParen(key); return; }     // (단어) 인라인 미니
     onSend('', undefined, image, replyTo ?? undefined);    // 나머지: 단독 스티커 전송
     setReplyTo(null); setStickerOpen(false);
@@ -889,48 +925,87 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           </div>
 
 
-          {/* 이모티콘 서랍 — 제미나이 4탭 디자인: 알약 탭(이모지+이름) + 포차코 탭은 섹션 sticky header */}
+          {/* 이모티콘 서랍 — 제미나이 2차: 아이콘만 탭 + 카톡식 '최근·자주' 첫 탭 */}
           {stickerOpen && (
             <div className="mx-3 mb-2 rounded-3xl p-3" style={{ background: 'var(--sd-card)', boxShadow: 'var(--sd-shadow-card)' }}>
-              {/* 탭 줄 — 알약(이모지+이름). 선택 시 로즈 배경+흰 글씨+그림자로 튀어나온 느낌. */}
-              <div className="flex gap-2 mb-2.5 overflow-x-auto pb-0.5">
+              {/* 탭 — 글자 없이 아이콘 정사각만(뇌가 안 읽어도 손이 감). 선택 시 로즈 배경. */}
+              <div className="flex gap-1 mb-1.5 overflow-x-auto pb-0.5">
                 {STICKER_TABS.map((st) => {
                   const on = st.id === stickerMode;
                   return (
                     <button key={st.id} onClick={() => setStickerMode(st.id)} aria-pressed={on} aria-label={`${st.name} 이모티콘`}
-                      className={`shrink-0 flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-bold transition-all ${
-                        on ? 'bg-[#FB7BA8] text-white shadow-[0_2px_8px_rgba(251,123,168,0.3)]' : 'bg-white text-[#64748B] shadow-sm'}`}>
-                      <span className="text-[15px]">{st.icon}</span>
-                      {st.name}
+                      className={`shrink-0 grid h-10 w-12 place-items-center rounded-xl text-[20px] transition-colors ${
+                        on ? 'bg-[#FB7BA8] shadow-[0_2px_8px_rgba(251,123,168,0.3)]' : 'active:bg-black/5'}`}>
+                      {st.icon}
                     </button>
                   );
                 })}
               </div>
-              {/* 내용 — 포차코는 섹션(소제목 sticky), 나머지는 단일 그리드. 카드는 흰 정사각 74% 이미지. */}
-              <div className="max-h-[42vh] overflow-y-auto">
-                {stickerSections(stickerMode).map((sec, si) => (
-                  <div key={si} className={si > 0 ? 'mt-3' : ''}>
-                    {sec.label && (
-                      <div className="sticky top-0 z-10 mb-1.5 py-1" style={{ background: 'var(--sd-card)' }}>
-                        <span className="inline-block rounded-md bg-white px-2 py-0.5 text-[11px] font-bold text-[#64748B] shadow-sm">{sec.label}</span>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {sec.items.map((it) => (
-                        <button key={it.key} onClick={() => pickSticker(stickerMode, it.key, it.image)} aria-label={it.key}
-                          className="aspect-square rounded-2xl grid place-items-center bg-white shadow-sm active:scale-90 transition-transform">
-                          {it.video ? (
-                            <video src={it.image} poster={posterOf(it.image)} muted loop autoPlay playsInline className="w-[74%] h-[74%] object-contain" />
-                          ) : (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            // 움짤 탭은 정지컷(thumb)으로 — 서랍에서 여러 개 동시 애니 디코딩 방지. 보낼 땐 webp 재생.
-                            <img src={it.thumb ?? it.image} alt="" className="w-[74%] h-[74%] object-contain" />
-                          )}
-                        </button>
-                      ))}
+              {/* 선택된 탭 이름만 작게(어느 탭인지 힌트) */}
+              <div className="mb-1.5 px-0.5 text-[12px] font-bold text-[#64748B]">{STICKER_TABS.find((t) => t.id === stickerMode)?.name}</div>
+
+              <div className="max-h-[40vh] overflow-y-auto">
+                {stickerMode === 'recent' ? (
+                  (recentPicks.length === 0 && frequentList.length === 0) ? (
+                    <div className="py-8 text-center text-[12.5px] leading-relaxed text-[#94A3B8]">아직 쓴 이모티콘이 없어요.<br />다른 탭에서 골라 써보면 여기 모여요 🐾</div>
+                  ) : (
+                    <div className="flex flex-col gap-3.5">
+                      {frequentList.length > 0 && (
+                        <div>
+                          <h3 className="mb-1.5 text-[11px] font-bold text-[#FB7BA8]">⭐ 자주 쓰는</h3>
+                          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
+                            {frequentList.map((p) => (
+                              <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={p.key}
+                                className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white shadow-sm active:scale-90 transition-transform">
+                                {isVideoSrc(p.image)
+                                  ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[74%] h-[74%] object-contain" />
+                                  : /* eslint-disable-next-line @next/next/no-img-element */ <img src={drawerThumb(p.image)} alt="" className="w-[74%] h-[74%] object-contain" />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {recentPicks.length > 0 && (
+                        <div>
+                          <h3 className="mb-1.5 text-[11px] font-bold text-[#64748B]">🕒 최근 사용</h3>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {recentPicks.map((p) => (
+                              <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={p.key}
+                                className="grid aspect-square place-items-center rounded-2xl bg-white shadow-sm active:scale-90 transition-transform">
+                                {isVideoSrc(p.image)
+                                  ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[74%] h-[74%] object-contain" />
+                                  : /* eslint-disable-next-line @next/next/no-img-element */ <img src={drawerThumb(p.image)} alt="" className="w-[74%] h-[74%] object-contain" />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  )
+                ) : (
+                  stickerSections(stickerMode).map((sec, si) => (
+                    <div key={si} className={si > 0 ? 'mt-3' : ''}>
+                      {sec.label && (
+                        <div className="sticky top-0 z-10 mb-1.5 py-1" style={{ background: 'var(--sd-card)' }}>
+                          <span className="inline-block rounded-md bg-white px-2 py-0.5 text-[11px] font-bold text-[#64748B] shadow-sm">{sec.label}</span>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {sec.items.map((it) => (
+                          <button key={it.key} onClick={() => pickSticker(stickerMode, it.key, it.image)} aria-label={it.key}
+                            className="grid aspect-square place-items-center rounded-2xl bg-white shadow-sm active:scale-90 transition-transform">
+                            {it.video ? (
+                              <video src={it.image} poster={posterOf(it.image)} muted loop autoPlay playsInline className="w-[74%] h-[74%] object-contain" />
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={it.thumb ?? it.image} alt="" className="w-[74%] h-[74%] object-contain" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
