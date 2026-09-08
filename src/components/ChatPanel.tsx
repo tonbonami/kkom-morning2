@@ -378,6 +378,16 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [uploadPct, setUploadPct] = useState(0); // 0~1 (동영상 업로드 진행률)
   const [actionMsg, setActionMsg] = useState<ChatMessage | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
+  const [flashId, setFlashId] = useState<string | null>(null);  // 인용 탭 → 원본 잠깐 강조
+
+  // 인용 말풍선 탭 → 원본 메시지로 스크롤 + 잠깐 강조. (원본이 로드 범위 밖이면 조용히 무시.)
+  const jumpToMessage = (id: string) => {
+    const el = document.getElementById(`cmsg-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setFlashId(id);
+    window.setTimeout(() => setFlashId((cur) => (cur === id ? null : cur)), 1400);
+  };
   const [viewerImage, setViewerImage] = useState<string | null>(null);
   const [savingUrl, setSavingUrl] = useState<string | null>(null); // 원본 저장 중인 미디어 URL
   const [recording, setRecording] = useState(false);
@@ -733,7 +743,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               const unread = mine && !m.deleted && !pending && m.createdAt != null && (partnerLastRead == null || m.createdAt > partnerLastRead);
               const reactionEmojis = m.reactions ? Object.values(m.reactions) : [];
               return (
-                <div key={m.id}>
+                <div key={m.id} id={`cmsg-${m.id}`}
+                  className={`rounded-2xl transition-colors duration-500 ${flashId === m.id ? 'bg-[#FB7BA8]/12' : ''}`}>
                   {showDay && (
                     <div className="flex justify-center my-6">
                       <span className="rounded-full bg-black/5 dark:bg-white/10 px-4 py-1.5 text-xs font-bold text-[#64748B] dark:text-[#B4AA9A]">{day}</span>
@@ -760,11 +771,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       onPointerMove={cancelPress}
                       onContextMenu={(e) => { e.preventDefault(); if (!m.deleted) setActionMsg(m); }}
                     >
-                      {/* 답장 인용 */}
+                      {/* 답장 인용 — 탭하면 원본으로 점프 */}
                       {m.replyTo && !m.deleted && (
-                        <div className={`mb-0.5 max-w-[70%] rounded-lg px-2.5 py-1 text-[11px] ${mine ? 'bg-black/5 text-slate-500' : 'bg-black/5 text-slate-500'}`}>
+                        <button type="button"
+                          onClick={(e) => { e.stopPropagation(); if (m.replyTo) jumpToMessage(m.replyTo.id); }}
+                          className="mb-0.5 block max-w-[70%] rounded-lg bg-black/5 px-2.5 py-1 text-left text-[11px] text-slate-500 active:scale-[0.98] transition-transform">
                           <span className="font-bold">{m.replyTo.from}</span> · {m.replyTo.text}
-                        </div>
+                        </button>
                       )}
 
                       {m.capsule && !pending && !m.deleted && (
