@@ -115,6 +115,19 @@ const TEMPLATES: Record<BumpKind, Array<{ title: string; body: string }>> = {
   ],
 };
 
+// ⚠️ 알림 본문 맨 앞에 '무슨 범프인지'를 항상 박는다.
+//   네이티브 커뮤니케이션 알림(NSE)은 sender(꼼이)만 남기고 title 을 버려서 BODY 만 보이는데,
+//   기존엔 body 가 은근한 나레이션("이유는 굳이 안 묻자")뿐이라 폰에서 뭘 받았는지 안 보였다.
+//   → 명확한 한마디를 앞에, 재미난 나레이션은 뒤에(우댕 "함께 표시" 요청). 잘려도 앞이 먼저 보인다.
+const BUMP_HEADLINE: Record<BumpKind, string> = {
+  miss: '💗 보고싶어 보냈어',
+  love: '❤️ 사랑해 보냈어',
+  hug: '🤗 안아줘 보냈어',
+  kiss: '😘 뽀뽀 보냈어',
+  whitening: '💪 화이트닝 보냈어',
+  night: '🌙 잘 자 보냈어',
+};
+
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -137,7 +150,8 @@ export async function POST(req: NextRequest) {
   const templates = TEMPLATES[kind] || TEMPLATES.miss;
   const picked = pickRandom(templates);
   const title = fillTemplate(picked.title, from, to);
-  const bodyText = fillTemplate(picked.body, from, to);
+  // 명확한 한마디('보고싶어 보냈어')를 앞에 + 재미난 나레이션을 뒤에. 알림엔 body만 보여서 여기가 관건.
+  const bodyText = `${BUMP_HEADLINE[kind]} · ${fillTemplate(picked.body, from, to)}`;
 
   after(async () => {
     // 집계 — '보냈다'는 사실이므로 푸시 결과와 무관하게 항상 increment.
