@@ -212,16 +212,18 @@ const RICH_RE = new RegExp(`\\[\\[e:([a-z]+)\\]\\]|\\((${STICKER_ALT})\\)`, 'g')
 const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
 
 // 이모티콘 서랍 탭 — 사이챗과 동일 구조(썸네일 + 이름). id/데이터는 꼼모닝 것.
-// 제미나이 2차 디자인 — 아이콘만 탭 + 카톡식 '최근·자주' 첫 탭(디폴트).
-//   🕒최근·자주 / ⭐움짤 / 🐶정적 말티푸 / 🐾포차코(내부 섹션) / 💬텍스트 미니(인라인 (단어)).
-//   탭은 글자 없이 아이콘 정사각만, 선택된 탭 이름만 그리드 위 sticky로.
-type StickerMode = 'recent' | 'gif' | 'maltipoo' | 'pochacco' | 'mini';
-const STICKER_TABS: { id: StickerMode; icon: string; name: string }[] = [
-  { id: 'recent',   icon: '🕒', name: '최근·자주' },
-  { id: 'gif',      icon: '⭐', name: '꼼이 움짤' },
-  { id: 'maltipoo', icon: '🐶', name: '몽글 말티푸' },
-  { id: 'pochacco', icon: '🐾', name: '포차코 프렌즈' },
-  { id: 'mini',     icon: '💬', name: '텍스트 미니' },
+// 카톡식 탭 — 최근·자주(🕒) + 세트별 탭. 아이콘은 '실제 스티커 대표 그림'(썸네일)이라
+//   어떤 세트인지 한눈에 보인다(윈도우 이모지 X). 포차코는 한 탭에 몰지 않고 기본/우댕/꼼이/커플로 분리.
+type StickerMode = 'recent' | 'gif' | 'maltipoo' | 'basic' | 'dang' | 'kkom' | 'couple' | 'mini';
+const STICKER_TABS: { id: StickerMode; name: string; thumb?: string; icon?: string }[] = [
+  { id: 'recent',   name: '최근·자주', icon: '🕒' },
+  { id: 'gif',      name: '움짤',      thumb: '/emo/sai-anim/love-still.png' },
+  { id: 'maltipoo', name: '말티푸',    thumb: '/emo/sai/kkk.webp' },
+  { id: 'basic',    name: '기본',      thumb: '/pochacco/face_happy.png' },
+  { id: 'dang',     name: '우댕',      thumb: '/pochacco_dang/cutekkomi.png' },
+  { id: 'kkom',     name: '꼼이',      thumb: '/pochacco_kkom/kkomiyap.png' },
+  { id: 'couple',   name: '커플',      thumb: '/pochacco_couple/love.png' },
+  { id: 'mini',     name: '미니',      thumb: '/emo/saidami/love.webp' },
 ];
 
 // 최근·자주 쓴 이모티콘(기기별 localStorage). pick 할 때마다 기록.
@@ -388,8 +390,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       if (Array.isArray(r)) setRecentPicks(r);
       if (f && typeof f === 'object') setFreqPicks(f);
       // 기록이 아예 없으면(첫 사용) 빈 '최근' 대신 포차코 탭으로 시작한다.
-      if ((!Array.isArray(r) || r.length === 0) && (!f || Object.keys(f).length === 0)) setStickerMode('pochacco');
-    } catch { setStickerMode('pochacco'); }
+      if ((!Array.isArray(r) || r.length === 0) && (!f || Object.keys(f).length === 0)) setStickerMode('basic');
+    } catch { setStickerMode('basic'); }
   }, [me]);
   const recordPick = (p: EmoPick) => {
     const id = emoId(p);
@@ -566,12 +568,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       case 'gif': return [{ items: ANIM_STICKERS.map((s) => ({ key: s.word, image: s.image, thumb: s.still })) }];
       case 'maltipoo': return [{ items: SAI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'mini': return [{ items: SAIDAMI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
-      case 'pochacco': return [
-        { label: '🐶 기본', items: MOOD_OPTIONS.map((o) => ({ key: o.id, image: o.image })) },
-        { label: '👦 우댕', items: DANG_STICKERS.map((s) => ({ key: s.word, image: s.image })) },
-        { label: '👧 꼼이', items: KKOM_STICKERS.map((s) => ({ key: s.word, image: s.image })) },
-        { label: '💕 커플', items: POCKET_STICKERS.map((s) => ({ key: s.word, image: s.image, video: isVideoSrc(s.image) })) },
-      ];
+      case 'basic': return [{ items: MOOD_OPTIONS.map((o) => ({ key: o.id, image: o.image })) }];
+      case 'dang': return [{ items: DANG_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
+      case 'kkom': return [{ items: KKOM_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
+      case 'couple': return [{ items: POCKET_STICKERS.map((s) => ({ key: s.word, image: s.image, video: isVideoSrc(s.image) })) }];
       default: return [];
     }
   };
@@ -738,7 +738,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           </div>
 
           {/* 메시지 — 길게눌러 답장 시 iOS 기본 텍스트선택/콜아웃(Copy·Look Up) 뜨는 것 차단 */}
-          <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5 select-none [-webkit-touch-callout:none] [-webkit-user-select:none]">
+          <div ref={scrollRef} onScroll={onScroll}
+            onClick={() => { if (stickerOpen) setStickerOpen(false); }}
+            className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5 select-none [-webkit-touch-callout:none] [-webkit-user-select:none]">
             {hasMore && (
               <div className="flex justify-center py-1">
                 <button onClick={onLoadMore} className="text-[11px] font-bold text-slate-400 bg-black/5 rounded-full px-3 py-1">이전 대화 더보기</button>
@@ -928,15 +930,17 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           {/* 이모티콘 서랍 — 제미나이 2차: 아이콘만 탭 + 카톡식 '최근·자주' 첫 탭 */}
           {stickerOpen && (
             <div className="mx-3 mb-2 rounded-3xl p-3" style={{ background: 'var(--sd-card)', boxShadow: 'var(--sd-shadow-card)' }}>
-              {/* 탭 — 글자 없이 아이콘 정사각만(뇌가 안 읽어도 손이 감). 선택 시 로즈 배경. */}
+              {/* 탭 — 실제 스티커 대표 그림(썸네일) 정사각. 최근·자주만 🕒. 선택 시 로즈 배경. */}
               <div className="flex gap-1 mb-1.5 overflow-x-auto pb-0.5">
                 {STICKER_TABS.map((st) => {
                   const on = st.id === stickerMode;
                   return (
                     <button key={st.id} onClick={() => setStickerMode(st.id)} aria-pressed={on} aria-label={`${st.name} 이모티콘`}
-                      className={`shrink-0 grid h-10 w-12 place-items-center rounded-xl text-[20px] transition-colors ${
+                      className={`shrink-0 grid h-11 w-11 place-items-center rounded-xl transition-colors ${
                         on ? 'bg-[#FB7BA8] shadow-[0_2px_8px_rgba(251,123,168,0.3)]' : 'active:bg-black/5'}`}>
-                      {st.icon}
+                      {st.thumb
+                        ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={st.thumb} alt="" className="h-7 w-7 object-contain" />
+                        : <span className="text-[20px]">{st.icon}</span>}
                     </button>
                   );
                 })}
