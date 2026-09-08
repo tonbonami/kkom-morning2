@@ -407,8 +407,6 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressed = useRef(false);
   const isPrepending = useRef(false);
   const pendingAnchor = useRef<number | null>(null);
   const recRef = useRef<MediaRecorder | null>(null);
@@ -649,14 +647,6 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     }
   }, [messages, open]);
 
-  // 길게 누르기 → 액션 시트
-  const startPress = (m: ChatMessage) => {
-    if (m.deleted) return;
-    longPressed.current = false;
-    pressTimer.current = setTimeout(() => { longPressed.current = true; setActionMsg(m); }, 430);
-  };
-  const cancelPress = () => { if (pressTimer.current) clearTimeout(pressTimer.current); };
-
   const withDays = useMemo(() => {
     let lastDay = '';
     return messages.map((m, i) => {
@@ -752,10 +742,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     <div
                       className={`relative flex flex-col select-none ${m.sticker && FULL_STICKERS.has(m.sticker) ? 'max-w-[88%]' : 'max-w-[78%]'} ${reactionEmojis.length > 0 ? 'mb-3' : ''}`}
                       style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}
-                      onPointerDown={() => startPress(m)}
-                      onPointerUp={cancelPress}
-                      onPointerLeave={cancelPress}
-                      onPointerMove={cancelPress}
+                      // 사이담처럼 — 말풍선 한 번 탭하면 바로 반응/답장 줄 토글(꾹 누르기 아님). 삭제/예약은 제외.
+                      onClick={() => { if (!m.deleted && !pending) setActionMsg(actionMsg?.id === m.id ? null : m); }}
                       onContextMenu={(e) => { e.preventDefault(); if (!m.deleted) setActionMsg(m); }}
                     >
                       {/* 답장 인용 — 탭하면 원본으로 점프 */}
@@ -804,13 +792,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={m.imageUrl} alt="사진"
-                          onClick={() => { if (longPressed.current) { longPressed.current = false; return; } setViewerImage(m.imageUrl!); }}
+                          onClick={(e) => { e.stopPropagation(); setViewerImage(m.imageUrl!); }}
                           className="max-w-[68%] rounded-2xl shadow-sm object-cover cursor-pointer"
                           style={{ maxHeight: 280 }}
                         />
                       ) : m.videoUrl ? (
                         // 자동재생 X — 스크롤마다 재다운로드 방지(대역폭). 탭해서 재생.
-                        <div className="relative inline-block max-w-[76%]">
+                        <div className="relative inline-block max-w-[76%]" onClick={(e) => e.stopPropagation()}>
                           <video
                             // #t=0.1 → 재생 전에도 첫 프레임을 썸네일로 보여줌(iOS는 poster 없으면 검은 박스)
                             src={`${m.videoUrl}#t=0.1`} controls playsInline preload="metadata"
@@ -826,7 +814,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           </button>
                         </div>
                       ) : m.audioUrl ? (
-                        <VoiceBubble url={m.audioUrl} dur={m.audioDur ?? 0} mine={mine} />
+                        <div onClick={(e) => e.stopPropagation()}><VoiceBubble url={m.audioUrl} dur={m.audioDur ?? 0} mine={mine} /></div>
                       ) : (() => {
                         const linkUrl = firstUrl(m.text);
                         const onlyUrl = !!linkUrl && m.text.trim() === linkUrl;
@@ -855,6 +843,30 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           {reactionEmojis.join(' ')}
                         </div>
                       )}
+
+                      {/* 사이담식 인라인 액션 줄 — 말풍선 한 번 탭하면 바로 아래에 떠오름(반응+답장+보관+복사+삭제+닫기) */}
+                      <AnimatePresence>
+                        {actionMsg?.id === m.id && !m.deleted && (
+                          <motion.div onClick={(e) => e.stopPropagation()}
+                            initial={{ opacity: 0, y: -6, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                            className="mt-2 flex items-center gap-0.5 rounded-full bg-white px-2 py-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.14)]">
+                            {REACTIONS.map((emo) => (
+                              <button key={emo} onClick={() => doReact(emo)} className="px-1 text-[20px] leading-none active:scale-90 transition-transform">{emo}</button>
+                            ))}
+                            <span className="mx-1 h-5 w-px bg-black/10" />
+                            <button onClick={doReply} aria-label="답장" className="p-1.5 text-slate-500 active:scale-90 transition-transform"><Reply size={17} /></button>
+                            <button onClick={doStar} aria-label="추억 보관" className="p-1.5 active:scale-90 transition-transform">{actionMsg.starred ? <BookmarkCheck size={17} className="text-[#FB7BA8]" /> : <Bookmark size={17} className="text-slate-500" />}</button>
+                            {m.text && !m.sticker && !m.imageUrl && (
+                              <button onClick={doCopy} aria-label="복사" className="p-1.5 text-slate-500 active:scale-90 transition-transform"><Copy size={16} /></button>
+                            )}
+                            {m.from === me && (
+                              <button onClick={doDelete} aria-label="삭제" className="p-1.5 text-rose-400 active:scale-90 transition-transform"><Trash2 size={16} /></button>
+                            )}
+                            <button onClick={() => setActionMsg(null)} aria-label="닫기" className="p-1.5 text-slate-300 active:scale-90 transition-transform"><X size={16} /></button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     {!mine && <span className="text-[10px] text-slate-400 mb-0.5">{timeText(m.createdAt)}</span>}
@@ -1073,43 +1085,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           {/* 메시지 효과 (사랑해/축하/ㅋㅋㅋ 등) */}
           <ChatEffectLayer effect={effect} />
 
-          {/* 길게 누르기 액션 시트 */}
-          <AnimatePresence>
-            {actionMsg && (
-              <motion.div className="absolute inset-0 z-[65] flex items-end justify-center bg-black/20"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActionMsg(null)}>
-                <motion.div className="w-full max-w-md rounded-t-[32px] bg-white px-5 pt-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
-                  style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 2rem)' }}
-                  initial={{ y: 260 }} animate={{ y: 0 }} exit={{ y: 260 }} transition={{ type: 'spring', stiffness: 340, damping: 32 }}
-                  onClick={(e) => e.stopPropagation()}>
-                  <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-black/10" />
-                  {/* 반응 이모지 랙 */}
-                  <div className="flex justify-around rounded-2xl bg-[#FBF8F2] px-2 py-3 mb-2">
-                    {REACTIONS.map((emo) => (
-                      <button key={emo} onClick={() => doReact(emo)} className="text-2xl hover:scale-125 active:scale-95 transition">{emo}</button>
-                    ))}
-                  </div>
-                  <button onClick={doReply} className="w-full flex items-center gap-3 px-2 py-3 text-slate-700 active:bg-black/5 rounded-xl">
-                    <Reply size={18} /> <span className="font-semibold">답장</span>
-                  </button>
-                  <button onClick={doStar} className="w-full flex items-center gap-3 px-2 py-3 text-slate-700 active:bg-black/5 rounded-xl">
-                    {actionMsg.starred ? <BookmarkCheck size={18} className="text-[#FB7BA8]" /> : <Bookmark size={18} />}
-                    <span className="font-semibold">{actionMsg.starred ? '보관 취소' : '추억 보관'}</span>
-                  </button>
-                  {actionMsg.text && !actionMsg.sticker && !actionMsg.imageUrl && (
-                    <button onClick={doCopy} className="w-full flex items-center gap-3 px-2 py-3 text-slate-700 active:bg-black/5 rounded-xl">
-                      <Copy size={18} /> <span className="font-semibold">복사</span>
-                    </button>
-                  )}
-                  {actionMsg.from === me && (
-                    <button onClick={doDelete} className="w-full flex items-center gap-3 px-2 py-3 text-rose-500 active:bg-black/5 rounded-xl">
-                      <Trash2 size={18} /> <span className="font-semibold">삭제</span>
-                    </button>
-                  )}
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* (액션 시트 → 사이담식 인라인 줄로 교체됨: 말풍선 아래에 렌더) */}
 
           {/* 추억 보관함 */}
           <AnimatePresence>
