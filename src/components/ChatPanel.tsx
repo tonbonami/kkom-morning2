@@ -789,11 +789,16 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                             transition={{ scale: { type: 'spring', stiffness: 300, damping: 20 }, opacity: { duration: 0.2 } }} />
                         ) : (
                           // 사이 팩은 글자가 그림 안에 있어 조금 더 크게(144px) — 그래야 읽힌다. 포차코 스티커는 112px 유지.
+                          // ⚠️ 움짤(sai-anim)은 webp가 스스로 움직이므로 통 흔들기(rotate)를 빼서 겹침 제거. 정지 스티커만 흔든다.
                           <motion.img src={m.sticker} alt="이모티콘"
                             className={`${m.sticker.startsWith('/emo/sai/') ? 'w-36 h-36' : 'w-28 h-28'} object-contain drop-shadow-sm`}
                             initial={{ scale: 0.4, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1, rotate: [0, -5, 5, -3, 0] }}
-                            transition={{ scale: { type: 'spring', stiffness: 420, damping: 14 }, opacity: { duration: 0.15 }, rotate: { duration: 1.8, repeat: Infinity, repeatDelay: 2.4, ease: 'easeInOut' } }} />
+                            animate={m.sticker.startsWith('/emo/sai-anim/')
+                              ? { scale: 1, opacity: 1 }
+                              : { scale: 1, opacity: 1, rotate: [0, -5, 5, -3, 0] }}
+                            transition={m.sticker.startsWith('/emo/sai-anim/')
+                              ? { scale: { type: 'spring', stiffness: 420, damping: 14 }, opacity: { duration: 0.15 } }
+                              : { scale: { type: 'spring', stiffness: 420, damping: 14 }, opacity: { duration: 0.15 }, rotate: { duration: 1.8, repeat: Infinity, repeatDelay: 2.4, ease: 'easeInOut' } }} />
                         )
                       ) : m.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
