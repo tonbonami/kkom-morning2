@@ -520,7 +520,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     }
     onSend(t, undefined, undefined, replyTo ?? undefined);
     setDraft(''); setReplyTo(null); stopTyping();
-    if (taRef.current) taRef.current.style.height = 'auto';
+    if (taRef.current) { taRef.current.style.height = 'auto'; taRef.current.focus(); }  // 연속 전송 — 자판 유지
     // 링크가 들어있으면 "이거봐봐에 저장할까요?" 물어보기
     const url = firstUrl(t);
     if (url) setLinkPrompt(url);
@@ -1135,7 +1135,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       className="shrink-0 w-11 h-11 rounded-full bg-white border border-black/5 text-[#FB7BA8] flex items-center justify-center active:scale-95 transition">
                       <Hourglass size={18} />
                     </button>
-                    <button onClick={send} aria-label="보내기"
+                    {/* onPointerDown preventDefault — 버튼이 입력창 포커스를 뺏지 않게(연속 전송 시 자판 유지) */}
+                    <button onClick={send} onPointerDown={(e) => e.preventDefault()} aria-label="보내기"
                       className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center shadow-[0_4px_14px_rgba(251,123,168,0.35)] active:scale-90 transition">
                       <Send size={18} />
                     </button>
