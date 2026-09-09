@@ -7,7 +7,7 @@ import {
 } from 'firebase/firestore';
 import { ref as dbRef, set as dbSet, onValue, onDisconnect } from 'firebase/database';
 import { firstUrl, youTubeId } from './links';
-import { ref as sRef, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref as sRef, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 
 export interface ReplyRef { id: string; from: string; text: string }
 
@@ -24,6 +24,7 @@ export interface ChatMessage {
   replyTo?: ReplyRef; // 답장 대상
   reactions?: Record<string, string>; // userKey('udaeng'|'kkomi') → 이모지
   deleted?: boolean;
+  editedAt?: Date | null;  // 수정 시각(있으면 '수정됨' 표시)
   starred?: boolean;  // 추억 보관함(별표)
   capsule?: boolean;  // 타임캡슐 (createdAt = 미래 도착 시각)
   createdAt: Date | null;
@@ -146,10 +147,34 @@ export async function toggleReaction(messageId: string, userKey: string, emoji: 
 }
 
 // 메시지 삭제 — 양쪽에서 '삭제된 메시지'로 표시(soft delete).
+// 메시지 삭제 — 필드만 비우지 않고 Storage 파일(사진·영상·음성)도 함께 지운다.
+//   예전엔 필드만 deleteField 해서 파일이 Storage에 남고, 저장해 둔 다운로드 URL로 계속 열렸다(고아).
+//   'firebasestorage' URL만 지운다 — 스티커(로컬 경로)·레거시 base64 음성은 건드리지 않는다.
+//   ref(storage, downloadUrl)은 Firebase 다운로드 URL을 그대로 받아 레퍼런스를 만든다.
 export async function deleteMessage(messageId: string): Promise<void> {
-  await updateDoc(doc(db, 'messages', messageId), {
-    deleted: true, text: '', imageUrl: deleteField(), sticker: deleteField(), videoUrl: deleteField(),
+  const ref = doc(db, 'messages', messageId);
+  try {
+    const snap = await getDoc(ref);
+    const d = snap.data() as { imageUrl?: string; videoUrl?: string; audioUrl?: string } | undefined;
+    for (const url of [d?.imageUrl, d?.videoUrl, d?.audioUrl]) {
+      if (typeof url === 'string' && url.includes('firebasestorage')) {
+        try { await deleteObject(sRef(storage, url)); } catch { /* 이미 없거나 접근불가 — 문서 삭제는 계속 */ }
+      }
+    }
+  } catch { /* 문서 조회 실패해도 아래 필드 비우기는 진행 */ }
+  await updateDoc(ref, {
+    deleted: true, text: '',
+    imageUrl: deleteField(), sticker: deleteField(), videoUrl: deleteField(),
+    audioUrl: deleteField(), audioDur: deleteField(),
   });
+}
+
+// 메시지 수정 — 내 텍스트 메시지 본문만. editedAt 기록 → 말풍선에 '수정됨' 표시.
+//   상대 글은 고칠 수 없다(남의 이름으로 안 한 말이 남으니까 — UI에서도 내 것만 수정 버튼).
+export async function editMessage(messageId: string, text: string): Promise<void> {
+  const t = text.trim();
+  if (!t) return;
+  await updateDoc(doc(db, 'messages', messageId), { text: t, editedAt: serverTimestamp() });
 }
 
 // 별표(추억 보관함) 토글 — 둘 중 누구나 별표 가능(공유).
@@ -191,7 +216,7 @@ export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): 
           const data = d.data() as {
             from?: string; text?: string; imageUrl?: string; sticker?: string;
             audioUrl?: string; audioDur?: number; videoUrl?: string; videoDur?: number;
-            replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; starred?: boolean; capsule?: boolean; createdAt?: Timestamp;
+            replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; starred?: boolean; capsule?: boolean; createdAt?: Timestamp; editedAt?: Timestamp;
           };
           return {
             id: d.id, from: data.from ?? '', text: data.text ?? '',
@@ -200,6 +225,7 @@ export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): 
             videoUrl: data.videoUrl, videoDur: data.videoDur, replyTo: data.replyTo,
             reactions: data.reactions, deleted: data.deleted, starred: data.starred, capsule: data.capsule,
             createdAt: data.createdAt?.toDate?.() ?? null,
+            editedAt: data.editedAt?.toDate?.() ?? null,
           };
         })
         .reverse();

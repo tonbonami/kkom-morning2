@@ -2,13 +2,13 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2 } from 'lucide-react';
+import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2 } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
 import { saveLink, deleteLink, subscribeLinks, firstUrl, youTubeId, type SavedLink } from '@/lib/links';
 import {
   type ChatMessage, type ReplyRef,
   subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage, uploadChatAudio, uploadChatVideo,
-  toggleReaction, deleteMessage, toggleStar, fetchRecentMessages,
+  toggleReaction, deleteMessage, editMessage, toggleStar, fetchRecentMessages,
 } from '@/lib/chat';
 import { MOOD_OPTIONS } from '@/lib/moods';
 import ChatEffectLayer, { type ChatEffect } from '@/components/ChatEffectLayer';
@@ -76,7 +76,7 @@ interface Props {
 
 const keyOf = (name: string) => (name === '우댕' ? 'udaeng' : 'kkomi');
 const avatarOf = (name: string) => (name === '우댕' ? '/avatars/woodang_avatar.png' : '/avatars/kkomi_avatar.png');
-const REACTIONS = ['❤️', '😆', '👍', '😮', '😢', '🥹'];
+const REACTIONS = ['❤️', '😂', '🥺'];
 
 function timeText(d: Date | null): string {
   if (!d) return '';
@@ -417,6 +417,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [uploadPct, setUploadPct] = useState(0); // 0~1 (동영상 업로드 진행률)
   const [actionMsg, setActionMsg] = useState<ChatMessage | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);  // 내 메시지 수정 중
   const [flashId, setFlashId] = useState<string | null>(null);  // 인용 탭 → 원본 잠깐 강조
 
   // 인용 말풍선 탭 → 원본 메시지로 스크롤 + 잠깐 강조. (원본이 로드 범위 밖이면 조용히 무시.)
@@ -510,6 +511,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const send = () => {
     const t = draft.trim();
     if (!t) return;
+    // 수정 중이면 새로 보내는 대신 원본을 고친다.
+    if (editing) {
+      editMessage(editing.id, t);
+      setEditing(null); setDraft(''); stopTyping();
+      if (taRef.current) taRef.current.style.height = 'auto';
+      return;
+    }
     onSend(t, undefined, undefined, replyTo ?? undefined);
     setDraft(''); setReplyTo(null); stopTyping();
     if (taRef.current) taRef.current.style.height = 'auto';
@@ -709,6 +717,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const doReply = () => { if (actionMsg) setReplyTo({ id: actionMsg.id, from: actionMsg.from, text: preview(actionMsg) }); setActionMsg(null); taRef.current?.focus(); };
   const doCopy = () => { if (actionMsg?.text) navigator.clipboard?.writeText(actionMsg.text).catch(() => {}); setActionMsg(null); };
   const doDelete = () => { if (actionMsg) deleteMessage(actionMsg.id); setActionMsg(null); };
+  // 수정 — 내 텍스트 메시지만. 입력창에 본문을 넣고 '수정 중' 상태로. 전송하면 editMessage로 감.
+  const doEdit = () => { if (actionMsg?.text) { setEditing({ id: actionMsg.id, text: actionMsg.text }); setReplyTo(null); setDraft(actionMsg.text); } setActionMsg(null); taRef.current?.focus(); };
 
   return (
     <AnimatePresence>
@@ -871,6 +881,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                                 {renderRich(m.text)}
                               </div>
                             )}
+                            {m.editedAt && !onlyUrl && <span className="mt-0.5 px-1 text-[9px] text-slate-400">수정됨</span>}
                             {linkUrl && (
                               <div className={onlyUrl ? '' : 'mt-1'}><LinkPreview url={linkUrl} mine={mine} /></div>
                             )}
@@ -901,9 +912,12 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                             {m.text && !m.sticker && !m.imageUrl && (
                               <button onClick={doCopy} aria-label="복사" className="p-1.5 text-slate-500 active:scale-90 transition-transform"><Copy size={16} /></button>
                             )}
-                            {m.from === me && (
-                              <button onClick={doDelete} aria-label="삭제" className="p-1.5 text-rose-400 active:scale-90 transition-transform"><Trash2 size={16} /></button>
+                            {/* 수정 — 내 텍스트 메시지만(상대 글 고치면 안 한 말이 남으니까) */}
+                            {m.from === me && m.text && !m.sticker && !m.imageUrl && !m.videoUrl && !m.audioUrl && (
+                              <button onClick={doEdit} aria-label="수정" className="p-1.5 text-slate-500 active:scale-90 transition-transform"><Pencil size={15} /></button>
                             )}
+                            {/* 삭제 — 둘 다 서로 것도 지울 수 있음(Storage 파일도 함께 삭제) */}
+                            <button onClick={doDelete} aria-label="삭제" className="p-1.5 text-rose-400 active:scale-90 transition-transform"><Trash2 size={16} /></button>
                             <button onClick={() => setActionMsg(null)} aria-label="닫기" className="p-1.5 text-slate-300 active:scale-90 transition-transform"><X size={16} /></button>
                           </motion.div>
                         )}
@@ -1014,6 +1028,18 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   ))
                 )}
               </div>
+            </div>
+          )}
+
+          {/* 수정 중 바 — 입력창에 원본이 들어가 있고, 전송하면 그 메시지를 고침 */}
+          {editing && (
+            <div className="mx-3 mb-1 flex items-center gap-2 rounded-xl bg-[#FB7BA8]/10 px-3 py-2">
+              <Pencil size={14} className="shrink-0 text-[#FB7BA8]" />
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-bold text-[#FB7BA8]">메시지 수정 중</div>
+                <div className="text-[12px] text-slate-500 truncate">{editing.text}</div>
+              </div>
+              <button onClick={() => { setEditing(null); setDraft(''); }} aria-label="수정 취소" className="text-slate-400"><X size={16} /></button>
             </div>
           )}
 
