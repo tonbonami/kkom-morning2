@@ -2,7 +2,7 @@
 // ②의 커뮤니케이션 알림(상대 아바타 + 이름) + KKOM_MSG 빠른답장 재활용. 웹푸시도 병행.
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { sendApns, keyForName } from '@/lib/apns';
+import { sendApns, sendApnsWatch, keyForName } from '@/lib/apns';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 
@@ -24,8 +24,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'from/to/text required' }, { status: 400 });
   }
 
-  // 커뮤니케이션 알림(아바타+이름) + 답장 액션(KKOM_MSG)
-  const apnsOk = await sendApns(keyForName(to), from, text, { category: 'KKOM_MSG', sender: from }).catch(() => false);
+  // 커뮤니케이션 알림(아바타+이름) + 답장 액션(KKOM_MSG). 워치엔 별도 토큰으로 병행 발송.
+  const toKey = keyForName(to);
+  const [apnsOk] = await Promise.all([
+    sendApns(toKey, from, text, { category: 'KKOM_MSG', sender: from }).catch(() => false),
+    sendApnsWatch(toKey, from, text).catch(() => false),
+  ]);
 
   const subSnap = await getDoc(doc(db, 'pushSubscriptions', to));
   if (!subSnap.exists()) {

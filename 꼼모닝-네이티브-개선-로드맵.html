@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>꼼모닝 · 네이티브 앱 개선 로드맵</title>
+<style>
+  :root{
+    --bg:#fff8f5; --bg2:#fff1ec; --card:#ffffff; --ink:#3f2a2f; --ink2:#6b4f55;
+    --muted:#9a7e84; --line:#f2ddd8; --rose:#f43f5e; --rose-soft:#fb7185;
+    --rose-bg:#fff0f2; --gold:#f59e0b; --green:#10b981; --blue:#3b82f6;
+    --shadow:0 10px 40px rgba(244,63,94,.08); --shadow-sm:0 4px 18px rgba(190,120,120,.10);
+    --radius:20px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#171114; --bg2:#1f171b; --card:#241a1f; --ink:#f6e9ec; --ink2:#d8c2c7;
+      --muted:#a98d93; --line:#3a2b30; --rose:#fb7185; --rose-soft:#f9a8b4;
+      --rose-bg:#2c1c22; --shadow:0 10px 40px rgba(0,0,0,.4); --shadow-sm:0 4px 18px rgba(0,0,0,.3);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Segoe UI",Roboto,sans-serif;
+    line-height:1.72; -webkit-font-smoothing:antialiased; letter-spacing:-.01em;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:0 22px 90px}
+
+  /* ── 표지 ── */
+  .cover{
+    text-align:center; padding:76px 22px 54px;
+    background:radial-gradient(120% 90% at 50% 0%, var(--bg2), var(--bg));
+    border-bottom:1px solid var(--line);
+  }
+  .cover .logo{font-size:56px; line-height:1; filter:drop-shadow(0 6px 16px rgba(244,63,94,.25))}
+  .cover h1{font-size:34px; margin:18px 0 6px; letter-spacing:-.03em; font-weight:800}
+  .cover .sub{color:var(--rose); font-weight:700; font-size:16px; margin:0}
+  .cover .meta{color:var(--muted); font-size:13.5px; margin-top:18px}
+  .cover .who{display:inline-flex; gap:8px; align-items:center; margin-top:14px; font-size:14px; color:var(--ink2);
+    background:var(--card); padding:8px 16px; border-radius:999px; box-shadow:var(--shadow-sm)}
+
+  /* ── 섹션 ── */
+  section{margin-top:52px}
+  h2{font-size:23px; letter-spacing:-.03em; margin:0 0 4px; display:flex; align-items:center; gap:10px}
+  h2 .n{font-size:13px; font-weight:800; color:#fff; background:var(--rose); width:26px; height:26px;
+    border-radius:9px; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto}
+  .lead{color:var(--ink2); margin:2px 0 22px; font-size:15px}
+
+  /* ── 카드 ── */
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:22px 22px; box-shadow:var(--shadow-sm); margin-bottom:16px}
+  .card h3{margin:0 0 4px; font-size:17.5px; letter-spacing:-.02em; display:flex; align-items:center; gap:9px; flex-wrap:wrap}
+  .card h3 .ico{font-size:20px}
+  .card p{margin:8px 0; color:var(--ink2); font-size:14.5px}
+  .card .why{background:var(--rose-bg); border-radius:12px; padding:11px 14px; font-size:13.6px; color:var(--ink2); margin:12px 0}
+  .card .why b{color:var(--rose)}
+  .card .how{font-size:13.3px; color:var(--muted); border-left:3px solid var(--line); padding-left:12px; margin:10px 0 2px}
+  .card .how b{color:var(--ink2); font-weight:600}
+  code{background:var(--bg2); padding:1.5px 6px; border-radius:6px; font-size:12.5px;
+    font-family:"SF Mono",ui-monospace,Menlo,monospace; color:var(--rose)}
+
+  /* ── 뱃지 ── */
+  .badges{display:flex; gap:7px; flex-wrap:wrap; margin-left:auto}
+  .b{font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap; letter-spacing:0}
+  .b.p1{background:#fee2e2; color:#dc2626} .b.p2{background:#fef3c7; color:#b45309} .b.p3{background:#e0f2fe; color:#0369a1}
+  .b.eff{background:var(--bg2); color:var(--muted); border:1px solid var(--line)}
+  .b.dust{background:linear-gradient(90deg,#f43f5e,#fb7185); color:#fff}
+  @media (prefers-color-scheme: dark){
+    .b.p1{background:#4a1d1d; color:#fca5a5} .b.p2{background:#4a3510; color:#fcd34d} .b.p3{background:#0c2b3d; color:#7dd3fc}
+  }
+
+  /* ── 요약 히어로 3선 ── */
+  .top3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px}
+  .top3 .t{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 16px; box-shadow:var(--shadow-sm)}
+  .top3 .rank{font-size:12px; font-weight:800; color:var(--rose)}
+  .top3 .t h4{margin:6px 0 6px; font-size:16px; letter-spacing:-.02em}
+  .top3 .t p{margin:0; font-size:13px; color:var(--muted); line-height:1.6}
+  @media(max-width:680px){.top3{grid-template-columns:1fr}}
+
+  /* ── as-is 인벤토리 ── */
+  .inv{display:flex; flex-wrap:wrap; gap:8px}
+  .chip{background:var(--card); border:1px solid var(--line); border-radius:999px; padding:6px 13px; font-size:13px; color:var(--ink2); box-shadow:var(--shadow-sm)}
+  .chip.n{border-color:var(--rose); color:var(--rose); font-weight:700}
+
+  /* ── 로드맵 타임라인 ── */
+  .phase{position:relative; padding-left:30px; margin-bottom:22px}
+  .phase::before{content:""; position:absolute; left:8px; top:6px; bottom:-22px; width:2px; background:var(--line)}
+  .phase:last-child::before{display:none}
+  .phase .dot{position:absolute; left:0; top:3px; width:18px; height:18px; border-radius:50%; background:var(--rose); box-shadow:0 0 0 4px var(--rose-bg)}
+  .phase h4{margin:0 0 3px; font-size:16.5px}
+  .phase .tag{font-size:12px; color:var(--muted); font-weight:600}
+  .phase ul{margin:8px 0 0; padding-left:18px; color:var(--ink2); font-size:14px}
+  .phase li{margin:3px 0}
+
+  /* ── 우선순위 매트릭스 ── */
+  .matrix{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow-sm); overflow-x:auto}
+  table{border-collapse:collapse; width:100%; font-size:13.5px; min-width:520px}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line)}
+  th{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; font-weight:700}
+  td b{color:var(--ink)}
+  tr:last-child td{border-bottom:none}
+  .dotp{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px}
+  .hi{background:#dc2626} .md{background:#f59e0b} .lo{background:#3b82f6}
+
+  .note{color:var(--muted); font-size:12.5px; text-align:center; margin-top:60px; padding-top:22px; border-top:1px solid var(--line)}
+  a.jump{color:var(--rose); text-decoration:none; font-weight:600}
+  .divider{height:1px; background:linear-gradient(90deg,transparent,var(--line),transparent); margin:8px 0 0}
+
+  @media print{
+    body{background:#fff; color:#000} .card,.matrix,.top3 .t{box-shadow:none; break-inside:avoid}
+    .cover{padding:40px 0}
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="logo">💚</div>
+  <h1>꼼모닝 네이티브 앱</h1>
+  <p class="sub">더 할 수 있는 것 · 상세 개선 로드맵</p>
+  <div class="meta">2026년 7월 31일 · 현재 build 3(v1.0) 기준 · iOS TestFlight 배포 중</div>
+  <div class="who">우댕 <span style="color:var(--rose)">♥</span> 꼼이 · 호평동 ↔ 서울 중구</div>
+</div>
+
+<div class="wrap">
+
+<!-- 한눈에 -->
+<section id="summary">
+  <h2><span class="n">1</span> 한눈에</h2>
+  <p class="lead">웹(PWA)에는 이미 편지·칭찬·추억·위시·또갈래·라이브하트·달력·낙서장까지 다 있어요. 그래서 이 리포트는 <b>“네이티브 껍데기여야만 할 수 있는 것”</b>에만 집중합니다. 웹으로 이미 되는 걸 또 만들자는 얘기가 아니라, <b>아이폰이라서 가능한 초능력</b>을 더하는 로드맵이에요.</p>
+  <div class="top3">
+    <div class="t">
+      <div class="rank">임팩트 #1</div>
+      <h4>🔔 진짜 알림 (APNs)</h4>
+      <p>웹푸시는 iOS에서 잘 안 와요. 네이티브 APNs면 “꼼이 방금 접속”, “낙서 남김”, <b>미세먼지 나쁨 경보</b>가 확실히 도착. 앱을 ‘열어봐야 아는 것’에서 ‘먼저 알려주는 것’으로.</p>
+    </div>
+    <div class="t">
+      <div class="rank">임팩트 #2</div>
+      <h4>🏝️ 라이브 액티비티</h4>
+      <p>둘 다 접속 중이면 잠금화면·다이나믹 아일랜드에 <b>실시간 하트/접속 상태</b>가 떠요. 앱을 안 열어도 “지금 같이 있다”가 느껴지는 기능.</p>
+    </div>
+    <div class="t">
+      <div class="rank">임팩트 #3</div>
+      <h4>✏️ 낙서장 고도화</h4>
+      <p>Apple Pencil 필압, 상대 <b>펜 커서 생중계</b>, 스티커·사진 붙이기, 획 리플레이, 그릴 때 햅틱. 커플 낙서장을 네이티브급으로.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 현재 지도 -->
+<section id="asis">
+  <h2><span class="n">2</span> 지금 앱에 있는 것 (as-is)</h2>
+  <p class="lead">이미 만들어 둔 것들. 새 아이디어가 이것들과 겹치지 않도록 정리해 둡니다.</p>
+  <div class="card" style="margin-bottom:12px">
+    <p style="margin-top:0"><b>공통(웹+네이티브)</b></p>
+    <div class="inv">
+      <span class="chip">접속 상태(presence)</span><span class="chip">D-day</span><span class="chip">공유 달력</span>
+      <span class="chip">날씨·미세먼지</span><span class="chip">기분(mood)</span><span class="chip">편지 + 움직이는 스티커</span>
+      <span class="chip">칭찬</span><span class="chip">추억</span><span class="chip">위시리스트</span><span class="chip">또 갈래</span>
+      <span class="chip">라이브 하트</span><span class="chip">시집</span><span class="chip">레시피</span><span class="chip">웹푸시(아침 발송)</span>
+    </div>
+  </div>
+  <div class="card">
+    <p style="margin-top:0"><b>네이티브 전용(현재)</b></p>
+    <div class="inv">
+      <span class="chip n">낙서장 (UIKit 커스텀 캔버스)</span><span class="chip n">홈 위젯 (WidgetKit)</span>
+      <span class="chip n">Face ID 잠금</span><span class="chip n">RTDB 실시간 동기화</span><span class="chip n">앱 아이콘·딥링크</span>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:0">→ 네이티브의 강점은 <b>낙서장 · 위젯 · 실시간</b>. 아래 로드맵은 이 축을 키우고, 아이폰만 되는 <b>알림·잠금화면·펜·위치·시계·햅틱</b>을 새로 엽니다.</p>
+  </div>
+</section>
+
+<!-- 로드맵 -->
+<section id="roadmap">
+  <h2><span class="n">3</span> 3단계 로드맵</h2>
+  <p class="lead">임팩트 대비 품이 적은 순서로. Phase 1만 해도 앱 체감이 확 달라집니다.</p>
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px 22px;box-shadow:var(--shadow-sm)">
+    <div class="phase">
+      <div class="dot"></div>
+      <h4>Phase 1 — “먼저 알려주는 앱” <span class="tag">· 1~2주 체감, 가장 큰 변화</span></h4>
+      <ul>
+        <li><b>APNs 푸시</b> — 접속 알림, 낙서 알림, <b>미세먼지 나쁨 경보</b>, 아침·밤 인사</li>
+        <li><b>위젯 인터랙션</b> — 위젯에서 바로 하트 보내기(iOS 17 App Intents)</li>
+        <li><b>낙서 썸네일 위젯</b> — 최근 낙서를 4×4 위젯에 그려서 표시</li>
+        <li><b>햅틱</b> — 하트 받을 때 진동, 낙서 그릴 때 촉감</li>
+      </ul>
+    </div>
+    <div class="phase">
+      <div class="dot"></div>
+      <h4>Phase 2 — “같이 있는 느낌” <span class="tag">· 잠금화면·펜·시계</span></h4>
+      <ul>
+        <li><b>라이브 액티비티 / 다이나믹 아일랜드</b> — 둘 다 접속 중 실시간 표시</li>
+        <li><b>낙서장 실시간 커서</b> — 상대 펜 위치가 내 화면에 움직임</li>
+        <li><b>Apple Pencil 필압·기울기</b>, 스티커·사진 붙이기, 획 리플레이</li>
+        <li><b>StandBy·잠금화면 위젯</b> 확장 (충전 중 탁상시계처럼)</li>
+      </ul>
+    </div>
+    <div class="phase">
+      <div class="dot"></div>
+      <h4>Phase 3 — “멀리 있어도” <span class="tag">· 위치·시리·워치</span></h4>
+      <ul>
+        <li><b>도착 알림(Geofence)</b> — 상대가 집/회사 도착하면 조용히 알림 (떨어져 사는 커플용)</li>
+        <li><b>Siri·단축어</b> — “꼼이 접속했어?”, “오늘 낙서 보여줘”</li>
+        <li><b>Apple Watch 앱</b> — 손목에서 접속 확인·하트·낙서 알림</li>
+        <li><b>오늘의 사진 · 위젯 슬라이드쇼</b>, iCloud 백업</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 카테고리 상세 -->
+<section id="detail">
+  <h2><span class="n">4</span> 아이디어 상세</h2>
+  <p class="lead">각 아이디어마다 <b>무엇을 · 왜 우리한테 좋은지 · 어떻게 구현</b>을 담았어요. 뱃지: <span class="b p1">우선 높음</span> <span class="b p2">중간</span> <span class="b p3">낮음</span> · <span class="b eff">난이도 ★</span> · <span class="b dust">꼼이 우선</span></p>
+
+  <!-- A. 알림 -->
+  <h3 style="font-size:16px;color:var(--rose);margin:26px 0 12px">A. 알림 — 앱이 먼저 말 걸기</h3>
+
+  <div class="card">
+    <h3><span class="ico">🔔</span> 네이티브 푸시(APNs) 기반 만들기
+      <span class="badges"><span class="b p1">우선 높음</span><span class="b eff">난이도 ★★</span></span></h3>
+    <p>웹푸시는 iOS PWA에서 권한·전달이 불안정해요. 네이티브 앱에 <b>Firebase Cloud Messaging(APNs)</b>을 붙이면 모든 알림이 확실하게 도착합니다. 아래 알림들의 <b>공통 토대</b>라 제일 먼저.</p>
+    <div class="how"><b>구현:</b> <code>FirebaseMessaging</code> 추가 → <code>UNUserNotificationCenter</code> 권한 → APNs 토큰을 RTDB <code>tokens/{user}</code>에 저장 → 기존 Vercel cron(아침 발송 로직)에서 web-push 대신/함께 FCM 전송. Capacitor <code>PushNotifications</code> 플러그인으로도 가능.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">🌫️</span> 미세먼지 나쁨 경보
+      <span class="badges"><span class="b dust">꼼이 우선</span><span class="b p1">우선 높음</span><span class="b eff">난이도 ★★</span></span></h3>
+    <p>꼼이가 제일 신경 쓰는 미세먼지. 서울 중구 PM10/PM2.5가 <b>‘나쁨’ 이상으로 올라가면 자동 푸시</b>. “오늘 중구 미세먼지 나쁨 😷 마스크 챙겨”처럼. 아침 브리핑에도 “오늘 마스크 필요/불필요” 한 줄.</p>
+    <div class="why">💡 <b>왜 우리한테:</b> 꼼이 최우선 관심사를 앱이 <b>먼저 챙겨주는</b> 기능. 떨어져 있으니 “마스크 챙겼어?” 잔소리를 앱이 대신.</div>
+    <div class="how"><b>구현:</b> 이미 있는 <code>weatherHelpers</code>/data.go.kr 대기질 API를 cron에서 임계값 체크 → 초과 시 꼼이(+우댕)에게 FCM. 중복 방지 위해 하루 1회 상태 기억(<code>dailyStats</code> 패턴 재사용).</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">👋</span> 상대 접속 알림
+      <span class="badges"><span class="b p1">우선 높음</span><span class="b eff">난이도 ★</span></span></h3>
+    <p>“꼼이가 방금 접속했어 💚” — 상대가 앱에 들어오면(오랜만이면) 조용한 알림. 지금은 앱을 열어야만 접속 상태를 볼 수 있는데, 이걸 <b>먼저 알려주면</b> 자연스럽게 “나도 들어가 볼까”가 됩니다.</p>
+    <div class="how"><b>구현:</b> presence <code>touchPresence</code> 기록 시, 상대가 최근 N분 비접속이었다면 cron/Cloud Function이 감지해 FCM. 스팸 방지로 <b>30분 쿨다운</b>.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">✏️</span> 낙서·하트·댓글 알림
+      <span class="badges"><span class="b p1">우선 높음</span><span class="b eff">난이도 ★</span></span></h3>
+    <p>상대가 낙서장에 <b>새 낙서</b>를 남기거나, 내 낙서에 <b>하트/댓글</b>을 달면 알림. 방금 만든 하트·댓글 기능(build 3)과 바로 연결돼요. “꼼이가 낙서에 하트를 눌렀어 ❤️”.</p>
+    <div class="how"><b>구현:</b> RTDB <code>canvas/{page}/react</code>·<code>strokes</code> 변화에 Cloud Function 트리거 → 상대에게 FCM. 딥링크 <code>kkommorning://canvas</code>로 바로 이동.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">🌅</span> 아침·밤 인사 & 기념일 알림
+      <span class="badges"><span class="b p2">우선 중간</span><span class="b eff">난이도 ★</span></span></h3>
+    <p>매일 아침 “꼼모닝 ☀️ 오늘 서울 맑음, 미세먼지 좋음, 일정 1개”. 밤엔 “잘 자 🌙”. 그리고 <b>D-day 기념</b>(매월 28일·100일·1주년)에 축하 푸시. 기념일을 앱이 절대 안 까먹게.</p>
+    <div class="how"><b>구현:</b> 기존 아침 cron 확장 + 날짜 계산(D-day 2023-09-28 기준). 리치 푸시로 날씨 아이콘·D-day 숫자 포함.</p>
+  </div>
+
+  <!-- B. 잠금화면·위젯 -->
+  <h3 style="font-size:16px;color:var(--rose);margin:30px 0 12px">B. 잠금화면 · 위젯 — 안 열어도 보이게</h3>
+
+  <div class="card">
+    <h3><span class="ico">🏝️</span> 라이브 액티비티 · 다이나믹 아일랜드
+      <span class="badges"><span class="b p1">우선 높음</span><span class="b eff">난이도 ★★★</span></span></h3>
+    <p>둘 다 접속 중일 때 <b>잠금화면과 다이나믹 아일랜드</b>에 실시간 위젯이 떠요. “지금 같이 접속 중 💚”, 상대가 낙서 중이면 “꼼이가 그리는 중 ✏️”, 하트를 보내면 아일랜드에서 하트가 통통. 앱을 안 열어도 <b>연결감</b>이 유지되는, 네이티브에서만 가능한 기능.</p>
+    <div class="why">💡 <b>왜 우리한테:</b> 떨어져 살아도 화면 켤 때마다 “지금 같이 있네”가 보이는 게 이 앱의 핵심 정서예요.</div>
+    <div class="how"><b>구현:</b> <code>ActivityKit</code> + WidgetKit. 접속 시작 시 Live Activity 시작, presence/live 변화를 <b>APNs push-to-start·update</b>로 갱신(백그라운드에서도 최신). 종료 조건은 90초 무접속.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">💗</span> 인터랙티브 위젯 — 위젯에서 하트 보내기
+      <span class="badges"><span class="b p1">우선 높음</span><span class="b eff">난이도 ★★</span></span></h3>
+    <p>홈 위젯의 하트 버튼을 <b>탭하면 앱을 안 열고도 상대에게 하트 발송</b>(라이브 하트로 연결). iOS 17 App Intents로 위젯이 직접 동작. “보고 싶다” 한 번을 홈 화면에서 즉시.</p>
+    <div class="how"><b>구현:</b> <code>AppIntent</code> + <code>Button(intent:)</code>. 인텐트가 App Group을 통해 RTDB로 라이브 하트 ping 기록. 성공 시 위젯 타임라인 리로드로 “보냈어 💌”.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">🖼️</span> 낙서 썸네일 위젯 (4×4)
+      <span class="badges"><span class="b p2">우선 중간</span><span class="b eff">난이도 ★★</span></span></h3>
+    <p>큰 위젯에 <b>최근 낙서를 실제로 그려서</b> 보여주기. 홈 화면에 상대의 최근 낙서가 액자처럼 걸려 있는 느낌. (지금 위젯은 텍스트 위주라 이걸로 감성 UP.)</p>
+    <div class="how"><b>구현:</b> 낙서 획(정규화 좌표)을 App Group에 저장 → 위젯에서 SwiftUI <code>Path</code>/<code>Canvas</code>로 렌더(웹 <code>DoodleThumb</code>과 동일 로직). 이미 <b>구조는 준비됨</b>(deferred로 미룬 항목).</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">🕰️</span> StandBy · 잠금화면 · 제어센터 위젯
+      <span class="badges"><span class="b p3">우선 낮음</span><span class="b eff">난이도 ★★</span></span></h3>
+    <p>충전하며 가로로 두면 <b>탁상시계처럼</b> 접속 상태·D-day 표시(StandBy). 잠금화면 위젯(원형·인라인)은 일부 있으니 확장. iOS 18 <b>제어센터 위젯</b>으로 “하트 보내기”를 제어센터에서.</p>
+    <div class="how"><b>구현:</b> <code>WidgetFamily</code>에 <code>.systemLarge</code>(StandBy는 자동)·<code>.accessory*</code> 이미 일부 대응 → 레이아웃만 추가. 제어센터는 <code>ControlWidget</code>(iOS 18).</p>
+  </div>
+
+  <!-- C. 낙서장 -->
+  <h3 style="font-size:16px;color:var(--rose);margin:30px 0 12px">C. 낙서장 — 네이티브급 감성</h3>
+
+  <div class="card">
+    <h3><span class="ico">👆</span> 상대 펜 커서 실시간 생중계
+      <span class="badges"><span class="b p1">우선 높음</span><span class="b eff">난이도 ★★</span></span></h3>
+    <p>지금은 상대가 <b>획을 다 그려야</b> 보이는데, <b>펜 끝 위치를 실시간</b>으로 내 화면에 점/이름표로 표시. “꼼이가 지금 여기 그리는 중”이 손끝으로 보임 — 같이 그리는 맛이 확 살아납니다.</p>
+    <div class="how"><b>구현:</b> 이미 있는 <code>publishLive</code>(live 노드) 확장 — 그리는 중 좌표를 초당 몇 번 write, 상대는 <code>subscribeLive</code>로 커서 렌더. 기반 절반은 완성.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">🎨</span> Apple Pencil 필압·기울기 + 재생
+      <span class="badges"><span class="b p2">우선 중간</span><span class="b eff">난이도 ★★</span></span></h3>
+    <p>펜슬 <b>필압·기울기</b>로 자연스러운 붓 느낌(지금은 근사치). 낙서 완성 후 <b>획 순서대로 리플레이</b> 재생 — 상대가 어떻게 그렸는지 손글씨 편지처럼 다시 봄.</p>
+    <div class="how"><b>구현:</b> <code>UITouch.force/altitudeAngle</code>를 point의 <code>p</code>에 반영(스키마 이미 <code>{x,y,p}</code> 지원). 리플레이는 저장된 point 배열을 타이머로 순차 draw.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">🌸</span> 스티커·사진·배경 템플릿
+      <span class="badges"><span class="b p2">우선 중간</span><span class="b eff">난이도 ★★</span></span></h3>
+    <p>낙서에 <b>포차코 스티커·이모지 도장</b> 찍기, <b>사진 붙이기</b>(둘이 찍은 사진 위에 낙서), 편지지·격자·점선 <b>배경 템플릿</b>. 편지에 쓰는 움직이는 스티커 자산을 낙서장에도 재사용.</p>
+    <div class="how"><b>구현:</b> 스티커/사진을 별도 오브젝트 레이어로 RTDB에 저장(위치·크기·회전). 배경은 <code>canvas/{page}/meta</code>에 템플릿 종류 추가.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">📳</span> 낙서 햅틱 + 사운드
+      <span class="badges"><span class="b p2">우선 중간</span><span class="b eff">난이도 ★</span></span></h3>
+    <p>그릴 때 <b>펜 사각사각 촉감</b>(Core Haptics), 하트 받으면 <b>통통 진동</b>, 새 낙서 도착 시 은은한 효과음. 작지만 “살아있는 앱” 느낌을 크게 올려줍니다.</p>
+    <div class="how"><b>구현:</b> <code>CoreHaptics</code> / <code>UIImpactFeedbackGenerator</code>. 라이브 하트 수신·낙서 커밋 이벤트에 연결. 반나절이면 체감.</p>
+  </div>
+
+  <!-- D. 멀리 있어도 -->
+  <h3 style="font-size:16px;color:var(--rose);margin:30px 0 12px">D. 멀리 있어도 — 위치·시리·워치</h3>
+
+  <div class="card">
+    <h3><span class="ico">📍</span> 도착 알림 (Geofence)
+      <span class="badges"><span class="b p2">우선 중간</span><span class="b eff">난이도 ★★★</span></span></h3>
+    <p>상대가 <b>집(호평동)·회사(중구)에 도착하면</b> 나한테 조용한 알림 — “꼼이 집 도착 🏠”. 떨어져 사는 커플에게 “잘 들어갔나”를 자동으로. 정확 위치가 아니라 <b>‘도착했다’ 신호만</b> 공유(프라이버시 안전).</p>
+    <div class="why">💡 <b>왜 우리한테:</b> 호평동↔중구로 떨어져 있으니 “도착했어?” 카톡을 앱이 대신. 위치 좌표는 공유 안 함, 도착 이벤트만.</div>
+    <div class="how"><b>구현:</b> <code>CLLocationManager</code> region monitoring(등록한 2~3곳). 진입 시 로컬로 감지→RTDB에 <code>arrived</code> 이벤트만 write→상대 FCM. <b>“Always” 위치 권한 필요</b>(설명 UI 중요).</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">🗣️</span> Siri · 단축어 · App Intents
+      <span class="badges"><span class="b p3">우선 낮음</span><span class="b eff">난이도 ★★</span></span></h3>
+    <p>“시리야, 꼼이 접속했어?” → 접속 상태 답변. “꼼이한테 하트” → 하트 발송. 단축어로 <b>홈 화면 아이콘·자동화</b>(예: 매일 밤 9시 “굿나잇 하트”)도 가능.</p>
+    <div class="how"><b>구현:</b> <code>AppIntents</code> 프레임워크(위젯 인텐트와 공유). presence 조회 인텐트 + 하트 발송 인텐트를 노출.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">⌚</span> Apple Watch 앱
+      <span class="badges"><span class="b p3">우선 낮음</span><span class="b eff">난이도 ★★★</span></span></h3>
+    <p>손목에서 <b>접속 상태·D-day 컴플리케이션</b>, 하트 보내기, 낙서/하트 알림 받기. 시계 문자판에 “D+○○○ 💚” 상시 표시. 폰을 안 꺼내도 연결되는 최소 접점.</p>
+    <div class="how"><b>구현:</b> watchOS 타깃 + <code>WatchConnectivity</code>/독립 네트워크. 컴플리케이션은 WidgetKit 공유 코드 재사용 가능.</p>
+  </div>
+
+  <!-- E. 소통·추억 -->
+  <h3 style="font-size:16px;color:var(--rose);margin:30px 0 12px">E. 소통 · 추억 (네이티브 이점 있는 것만)</h3>
+
+  <div class="card">
+    <h3><span class="ico">📷</span> 오늘의 사진 · 라이브포토 위젯
+      <span class="badges"><span class="b p2">우선 중간</span><span class="b eff">난이도 ★★</span></span></h3>
+    <p>하루 한 장 <b>“오늘 나”</b>를 서로에게. 위젯에 상대의 오늘 사진이 뜨고, 탭하면 슬라이드쇼. 네이티브 <b>카메라·PhotosPicker</b>로 바로 찍어 올리고, 라이브포토도 가능.</p>
+    <div class="how"><b>구현:</b> <code>PhotosUI</code> picker → Firebase Storage 업로드 → 위젯이 App Group 캐시로 표시. 추억(memories) 기능과 연계.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">🎙️</span> 음성 쪽지
+      <span class="badges"><span class="b p3">우선 낮음</span><span class="b eff">난이도 ★★</span></span></h3>
+    <p>짧은 <b>목소리 메시지</b>를 낙서/편지에 첨부. 글보다 목소리가 좋을 때가 있죠. 잠들기 전 “잘 자” 한마디.</p>
+    <div class="how"><b>구현:</b> <code>AVAudioRecorder</code> → Storage 업로드 → 상대에게 알림. 낙서장 오브젝트 또는 편지 첨부로.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">❓</span> 오늘의 질문 (커플 문답)
+      <span class="badges"><span class="b p3">우선 낮음</span><span class="b eff">난이도 ★</span></span></h3>
+    <p>매일 질문 하나(“요즘 제일 고마웠던 순간?”) → 둘 다 답하면 서로 공개. 알림으로 매일 챙겨주면 대화가 이어져요. (웹으로도 가능하지만 <b>알림</b>이 있어야 습관이 됨 → 네이티브 시너지.)</p>
+    <div class="how"><b>구현:</b> 질문 풀 + 날짜 시드 선택, RTDB 답변 저장, 아침 푸시로 유도. 가벼운 도메인 하나 추가.</p>
+  </div>
+
+  <!-- F. 기술 기반 -->
+  <h3 style="font-size:16px;color:var(--rose);margin:30px 0 12px">F. 밑바탕 (탄탄하게)</h3>
+
+  <div class="card">
+    <h3><span class="ico">📡</span> 오프라인 지원 · 백그라운드 새로고침
+      <span class="badges"><span class="b p2">우선 중간</span><span class="b eff">난이도 ★★</span></span></h3>
+    <p>지하철·비행기에서도 <b>낙서장이 열리고</b>, 연결되면 자동 동기화. 위젯·라이브 액티비티를 <b>백그라운드에서 주기적 갱신</b>해 항상 최신.</p>
+    <div class="how"><b>구현:</b> RTDB persistence(오프라인 캐시) + <code>BGAppRefreshTask</code>. 지금은 웹뷰 기반이라, 낙서장 네이티브 부분부터 오프라인 큐 적용.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">🔐</span> 보안·백업 마감
+      <span class="badges"><span class="b p3">우선 낮음</span><span class="b eff">난이도 ★</span></span></h3>
+    <p>Face ID는 이미 있음 ✅. 여기에 <b>iCloud 자동 백업</b>(낙서·추억), <b>스크린샷/화면 녹화 시 흐림</b> 옵션 등 둘만의 공간을 더 안전하게.</p>
+    <div class="how"><b>구현:</b> 데이터는 이미 RTDB 클라우드(안전). 민감 화면에 <code>isSecureTextEntry</code> 트릭/블러 오버레이 추가.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="ico">🔗</span> 공유시트 · Universal Links
+      <span class="badges"><span class="b p3">우선 낮음</span><span class="b eff">난이도 ★</span></span></h3>
+    <p>다른 앱에서 <b>사진·글을 꼼모닝으로 공유</b>(인스타 사진 → 낙서 배경으로). 링크를 누르면 웹 대신 <b>앱으로 바로</b>(Universal Links).</p>
+    <div class="how"><b>구현:</b> Share Extension 타깃 + <code>apple-app-site-association</code> 파일(kkommorning-v2.vercel.app). 딥링크는 이미 <code>kkommorning://</code> 있음.</p>
+  </div>
+
+</section>
+
+<!-- 우선순위 매트릭스 -->
+<section id="matrix">
+  <h2><span class="n">5</span> 우선순위 한 장 요약</h2>
+  <p class="lead">품(왼쪽일수록 쉬움) 대비 임팩트. <span class="dotp hi"></span>높음 <span class="dotp md"></span>중간 <span class="dotp lo"></span>낮음</p>
+  <div class="matrix">
+    <table>
+      <tr><th>기능</th><th>임팩트</th><th>난이도</th><th>메모</th></tr>
+      <tr><td><b>APNs 푸시 기반</b></td><td><span class="dotp hi"></span>높음</td><td>★★</td><td>모든 알림의 토대 — 제일 먼저</td></tr>
+      <tr><td><b>미세먼지 경보</b> 🌫️</td><td><span class="dotp hi"></span>높음</td><td>★★</td><td>꼼이 최우선 관심사</td></tr>
+      <tr><td>접속·낙서·하트 알림</td><td><span class="dotp hi"></span>높음</td><td>★</td><td>토대만 있으면 금방</td></tr>
+      <tr><td>위젯 하트 보내기</td><td><span class="dotp hi"></span>높음</td><td>★★</td><td>App Intents</td></tr>
+      <tr><td>햅틱·사운드</td><td><span class="dotp md"></span>중간</td><td>★</td><td>반나절, 체감 큼</td></tr>
+      <tr><td>라이브 액티비티</td><td><span class="dotp hi"></span>높음</td><td>★★★</td><td>가장 ‘와우’, 품 큼</td></tr>
+      <tr><td>펜 커서 생중계</td><td><span class="dotp hi"></span>높음</td><td>★★</td><td>기반 절반 완성</td></tr>
+      <tr><td>낙서 썸네일 위젯</td><td><span class="dotp md"></span>중간</td><td>★★</td><td>구조 준비됨</td></tr>
+      <tr><td>펜슬 필압·리플레이</td><td><span class="dotp md"></span>중간</td><td>★★</td><td>스키마 이미 지원</td></tr>
+      <tr><td>도착 알림(위치)</td><td><span class="dotp md"></span>중간</td><td>★★★</td><td>Always 권한 UX 주의</td></tr>
+      <tr><td>오늘의 사진</td><td><span class="dotp md"></span>중간</td><td>★★</td><td>추억과 연계</td></tr>
+      <tr><td>Siri·단축어</td><td><span class="dotp lo"></span>낮음</td><td>★★</td><td>App Intents 재사용</td></tr>
+      <tr><td>Apple Watch</td><td><span class="dotp lo"></span>낮음</td><td>★★★</td><td>새 타깃, 나중에</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- 기술 부록 -->
+<section id="appendix">
+  <h2><span class="n">6</span> 기술 메모</h2>
+  <div class="card">
+    <p style="margin-top:0"><b>공통 준비물</b></p>
+    <p style="margin:6px 0">· <b>APNs 인증키(.p8)</b> — Apple Developer에서 발급 → Firebase 콘솔에 등록(FCM↔APNs 연결). 푸시 계열 전부의 전제.</p>
+    <p style="margin:6px 0">· <b>Capabilities</b> — Push Notifications, Background Modes(Remote notifications, Background fetch), App Groups(있음 ✅), 위치는 Location Updates.</p>
+    <p style="margin:6px 0">· <b>서버 발송</b> — 이미 있는 Vercel cron(아침 웹푸시)에 FCM Admin SDK 추가. 토큰은 RTDB <code>tokens/{user}</code>.</p>
+    <p style="margin:6px 0">· <b>Cloud Functions</b>(선택) — RTDB 변화(낙서·하트) 실시간 트리거 알림엔 Firebase Functions가 편함. cron으로도 근사 가능.</p>
+    <div class="divider" style="margin:14px 0"></div>
+    <p style="margin:6px 0"><b>재사용 가능한 자산(이미 있음)</b></p>
+    <p style="margin:6px 0">· 정규화 낙서 렌더 로직(웹 <code>DoodleThumb</code>) → 위젯·워치 그대로.</p>
+    <p style="margin:6px 0">· <code>publishLive</code>/<code>subscribeLive</code> → 펜 커서 생중계 절반.</p>
+    <p style="margin:6px 0">· App Group·WidgetBridge → 인터랙티브 위젯·라이브 액티비티 데이터 통로.</p>
+    <p style="margin:6px 0">· 시계 오차 보정(<code>serverNow</code>) → 위젯·라이브 액티비티 시간 정확.</p>
+    <p style="margin:6px 0;margin-bottom:0">· 딥링크 <code>kkommorning://</code> → 알림 탭 시 해당 화면 이동 준비 완료.</p>
+  </div>
+</section>
+
+<p class="note">
+  꼼모닝 💚 · 우댕 ♥ 꼼이 · 2026.07.31<br>
+  <span style="opacity:.7">이 문서는 계획 제안서예요. 실제 구현은 하나씩 골라서 진행하면 됩니다. · <a class="jump" href="#summary">맨 위로</a></span>
+</p>
+
+</div>
+</body>
+</html>

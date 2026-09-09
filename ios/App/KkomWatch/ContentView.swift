@@ -54,6 +54,19 @@ struct ContentView: View {
                     if store.recvBumpFlash > 0, let k = store.recvBumpKind {
                         ReceivedBump(trigger: store.recvBumpFlash, kind: k)
                     }
+                    // 연결 상태 배지(B) — 오프라인/보내는 중/전송 대기일 때만 상단에 작게.
+                    if !store.connected || store.inFlight > 0 || store.pendingCount > 0 {
+                        VStack {
+                            ConnBadge(connected: store.connected, inFlight: store.inFlight, pending: store.pendingCount)
+                                .padding(.top, 2)
+                            Spacer()
+                        }
+                        .allowsHitTesting(false)
+                    }
+                    // 전송 실패 토스트(A) — '안 갔어, 다시 보낼게'.
+                    if store.sendFailedFlash > 0 {
+                        SendFailedToast(trigger: store.sendFailedFlash, label: store.lastFailLabel)
+                    }
                 }
             }
         }
@@ -358,6 +371,57 @@ struct ReceivedBump: View {
             withAnimation(.easeOut(duration: 1.0)) { show = true }
         }
         .onAppear { withAnimation(.easeOut(duration: 1.0)) { show = true } }
+    }
+}
+
+// 연결 상태 배지 — 오프라인이면 '오프라인', 보내는 중이면 스피너, 밀린 게 있으면 '대기 N'.
+struct ConnBadge: View {
+    let connected: Bool
+    let inFlight: Int
+    let pending: Int
+    var body: some View {
+        HStack(spacing: 4) {
+            if !connected {
+                Image(systemName: "wifi.slash").font(.system(size: 10, weight: .bold))
+                Text(pending > 0 ? "오프라인 · 대기 \(pending)" : "오프라인").font(.system(size: 10, weight: .semibold))
+            } else if inFlight > 0 {
+                ProgressView().scaleEffect(0.5).frame(width: 10, height: 10)
+                Text("보내는 중").font(.system(size: 10, weight: .semibold))
+            } else if pending > 0 {
+                Image(systemName: "arrow.clockwise").font(.system(size: 10, weight: .bold))
+                Text("대기 \(pending) 재전송").font(.system(size: 10, weight: .semibold))
+            }
+        }
+        .foregroundStyle(.white.opacity(0.9))
+        .padding(.horizontal, 8).padding(.vertical, 3)
+        .background((connected ? Color.orange : Color.red).opacity(0.55))
+        .clipShape(Capsule())
+    }
+}
+
+// 전송 실패 토스트 — 큐에 넣었다는 안내('안 갔어, 다시 보낼게'). 잠깐 떴다 사라짐.
+struct SendFailedToast: View {
+    let trigger: Int
+    let label: String
+    @State private var show = false
+    var body: some View {
+        VStack {
+            Spacer()
+            Text("\(label.isEmpty ? "전송" : label) 안 갔어 · 다시 보낼게")
+                .font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(Color.red.opacity(0.8)).clipShape(Capsule())
+                .padding(.bottom, 30)
+        }
+        .opacity(show ? 1 : 0)
+        .allowsHitTesting(false)
+        .onChange(of: trigger) { _, _ in
+            withAnimation(.easeIn(duration: 0.15)) { show = true }
+            Task {
+                try? await Task.sleep(nanoseconds: 1_800_000_000)
+                withAnimation(.easeOut(duration: 0.4)) { show = false }
+            }
+        }
     }
 }
 

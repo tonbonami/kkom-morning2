@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse, after } from 'next/server';
 import webpush from 'web-push';
-import { sendApns, keyForName } from '@/lib/apns';
+import { sendApns, sendApnsWatch, keyForName } from '@/lib/apns';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, deleteDoc, setDoc } from 'firebase/firestore';
 
@@ -175,11 +175,14 @@ export async function POST(req: NextRequest) {
       } catch (e) { console.warn('[bump] liveBumps 기록 실패:', e); }
     }
 
-    // APNs(네이티브)와 웹푸시는 서로 독립 채널 — 나란히 보낸다(순차 X).
+    // APNs(폰)·워치·웹푸시는 서로 독립 채널 — 나란히 보낸다(순차 X).
     await Promise.all([
       // 네이티브 APNs — 웹 구독 없어도 시도. category: 알림 꾹 눌러 답장 / sender: 상대 아바타+이름.
       sendApns(keyForName(to), title, bodyText, { category: 'KKOM_MSG', sender: from })
         .catch((e) => { console.warn('[bump] APNs 실패:', e); return false; }),
+      // 워치 독립 푸시 — 폰과 떨어져 있어도 손목에서 바로 울린다.
+      sendApnsWatch(keyForName(to), title, bodyText)
+        .catch((e) => { console.warn('[bump] 워치 APNs 실패:', e); return false; }),
       // 웹푸시 — 구독 있을 때만.
       (async () => {
         try {

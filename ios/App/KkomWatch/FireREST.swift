@@ -20,6 +20,11 @@ enum Fire {
         s.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? s
     }
 
+    // HTTP 2xx 여부 — 보내기 성공/실패 판정용(낙관적 '보냈어' 거짓말 방지).
+    static func isOK(_ resp: URLResponse) -> Bool {
+        (resp as? HTTPURLResponse).map { (200..<300).contains($0.statusCode) } ?? false
+    }
+
     struct PresenceResult { var lastSeenMs: Double?; var active: Bool; var serverNowMs: Double }
 
     // 상대 접속 상태 읽기. 응답 Date 헤더로 서버 현재시각도 함께 얻어 시계오차 보정.
@@ -58,28 +63,33 @@ enum Fire {
     }
 
     // 하트 푸시 — 상대 잠금 기기에도 알림(연타 쿨다운은 서버). 라이브 하트와 별개.
-    static func notifyHeart(from: String, to: String) async {
-        guard let url = URL(string: "\(webBase)/api/heart") else { return }
+    @discardableResult
+    static func notifyHeart(from: String, to: String) async -> Bool {
+        guard let url = URL(string: "\(webBase)/api/heart") else { return false }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: ["from": from, "to": to])
-        _ = try? await URLSession.shared.data(for: req)
+        guard let (_, resp) = try? await URLSession.shared.data(for: req) else { return false }
+        return isOK(resp)
     }
 
     // 범프 — 폰 QuickReplyBar와 동일: /api/bump로 상대에게 푸시. from/to는 한글 이름(우댕/꼼이).
-    static func sendBump(from: String, to: String, kind: String) async {
-        guard let url = URL(string: "\(webBase)/api/bump") else { return }
+    @discardableResult
+    static func sendBump(from: String, to: String, kind: String) async -> Bool {
+        guard let url = URL(string: "\(webBase)/api/bump") else { return false }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: ["from": from, "to": to, "kind": kind])
-        _ = try? await URLSession.shared.data(for: req)
+        guard let (_, resp) = try? await URLSession.shared.data(for: req) else { return false }
+        return isOK(resp)
     }
 
     // 하트/스티커 던지기 — 상대 liveHearts doc을 덮어씀(nonce 매번 새로). 웹 throwHeart와 동일 스키마 + emoji.
-    static func fling(from: String, to: String, emoji: String) async {
-        guard let url = URL(string: "\(base)/liveHearts/\(enc(to))?key=\(apiKey)") else { return }
+    @discardableResult
+    static func fling(from: String, to: String, emoji: String) async -> Bool {
+        guard let url = URL(string: "\(base)/liveHearts/\(enc(to))?key=\(apiKey)") else { return false }
         // ⚠️ 애플워치(arm64_32)는 Int가 32비트 → 밀리초(≈1.75조)를 Int로 넣으면 오버플로 크래시. Int64 필수.
         let nonce = "\(Int64(Date().timeIntervalSince1970 * 1000))_w\(Int.random(in: 100000...999999))"
         let body: [String: Any] = ["fields": [
@@ -88,12 +98,13 @@ enum Fire {
             "at":    ["timestampValue": formatTS(Date())],
             "emoji": ["stringValue": emoji],
         ]]
-        await patch(url, body)
+        return await patch(url, body)
     }
 
     // 오늘 내 기분 저장 — moods/{name}_{day}. 웹 setMyMood와 동일 스키마.
-    static func setMood(name: String, emoji: String, day: String) async {
-        guard let url = URL(string: "\(base)/moods/\(enc("\(name)_\(day)"))?key=\(apiKey)") else { return }
+    @discardableResult
+    static func setMood(name: String, emoji: String, day: String) async -> Bool {
+        guard let url = URL(string: "\(base)/moods/\(enc("\(name)_\(day)"))?key=\(apiKey)") else { return false }
         let body: [String: Any] = ["fields": [
             "name":      ["stringValue": name],
             "day":       ["stringValue": day],
@@ -101,15 +112,17 @@ enum Fire {
             "note":      ["stringValue": ""],
             "updatedAt": ["timestampValue": formatTS(Date())],
         ]]
-        await patch(url, body)
+        return await patch(url, body)
     }
 
-    private static func patch(_ url: URL, _ body: [String: Any]) async {
+    @discardableResult
+    private static func patch(_ url: URL, _ body: [String: Any]) async -> Bool {
         var req = URLRequest(url: url)
         req.httpMethod = "PATCH"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        _ = try? await URLSession.shared.data(for: req)
+        guard let (_, resp) = try? await URLSession.shared.data(for: req) else { return false }
+        return isOK(resp)
     }
 
     // 내가 받는 하트의 nonce+emoji 조회 (변화 감지는 호출처에서).
@@ -178,7 +191,11 @@ enum Fire {
     // 답장 보내기 — messages doc 생성(폰 addDoc과 동일) + /api/message로 상대 푸시.
     // ⚠️ createdAt은 워치 로컬시각이 아니라 **서버 보정시각(atMs)**을 쓴다 — open rules라 request.time
     //    강제가 없어서, 시계 오차가 크면 폰이 보낸 것과 순서가 뒤집힌다. WatchStore가 serverNow()를 넘긴다.
-    static func sendChat(from: String, to: String, text: String, atMs: Double) async {
+    // 성공 판정 = messages doc 기록(2xx). 기록만 되면 상대 앱에 뜨고 대화에 남는다.
+    // 푸시(/api/message)는 best-effort — 실패해도 '보냄'으로 친다(기록이 본질).
+    @discardableResult
+    static func sendChat(from: String, to: String, text: String, atMs: Double) async -> Bool {
+        var recorded = false
         if let url = URL(string: "\(base)/messages?key=\(apiKey)") {
             let ts = formatTS(Date(timeIntervalSince1970: (atMs > 0 ? atMs : Date().timeIntervalSince1970 * 1000) / 1000))
             let body: [String: Any] = ["fields": [
@@ -189,7 +206,7 @@ enum Fire {
             var req = URLRequest(url: url); req.httpMethod = "POST"
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try? JSONSerialization.data(withJSONObject: body)
-            _ = try? await URLSession.shared.data(for: req)
+            if let (_, resp) = try? await URLSession.shared.data(for: req) { recorded = isOK(resp) }
         }
         if let url = URL(string: "\(webBase)/api/message") {
             var req = URLRequest(url: url); req.httpMethod = "POST"
@@ -197,6 +214,7 @@ enum Fire {
             req.httpBody = try? JSONSerialization.data(withJSONObject: ["from": from, "to": to, "text": text])
             _ = try? await URLSession.shared.data(for: req)
         }
+        return recorded
     }
 
     // ── 시각 헬퍼 ──

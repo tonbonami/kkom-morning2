@@ -1,7 +1,7 @@
 // 하트 푸시 — 워치/폰에서 하트 보내면 상대 잠금 기기에도 알림.
 // 라이브 하트(둘 다 접속 시 실시간 폭탄)와 별개. 연타 스팸 방지로 서버 쿨다운.
 import { NextRequest, NextResponse } from 'next/server';
-import { sendApns, keyForName } from '@/lib/apns';
+import { sendApns, sendApnsWatch, keyForName } from '@/lib/apns';
 
 const RTDB =
   process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL ||
@@ -34,8 +34,12 @@ export async function POST(req: NextRequest) {
     // 쿨다운 조회 실패해도 발송은 시도
   }
 
-  // title=보낸이 이름(커뮤니케이션 알림이면 iOS가 이름 강조) / sender로 아바타, category로 답장 액션
-  const apnsOk = await sendApns(toKey, from, '하트 보냈어 💕',
-    { category: 'KKOM_MSG', sender: from, sound: 'heartbeat.caf' }).catch(() => false);
+  // title=보낸이 이름(커뮤니케이션 알림이면 iOS가 이름 강조) / sender로 아바타, category로 답장 액션.
+  // 워치엔 별도 토큰으로 병행 발송(폰과 떨어져 있어도 손목이 울리게).
+  const [apnsOk] = await Promise.all([
+    sendApns(toKey, from, '하트 보냈어 💕',
+      { category: 'KKOM_MSG', sender: from, sound: 'heartbeat.caf' }).catch(() => false),
+    sendApnsWatch(toKey, from, '하트 보냈어 💕').catch(() => false),
+  ]);
   return NextResponse.json({ ok: true, apns: apnsOk });
 }

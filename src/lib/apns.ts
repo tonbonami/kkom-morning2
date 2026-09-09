@@ -16,6 +16,8 @@ const APNS_KEY = (() => {
 const KEY_ID = process.env.APNS_KEY_ID || '';
 const TEAM_ID = process.env.APNS_TEAM_ID || '';
 const BUNDLE = process.env.APNS_BUNDLE_ID || 'com.tonbonami.kkommorning';
+// 워치 앱은 독립 번들 = 독립 APNs 토픽. 폰과 별개 토큰(watchTokens/*)로 직접 쏜다.
+const WATCH_TOPIC = `${BUNDLE}.watchkitapp`;
 
 // 이름(우댕/꼼이) → 토큰 저장 키(udaeng/kkomi)
 export function keyForName(name: string): 'udaeng' | 'kkomi' {
@@ -104,6 +106,36 @@ export async function sendApns(userKey: string, title: string, body: string, opt
   // 만료/무효 토큰 정리
   if (res.status === 410 || (res.status === 400 && res.body.includes('BadDeviceToken'))) {
     try { await fetch(`${RTDB}/pushTokens/${userKey}.json`, { method: 'DELETE' }); } catch {}
+  }
+  return res.status === 200;
+}
+
+// 워치 독립 푸시 — watchTokens/{userKey}(워치 앱이 직접 저장) + 워치 번들 토픽.
+//   폰이 5m 밖에 있어 블루투스가 끊겨도 워치가 WiFi/셀룰러로 직접 받는다(사용자 요청 C).
+//   워치엔 NSE·답장 카테고리가 없으므로 순수 alert(title+body)만. 폰 sendApns와 병행 호출한다.
+export async function sendApnsWatch(userKey: string, title: string, body: string): Promise<boolean> {
+  if (!APNS_KEY || !KEY_ID || !TEAM_ID) return false;
+
+  let token: string | null = null;
+  try {
+    const r = await fetch(`${RTDB}/watchTokens/${userKey}.json`, { cache: 'no-store' });
+    const j = (await r.json()) as { token?: string } | null;
+    token = j?.token || null;
+  } catch {
+    return false;
+  }
+  if (!token) return false; // 워치 미등록(폰만 있을 수 있음) → 조용히 skip
+
+  const payload = JSON.stringify({ aps: { alert: { title, body }, sound: 'default' } });
+  const headers = { 'apns-topic': WATCH_TOPIC };
+  let res = await post('api.push.apple.com', token, payload, headers);
+  if (res.status === 400 && res.body.includes('BadDeviceToken')) {
+    res = await post('api.sandbox.push.apple.com', token, payload, headers);
+  }
+  if (res.status === 200) console.log(`[apns:watch] ${userKey} ✅`);
+  else console.warn(`[apns:watch] ${userKey} ❌ ${res.status} ${res.body.slice(0, 60)}`);
+  if (res.status === 410 || (res.status === 400 && res.body.includes('BadDeviceToken'))) {
+    try { await fetch(`${RTDB}/watchTokens/${userKey}.json`, { method: 'DELETE' }); } catch {}
   }
   return res.status === 200;
 }

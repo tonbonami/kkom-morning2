@@ -10,6 +10,17 @@ let DDAY = "2023-09-28"
 
 struct AirInfo { var label: String; var grade: String; var pm10: Int?; var pm25: Int? }
 
+// 오프라인일 때 실패한 전송을 담아뒀다가 다음 연결 때 재시도(사용자 요청 A).
+// 앱그룹 UserDefaults에 JSON으로 영속 → 손목 내려 앱이 잠들어도 대기분이 살아남는다.
+struct PendingSend: Codable, Identifiable {
+    enum Kind: String, Codable { case bump, chat, fling, mood }
+    var id = UUID().uuidString
+    var kind: Kind
+    var payload: String   // bump=kind / chat=text / fling=emoji / mood=emoji
+    var atMs: Double       // 채팅 순서 보정용(그 외 0)
+    var createdAt: Double
+}
+
 // 워치 앱 상태 — 상대 접속 폴링, 하트 송수신, 시계오차 보정, 컴플리케이션용 스냅샷 저장.
 @MainActor
 final class WatchStore: ObservableObject {
@@ -27,7 +38,14 @@ final class WatchStore: ObservableObject {
     @Published var recvBumpFlash = 0         // 상대가 보낸 범프 수신 → 애니메이션 트리거
     @Published var recvBumpKind: String? = nil  // 방금 받은 범프 종류(보고싶어 등)
     @Published var recentMessages: [WatchMsg] = []   // 꼼톡 최근 몇 줄
+    @Published var connected = true          // 마지막 서버 통신 성공 여부(B: 오프라인 배지)
+    @Published var inFlight = 0              // 전송 진행 중 개수(보내는 중 표시)
+    @Published var pendingCount = 0          // 재시도 대기 개수
+    @Published var sendFailedFlash = 0       // 전송 실패 토스트 트리거
+    @Published var lastFailLabel = ""        // 실패 토스트 문구용
 
+    private var queue: [PendingSend] = []    // 재시도 큐(UserDefaults에 영속)
+    private var flushing = false
     private var serverOffsetMs: Double = 0   // serverNow = deviceNow + offset
     private var lastHeartNonce: String? = nil
     private var baselineSet = false          // 첫 조회는 baseline(햅틱 X)
@@ -40,11 +58,62 @@ final class WatchStore: ObservableObject {
 
     var partner: String { role == "우댕" ? "꼼이" : "우댕" }
 
+    init() { loadQueue() }
+
+    // ── 재시도 큐(A) ──
+    private func loadQueue() {
+        guard let d = UserDefaults(suiteName: APP_GROUP)?.data(forKey: "watchSendQueue"),
+              let q = try? JSONDecoder().decode([PendingSend].self, from: d) else { return }
+        queue = q; pendingCount = q.count
+    }
+    private func saveQueue() {
+        pendingCount = queue.count
+        if let d = try? JSONEncoder().encode(queue) {
+            UserDefaults(suiteName: APP_GROUP)?.set(d, forKey: "watchSendQueue")
+        }
+    }
+    private func enqueue(_ p: PendingSend, failLabel: String) {
+        queue.append(p); saveQueue()
+        lastFailLabel = failLabel; sendFailedFlash += 1
+        #if os(watchOS)
+        WKInterfaceDevice.current().play(.failure)
+        #endif
+    }
+    // 연결되면 대기분을 순서대로 재전송. 하나라도 실패하면(아직 오프라인) 중단하고 다음 tick에 다시.
+    func flushQueue() {
+        guard !flushing, !queue.isEmpty, let me = role else { return }
+        flushing = true
+        let items = queue
+        Task { [weak self] in
+            guard let self else { return }
+            let to = self.partner
+            var done: Set<String> = []
+            for p in items {
+                let ok: Bool
+                switch p.kind {
+                case .bump:  ok = await Fire.sendBump(from: me, to: to, kind: p.payload)
+                case .chat:  ok = await Fire.sendChat(from: me, to: to, text: p.payload, atMs: p.atMs)
+                case .fling:
+                    ok = await Fire.fling(from: me, to: to, emoji: p.payload)
+                    if ok { await Fire.notifyHeart(from: me, to: to) }
+                case .mood:  ok = await Fire.setMood(name: me, emoji: p.payload, day: self.todayKst())
+                }
+                if ok { done.insert(p.id) } else { break }
+            }
+            if !done.isEmpty {
+                self.queue.removeAll { done.contains($0.id) }
+                self.saveQueue()
+            }
+            self.flushing = false
+        }
+    }
+
     func setRole(_ r: String) {
         role = r
         UserDefaults(suiteName: APP_GROUP)?.set(r, forKey: "watchRole")
         lastHeartNonce = nil; baselineSet = false
         lastBumpNonce = nil; bumpBaselineSet = false
+        WatchPush.shared.syncToken()   // 역할 확정 → 이미 받아둔 APNs 토큰을 올바른 사용자에 기록
         restart()
     }
 
@@ -68,10 +137,16 @@ final class WatchStore: ObservableObject {
     private func tick() async {
         guard let me = role else { return }
         if let p = await Fire.fetchPresence(of: partner) {
+            connected = true
             serverOffsetMs = p.serverNowMs - Date().timeIntervalSince1970 * 1000
             lastSeenMs = p.lastSeenMs
             online = (p.lastSeenMs != nil) && p.active && (serverNow() - (p.lastSeenMs ?? 0) < 90_000)
             writeSnapshot()
+            // 연결 확인됐고 밀린 전송이 있으면 지금 재시도(A).
+            if !queue.isEmpty { flushQueue() }
+        } else {
+            connected = false   // presence 조회 자체가 실패 = 네트워크 없음(B: 오프라인 배지)
+            online = false
         }
         if let h = await Fire.fetchHeartNonce(for: me) {
             if !baselineSet {
@@ -119,6 +194,7 @@ final class WatchStore: ObservableObject {
     }
 
     // 워치에서 답장 — 낙관적으로 내 말풍선 먼저, 서버엔 messages doc 생성 + 상대 푸시.
+    // 기록 실패하면 큐에 넣고 다음 연결 때 재전송(A).
     func sendChat(_ text: String) {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let me = role, !t.isEmpty else { return }
@@ -127,39 +203,67 @@ final class WatchStore: ObservableObject {
         let atMs = serverNow()
         recentMessages.append(WatchMsg(text: t, mine: true, atMs: atMs))
         if recentMessages.count > 8 { recentMessages.removeFirst(recentMessages.count - 8) }
-        Task { await Fire.sendChat(from: me, to: to, text: t, atMs: atMs) }
+        inFlight += 1
+        Task {
+            let ok = await Fire.sendChat(from: me, to: to, text: t, atMs: atMs)
+            self.inFlight = max(0, self.inFlight - 1)
+            if ok { self.connected = true }
+            else { self.connected = false
+                   self.enqueue(PendingSend(kind: .chat, payload: t, atMs: atMs, createdAt: atMs), failLabel: "메시지") }
+        }
     }
 
-    // 하트/스티커 날리기
+    // 하트/스티커 날리기 — 성공해야 보냄. 실패 시 큐.
     func fling(_ emoji: String) {
         guard let me = role else { return }
         sending = true
         playTapHaptic()
         let to = partner
         Task {
-            await Fire.fling(from: me, to: to, emoji: emoji)
-            await Fire.notifyHeart(from: me, to: to)   // 상대 잠금 기기에도 알림(서버 쿨다운 20초)
+            let ok = await Fire.fling(from: me, to: to, emoji: emoji)
+            if ok { await Fire.notifyHeart(from: me, to: to) }   // 상대 잠금 기기에도 알림(서버 쿨다운 20초)
             self.sending = false
+            if ok { self.connected = true }
+            else { self.connected = false
+                   self.enqueue(PendingSend(kind: .fling, payload: emoji, atMs: 0, createdAt: self.serverNow()), failLabel: "하트") }
         }
     }
 
-    // 범프 — 폰 QuickReplyBar 그대로 재현: /api/bump 푸시 + 로컬 확인 애니메이션
+    // 범프 — 폰 QuickReplyBar 재현. ⚠️ '보냈어!' 확인 애니는 실제 전송 성공 후에만(거짓말 금지, A).
+    //   탭 즉시 햅틱으로 '눌림'은 알리고, 왕복 동안 inFlight로 '보내는 중', 결과에 따라 확인/실패.
     func sendBump(_ kind: String) {
         guard let me = role else { return }
         playTapHaptic()
-        bumpKind = kind
-        bumpFlash += 1
         let to = partner
-        Task { await Fire.sendBump(from: me, to: to, kind: kind) }
+        inFlight += 1
+        Task {
+            let ok = await Fire.sendBump(from: me, to: to, kind: kind)
+            self.inFlight = max(0, self.inFlight - 1)
+            if ok {
+                self.connected = true
+                self.bumpKind = kind; self.bumpFlash += 1
+            } else {
+                self.connected = false
+                self.enqueue(PendingSend(kind: .bump, payload: kind, atMs: 0, createdAt: self.serverNow()),
+                             failLabel: bumpLabel(kind))
+            }
+        }
     }
 
-    // 오늘 내 기분 보내기
+    // 오늘 내 기분 보내기 — 낙관적 표시 후, 실패 시 큐(멱등이라 재전송 안전).
     func sendMood(_ emoji: String) {
         guard let me = role else { return }
         playTapHaptic()
         moodSent = emoji
         let day = todayKst()
-        Task { await Fire.setMood(name: me, emoji: emoji, day: day) }
+        inFlight += 1
+        Task {
+            let ok = await Fire.setMood(name: me, emoji: emoji, day: day)
+            self.inFlight = max(0, self.inFlight - 1)
+            if ok { self.connected = true }
+            else { self.connected = false
+                   self.enqueue(PendingSend(kind: .mood, payload: emoji, atMs: 0, createdAt: self.serverNow()), failLabel: "기분") }
+        }
     }
 
     // KST 오늘 날짜 (웹 todayKst와 동일 규칙, 시계보정 적용)

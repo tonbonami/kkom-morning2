@@ -13,6 +13,7 @@
 		2D88668530DA944420D8884D /* LiveActivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90633BA335ABAE160954A1DD /* LiveActivityBridge.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		3744C7C36D96315079592B63 /* FireREST.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76A69DDCA0A8BD1C11921EBE /* FireREST.swift */; };
+		FEEDFACE0000000000000101 /* WatchPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEDFACE0000000000000102 /* WatchPush.swift */; };
 		3C42BD7070C3B68F6F7E9BAC /* CanvasPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9EF21D41F65473FE811E1A /* CanvasPlugin.swift */; };
 		3EB90BA3C5188642EB285A01 /* kkomi_avatar.png in Resources */ = {isa = PBXBuildFile; fileRef = A27D05FCF7F9F3DACADCBC9D /* kkomi_avatar.png */; };
 		47F057D37D50CCF5CDDCF5CA /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E7132EF8F94C13984C0045 /* Foundation.framework */; };
@@ -138,6 +139,7 @@
 		5B1BFE32B2792896DF3CC9DD /* KkomWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KkomWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5B2E72E83E1B27DDF4150575 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		76A69DDCA0A8BD1C11921EBE /* FireREST.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FireREST.swift; sourceTree = "<group>"; };
+		FEEDFACE0000000000000102 /* WatchPush.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchPush.swift; sourceTree = "<group>"; };
 		78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomWatchApp.swift; sourceTree = "<group>"; };
 		8F0F37C8B7C8934708BAB4C9 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		90633BA335ABAE160954A1DD /* LiveActivityBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveActivityBridge.swift; sourceTree = "<group>"; };
@@ -260,6 +262,7 @@
 			children = (
 				78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */,
 				76A69DDCA0A8BD1C11921EBE /* FireREST.swift */,
+				FEEDFACE0000000000000102 /* WatchPush.swift */,
 				F2B5441AB547E3A521A83969 /* WatchStore.swift */,
 				474FCE64304F0513B5EA322B /* ContentView.swift */,
 				8F0F37C8B7C8934708BAB4C9 /* Info.plist */,
@@ -596,6 +599,7 @@
 			files = (
 				A8057E254D9AFBD603329EE4 /* KkomWatchApp.swift in Sources */,
 				3744C7C36D96315079592B63 /* FireREST.swift in Sources */,
+				FEEDFACE0000000000000101 /* WatchPush.swift in Sources */,
 				64AD27C7EDD4C658C6BAB8FB /* WatchStore.swift in Sources */,
 				53B260FA3AC53ABB40843C01 /* ContentView.swift in Sources */,
 			);
