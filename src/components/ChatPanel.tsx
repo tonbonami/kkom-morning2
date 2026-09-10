@@ -47,8 +47,8 @@ function VoiceBubble({ url, dur, mine }: { url: string; dur: number; mine: boole
   return (
     <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-2xl shadow-sm ${mine ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
       style={{ background: mine ? 'var(--ct-my-bg)' : 'var(--ct-partner-bg)' }}>
-      <button onClick={toggle} aria-label="재생" className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white"
-        style={{ background: mine ? 'rgba(255,255,255,0.25)' : 'var(--ct-my-bg)' }}>
+      <button onClick={toggle} aria-label="재생" className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
+        style={{ background: mine ? 'var(--ct-my-btn)' : 'var(--ct-my-bg)', color: 'var(--ct-my-text)' }}>
         {playing ? <Pause size={15} /> : <Play size={15} />}
       </button>
       <div className="flex items-center gap-[2px] h-6">
@@ -56,10 +56,10 @@ function VoiceBubble({ url, dur, mine }: { url: string; dur: number; mine: boole
           const active = i / bars <= pos;
           const h = 6 + ((i * 7) % 14);
           return <span key={i} className="w-[3px] rounded-full"
-            style={{ height: h, background: mine ? (active ? '#fff' : 'rgba(255,255,255,0.4)') : (active ? 'var(--ct-my-bg)' : '#cbd5e1') }} />;
+            style={{ height: h, background: mine ? (active ? 'var(--ct-my-text)' : 'var(--ct-my-bar-off)') : (active ? 'var(--ct-my-bg)' : '#cbd5e1') }} />;
         })}
       </div>
-      <span className={`text-[11px] font-semibold ${mine ? 'text-white/90' : 'text-slate-500'}`}>{fmtDur(dur)}</span>
+      <span className="text-[11px] font-semibold" style={{ color: mine ? 'var(--ct-my-text)' : 'var(--ct-partner-text)', opacity: 0.9 }}>{fmtDur(dur)}</span>
     </div>
   );
 }
@@ -396,20 +396,42 @@ export const CHAT_THEMES: ChatTheme[] = [
   { id: 'matcha', name: '햇살 비친 녹차', light: { bg: 'linear-gradient(168deg, #F4FBF7 0%, #EAF5ED 100%)', myBg: '#064E3B', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.80)', partnerText: '#064E3B' }, dark: { bg: 'linear-gradient(168deg, #131F1C 0%, #0F1714 100%)', myBg: '#A7F3D0', myText: '#022C22', partnerBg: 'rgba(255,255,255,0.06)', partnerText: '#D1FAE5' } },
   { id: 'lavender', name: '라벤더의 밤', light: { bg: 'linear-gradient(168deg, #F9F5FA 0%, #F3EAF5 100%)', myBg: '#4A3B52', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.70)', partnerText: '#3B2F42' }, dark: { bg: 'linear-gradient(168deg, #241E29 0%, #1A161E 100%)', myBg: '#EADCF0', myText: '#2B1D33', partnerBg: 'rgba(255,255,255,0.07)', partnerText: '#EADCF0' } },
 ];
+// hex(#RRGGBB) → rgba — 다크 테마에서 내 풍선 글자(어두운색)로 파형·버튼 반투명 액센트 만들 때 씀.
+function hexA(hex: string, a: number): string {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
 
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
   // 챗 테마(기기별) — localStorage에 사람별로. 디폴트=사이담. [[feedback-design-workflow]] 팔레트는 제미나이.
   const [chatTheme, setChatTheme] = useState('saidam');
+  const [chatMode, setChatMode] = useState<'light' | 'dark'>('light');
   const [themeOpen, setThemeOpen] = useState(false);
   useEffect(() => {
     if (!me) return;
-    try { const t = localStorage.getItem(`kkom-chat-theme-${me}`); if (t && CHAT_THEMES.some((x) => x.id === t)) setChatTheme(t); } catch {}
+    try {
+      const t = localStorage.getItem(`kkom-chat-theme-${me}`); if (t && CHAT_THEMES.some((x) => x.id === t)) setChatTheme(t);
+      const md = localStorage.getItem(`kkom-chat-mode-${me}`); if (md === 'light' || md === 'dark') setChatMode(md);
+    } catch {}
   }, [me]);
   const applyChatTheme = (id: string) => { setChatTheme(id); try { localStorage.setItem(`kkom-chat-theme-${me}`, id); } catch {} };
-  const tc = (CHAT_THEMES.find((t) => t.id === chatTheme) ?? CHAT_THEMES[0]).light;
-  const chatThemeStyle = { background: tc.bg, '--ct-my-bg': tc.myBg, '--ct-my-text': tc.myText, '--ct-partner-bg': tc.partnerBg, '--ct-partner-text': tc.partnerText } as React.CSSProperties;
+  const applyChatMode = (md: 'light' | 'dark') => { setChatMode(md); try { localStorage.setItem(`kkom-chat-mode-${me}`, md); } catch {} };
+  const theme = CHAT_THEMES.find((t) => t.id === chatTheme) ?? CHAT_THEMES[0];
+  const tc = theme[chatMode];
+  const dk = chatMode === 'dark';
+  // 바탕/말풍선 + 다크 대응 보조 변수(헤더·입력 알약). 앱은 라이트 고정이라 이 모드는 챗 전용(기기별).
+  const chatThemeStyle = {
+    background: tc.bg,
+    '--ct-my-bg': tc.myBg, '--ct-my-text': tc.myText, '--ct-partner-bg': tc.partnerBg, '--ct-partner-text': tc.partnerText,
+    '--ct-my-btn': hexA(tc.myText, 0.16), '--ct-my-bar-off': hexA(tc.myText, 0.4),
+    '--ct-header': dk ? 'rgba(22,17,24,0.55)' : 'rgba(255,255,255,0.6)',
+    '--ct-chip': dk ? 'rgba(255,255,255,0.08)' : '#ffffff',
+    '--ct-chip-text': dk ? '#E8E2D8' : '#334155',
+    '--ct-chip-icon': dk ? 'rgba(232,226,216,0.72)' : '#94a3b8',
+  } as React.CSSProperties;
   const [stickerMode, setStickerMode] = useState<StickerMode>('recent');
   // 최근·자주 쓴 이모티콘(기기별). 첫 탭이 이걸 보여주고, pick 할 때마다 기록된다.
   const [recentPicks, setRecentPicks] = useState<EmoPick[]>([]);
@@ -764,12 +786,12 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           onDragEnd={(_e, info) => { if (info.offset.x > 110 || info.velocity.x > 550) onClose(); }}
         >
           {/* 헤더 — 불투명 + 상단 safe-area까지 덮어 뒤 배경 비침 방지 */}
-          <div className="flex items-center gap-3 px-4 pb-3 bg-white/60 backdrop-blur-xl border-b border-black/[0.04] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
-            style={{ paddingTop: 'max(env(safe-area-inset-top), 2.75rem)' }}>
+          <div className="flex items-center gap-3 px-4 pb-3 backdrop-blur-xl border-b border-black/[0.04] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+            style={{ paddingTop: 'max(env(safe-area-inset-top), 2.75rem)', background: 'var(--ct-header)' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={avatarOf(partner)} alt={partner} className="w-9 h-9 rounded-full object-cover ring-2 ring-white shadow-sm" />
             <div className="flex-1">
-              <div className="text-base font-extrabold text-slate-700">{partner}</div>
+              <div className="text-base font-extrabold" style={{ color: 'var(--ct-chip-text)' }}>{partner}</div>
               <div className={`text-xs font-bold ${partnerTyping ? 'text-[#FB7BA8]' : partnerOnline ? 'text-emerald-500' : 'text-slate-400'}`}>
                 {partnerTyping ? '입력 중…' : partnerOnline ? '지금 함께 💚' : '오프라인'}
               </div>
@@ -793,10 +815,14 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
                   initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 380, damping: 38 }}>
                   <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-black/10" />
-                  <div className="mb-3 text-center text-[15px] font-extrabold text-slate-700">챗 테마 <span className="ml-1 text-[11px] font-semibold text-slate-400">이 기기에만 적용</span></div>
+                  <div className="mb-2.5 text-center text-[15px] font-extrabold text-slate-700">챗 테마 <span className="ml-1 text-[11px] font-semibold text-slate-400">이 기기에만 적용</span></div>
+                  <div className="mb-3 flex rounded-full bg-black/[0.06] p-1 text-[13px] font-bold">
+                    <button onClick={() => applyChatMode('light')} className={`flex-1 rounded-full py-1.5 transition ${!dk ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400'}`}>☀️ 라이트</button>
+                    <button onClick={() => applyChatMode('dark')} className={`flex-1 rounded-full py-1.5 transition ${dk ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400'}`}>🌙 다크</button>
+                  </div>
                   <div className="grid grid-cols-2 gap-2.5">
                     {CHAT_THEMES.map((t) => {
-                      const c = t.light; const sel = t.id === chatTheme;
+                      const c = t[chatMode]; const sel = t.id === chatTheme;
                       return (
                         <button key={t.id} onClick={() => applyChatTheme(t.id)}
                           className={`rounded-2xl p-2.5 text-left ring-2 transition active:scale-[0.98] ${sel ? 'ring-[#FB7BA8]' : 'ring-black/[0.06]'}`}
@@ -1187,21 +1213,25 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               <div className="flex items-end gap-2">
                 <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={onFile} />
                 <button onClick={() => setStickerOpen((v) => !v)} aria-label="이모티콘"
-                  className={`shrink-0 w-11 h-11 rounded-full border border-black/5 flex items-center justify-center active:scale-95 transition ${stickerOpen ? 'bg-[#FB7BA8] text-white' : 'bg-white text-slate-400'}`}>
+                  className="shrink-0 w-11 h-11 rounded-full border border-black/5 flex items-center justify-center active:scale-95 transition"
+                  style={stickerOpen ? { background: '#FB7BA8', color: '#fff' } : { background: 'var(--ct-chip)', color: 'var(--ct-chip-icon)' }}>
                   <Smile size={20} />
                 </button>
                 <button onClick={() => { setStickerOpen(false); fileRef.current?.click(); }} disabled={uploading} aria-label="사진·동영상"
-                  className="shrink-0 w-11 h-11 rounded-full bg-white border border-black/5 text-slate-400 flex items-center justify-center disabled:opacity-40 active:scale-95 transition">
+                  className="shrink-0 w-11 h-11 rounded-full border border-black/5 flex items-center justify-center disabled:opacity-40 active:scale-95 transition"
+                  style={{ background: 'var(--ct-chip)', color: 'var(--ct-chip-icon)' }}>
                   <ImagePlus size={20} />
                 </button>
                 <textarea ref={taRef} value={draft} onChange={onInput} onBlur={stopTyping}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
                   rows={1} placeholder={uploading ? '올리는 중…' : '포차코에게 할 말…'}
-                  className="flex-1 resize-none rounded-3xl bg-white ring-1 ring-black/[0.07] shadow-sm px-4 py-2.5 text-[15px] text-slate-700 outline-none focus:ring-[#FB7BA8]/40 max-h-[120px]" />
+                  style={{ background: 'var(--ct-chip)', color: 'var(--ct-chip-text)' }}
+                  className="flex-1 resize-none rounded-3xl ring-1 ring-black/[0.07] shadow-sm px-4 py-2.5 text-[15px] outline-none focus:ring-[#FB7BA8]/40 max-h-[120px]" />
                 {draft.trim() ? (
                   <>
                     <button onClick={openCapsule} aria-label="타임캡슐"
-                      className="shrink-0 w-11 h-11 rounded-full bg-white border border-black/5 text-[#FB7BA8] flex items-center justify-center active:scale-95 transition">
+                      className="shrink-0 w-11 h-11 rounded-full border border-black/5 text-[#FB7BA8] flex items-center justify-center active:scale-95 transition"
+                      style={{ background: 'var(--ct-chip)' }}>
                       <Hourglass size={18} />
                     </button>
                     {/* onPointerDown preventDefault — 버튼이 입력창 포커스를 뺏지 않게(연속 전송 시 자판 유지) */}
