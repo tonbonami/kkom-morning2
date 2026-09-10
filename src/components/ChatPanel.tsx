@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2 } from 'lucide-react';
+import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
 import { saveLink, deleteLink, subscribeLinks, firstUrl, youTubeId, type SavedLink } from '@/lib/links';
 import {
@@ -45,15 +45,18 @@ function VoiceBubble({ url, dur, mine }: { url: string; dur: number; mine: boole
   };
   const bars = 22;
   return (
-    <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-2xl shadow-sm ${mine ? 'bg-[#FB7BA8] rounded-tr-sm' : 'bg-white rounded-tl-sm'}`}>
-      <button onClick={toggle} aria-label="재생" className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${mine ? 'bg-white/25 text-white' : 'bg-[#FB7BA8] text-white'}`}>
+    <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-2xl shadow-sm ${mine ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
+      style={{ background: mine ? 'var(--ct-my-bg)' : 'var(--ct-partner-bg)' }}>
+      <button onClick={toggle} aria-label="재생" className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white"
+        style={{ background: mine ? 'rgba(255,255,255,0.25)' : 'var(--ct-my-bg)' }}>
         {playing ? <Pause size={15} /> : <Play size={15} />}
       </button>
       <div className="flex items-center gap-[2px] h-6">
         {Array.from({ length: bars }).map((_, i) => {
           const active = i / bars <= pos;
           const h = 6 + ((i * 7) % 14);
-          return <span key={i} className={`w-[3px] rounded-full ${mine ? (active ? 'bg-white' : 'bg-white/40') : (active ? 'bg-[#FB7BA8]' : 'bg-slate-300')}`} style={{ height: h }} />;
+          return <span key={i} className="w-[3px] rounded-full"
+            style={{ height: h, background: mine ? (active ? '#fff' : 'rgba(255,255,255,0.4)') : (active ? 'var(--ct-my-bg)' : '#cbd5e1') }} />;
         })}
       </div>
       <span className={`text-[11px] font-semibold ${mine ? 'text-white/90' : 'text-slate-500'}`}>{fmtDur(dur)}</span>
@@ -382,9 +385,31 @@ export function preview(m: ChatMessage): string {
   return stripEmo(m.text);
 }
 
+// ── 챗 테마(기기별) — 제미나이 팔레트 5종. 바탕/내풍선/상대풍선 색을 CSS 변수로 깔아 텍스트·음성 말풍선 전부 따라오게.
+//   앱은 라이트 고정이라 light 값 적용(dark는 향후 다크 해제 대비 보관). 상대 풍선은 사이담식 '반투명 흰색'.
+type ChatThemeColors = { bg: string; myBg: string; myText: string; partnerBg: string; partnerText: string };
+export type ChatTheme = { id: string; name: string; light: ChatThemeColors; dark: ChatThemeColors };
+export const CHAT_THEMES: ChatTheme[] = [
+  { id: 'saidam', name: '사이담', light: { bg: 'linear-gradient(168deg, #FCFAF7 0%, #F9F7F4 58%, #F7F6F7 100%)', myBg: '#382830', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.74)', partnerText: '#2E1D26' }, dark: { bg: 'linear-gradient(168deg, #241A20 0%, #221A22 58%, #1E1A26 100%)', myBg: '#F2E8EA', myText: '#2A2028', partnerBg: 'rgba(255,255,255,0.07)', partnerText: '#F2E8EA' } },
+  { id: 'pink', name: '오리지널 핑크', light: { bg: '#FBF8F2', myBg: '#FB7BA8', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.85)', partnerText: '#334155' }, dark: { bg: '#272522', myBg: '#D94C7A', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.10)', partnerText: '#E8E2D8' } },
+  { id: 'dawn', name: '포근한 새벽', light: { bg: 'linear-gradient(168deg, #F0F7F9 0%, #E8F2F5 100%)', myBg: '#1E3A8A', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.75)', partnerText: '#1E293B' }, dark: { bg: 'linear-gradient(168deg, #171E2B 0%, #111827 100%)', myBg: '#93C5FD', myText: '#0F172A', partnerBg: 'rgba(255,255,255,0.08)', partnerText: '#F1F5F9' } },
+  { id: 'matcha', name: '햇살 비친 녹차', light: { bg: 'linear-gradient(168deg, #F4FBF7 0%, #EAF5ED 100%)', myBg: '#064E3B', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.80)', partnerText: '#064E3B' }, dark: { bg: 'linear-gradient(168deg, #131F1C 0%, #0F1714 100%)', myBg: '#A7F3D0', myText: '#022C22', partnerBg: 'rgba(255,255,255,0.06)', partnerText: '#D1FAE5' } },
+  { id: 'lavender', name: '라벤더의 밤', light: { bg: 'linear-gradient(168deg, #F9F5FA 0%, #F3EAF5 100%)', myBg: '#4A3B52', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.70)', partnerText: '#3B2F42' }, dark: { bg: 'linear-gradient(168deg, #241E29 0%, #1A161E 100%)', myBg: '#EADCF0', myText: '#2B1D33', partnerBg: 'rgba(255,255,255,0.07)', partnerText: '#EADCF0' } },
+];
+
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
+  // 챗 테마(기기별) — localStorage에 사람별로. 디폴트=사이담. [[feedback-design-workflow]] 팔레트는 제미나이.
+  const [chatTheme, setChatTheme] = useState('saidam');
+  const [themeOpen, setThemeOpen] = useState(false);
+  useEffect(() => {
+    if (!me) return;
+    try { const t = localStorage.getItem(`kkom-chat-theme-${me}`); if (t && CHAT_THEMES.some((x) => x.id === t)) setChatTheme(t); } catch {}
+  }, [me]);
+  const applyChatTheme = (id: string) => { setChatTheme(id); try { localStorage.setItem(`kkom-chat-theme-${me}`, id); } catch {} };
+  const tc = (CHAT_THEMES.find((t) => t.id === chatTheme) ?? CHAT_THEMES[0]).light;
+  const chatThemeStyle = { background: tc.bg, '--ct-my-bg': tc.myBg, '--ct-my-text': tc.myText, '--ct-partner-bg': tc.partnerBg, '--ct-partner-text': tc.partnerText } as React.CSSProperties;
   const [stickerMode, setStickerMode] = useState<StickerMode>('recent');
   // 최근·자주 쓴 이모티콘(기기별). 첫 탭이 이걸 보여주고, pick 할 때마다 기록된다.
   const [recentPicks, setRecentPicks] = useState<EmoPick[]>([]);
@@ -728,7 +753,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[60] flex flex-col bg-[#FBF8F2] dark:bg-[#272522] bg-[radial-gradient(#e5e7eb_1.5px,transparent_1.5px)] [background-size:20px_20px] dark:bg-[radial-gradient(#374151_1.5px,transparent_1.5px)]"
+          className="fixed inset-0 z-[60] flex flex-col"
+          style={chatThemeStyle}
           initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
           transition={{ type: 'spring', stiffness: 380, damping: 40 }}
           drag={(memoryOpen || viewerImage || actionMsg || capsuleOpen || stickerOpen) ? false : 'x'}
@@ -738,7 +764,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           onDragEnd={(_e, info) => { if (info.offset.x > 110 || info.velocity.x > 550) onClose(); }}
         >
           {/* 헤더 — 불투명 + 상단 safe-area까지 덮어 뒤 배경 비침 방지 */}
-          <div className="flex items-center gap-3 px-4 pb-3 bg-[#FBF8F2]/95 backdrop-blur-xl border-b border-black/[0.04] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+          <div className="flex items-center gap-3 px-4 pb-3 bg-white/60 backdrop-blur-xl border-b border-black/[0.04] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
             style={{ paddingTop: 'max(env(safe-area-inset-top), 2.75rem)' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={avatarOf(partner)} alt={partner} className="w-9 h-9 rounded-full object-cover ring-2 ring-white shadow-sm" />
@@ -748,11 +774,49 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 {partnerTyping ? '입력 중…' : partnerOnline ? '지금 함께 💚' : '오프라인'}
               </div>
             </div>
+            <button onClick={() => setThemeOpen(true)} aria-label="챗 테마" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
+              <Palette size={20} />
+            </button>
             <button onClick={openMemory} aria-label="추억 보관함" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
               <Bookmark size={20} />
             </button>
             <button onClick={onClose} aria-label="닫기" className="p-1.5 -mr-1 text-slate-400 hover:text-slate-600"><X size={22} /></button>
           </div>
+
+          {/* 챗 테마 시트 — 제미나이 설계: 미니 챗 미리보기 카드 2단 그리드, 프리셋 5종(기기별). */}
+          <AnimatePresence>
+            {themeOpen && (
+              <>
+                <motion.div className="absolute inset-0 z-[70] bg-black/30" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  onClick={() => setThemeOpen(false)} />
+                <motion.div className="absolute inset-x-0 bottom-0 z-[71] rounded-t-3xl bg-white p-4 shadow-2xl"
+                  style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+                  initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 380, damping: 38 }}>
+                  <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-black/10" />
+                  <div className="mb-3 text-center text-[15px] font-extrabold text-slate-700">챗 테마 <span className="ml-1 text-[11px] font-semibold text-slate-400">이 기기에만 적용</span></div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {CHAT_THEMES.map((t) => {
+                      const c = t.light; const sel = t.id === chatTheme;
+                      return (
+                        <button key={t.id} onClick={() => applyChatTheme(t.id)}
+                          className={`rounded-2xl p-2.5 text-left ring-2 transition active:scale-[0.98] ${sel ? 'ring-[#FB7BA8]' : 'ring-black/[0.06]'}`}
+                          style={{ background: c.bg }}>
+                          <div className="flex flex-col gap-1">
+                            <span className="max-w-[86%] self-start truncate rounded-2xl rounded-tl-sm px-2.5 py-1 text-[11px] font-medium" style={{ background: c.partnerBg, color: c.partnerText }}>안녕!</span>
+                            <span className="max-w-[86%] self-end truncate rounded-2xl rounded-tr-sm px-2.5 py-1 text-[11px] font-medium" style={{ background: c.myBg, color: c.myText }}>사랑해 💗</span>
+                          </div>
+                          <div className="mt-2 flex items-center gap-1">
+                            {sel && <Check size={13} className="text-[#FB7BA8]" strokeWidth={3} />}
+                            <span className={`text-[12px] font-bold ${sel ? 'text-[#FB7BA8]' : 'text-slate-500'}`}>{t.name}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
 
           {/* 메시지 — 길게눌러 답장 시 iOS 기본 텍스트선택/콜아웃(Copy·Look Up) 뜨는 것 차단 */}
           <div ref={scrollRef} onScroll={onScroll}
@@ -880,11 +944,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           <>
                             {/* 주소만 덜렁 보내면 텍스트 버블은 숨기고 카드만 (주소 노출 X) */}
                             {!onlyUrl && (
-                              <div className={`max-w-full px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap break-keep ${
-                                mine
-                                  ? 'bg-[#FB7BA8] dark:bg-[#D94C7A] text-white rounded-2xl rounded-tr-sm shadow-[0_2px_8px_rgba(251,123,168,0.2)]'
-                                  : 'bg-white dark:bg-[#332F2A] text-slate-700 dark:text-[#E8E2D8] rounded-2xl rounded-tl-sm shadow-[0_2px_12px_rgba(0,0,0,0.04)]'
-                              }`}>
+                              <div
+                                className={`max-w-full px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap break-keep rounded-2xl ${mine ? 'rounded-tr-sm shadow-[0_2px_8px_rgba(0,0,0,0.12)]' : 'rounded-tl-sm shadow-[0_2px_12px_rgba(0,0,0,0.04)]'}`}
+                                style={{ background: mine ? 'var(--ct-my-bg)' : 'var(--ct-partner-bg)', color: mine ? 'var(--ct-my-text)' : 'var(--ct-partner-text)' }}>
                                 {renderRich(m.text)}
                               </div>
                             )}
@@ -939,7 +1001,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
 
             {partnerTyping && (
               <div className="flex justify-start">
-                <div className="bg-white text-slate-400 rounded-2xl rounded-bl-md px-4 py-2.5 shadow-sm">
+                <div className="text-slate-400 rounded-2xl rounded-bl-md px-4 py-2.5 shadow-sm" style={{ background: 'var(--ct-partner-bg)' }}>
                   <span className="inline-flex gap-1 items-center">
                     <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                     <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
