@@ -385,16 +385,26 @@ export function preview(m: ChatMessage): string {
   return stripEmo(m.text);
 }
 
-// ── 챗 테마(기기별) — 제미나이 팔레트 5종. 바탕/내풍선/상대풍선 색을 CSS 변수로 깔아 텍스트·음성 말풍선 전부 따라오게.
-//   앱은 라이트 고정이라 light 값 적용(dark는 향후 다크 해제 대비 보관). 상대 풍선은 사이담식 '반투명 흰색'.
-type ChatThemeColors = { bg: string; myBg: string; myText: string; partnerBg: string; partnerText: string };
-export type ChatTheme = { id: string; name: string; light: ChatThemeColors; dark: ChatThemeColors };
-export const CHAT_THEMES: ChatTheme[] = [
-  { id: 'saidam', name: '사이담', light: { bg: 'linear-gradient(168deg, #FCFAF7 0%, #F9F7F4 58%, #F7F6F7 100%)', myBg: '#382830', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.74)', partnerText: '#2E1D26' }, dark: { bg: 'linear-gradient(168deg, #241A20 0%, #221A22 58%, #1E1A26 100%)', myBg: '#F2E8EA', myText: '#2A2028', partnerBg: 'rgba(255,255,255,0.07)', partnerText: '#F2E8EA' } },
-  { id: 'pink', name: '오리지널 핑크', light: { bg: '#FBF8F2', myBg: '#FB7BA8', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.85)', partnerText: '#334155' }, dark: { bg: '#272522', myBg: '#D94C7A', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.10)', partnerText: '#E8E2D8' } },
-  { id: 'dawn', name: '포근한 새벽', light: { bg: 'linear-gradient(168deg, #F0F7F9 0%, #E8F2F5 100%)', myBg: '#1E3A8A', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.75)', partnerText: '#1E293B' }, dark: { bg: 'linear-gradient(168deg, #171E2B 0%, #111827 100%)', myBg: '#93C5FD', myText: '#0F172A', partnerBg: 'rgba(255,255,255,0.08)', partnerText: '#F1F5F9' } },
-  { id: 'matcha', name: '햇살 비친 녹차', light: { bg: 'linear-gradient(168deg, #F4FBF7 0%, #EAF5ED 100%)', myBg: '#064E3B', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.80)', partnerText: '#064E3B' }, dark: { bg: 'linear-gradient(168deg, #131F1C 0%, #0F1714 100%)', myBg: '#A7F3D0', myText: '#022C22', partnerBg: 'rgba(255,255,255,0.06)', partnerText: '#D1FAE5' } },
-  { id: 'lavender', name: '라벤더의 밤', light: { bg: 'linear-gradient(168deg, #F9F5FA 0%, #F3EAF5 100%)', myBg: '#4A3B52', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.70)', partnerText: '#3B2F42' }, dark: { bg: 'linear-gradient(168deg, #241E29 0%, #1A161E 100%)', myBg: '#EADCF0', myText: '#2B1D33', partnerBg: 'rgba(255,255,255,0.07)', partnerText: '#EADCF0' } },
+// ── 챗 테마(기기별) — 제미나이 팔레트. 라이트/다크 팔레트를 분리(다크는 톤·명도 다양 = Elevated Dark).
+//   바탕/내풍선/상대풍선(+다크는 surface=서랍·헤더·입력바 표면색)을 CSS 변수로 깔아 전 요소가 따라온다.
+export type ChatPalette = { id: string; name: string; bg: string; myBg: string; myText: string; partnerBg: string; partnerText: string; surface?: string };
+// 라이트 5종 (제미나이 1차)
+export const LIGHT_THEMES: ChatPalette[] = [
+  { id: 'saidam',   name: '사이담',        bg: 'linear-gradient(168deg, #FCFAF7 0%, #F9F7F4 58%, #F7F6F7 100%)', myBg: '#382830', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.74)', partnerText: '#2E1D26' },
+  { id: 'pink',     name: '오리지널 핑크', bg: '#FBF8F2', myBg: '#FB7BA8', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.85)', partnerText: '#334155' },
+  { id: 'dawn',     name: '포근한 새벽',   bg: 'linear-gradient(168deg, #F0F7F9 0%, #E8F2F5 100%)', myBg: '#1E3A8A', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.75)', partnerText: '#1E293B' },
+  { id: 'matcha',   name: '햇살 비친 녹차', bg: 'linear-gradient(168deg, #F4FBF7 0%, #EAF5ED 100%)', myBg: '#064E3B', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.80)', partnerText: '#064E3B' },
+  { id: 'lavender', name: '라벤더의 밤',   bg: 'linear-gradient(168deg, #F9F5FA 0%, #F3EAF5 100%)', myBg: '#4A3B52', myText: '#FFFFFF', partnerBg: 'rgba(255,255,255,0.70)', partnerText: '#3B2F42' },
+];
+// 다크 7종 (제미나이 2차 — 명도 20~30 스펙트럼 + 톤 다양 + surface 표면색)
+export const DARK_THEMES: ChatPalette[] = [
+  { id: 'saidam-deep', name: '사이담 딥',      bg: 'linear-gradient(168deg, #241A20 0%, #1E1A26 100%)', surface: '#2E2229', myBg: '#F2E8EA', myText: '#2A2028', partnerBg: 'rgba(255,255,255,0.08)', partnerText: '#F2E8EA' },
+  { id: 'greige',      name: '코지 그레이지',  bg: '#383330', surface: '#423C38', myBg: '#E8DED8', myText: '#2A2420', partnerBg: 'rgba(255,255,255,0.12)', partnerText: '#E8DED8' },
+  { id: 'slate',       name: '쿨 슬레이트',    bg: 'linear-gradient(168deg, #2E3643 0%, #252B36 100%)', surface: '#3A4452', myBg: '#D1E0F2', myText: '#1A2333', partnerBg: 'rgba(255,255,255,0.12)', partnerText: '#D1E0F2' },
+  { id: 'forest',      name: '포레스트 쉐도우', bg: 'linear-gradient(168deg, #29302B 0%, #202622 100%)', surface: '#353E38', myBg: '#CDE8D8', myText: '#17261D', partnerBg: 'rgba(255,255,255,0.10)', partnerText: '#D1EBE1' },
+  { id: 'mauve',       name: '더스티 모브',    bg: 'linear-gradient(168deg, #362D38 0%, #2B232D 100%)', surface: '#443946', myBg: '#E6D6EB', myText: '#2C1E30', partnerBg: 'rgba(255,255,255,0.12)', partnerText: '#E6D6EB' },
+  { id: 'mocha',       name: '소프트 모카',    bg: 'linear-gradient(168deg, #403531 0%, #362B28 100%)', surface: '#4D403B', myBg: '#F2D8CB', myText: '#331E15', partnerBg: 'rgba(255,255,255,0.15)', partnerText: '#E8D5CC' },
+  { id: 'neutral',     name: '퓨어 뉴트럴',    bg: '#2D2D2D', surface: '#383838', myBg: '#E2E2E2', myText: '#1A1A1A', partnerBg: 'rgba(255,255,255,0.10)', partnerText: '#E2E2E2' },
 ];
 // hex(#RRGGBB) → rgba — 다크 테마에서 내 풍선 글자(어두운색)로 파형·버튼 반투명 액센트 만들 때 씀.
 function hexA(hex: string, a: number): string {
@@ -406,38 +416,46 @@ function hexA(hex: string, a: number): string {
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
-  // 챗 테마(기기별) — localStorage에 사람별로. 디폴트=사이담. [[feedback-design-workflow]] 팔레트는 제미나이.
-  const [chatTheme, setChatTheme] = useState('saidam');
+  // 챗 테마(기기별) — 라이트/다크 팔레트를 따로 고른다(모드별 선택 기억). [[feedback-design-workflow]] 팔레트는 제미나이.
+  const [lightThemeId, setLightThemeId] = useState('saidam');
+  const [darkThemeId, setDarkThemeId] = useState('saidam-deep');
   const [chatMode, setChatMode] = useState<'light' | 'dark'>('light');
   const [themeOpen, setThemeOpen] = useState(false);
   useEffect(() => {
     if (!me) return;
     try {
-      const t = localStorage.getItem(`kkom-chat-theme-${me}`); if (t && CHAT_THEMES.some((x) => x.id === t)) setChatTheme(t);
       const md = localStorage.getItem(`kkom-chat-mode-${me}`); if (md === 'light' || md === 'dark') setChatMode(md);
+      const lt = localStorage.getItem(`kkom-chat-light-${me}`) || localStorage.getItem(`kkom-chat-theme-${me}`);  // 구키 폴백
+      if (lt && LIGHT_THEMES.some((x) => x.id === lt)) setLightThemeId(lt);
+      const dt = localStorage.getItem(`kkom-chat-dark-${me}`); if (dt && DARK_THEMES.some((x) => x.id === dt)) setDarkThemeId(dt);
     } catch {}
   }, [me]);
-  const applyChatTheme = (id: string) => { setChatTheme(id); try { localStorage.setItem(`kkom-chat-theme-${me}`, id); } catch {} };
   const applyChatMode = (md: 'light' | 'dark') => { setChatMode(md); try { localStorage.setItem(`kkom-chat-mode-${me}`, md); } catch {} };
-  const theme = CHAT_THEMES.find((t) => t.id === chatTheme) ?? CHAT_THEMES[0];
-  const tc = theme[chatMode];
   const dk = chatMode === 'dark';
-  // 바탕/말풍선 + 다크 대응 보조 변수(헤더·입력 알약). 앱은 라이트 고정이라 이 모드는 챗 전용(기기별).
+  const themeSet = dk ? DARK_THEMES : LIGHT_THEMES;
+  const activeThemeId = dk ? darkThemeId : lightThemeId;
+  const applyChatTheme = (id: string) => {
+    if (dk) { setDarkThemeId(id); try { localStorage.setItem(`kkom-chat-dark-${me}`, id); } catch {} }
+    else { setLightThemeId(id); try { localStorage.setItem(`kkom-chat-light-${me}`, id); } catch {} }
+  };
+  const tc = themeSet.find((t) => t.id === activeThemeId) ?? themeSet[0];
+  const surf = tc.surface ?? '#2E2229';   // 다크 표면색(서랍·헤더·입력바가 이걸 따라 밝기 맞춤)
+  // 바탕/말풍선 + 보조 변수. 다크는 테마별 surface로 서랍·헤더가 함께 밝아짐(밝은 다크 지원).
   const chatThemeStyle = {
     background: tc.bg,
     '--ct-my-bg': tc.myBg, '--ct-my-text': tc.myText, '--ct-partner-bg': tc.partnerBg, '--ct-partner-text': tc.partnerText,
     '--ct-my-btn': hexA(tc.myText, 0.16), '--ct-my-bar-off': hexA(tc.myText, 0.4),
-    '--ct-header': dk ? 'rgba(22,17,24,0.55)' : 'rgba(255,255,255,0.6)',
+    '--ct-header': dk ? hexA(surf, 0.82) : 'rgba(255,255,255,0.6)',
     '--ct-chip': dk ? 'rgba(255,255,255,0.08)' : '#ffffff',
-    '--ct-chip-text': dk ? '#E8E2D8' : '#334155',
-    '--ct-chip-icon': dk ? 'rgba(232,226,216,0.72)' : '#94a3b8',
-    // 이모티콘 서랍(제미나이 다크 리디자인) — 글래스모피즘 + 라이트박스 셀 + 로즈 필 탭 + 웜 라벨
-    '--ct-sheet': dk ? 'rgba(36,26,32,0.85)' : 'rgba(251,248,242,0.95)',
+    '--ct-chip-text': dk ? '#ECE6E2' : '#334155',
+    '--ct-chip-icon': dk ? 'rgba(236,230,226,0.72)' : '#94a3b8',
+    // 이모티콘 서랍(제미나이 다크 리디자인) — surface 기반 글래스 + 내 말풍선색 라이트박스 셀 + 로즈 필 + 웜 라벨
+    '--ct-sheet': dk ? hexA(surf, 0.85) : 'rgba(251,248,242,0.95)',
     '--ct-sheet-border': dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-    '--ct-cell': dk ? 'rgba(242,232,234,0.15)' : '#ffffff',   // 다크=내 말풍선색 극저투명(라이트박스)
+    '--ct-cell': dk ? hexA(tc.myBg, 0.15) : '#ffffff',   // 다크=그 테마 내 말풍선색 극저투명(라이트박스)
     '--ct-cell-shadow': dk ? '0 4px 12px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.06)' : '0 2px 8px rgba(0,0,0,0.04)',
-    '--ct-tab-active': dk ? 'rgba(251,123,168,0.18)' : 'rgba(251,123,168,0.15)',   // 통짜 핑크 대신 은은한 로즈 필
-    '--ct-label': dk ? '#A397A0' : '#8B7D88',   // 웜 뮤트 라벨(차가운 회색 대신)
+    '--ct-tab-active': dk ? 'rgba(251,123,168,0.18)' : 'rgba(251,123,168,0.15)',
+    '--ct-label': dk ? '#A397A0' : '#8B7D88',
   } as React.CSSProperties;
   const [stickerMode, setStickerMode] = useState<StickerMode>('recent');
   // 최근·자주 쓴 이모티콘(기기별). 첫 탭이 이걸 보여주고, pick 할 때마다 기록된다.
@@ -812,7 +830,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             <button onClick={onClose} aria-label="닫기" className="p-1.5 -mr-1 text-slate-400 hover:text-slate-600"><X size={22} /></button>
           </div>
 
-          {/* 챗 테마 시트 — 제미나이 설계: 미니 챗 미리보기 카드 2단 그리드, 프리셋 5종(기기별). */}
+          {/* 챗 테마 시트 — 제미나이 설계: 미니 챗 미리보기 카드 2단 그리드. 모드별 세트(라이트 5·다크 7), 기기별. */}
           <AnimatePresence>
             {themeOpen && (
               <>
@@ -827,9 +845,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     <button onClick={() => applyChatMode('light')} className={`flex-1 rounded-full py-1.5 transition ${!dk ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400'}`}>☀️ 라이트</button>
                     <button onClick={() => applyChatMode('dark')} className={`flex-1 rounded-full py-1.5 transition ${dk ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400'}`}>🌙 다크</button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {CHAT_THEMES.map((t) => {
-                      const c = t[chatMode]; const sel = t.id === chatTheme;
+                  <div className="grid grid-cols-2 gap-2.5 max-h-[52vh] overflow-y-auto -mx-1 px-1">
+                    {themeSet.map((t) => {
+                      const c = t; const sel = t.id === activeThemeId;
                       return (
                         <button key={t.id} onClick={() => applyChatTheme(t.id)}
                           className={`rounded-2xl p-2.5 text-left ring-2 transition active:scale-[0.98] ${sel ? 'ring-[#FB7BA8]' : 'ring-black/[0.06]'}`}
