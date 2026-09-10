@@ -134,7 +134,7 @@ const ANIM_STICKERS: { word: string; image: string; still: string }[] = [
   { word: '보고싶어',   image: '/emo/sai-anim/missyou.webp', still: '/emo/sai-anim/missyou-still.png' },
   { word: '고마워',     image: '/emo/sai-anim/thanks.webp',  still: '/emo/sai-anim/thanks-still.png' },
   { word: '삐짐',       image: '/emo/sai-anim/sulk.webp',    still: '/emo/sai-anim/sulk-still.png' },
-  { word: '흥!',        image: '/emo/sai-anim/wave.webp',    still: '/emo/sai-anim/wave-still.png' },
+  { word: '흥!',        image: '/emo/sai-anim/wave.webp?v=2',    still: '/emo/sai-anim/wave-still.png?v=2' },
   { word: '미안해',     image: '/emo/sai-anim/sorry.webp',   still: '/emo/sai-anim/sorry-still.png' },
   { word: '잘자',       image: '/emo/sai-anim/night.webp',   still: '/emo/sai-anim/night-still.png' },
   { word: '씻고 올게',  image: '/emo/sai-anim/bath.webp?v=2',    still: '/emo/sai-anim/bath-still.png?v=2' },
