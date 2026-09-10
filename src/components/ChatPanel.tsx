@@ -141,6 +141,8 @@ const ANIM_STICKERS: { word: string; image: string; still: string }[] = [
   { word: '아파',       image: '/emo/sai-anim/sick.webp',    still: '/emo/sai-anim/sick-still.png' },
   { word: '좋아!',      image: '/emo/sai-anim/yay.webp',     still: '/emo/sai-anim/yay-still.png' },
   { word: '으악',       image: '/emo/sai-anim/yell.webp',    still: '/emo/sai-anim/yell-still.png' },
+  { word: '축하해!',    image: '/emo/sai-anim/party.webp',   still: '/emo/sai-anim/party-still.png' },
+  { word: '선물',       image: '/emo/sai-anim/gift.webp',    still: '/emo/sai-anim/gift-still.png' },
 ];
 
 const DANG_STICKERS: { word: string; image: string }[] = [
