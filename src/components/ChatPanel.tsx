@@ -834,10 +834,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ scale: { type: 'spring', stiffness: 300, damping: 20 }, opacity: { duration: 0.2 } }} />
                         ) : (
-                          // 사이 팩은 글자가 그림 안에 있어 조금 더 크게(144px) — 그래야 읽힌다. 포차코 스티커는 112px 유지.
-                          // ⚠️ 움짤(sai-anim)은 webp가 스스로 움직이므로 통 흔들기(rotate)를 빼서 겹침 제거. 정지 스티커만 흔든다.
+                          // 사이담 기준 통일 — 팩·움짤·정지 구분 없이 전부 160px(w-40), 폭 기준 h-auto(비율 유지, 안 찌그러짐).
+                          //   챗 이모티콘은 말풍선 없이 그림만. ⚠️ 움짤(sai-anim)은 스스로 움직여 통 흔들기(rotate) 제외, 정지만 흔든다.
                           <motion.img src={m.sticker} alt="이모티콘"
-                            className={`${m.sticker.startsWith('/emo/sai/') ? 'w-36 h-36' : 'w-28 h-28'} object-contain drop-shadow-sm`}
+                            className="w-40 h-auto object-contain drop-shadow-sm"
                             initial={{ scale: 0.4, opacity: 0 }}
                             animate={m.sticker.startsWith('/emo/sai-anim/')
                               ? { scale: 1, opacity: 1 }
@@ -986,8 +986,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                               <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={p.key}
                                 className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white shadow-sm active:scale-90 transition-transform">
                                 {isVideoSrc(p.image)
-                                  ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[74%] h-[74%] object-contain" />
-                                  : /* eslint-disable-next-line @next/next/no-img-element */ <img src={drawerThumb(p.image)} alt="" className="w-[74%] h-[74%] object-contain" />}
+                                  ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
+                                  : /* eslint-disable-next-line @next/next/no-img-element */ <img src={drawerThumb(p.image)} alt="" className="w-[88%] h-[88%] object-contain" />}
                               </button>
                             ))}
                           </div>
@@ -1001,8 +1001,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                               <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={p.key}
                                 className="grid aspect-square place-items-center rounded-2xl bg-white shadow-sm active:scale-90 transition-transform">
                                 {isVideoSrc(p.image)
-                                  ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[74%] h-[74%] object-contain" />
-                                  : /* eslint-disable-next-line @next/next/no-img-element */ <img src={drawerThumb(p.image)} alt="" className="w-[74%] h-[74%] object-contain" />}
+                                  ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
+                                  : /* eslint-disable-next-line @next/next/no-img-element */ <img src={drawerThumb(p.image)} alt="" className="w-[88%] h-[88%] object-contain" />}
                               </button>
                             ))}
                           </div>
@@ -1023,10 +1023,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           <button key={it.key} onClick={() => pickSticker(stickerMode, it.key, it.image)} aria-label={it.key}
                             className="grid aspect-square place-items-center rounded-2xl bg-white shadow-sm active:scale-90 transition-transform">
                             {it.video ? (
-                              <video src={it.image} poster={posterOf(it.image)} muted loop autoPlay playsInline className="w-[74%] h-[74%] object-contain" />
+                              <video src={it.image} poster={posterOf(it.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
                             ) : (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={it.thumb ?? it.image} alt="" className="w-[74%] h-[74%] object-contain" />
+                              <img src={it.thumb ?? it.image} alt="" className="w-[88%] h-[88%] object-contain" />
                             )}
                           </button>
                         ))}
