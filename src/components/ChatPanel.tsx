@@ -431,6 +431,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     '--ct-chip': dk ? 'rgba(255,255,255,0.08)' : '#ffffff',
     '--ct-chip-text': dk ? '#E8E2D8' : '#334155',
     '--ct-chip-icon': dk ? 'rgba(232,226,216,0.72)' : '#94a3b8',
+    '--ct-sheet': dk ? 'rgba(42,33,48,0.97)' : 'var(--sd-card)',   // 이모티콘 서랍 바탕(다크 대응)
   } as React.CSSProperties;
   const [stickerMode, setStickerMode] = useState<StickerMode>('recent');
   // 최근·자주 쓴 이모티콘(기기별). 첫 탭이 이걸 보여주고, pick 할 때마다 기록된다.
@@ -1041,7 +1042,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
 
           {/* 이모티콘 서랍 — 제미나이 2차: 아이콘만 탭 + 카톡식 '최근·자주' 첫 탭 */}
           {stickerOpen && (
-            <div className="mx-3 mb-2 rounded-3xl p-3" style={{ background: 'var(--sd-card)', boxShadow: 'var(--sd-shadow-card)' }}>
+            <div className="mx-3 mb-2 rounded-3xl p-3" style={{ background: 'var(--ct-sheet)', boxShadow: 'var(--sd-shadow-card)' }}>
               {/* 탭 — 실제 스티커 대표 그림(썸네일) 정사각. 최근·자주만 🕒. 선택 시 로즈 배경. */}
               <div className="flex gap-1 mb-1.5 overflow-x-auto pb-0.5">
                 {STICKER_TABS.map((st) => {
@@ -1151,8 +1152,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           )}
 
           {/* 입력 */}
-          <div className="px-3 pt-2 bg-[#FBF8F2]/95 backdrop-blur-xl border-t border-black/[0.04]"
-            style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1.25rem)' }}>
+          <div className="px-3 pt-2 backdrop-blur-xl border-t border-black/[0.04]"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1.25rem)', background: 'var(--ct-header)' }}>
             {/* 업로드 진행 — 동영상은 실제 % 바, 사진은 짧아서 간단한 진행 표시 */}
             <AnimatePresence>
               {uploading && (
