@@ -121,6 +121,9 @@ const isVideoSrc = (src: string) => /\.(mp4|webm|mov)$/i.test(src);
 const posterOf = (src: string) => src.replace(/\.(mp4|webm|mov)$/i, '-poster.webp');
 // 서랍 썸네일 — 움짤(sai-anim webp)은 정지컷(-still.png)으로. 서랍에서 여러 개 동시 애니 디코딩 방지.
 const drawerThumb = (src: string) => src.includes('/emo/sai-anim/') ? src.replace(/\.webp$/, '-still.png') : src;
+// 다크 배경에서 '속 빈'(투명 몸통) 선화 스티커 — 포차코 기본 얼굴세트 + 인싸강아지는 몸통이 배경에 먹혀 까맣게 뜬다.
+//   → 다크일 때만 연한 카드를 깔아 투명 몸통이 흰색으로 읽히게(흰 몸통 스티커는 무배경 그대로, 사이담 룩 유지).
+const isHollowSticker = (src: string) => /\/pochacco\/(face_|pochacco_faces)/.test(src) || src.includes('/pochacco_kkom/pochaccofly');
 // (단어) 매칭 정규식(STICKER_ALT/RICH_RE/STICKER_RE)은 꼼이미니(SAIDAMI) 단어까지 합쳐야 해서
 // SAIDAMI_STICKERS 정의 뒤(아래)에서 만든다.
 // 스티커 포켓 그리드 — 텍스트 스티커들을 탭해서 큰 단독 스티커로 전송(투명 배경, 말풍선 없음).
@@ -929,6 +932,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           //   챗 이모티콘은 말풍선 없이 그림만. ⚠️ 움짤(sai-anim)은 스스로 움직여 통 흔들기(rotate) 제외, 정지만 흔든다.
                           <motion.img src={m.sticker} alt="이모티콘"
                             className="w-40 h-auto object-contain drop-shadow-sm"
+                            style={dk && isHollowSticker(m.sticker) ? { background: '#f4efe8', borderRadius: 22, padding: 12 } : undefined}
                             initial={{ scale: 0.4, opacity: 0 }}
                             animate={m.sticker.startsWith('/emo/sai-anim/')
                               ? { scale: 1, opacity: 1 }
