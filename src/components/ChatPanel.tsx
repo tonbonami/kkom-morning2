@@ -435,6 +435,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     '--ct-chip-text': dk ? '#E8E2D8' : '#334155',
     '--ct-chip-icon': dk ? 'rgba(232,226,216,0.72)' : '#94a3b8',
     '--ct-sheet': dk ? 'rgba(42,33,48,0.97)' : 'var(--sd-card)',   // 이모티콘 서랍 바탕(다크 대응)
+    '--ct-cell': dk ? '#E6DFDA' : '#ffffff',   // 서랍 스티커 셀 — 다크에선 순백 대신 부드러운 오프화이트(쨍함 완화)
   } as React.CSSProperties;
   const [stickerMode, setStickerMode] = useState<StickerMode>('recent');
   // 최근·자주 쓴 이모티콘(기기별). 첫 탭이 이걸 보여주고, pick 할 때마다 기록된다.
@@ -1077,7 +1078,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
                             {frequentList.map((p) => (
                               <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={p.key}
-                                className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white shadow-sm active:scale-90 transition-transform">
+                                className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-sm active:scale-90 transition-transform">
                                 {isVideoSrc(p.image)
                                   ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
                                   : /* eslint-disable-next-line @next/next/no-img-element */ <img src={drawerThumb(p.image)} alt="" className="w-[88%] h-[88%] object-contain" />}
@@ -1092,7 +1093,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           <div className="grid grid-cols-4 gap-1.5">
                             {recentPicks.map((p) => (
                               <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={p.key}
-                                className="grid aspect-square place-items-center rounded-2xl bg-white shadow-sm active:scale-90 transition-transform">
+                                className="grid aspect-square place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-sm active:scale-90 transition-transform">
                                 {isVideoSrc(p.image)
                                   ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
                                   : /* eslint-disable-next-line @next/next/no-img-element */ <img src={drawerThumb(p.image)} alt="" className="w-[88%] h-[88%] object-contain" />}
@@ -1114,7 +1115,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       <div className="grid grid-cols-4 gap-1.5">
                         {sec.items.map((it) => (
                           <button key={it.key} onClick={() => pickSticker(stickerMode, it.key, it.image)} aria-label={it.key}
-                            className="grid aspect-square place-items-center rounded-2xl bg-white shadow-sm active:scale-90 transition-transform">
+                            className="grid aspect-square place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-sm active:scale-90 transition-transform">
                             {it.video ? (
                               <video src={it.image} poster={posterOf(it.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
                             ) : (
