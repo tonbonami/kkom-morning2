@@ -798,11 +798,14 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       onClick={() => { if (!m.deleted && !pending) setActionMsg(actionMsg?.id === m.id ? null : m); }}
                       onContextMenu={(e) => { e.preventDefault(); if (!m.deleted) setActionMsg(m); }}
                     >
-                      {/* 답장 인용 — 탭하면 원본으로 점프 */}
+                      {/* 답장 인용 — 사이담 룩(왼쪽 세로줄 + 배경 없음, 한 줄 말줄임). 탭하면 원본으로 점프.
+                          내 메시지=관계색(핑크) 세로줄, 상대=흐린 회색. 정렬은 부모 flex-col alignItems가 잡음. */}
                       {m.replyTo && !m.deleted && (
                         <button type="button"
                           onClick={(e) => { e.stopPropagation(); if (m.replyTo) jumpToMessage(m.replyTo.id); }}
-                          className="mb-0.5 block max-w-[70%] rounded-lg bg-black/5 px-2.5 py-1 text-left text-[11px] text-slate-500 active:scale-[0.98] transition-transform">
+                          aria-label="답장한 원본 메시지로 이동"
+                          className="mb-1 block max-w-[70%] truncate border-l-2 pl-2 text-left text-[11px] text-slate-400 opacity-80 active:opacity-100 transition-opacity"
+                          style={{ borderColor: mine ? '#FB7BA8' : 'rgba(148,163,184,0.55)' }}>
                           <span className="font-bold">{m.replyTo.from}</span> · {m.replyTo.text}
                         </button>
                       )}

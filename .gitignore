@@ -50,3 +50,27 @@ ios/App/build/
 
 # 움짤 mp4 원본은 로컬 보관, 커밋 제외 (webp만 서빙)
 public/emo/sai-anim/*.mp4
+
+# 실수로 스윕됐던 포차코 원본 raw (앱 미사용, 로컬 보관·커밋 제외)
+public/pochacco/sai_weather.png
+public/pochacco_bump/hugme2.png
+public/pochacco_bump/kissme.png
+public/pochacco_bump/love.png
+public/pochacco_bump/missingyou.png
+public/pochacco_bump/whitening2.png
+public/pochacco_couple/couple_pochacco1.png
+public/pochacco_couple/hangarae.png
+public/pochacco_couple/heli.png
+public/pochacco_couple/kkompopo1.png
+public/pochacco_couple/pochacco_couple_raw.png
+public/pochacco_dang/ang_cute.png
+public/pochacco_dang/cute_kkomi.png
+public/pochacco_dang/dang_chicca.png
+public/pochacco_dang/dang_pudede.png
+public/pochacco_kkom/kkom_chicca.png
+public/pochacco_kkom/kkom_makeup.png
+public/pochacco_kkom/kkom_run.png
+public/pochacco_kkom/kkomi_pudede.png
+public/pochacco_kkom/kkomi_yap.png
+public/pochacco_kkom/pochacco_default.png
+public/pochacco_kkom/pochacco_fly.png
