@@ -431,8 +431,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     '--ct-chip': dk ? 'rgba(255,255,255,0.08)' : '#ffffff',
     '--ct-chip-text': dk ? '#E8E2D8' : '#334155',
     '--ct-chip-icon': dk ? 'rgba(232,226,216,0.72)' : '#94a3b8',
-    '--ct-sheet': dk ? 'rgba(42,33,48,0.97)' : 'var(--sd-card)',   // 이모티콘 서랍 바탕(다크 대응)
-    '--ct-cell': dk ? '#E6DFDA' : '#ffffff',   // 서랍 스티커 셀 — 다크에선 순백 대신 부드러운 오프화이트(쨍함 완화)
+    // 이모티콘 서랍(제미나이 다크 리디자인) — 글래스모피즘 + 라이트박스 셀 + 로즈 필 탭 + 웜 라벨
+    '--ct-sheet': dk ? 'rgba(36,26,32,0.85)' : 'rgba(251,248,242,0.95)',
+    '--ct-sheet-border': dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+    '--ct-cell': dk ? 'rgba(242,232,234,0.15)' : '#ffffff',   // 다크=내 말풍선색 극저투명(라이트박스)
+    '--ct-cell-shadow': dk ? '0 4px 12px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.06)' : '0 2px 8px rgba(0,0,0,0.04)',
+    '--ct-tab-active': dk ? 'rgba(251,123,168,0.18)' : 'rgba(251,123,168,0.15)',   // 통짜 핑크 대신 은은한 로즈 필
+    '--ct-label': dk ? '#A397A0' : '#8B7D88',   // 웜 뮤트 라벨(차가운 회색 대신)
   } as React.CSSProperties;
   const [stickerMode, setStickerMode] = useState<StickerMode>('recent');
   // 최근·자주 쓴 이모티콘(기기별). 첫 탭이 이걸 보여주고, pick 할 때마다 기록된다.
@@ -1043,15 +1048,15 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
 
           {/* 이모티콘 서랍 — 제미나이 2차: 아이콘만 탭 + 카톡식 '최근·자주' 첫 탭 */}
           {stickerOpen && (
-            <div className="mx-3 mb-2 rounded-3xl p-3" style={{ background: 'var(--ct-sheet)', boxShadow: 'var(--sd-shadow-card)' }}>
+            <div className="mx-3 mb-2 rounded-[28px] p-3 backdrop-blur-md border" style={{ background: 'var(--ct-sheet)', borderColor: 'var(--ct-sheet-border)', boxShadow: 'var(--sd-shadow-card)' }}>
               {/* 탭 — 실제 스티커 대표 그림(썸네일) 정사각. 최근·자주만 🕒. 선택 시 로즈 배경. */}
               <div className="flex gap-1 mb-1.5 overflow-x-auto pb-0.5">
                 {STICKER_TABS.map((st) => {
                   const on = st.id === stickerMode;
                   return (
                     <button key={st.id} onClick={() => setStickerMode(st.id)} aria-pressed={on} aria-label={`${st.name} 이모티콘`}
-                      className={`shrink-0 grid h-11 w-11 place-items-center rounded-xl transition-colors ${
-                        on ? 'bg-[#FB7BA8] shadow-[0_2px_8px_rgba(251,123,168,0.3)]' : 'active:bg-black/5'}`}>
+                      className={`shrink-0 grid h-11 w-11 place-items-center rounded-xl transition-colors ${on ? '' : 'active:bg-black/5'}`}
+                      style={on ? { background: 'var(--ct-tab-active)' } : undefined}>
                       {st.thumb
                         ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={st.thumb} alt="" className="h-7 w-7 object-contain" />
                         : <span className="text-[20px]">{st.icon}</span>}
@@ -1060,7 +1065,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 })}
               </div>
               {/* 선택된 탭 이름만 작게(어느 탭인지 힌트) */}
-              <div className="mb-1.5 px-0.5 text-[12px] font-bold text-[#64748B]">{STICKER_TABS.find((t) => t.id === stickerMode)?.name}</div>
+              <div className="mb-1.5 px-0.5 text-[12px] font-bold text-[color:var(--ct-label)]">{STICKER_TABS.find((t) => t.id === stickerMode)?.name}</div>
 
               <div className="max-h-[40vh] overflow-y-auto">
                 {stickerMode === 'recent' ? (
@@ -1074,7 +1079,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
                             {frequentList.map((p) => (
                               <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={p.key}
-                                className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-sm active:scale-90 transition-transform">
+                                className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-[var(--ct-cell-shadow)] active:scale-90 transition-transform">
                                 {isVideoSrc(p.image)
                                   ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
                                   : /* eslint-disable-next-line @next/next/no-img-element */ <img src={drawerThumb(p.image)} alt="" className="w-[88%] h-[88%] object-contain" />}
@@ -1085,11 +1090,11 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       )}
                       {recentPicks.length > 0 && (
                         <div>
-                          <h3 className="mb-1.5 text-[11px] font-bold text-[#64748B]">🕒 최근 사용</h3>
+                          <h3 className="mb-1.5 text-[11px] font-bold text-[color:var(--ct-label)]">🕒 최근 사용</h3>
                           <div className="grid grid-cols-4 gap-1.5">
                             {recentPicks.map((p) => (
                               <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={p.key}
-                                className="grid aspect-square place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-sm active:scale-90 transition-transform">
+                                className="grid aspect-square place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-[var(--ct-cell-shadow)] active:scale-90 transition-transform">
                                 {isVideoSrc(p.image)
                                   ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
                                   : /* eslint-disable-next-line @next/next/no-img-element */ <img src={drawerThumb(p.image)} alt="" className="w-[88%] h-[88%] object-contain" />}
@@ -1104,14 +1109,14 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   stickerSections(stickerMode).map((sec, si) => (
                     <div key={si} className={si > 0 ? 'mt-3' : ''}>
                       {sec.label && (
-                        <div className="sticky top-0 z-10 mb-1.5 py-1" style={{ background: 'var(--sd-card)' }}>
-                          <span className="inline-block rounded-md bg-white px-2 py-0.5 text-[11px] font-bold text-[#64748B] shadow-sm">{sec.label}</span>
+                        <div className="sticky top-0 z-10 mb-1.5 py-1 backdrop-blur-sm" style={{ background: 'var(--ct-sheet)' }}>
+                          <span className="inline-block px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>{sec.label}</span>
                         </div>
                       )}
                       <div className="grid grid-cols-4 gap-1.5">
                         {sec.items.map((it) => (
                           <button key={it.key} onClick={() => pickSticker(stickerMode, it.key, it.image)} aria-label={it.key}
-                            className="grid aspect-square place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-sm active:scale-90 transition-transform">
+                            className="grid aspect-square place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-[var(--ct-cell-shadow)] active:scale-90 transition-transform">
                             {it.video ? (
                               <video src={it.image} poster={posterOf(it.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
                             ) : (
