@@ -47,3 +47,6 @@ firestore-debug.log
 scripts/.deploy-env
 *.p8
 ios/App/build/
+
+# 움짤 mp4 원본은 로컬 보관, 커밋 제외 (webp만 서빙)
+public/emo/sai-anim/*.mp4
