@@ -371,6 +371,32 @@ function renderRich(text: string): React.ReactNode {
   return parts;
 }
 
+// 미니/스티커 토큰만으로 이루어진 메시지인지 판별 — 그런 메시지는 말풍선 없이 크게 띄운다(카톡식).
+function parseStickerTokens(text: string): { srcs: string[]; onlyTokens: boolean } {
+  const srcs: string[] = []; let rest = '';
+  let last = 0; let m: RegExpExecArray | null; RICH_RE.lastIndex = 0;
+  while ((m = RICH_RE.exec(text)) !== null) {
+    rest += text.slice(last, m.index);
+    if (m[1] !== undefined) { const opt = MOOD_OPTIONS.find((o) => o.id === m![1]); if (opt) srcs.push(opt.image); else rest += m[0]; }
+    else if (m[2] !== undefined) { const s = MINI_BY_WORD[m![2]] ?? TEXT_STICKERS[m![2]]; if (s) srcs.push(s); else rest += m[0]; }
+    last = m.index + m[0].length;
+  }
+  rest += text.slice(last);
+  return { srcs, onlyTokens: srcs.length > 0 && rest.trim() === '' };
+}
+// 미니만 있는 메시지 — 말풍선 없이 크게. 개수 적을수록 크게(1=큼/2=중/3+=작게, 카톡식).
+function BigMinis({ srcs }: { srcs: string[] }) {
+  const size = srcs.length === 1 ? 132 : srcs.length === 2 ? 104 : 84;
+  return (
+    <div className="flex flex-wrap items-end gap-1">
+      {srcs.map((src, i) => isVideoSrc(src)
+        ? <video key={i} src={src} poster={posterOf(src)} autoPlay loop muted playsInline style={{ height: size }} className="w-auto rounded-2xl object-contain drop-shadow-sm" />
+        // eslint-disable-next-line @next/next/no-img-element
+        : <img key={i} src={src} alt="" style={{ height: size }} className="w-auto object-contain drop-shadow-sm" />)}
+    </div>
+  );
+}
+
 // 채팅 속 링크 인라인 미리보기 카드 — 유튜브 등. og-preview 결과를 모듈 캐시에 담아 재스크롤 시 재요청 X.
 const ogCache = new Map<string, { title?: string; image?: string; site?: string }>();
 function LinkPreview({ url, mine }: { url: string; mine: boolean }) {
@@ -1049,6 +1075,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       ) : m.audioUrl ? (
                         <div onClick={(e) => e.stopPropagation()}><VoiceBubble url={m.audioUrl} dur={m.audioDur ?? 0} mine={mine} /></div>
                       ) : (() => {
+                        const tok = parseStickerTokens(m.text);
+                        if (tok.onlyTokens) return <BigMinis srcs={tok.srcs} />;   // 미니만 → 말풍선 없이 크게(카톡식)
                         const linkUrl = firstUrl(m.text);
                         const onlyUrl = !!linkUrl && m.text.trim() === linkUrl;
                         return (
