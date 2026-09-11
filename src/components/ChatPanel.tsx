@@ -148,6 +148,7 @@ const ANIM_RAW: { word: string; image: string; still: string }[] = [
   { word: '선물',       image: '/emo/sai-anim/gift.webp',    still: '/emo/sai-anim/gift-still.png' },
   { word: '부끄',       image: '/emo/sai-anim/shy.webp',     still: '/emo/sai-anim/shy-still.png' },
   { word: '꼬옥',       image: '/emo/sai-anim/hug.webp',     still: '/emo/sai-anim/hug-still.png' },   // ⚠️ 새 커플 캐릭터(남↔여) — 기존 꼼이 한 마리와 다름
+  { word: '빼꼼',       image: '/emo/sai-anim/peek.webp',    still: '/emo/sai-anim/peek-still.png' },  // ⚠️ 장면 스티커(배경 그려진 둥근 카드, 투명 컷아웃 아님)
 ];
 // ⚠️ sai-anim webp/still을 사이담이 같은 이름으로 재인코딩(알파 복구·재작업)할 때마다 EMO_V를 +1 → 기기 캐시 무효화(전역).
 //   2026-09-11 알파 복구(라이트에서 눈 회색) 14종 반영으로 3. (사이담 EMO_V와 별개, 값만 맞춰 올리면 됨)
