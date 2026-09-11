@@ -1007,10 +1007,11 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ scale: { type: 'spring', stiffness: 300, damping: 20 }, opacity: { duration: 0.2 } }} />
                         ) : (
-                          // 사이담 기준 통일 — 팩·움짤·정지 구분 없이 전부 160px(w-40), 폭 기준 h-auto(비율 유지, 안 찌그러짐).
+                          // 크기 통일 — ⚠️ '높이 기준'(h-36=144px, w-auto)으로 캐릭터 키를 맞춘다. 폭 기준(w-40)은
+                          //   사이 팩(세로로 긴 프레임 272x319 등)이 188~200px로 튀어서 폐기. 실측: 푸데데(가로형)가 최대 ~144.
                           //   챗 이모티콘은 말풍선 없이 그림만. ⚠️ 움짤(sai-anim)은 스스로 움직여 통 흔들기(rotate) 제외, 정지만 흔든다.
                           <motion.img src={m.sticker} alt="이모티콘"
-                            className="w-40 h-auto object-contain drop-shadow-sm"
+                            className="h-36 w-auto object-contain drop-shadow-sm"
                             initial={{ scale: 0.4, opacity: 0 }}
                             animate={m.sticker.startsWith('/emo/sai-anim/')
                               ? { scale: 1, opacity: 1 }
