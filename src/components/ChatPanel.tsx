@@ -120,7 +120,7 @@ const FULL_STICKERS = new Set(['/pochacco_couple/heli.webp']);
 const isVideoSrc = (src: string) => /\.(mp4|webm|mov)$/i.test(src);
 const posterOf = (src: string) => src.replace(/\.(mp4|webm|mov)$/i, '-poster.webp');
 // 서랍 썸네일 — 움짤(sai-anim webp)은 정지컷(-still.png)으로. 서랍에서 여러 개 동시 애니 디코딩 방지.
-const drawerThumb = (src: string) => src.includes('/emo/sai-anim/') ? src.replace(/\.webp$/, '-still.png') : src;
+const drawerThumb = (src: string) => src.includes('/emo/sai-anim/') ? src.replace(/\.webp(\?.*)?$/, '-still.png$1') : src;
 // (단어) 매칭 정규식(STICKER_ALT/RICH_RE/STICKER_RE)은 꼼이미니(SAIDAMI) 단어까지 합쳐야 해서
 // SAIDAMI_STICKERS 정의 뒤(아래)에서 만든다.
 // 스티커 포켓 그리드 — 텍스트 스티커들을 탭해서 큰 단독 스티커로 전송(투명 배경, 말풍선 없음).
@@ -129,7 +129,7 @@ const POCKET_STICKERS = Object.entries(TEXT_STICKERS).map(([word, image]) => ({ 
 // 꼼이(별) 탭 — 움직이는 이모티콘 모음(사이담 제작, 투명 배경 애니 webp). 서랍의 첫 탭.
 // ⚠️ 서랍(피커)엔 정지컷(-still.png)만 띄우고, 보낼 때/채팅에선 webp가 재생된다.
 //    6개 움짤을 서랍에서 동시에 디코딩하면 저사양 기기가 버벅여서(사이담 경고).
-const ANIM_STICKERS: { word: string; image: string; still: string }[] = [
+const ANIM_RAW: { word: string; image: string; still: string }[] = [
   { word: '안녕!',     image: '/emo/sai-anim/hi.webp',      still: '/emo/sai-anim/hi-still.png' },
   { word: '좋은 아침',  image: '/emo/sai-anim/sunrise.webp', still: '/emo/sai-anim/sunrise-still.png' },
   { word: '두근두근',   image: '/emo/sai-anim/doki.webp',    still: '/emo/sai-anim/doki-still.png' },
@@ -137,16 +137,20 @@ const ANIM_STICKERS: { word: string; image: string; still: string }[] = [
   { word: '보고싶어',   image: '/emo/sai-anim/missyou.webp', still: '/emo/sai-anim/missyou-still.png' },
   { word: '고마워',     image: '/emo/sai-anim/thanks.webp',  still: '/emo/sai-anim/thanks-still.png' },
   { word: '삐짐',       image: '/emo/sai-anim/sulk.webp',    still: '/emo/sai-anim/sulk-still.png' },
-  { word: '흥!',        image: '/emo/sai-anim/wave.webp?v=2',    still: '/emo/sai-anim/wave-still.png?v=2' },
+  { word: '흥!',        image: '/emo/sai-anim/wave.webp',    still: '/emo/sai-anim/wave-still.png' },
   { word: '미안해',     image: '/emo/sai-anim/sorry.webp',   still: '/emo/sai-anim/sorry-still.png' },
   { word: '잘자',       image: '/emo/sai-anim/night.webp',   still: '/emo/sai-anim/night-still.png' },
-  { word: '씻고 올게',  image: '/emo/sai-anim/bath.webp?v=2',    still: '/emo/sai-anim/bath-still.png?v=2' },
+  { word: '씻고 올게',  image: '/emo/sai-anim/bath.webp',    still: '/emo/sai-anim/bath-still.png' },
   { word: '아파',       image: '/emo/sai-anim/sick.webp',    still: '/emo/sai-anim/sick-still.png' },
   { word: '좋아!',      image: '/emo/sai-anim/yay.webp',     still: '/emo/sai-anim/yay-still.png' },
   { word: '으악',       image: '/emo/sai-anim/yell.webp',    still: '/emo/sai-anim/yell-still.png' },
   { word: '축하해!',    image: '/emo/sai-anim/party.webp',   still: '/emo/sai-anim/party-still.png' },
   { word: '선물',       image: '/emo/sai-anim/gift.webp',    still: '/emo/sai-anim/gift-still.png' },
 ];
+// ⚠️ sai-anim webp/still을 사이담이 같은 이름으로 재인코딩(알파 복구·재작업)할 때마다 EMO_V를 +1 → 기기 캐시 무효화(전역).
+//   2026-09-11 알파 복구(라이트에서 눈 회색) 14종 반영으로 3. (사이담 EMO_V와 별개, 값만 맞춰 올리면 됨)
+const EMO_V = 3;
+const ANIM_STICKERS = ANIM_RAW.map((s) => ({ ...s, image: `${s.image}?v=${EMO_V}`, still: `${s.still}?v=${EMO_V}` }));
 
 const DANG_STICKERS: { word: string; image: string }[] = [
   { word: '귀엽꼬미', image: '/pochacco_dang/cutekkomi.png' },
