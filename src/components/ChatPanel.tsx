@@ -384,15 +384,16 @@ function parseStickerTokens(text: string): { srcs: string[]; onlyTokens: boolean
   rest += text.slice(last);
   return { srcs, onlyTokens: srcs.length > 0 && rest.trim() === '' };
 }
-// 미니만 있는 메시지 — 말풍선 없이 크게. 개수 적을수록 크게(1=큼/2=중/3+=작게, 카톡식).
+// 미니만 있는 메시지 — 말풍선 없이. 일반 스티커(≈138)보다 작아 '미니'로 구분되되 인라인(36)보단 큼.
+//   높이·폭 둘 다 상한(비율유지). 개수 적을수록 큼(1/2/3+).
 function BigMinis({ srcs }: { srcs: string[] }) {
-  const size = srcs.length === 1 ? 132 : srcs.length === 2 ? 104 : 84;
+  const [mh, mw] = srcs.length === 1 ? [104, 118] : srcs.length === 2 ? [84, 96] : [68, 78];
   return (
     <div className="flex flex-wrap items-end gap-1">
       {srcs.map((src, i) => isVideoSrc(src)
-        ? <video key={i} src={src} poster={posterOf(src)} autoPlay loop muted playsInline style={{ height: size }} className="w-auto rounded-2xl object-contain drop-shadow-sm" />
+        ? <video key={i} src={src} poster={posterOf(src)} autoPlay loop muted playsInline style={{ maxHeight: mh, maxWidth: mw }} className="rounded-2xl object-contain drop-shadow-sm" />
         // eslint-disable-next-line @next/next/no-img-element
-        : <img key={i} src={src} alt="" style={{ height: size }} className="w-auto object-contain drop-shadow-sm" />)}
+        : <img key={i} src={src} alt="" style={{ maxHeight: mh, maxWidth: mw }} className="object-contain drop-shadow-sm" />)}
     </div>
   );
 }
