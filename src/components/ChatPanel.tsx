@@ -157,6 +157,51 @@ const ANIM_RAW: { word: string; image: string; still: string }[] = [
 const EMO_V = 3;
 const ANIM_STICKERS = ANIM_RAW.map((s) => ({ ...s, image: `${s.image}?v=${EMO_V}`, still: `${s.still}?v=${EMO_V}` }));
 
+// ── 카톡식 이모티콘 추천 — 입력 텍스트의 키워드로 관련 스티커를 입력바 위에 띄운다(탭하면 전송) ──
+type Suggestion = { key: string; image: string; thumb: string; mode: StickerMode };
+const sugAnim = (w: string): Suggestion | undefined => {
+  const a = ANIM_STICKERS.find((s) => s.word === w);
+  return a ? { key: a.word, image: a.image, thumb: a.still, mode: 'gif' } : undefined;
+};
+const sugCouple = (w: string): Suggestion | undefined => {
+  const img = TEXT_STICKERS[w];
+  return img ? { key: w, image: img, thumb: img, mode: 'couple' } : undefined;
+};
+// 키워드(동의어 포함) → 관련 스티커. 위에서부터 매칭되는 규칙의 스티커를 모아 보여준다.
+const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
+  { re: /뽀뽀|쪽쪽|쪽!|😘|💋/,                    get: () => [sugCouple('뽀뽀')] },
+  { re: /보고\s?싶|보고파|그리워|보곺/,             get: () => [sugAnim('보고싶어'), sugCouple('보고파')] },
+  { re: /사랑|러브|❤|💕|💗|좋아해|조아/,           get: () => [sugAnim('사랑해'), sugCouple('사랑해'), sugAnim('두근두근')] },
+  { re: /안아|포옹|꼬옥|폭\s?안|안겨|토닥/,          get: () => [sugAnim('꼬옥'), sugCouple('토닥토닥')] },
+  { re: /고마|감사|땡큐|ㄱㅅ/,                       get: () => [sugAnim('고마워')] },
+  { re: /축하|생일|생축|🎉|🎊/,                     get: () => [sugAnim('축하해!'), sugAnim('선물')] },
+  { re: /선물|기프트/,                              get: () => [sugAnim('선물')] },
+  { re: /미안|죄송|쏘리|ㅈㅅ/,                       get: () => [sugAnim('미안해')] },
+  { re: /잘\s?자|굿\s?밤|굿나잇|자자|자야/,          get: () => [sugAnim('잘자')] },
+  { re: /비\s?와|비\s?온|비온다|장마|우중충|빗소리|비\s?내/, get: () => [sugAnim('비온다')] },
+  { re: /졸려|피곤|일어나|이불|자고\s?싶|늦잠|눕고/, get: () => [sugAnim('일어나기 싫어'), sugAnim('잘자')] },
+  { re: /두근|설레/,                               get: () => [sugAnim('두근두근')] },
+  { re: /굿모닝|좋은\s?아침|모닝|잘\s?잤/,           get: () => [sugAnim('좋은 아침'), sugCouple('굿모닝')] },
+  { re: /안녕|하이|방가|ㅎㅇ|하잉/,                  get: () => [sugAnim('안녕!')] },
+  { re: /아파|아프|열나|감기|몸살|아픔/,             get: () => [sugAnim('아파')] },
+  { re: /삐졌|삐짐|삐질|흥칫|서운|토라/,             get: () => [sugAnim('삐짐'), sugAnim('흥!')] },
+  { re: /최고|짱|굿|좋았|대박|멋져/,                get: () => [sugAnim('좋아!')] },
+  { re: /으악|헐|깜짝|놀랐|헉/,                      get: () => [sugAnim('으악')] },
+  { re: /부끄|수줍|쑥스/,                            get: () => [sugAnim('부끄')] },
+  { re: /빼꼼|까꿍/,                                get: () => [sugAnim('빼꼼')] },
+  { re: /힘내|화이팅|파이팅|응원/,                  get: () => [sugCouple('헹가래')] },
+];
+function computeSuggestions(draft: string): Suggestion[] {
+  const t = draft.trim();
+  if (t.length === 0 || t.length > 60) return [];   // 빈 입력/너무 긴 문장은 추천 안 함
+  const out: Suggestion[] = []; const seen = new Set<string>();
+  for (const rule of SUGGEST_RULES) {
+    if (!rule.re.test(t)) continue;
+    for (const it of rule.get()) if (it && !seen.has(it.image)) { seen.add(it.image); out.push(it); }
+  }
+  return out.slice(0, 8);
+}
+
 const DANG_STICKERS: { word: string; image: string }[] = [
   { word: '귀엽꼬미', image: '/pochacco_dang/cutekkomi.png' },
   { word: '앙 귀여워', image: '/pochacco_dang/angcute.png' },
@@ -466,6 +511,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     '--ct-tab-active': dk ? 'rgba(251,123,168,0.18)' : 'rgba(251,123,168,0.15)',
     '--ct-label': dk ? '#A397A0' : '#8B7D88',
   } as React.CSSProperties;
+  // 카톡식 추천 — 입력 텍스트 키워드로 관련 스티커. 입력할 때마다 갱신.
+  const suggestions = useMemo(() => computeSuggestions(draft), [draft]);
   const [stickerMode, setStickerMode] = useState<StickerMode>('recent');
   // 최근·자주 쓴 이모티콘(기기별). 첫 탭이 이걸 보여주고, pick 할 때마다 기록된다.
   const [recentPicks, setRecentPicks] = useState<EmoPick[]>([]);
@@ -1181,6 +1228,21 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 <div className="text-[12px] text-slate-500 truncate">{replyTo.text}</div>
               </div>
               <button onClick={() => setReplyTo(null)} aria-label="답장 취소" className="text-slate-400"><X size={16} /></button>
+            </div>
+          )}
+
+          {/* 카톡식 이모티콘 추천 — 입력 키워드에 맞는 스티커를 띄우고, 탭하면 바로 전송 */}
+          {suggestions.length > 0 && !stickerOpen && !editing && (
+            <div className="mx-3 mb-1.5 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+              <span className="shrink-0 pl-0.5 pr-0.5 text-[11px] font-bold" style={{ color: 'var(--ct-label)' }}>추천</span>
+              {suggestions.map((it) => (
+                <button key={it.image} onClick={() => pickSticker(it.mode, it.key, it.image)} aria-label={`${it.key} 추천 이모티콘`}
+                  className="shrink-0 grid h-12 w-12 place-items-center rounded-xl active:scale-90 transition-transform"
+                  style={{ background: 'var(--ct-cell)', boxShadow: 'var(--ct-cell-shadow)' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={drawerThumb(it.thumb)} alt="" className="h-[86%] w-[86%] object-contain" />
+                </button>
+              ))}
             </div>
           )}
 
