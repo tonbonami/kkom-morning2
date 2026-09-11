@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles } from 'lucide-react';
+import { X, Send, ImagePlus, Smile, CornerDownLeft, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
 import { saveLink, deleteLink, subscribeLinks, firstUrl, youTubeId, type SavedLink } from '@/lib/links';
 import {
@@ -1116,7 +1116,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                               <button key={emo} onClick={() => doReact(emo)} className="px-1 text-[20px] leading-none active:scale-90 transition-transform">{emo}</button>
                             ))}
                             <span className="mx-1 h-5 w-px bg-black/10" />
-                            <button onClick={doReply} aria-label="답장" className="p-1.5 text-slate-500 active:scale-90 transition-transform"><Reply size={17} /></button>
+                            <button onClick={doReply} aria-label="답장" className="p-1.5 text-slate-500 active:scale-90 transition-transform"><CornerDownLeft size={17} /></button>
                             <button onClick={doStar} aria-label="추억 보관" className="p-1.5 active:scale-90 transition-transform">{actionMsg.starred ? <BookmarkCheck size={17} className="text-[#FB7BA8]" /> : <Bookmark size={17} className="text-slate-500" />}</button>
                             {m.text && !m.sticker && !m.imageUrl && (
                               <button onClick={doCopy} aria-label="복사" className="p-1.5 text-slate-500 active:scale-90 transition-transform"><Copy size={16} /></button>
