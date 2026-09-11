@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check } from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { X, Send, ImagePlus, Smile, Reply, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
 import { saveLink, deleteLink, subscribeLinks, firstUrl, youTubeId, type SavedLink } from '@/lib/links';
 import {
@@ -513,6 +513,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   } as React.CSSProperties;
   // 카톡식 추천 — 입력 텍스트 키워드로 관련 스티커. 입력할 때마다 갱신.
   const suggestions = useMemo(() => computeSuggestions(draft), [draft]);
+  const sugKey = suggestions.map((s) => s.key).join(',');   // 키워드 바뀌면 크로스페이드 트리거
+  const reduceMotion = useReducedMotion();
   const [stickerMode, setStickerMode] = useState<StickerMode>('recent');
   // 최근·자주 쓴 이모티콘(기기별). 첫 탭이 이걸 보여주고, pick 할 때마다 기록된다.
   const [recentPicks, setRecentPicks] = useState<EmoPick[]>([]);
@@ -1231,20 +1233,36 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             </div>
           )}
 
-          {/* 카톡식 이모티콘 추천 — 입력 키워드에 맞는 스티커를 띄우고, 탭하면 바로 전송 */}
-          {suggestions.length > 0 && !stickerOpen && !editing && (
-            <div className="mx-3 mb-1.5 flex items-center gap-1.5 overflow-x-auto pb-0.5">
-              <span className="shrink-0 pl-0.5 pr-0.5 text-[11px] font-bold" style={{ color: 'var(--ct-label)' }}>추천</span>
-              {suggestions.map((it) => (
-                <button key={it.image} onClick={() => pickSticker(it.mode, it.key, it.image)} aria-label={`${it.key} 추천 이모티콘`}
-                  className="shrink-0 grid h-12 w-12 place-items-center rounded-xl active:scale-90 transition-transform"
-                  style={{ background: 'var(--ct-cell)', boxShadow: 'var(--ct-cell-shadow)' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={drawerThumb(it.thumb)} alt="" className="h-[86%] w-[86%] object-contain" />
-                </button>
-              ))}
-            </div>
-          )}
+          {/* 카톡식 이모티콘 추천 — 제미나이 폴리시: 입력바와 이어지는 일체형 글래스 트레이 + ✨ 고정 + 그룹 모션. 탭=전송 */}
+          <AnimatePresence>
+            {suggestions.length > 0 && !stickerOpen && !editing && (
+              <motion.div
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+                transition={{ duration: reduceMotion ? 0.12 : 0.25, ease: 'easeOut' }}
+                className="flex items-center gap-1 px-4 border-t backdrop-blur-xl"
+                style={{ height: 60, background: 'var(--ct-header)', borderColor: 'var(--ct-sheet-border)' }}>
+                <span className="shrink-0 grid w-8 place-items-center" style={{ color: '#FB7BA8' }}><Sparkles size={17} /></span>
+                <div className="flex-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <AnimatePresence mode="wait">
+                    <motion.div key={sugKey} className="flex items-center gap-2"
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      transition={{ duration: reduceMotion ? 0 : 0.12 }}>
+                      {suggestions.map((it) => (
+                        <button key={it.image} onClick={() => pickSticker(it.mode, it.key, it.image)} aria-label={`${it.key} 추천 이모티콘`}
+                          className="shrink-0 grid h-12 w-12 place-items-center rounded-xl transition duration-100 active:scale-95 active:opacity-80"
+                          style={{ background: 'var(--ct-cell)', boxShadow: 'var(--ct-cell-shadow)' }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={drawerThumb(it.thumb)} alt="" className="h-[86%] w-[86%] object-contain" />
+                        </button>
+                      ))}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* 입력 */}
           <div className="px-3 pt-2 backdrop-blur-xl border-t border-black/[0.04]"
