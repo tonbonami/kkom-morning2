@@ -525,7 +525,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const chatThemeStyle = {
     background: tc.bg,
     '--ct-my-bg': tc.myBg, '--ct-my-text': tc.myText, '--ct-partner-bg': tc.partnerBg, '--ct-partner-text': tc.partnerText,
-    '--ct-my-btn': hexA(tc.myText, 0.16), '--ct-my-bar-off': hexA(tc.myText, 0.4),
+    '--ct-my-btn': hexA(tc.myText, 0.28), '--ct-my-bar-off': hexA(tc.myText, 0.58),   // 음성 재생버튼·파형 대비(흐림 해소)
     '--ct-header': dk ? hexA(surf, 0.82) : 'rgba(255,255,255,0.6)',
     '--ct-chip': dk ? 'rgba(255,255,255,0.08)' : '#ffffff',
     '--ct-chip-text': dk ? '#ECE6E2' : '#334155',
@@ -574,7 +574,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadKind, setUploadKind] = useState<'image' | 'video' | null>(null);
+  const [uploadKind, setUploadKind] = useState<'image' | 'video' | 'audio' | null>(null);
   const [uploadPct, setUploadPct] = useState(0); // 0~1 (동영상 업로드 진행률)
   const [actionMsg, setActionMsg] = useState<ChatMessage | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
@@ -829,13 +829,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     const dur = Math.round((Date.now() - recStart.current) / 1000);
     const blob = new Blob(chunksRef.current, { type: recRef.current?.mimeType || 'audio/webm' });
     if (!sendAfterStop.current || dur < 1 || blob.size < 1200) return; // 취소 or 너무 짧음
-    setUploading(true);
+    setUploadKind('audio'); setUploading(true);
     try {
       const url = await uploadChatAudio(blob);
       onSend('', undefined, undefined, replyTo ?? undefined, { url, dur });
       setReplyTo(null);
     } catch { /* 무시 */ }
-    setUploading(false);
+    setUploading(false); setUploadKind(null);
   };
 
   // 메시지 효과 — 새 메시지에 키워드 있으면 이모지 폭죽 (첫 로드/더보기는 스킵)
@@ -1309,7 +1309,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 >
                   <div className="mb-1.5 flex items-center justify-between">
                     <span className="text-[12.5px] font-semibold text-slate-600">
-                      {uploadKind === 'video' ? '🎬 동영상 올리는 중…' : '📷 사진 올리는 중…'}
+                      {uploadKind === 'video' ? '🎬 동영상 올리는 중…' : uploadKind === 'audio' ? '🎤 음성 올리는 중…' : '📷 사진 올리는 중…'}
                     </span>
                     {uploadKind === 'video' && (
                       <span className="text-[12px] font-bold tabular-nums text-[#FB7BA8]">{Math.round(uploadPct * 100)}%</span>

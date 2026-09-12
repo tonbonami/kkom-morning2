@@ -405,7 +405,7 @@ export default function CanvasPage() {
                 onChange={(e) => setCommentText(e.target.value)}
                 onKeyDown={(e) => { const b = pageIdRef.current; if (e.key === 'Enter' && commentText.trim() && b && me) { addComment(b, me as '우댕' | '꼼이', commentText); setCommentText(''); } }}
                 placeholder="댓글 달기…" maxLength={500}
-                className="flex-1 text-[13px] bg-slate-100 rounded-full px-3.5 py-1.5 outline-none focus:bg-slate-200/70"
+                className="flex-1 text-[13px] text-slate-800 placeholder:text-slate-400 [-webkit-text-fill-color:#1f2937] bg-slate-100 rounded-full px-3.5 py-1.5 outline-none focus:bg-slate-200/70 select-text [-webkit-user-select:text]"
               />
               <button onClick={() => { const b = pageIdRef.current; if (commentText.trim() && b && me) { addComment(b, me as '우댕' | '꼼이', commentText); setCommentText(''); } }} className="text-purple-500 active:scale-90 shrink-0" aria-label="댓글 전송"><Send size={18} /></button>
             </div>
