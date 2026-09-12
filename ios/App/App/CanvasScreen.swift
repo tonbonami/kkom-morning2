@@ -74,6 +74,9 @@ struct CanvasScreen: View {
             Button("삭제", role: .destructive) { controller.deleteCurrentPage() }
         } message: { Text("페이지와 그 안의 낙서가 영구히 사라져요. 되돌릴 수 없어요.") }
         .sheet(isPresented: $showComments) { CommentSheet(controller: controller, myName: myName) }
+        // 낙서장은 흰 종이·크림 배경의 라이트 디자인이라 다크모드를 강제로 끈다.
+        // (안 그러면 다크모드에서 시스템 시트·머티리얼이 어두워져 잉크색 글씨가 안 보임 = 댓글 투명글씨 버그)
+        .preferredColorScheme(.light)
     }
 
     // 하트 + 댓글 버튼 (좌하단 알약)
@@ -438,5 +441,7 @@ struct CommentSheet: View {
             .padding(.horizontal, 16).padding(.vertical, 10)
         }
         .presentationDetents([.medium, .large])
+        // 시트는 프레젠터의 컬러스킴을 항상 물려받진 않으므로 여기서도 라이트로 못박는다.
+        .preferredColorScheme(.light)
     }
 }
