@@ -63,7 +63,9 @@ final class WatchPush: NSObject, UNUserNotificationCenterDelegate {
 // SwiftUI 라이프사이클 워치 앱의 APNs 콜백 훅.
 final class WatchAppDelegate: NSObject, WKApplicationDelegate {
     func applicationDidFinishLaunching() {
-        WatchPush.shared.registerIfPossible()
+        // ⚠️ 워치 독립 푸시(C) 보류 — aps-environment 엔타이틀먼트가 워치 App ID에 프로비저닝 안 돼서
+        //    TestFlight 빌드가 켜자마자 크래시했음(엔타이틀먼트 불일치). 워치 App ID에 Push capability
+        //    등록되면 아래 한 줄 되살리면 됨: WatchPush.shared.registerIfPossible()
     }
     func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {
         WatchPush.shared.saveToken(deviceToken)

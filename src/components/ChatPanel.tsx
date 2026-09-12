@@ -749,7 +749,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   };
   const pickSticker = (mode: StickerMode, key: string, image: string) => {
     recordPick({ mode, key, image });                      // 최근·자주 기록(원래 mode로)
-    if (mode === 'mini') { insertParen(key); return; }     // (단어) 인라인 미니
+    if (mode === 'mini') { insertParen(key); setStickerOpen(false); return; }     // (단어) 인라인 미니 — 넣고 서랍 닫기
     onSend('', undefined, image, replyTo ?? undefined);    // 나머지: 단독 스티커 전송
     setReplyTo(null); setStickerOpen(false);
   };
