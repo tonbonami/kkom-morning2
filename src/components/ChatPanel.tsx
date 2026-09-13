@@ -154,7 +154,8 @@ const ANIM_RAW: { word: string; image: string; still: string }[] = [
 ];
 // ⚠️ sai-anim webp/still을 사이담이 같은 이름으로 재인코딩(알파 복구·재작업)할 때마다 EMO_V를 +1 → 기기 캐시 무효화(전역).
 //   2026-09-11 알파 복구(라이트에서 눈 회색) 14종 반영으로 3. (사이담 EMO_V와 별개, 값만 맞춰 올리면 됨)
-const EMO_V = 3;
+//   2026-09-13 크기 74% 통일(캐릭터키 기준) 15종 + still 재생성 → 4. 폭죽 59%→74% 등. 으악은 우리는 팩에 남김(사이담은 리타이어).
+const EMO_V = 4;
 const ANIM_STICKERS = ANIM_RAW.map((s) => ({ ...s, image: `${s.image}?v=${EMO_V}`, still: `${s.still}?v=${EMO_V}` }));
 
 // ── 카톡식 이모티콘 추천 — 입력 텍스트의 키워드로 관련 스티커를 입력바 위에 띄운다(탭하면 전송) ──
