@@ -1,6 +1,7 @@
 'use client';
 
-// 홈 "오늘의 조각" — 상대가 오늘 남긴 새 콘텐츠를 놓치지 않게 '스캔'하는 2열 업데이트 보드.
+// 홈 "오늘의 조각" — 오늘 공유 공간에 생긴 변화를 놓치지 않게 '스캔'하는 2열 업데이트 보드.
+//   편지·칭찬·추억은 상대가 남긴 것만(내 건 내가 아니까), 위시리스트는 공유 목록이라 둘 다 합산.
 // (GPT 디자인 스펙 통합, 수정0)
 //   · 감정 나레이션·색 분류·포차코 없음 — 사실과 숫자만.
 //   · 정보 위계: 콘텐츠(편지/칭찬/위시/추억)는 숫자까지 크게, 범프는 하단 얇은 한 줄로.
@@ -25,9 +26,11 @@ export default function TodayDigest({ me }: { me: Sender }) {
   const loading = s === null;
 
   const updates = [
+    // 편지·칭찬은 '상대가 나한테 남긴 것'이라 상대 것만(내 건 내가 아니까).
+    // 위시리스트는 둘이 같이 채우는 '공유 목록'이라 내 것+상대 것 합산 — 목록이 오늘 얼마나 늘었나.
     { id: 'letter', label: '편지', unit: '통', Icon: Mail, count: s?.letters[partner] ?? 0, route: '/letters' },
     { id: 'praise', label: '칭찬', unit: '개', Icon: Star, count: s?.praiseStickers[partner] ?? 0, route: '/praise' },
-    { id: 'wish', label: '위시리스트', unit: '개', Icon: Heart, count: s?.wishItems[partner] ?? 0, route: '/wishlist' },
+    { id: 'wish', label: '위시리스트', unit: '개', Icon: Heart, count: (s?.wishItems[me] ?? 0) + (s?.wishItems[partner] ?? 0), route: '/wishlist' },
     { id: 'memory', label: '추억', unit: '장', Icon: ImageIcon, count: s?.memories[partner] ?? 0, route: '/memories' },
   ].filter((u) => u.count > 0);
 
