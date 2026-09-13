@@ -896,24 +896,29 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           dragElastic={{ left: 0, right: 0.9 }}
           onDragEnd={(_e, info) => { if (info.offset.x > 110 || info.velocity.x > 550) onClose(); }}
         >
-          {/* 헤더 — 불투명 + 상단 safe-area까지 덮어 뒤 배경 비침 방지 */}
-          <div className="flex items-center gap-3 px-4 pb-3 backdrop-blur-xl border-b border-black/[0.04] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
-            style={{ paddingTop: 'max(env(safe-area-inset-top), 2.75rem)', background: 'var(--ct-header)' }}>
+          {/* 헤더 — 사이챗처럼 대화 바탕에 녹인다: 보더·섀도·블러 없이 바탕색(tc.bg) 그대로 + 컴팩트.
+              선 하나가 '띠'를 만들어 위가 분리돼 보였다(우댕: 못생김). 패널은 tc.bg로 불투명이라 뒤 안 비쳐 안전.
+              ⚠️ pt-safe(노치)는 유지 — 빼면 상태바 시계와 이름이 겹친다(사이담이 실기기서 겪음). 브라우저엔 노치 없어 안 보임. */}
+          <div className="flex items-center gap-3 px-4 pb-2.5"
+            style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={avatarOf(partner)} alt={partner} className="w-9 h-9 rounded-full object-cover ring-2 ring-white shadow-sm" />
+            <img src={avatarOf(partner)} alt={partner} className="w-9 h-9 rounded-full object-cover" />
             <div className="flex-1">
               <div className="text-base font-extrabold" style={{ color: 'var(--ct-chip-text)' }}>{partner}</div>
               <div className={`text-xs font-bold ${partnerTyping ? 'text-[#FB7BA8]' : partnerOnline ? 'text-emerald-500' : 'text-slate-400'}`}>
                 {partnerTyping ? '입력 중…' : partnerOnline ? '지금 함께 💚' : '오프라인'}
               </div>
             </div>
-            <button onClick={() => setThemeOpen(true)} aria-label="챗 테마" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
-              <Palette size={20} />
-            </button>
-            <button onClick={openMemory} aria-label="추억 보관함" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
-              <Bookmark size={20} />
-            </button>
-            <button onClick={onClose} aria-label="닫기" className="p-1.5 -mr-1 text-slate-400 hover:text-slate-600"><X size={22} /></button>
+            {/* 아이콘 셋을 한 덩어리로 묶어 gap-0.5로 붙인다 — '셋'이 아니라 한 뭉치로 읽히게(사이담 팁) */}
+            <div className="flex items-center gap-0.5 -mr-1">
+              <button onClick={() => setThemeOpen(true)} aria-label="챗 테마" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
+                <Palette size={20} />
+              </button>
+              <button onClick={openMemory} aria-label="추억 보관함" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
+                <Bookmark size={20} />
+              </button>
+              <button onClick={onClose} aria-label="닫기" className="p-1.5 text-slate-400 hover:text-slate-600"><X size={22} /></button>
+            </div>
           </div>
 
           {/* 챗 테마 시트 — 제미나이 설계: 미니 챗 미리보기 카드 2단 그리드. 모드별 세트(라이트 5·다크 7), 기기별. */}
