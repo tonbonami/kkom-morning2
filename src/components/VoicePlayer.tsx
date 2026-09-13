@@ -33,6 +33,10 @@ export default function VoicePlayer({
   const [error, setError] = useState(false);
 
   const accentColor = accent === 'mint' ? 'bg-[#99E6D9]' : 'bg-[#10B981]';
+  // ⚠️ 재생된 막대 색은 '리터럴 클래스'로 둬야 한다. 예전엔 accentColor.replace(…)로 런타임 조립했는데
+  //   Tailwind는 소스에 글자 그대로 적힌 것만 CSS로 뽑아서 조립 클래스는 생성 자체가 안 됐고(게다가
+  //   bg-[#10B981/80]은 문법도 틀림 — /80은 대괄호 밖), emerald 재생 막대가 배경색 없이 투명했다.
+  const accentPlayed = accent === 'mint' ? 'bg-[#99E6D9]/80' : 'bg-[#10B981]/80';
   const heightClass = compact ? 'h-11' : 'h-14';
   const btnSizeClass = compact ? 'w-8 h-8' : 'w-10 h-10';
   const iconSize = compact ? 14 : 18;
@@ -138,7 +142,7 @@ export default function VoicePlayer({
                 <div
                   key={i}
                   className={`w-1 rounded-full transition-colors duration-200 ${
-                    isPlayed ? accentColor.replace('bg-', 'bg-').replace('10B981', '10B981/80') : 'bg-slate-200'
+                    isPlayed ? accentPlayed : 'bg-slate-200'
                   }`}
                   style={{ height: `${height}%` }}
                 />
