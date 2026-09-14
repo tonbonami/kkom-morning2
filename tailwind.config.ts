@@ -9,13 +9,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        // 본문·기본 = 고운돋움(Gowun Dodum). 로드 실패 시 시스템 한글체로 폴백(오프라인 안전).
-        sans: ['"Gowun Dodum"', '"Apple SD Gothic Neo"', 'system-ui', 'sans-serif'],
-        body: ['"Gowun Dodum"', '"Apple SD Gothic Neo"', 'system-ui', 'sans-serif'],
-        // 제목·강조·손글씨 = Gaegu(손글씨). 라틴 폴백 Poppins, 그다음 시스템.
-        headline: ['Gaegu', 'Poppins', '"Apple SD Gothic Neo"', 'sans-serif'],
+        body: ['"PT Sans"', 'sans-serif'],
+        headline: ['Poppins', 'sans-serif'],
         code: ['monospace'],
-        handwriting: ['Gaegu', 'Dongle', '"Apple SD Gothic Neo"', 'sans-serif'],
+        handwriting: ['Dongle', '"PT Sans"', 'sans-serif'],
       },
       colors: {
         background: 'hsl(var(--background))',
