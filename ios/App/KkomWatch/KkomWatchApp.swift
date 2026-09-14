@@ -2,9 +2,10 @@ import SwiftUI
 
 @main
 struct KkomWatchApp: App {
-    // ⚠️ 워치 독립 푸시(C) 보류 — aps-environment 프로비저닝 미비로 TestFlight 빌드가 켜자마자 크래시했음.
-    //    복구하려면 워치 App ID에 Push capability 등록 후 아래 한 줄 + entitlements aps-environment 되살리기:
-    //    @WKApplicationDelegateAdaptor(WatchAppDelegate.self) private var appDelegate
+    // 워치 독립 푸시(C) — 워치 App ID에 Push capability 등록 후 되살림.
+    //   ⚠️ 이 어댑터만으론 크래시 안 남(엔타이틀먼트 없으면 토큰 등록이 실패할 뿐).
+    //   진짜 조건: 워치 App ID에 Push 등록 + entitlements aps-environment. 그래야 토큰이 나온다.
+    @WKApplicationDelegateAdaptor(WatchAppDelegate.self) private var appDelegate
     @StateObject private var store = WatchStore()
     var body: some Scene {
         WindowGroup {

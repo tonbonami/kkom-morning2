@@ -63,9 +63,10 @@ final class WatchPush: NSObject, UNUserNotificationCenterDelegate {
 // SwiftUI 라이프사이클 워치 앱의 APNs 콜백 훅.
 final class WatchAppDelegate: NSObject, WKApplicationDelegate {
     func applicationDidFinishLaunching() {
-        // ⚠️ 워치 독립 푸시(C) 보류 — aps-environment 엔타이틀먼트가 워치 App ID에 프로비저닝 안 돼서
-        //    TestFlight 빌드가 켜자마자 크래시했음(엔타이틀먼트 불일치). 워치 App ID에 Push capability
-        //    등록되면 아래 한 줄 되살리면 됨: WatchPush.shared.registerIfPossible()
+        // 워치 독립 푸시(C) — 알림 권한 요청 + 원격 등록. 엔타이틀먼트/프로비저닝이 갖춰지면 토큰이 나온다.
+        //   ⚠️ 엔타이틀먼트가 없으면 registerForRemoteNotifications가 didFailToRegister로 조용히 실패할 뿐
+        //      크래시하지 않음. 크래시는 '엔타이틀먼트는 있는데 App ID에 Push 미등록'일 때만 났었음.
+        WatchPush.shared.registerIfPossible()
     }
     func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {
         WatchPush.shared.saveToken(deviceToken)
