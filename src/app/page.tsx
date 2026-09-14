@@ -34,6 +34,7 @@ import VoicePlayer from '@/components/VoicePlayer';
 import DdayAttentionV2 from '@/components/DdayAttentionV2';
 import QuickReplyBar from '@/components/QuickReplyBar';
 import TodayDigest from '@/components/TodayDigest';
+import LivingKkom from '@/components/LivingKkom';
 import { subscribeTodayStats } from '@/lib/dailyStats';
 import LiveHeartLayer from '@/components/LiveHeartLayer';
 import { subscribeTodayMoods, moodFromKey, type MoodMap } from '@/lib/moods';
@@ -1116,6 +1117,10 @@ export default function KkomMorningHome() {
           </div>
         ) : (
           <>
+            {/* 살아있는 꼼이 — 홈 최상단 마스코트. 공간의 온기를 움짤 기분으로 비춤(다그치지 않음) */}
+            {(userName === '우댕' || userName === '꼼이') && (
+              <LivingKkom presence={partnerPresence} partner={partner} tick={presenceTick} />
+            )}
             {/* 오늘의 조각 — 헤더 바로 아래(옛 위치토글 자리). 오늘 새로 생긴 것부터 */}
             {(userName === '우댕' || userName === '꼼이') && (
               <TodayDigest me={userName as '우댕' | '꼼이'} />
