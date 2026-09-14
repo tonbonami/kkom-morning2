@@ -5,6 +5,20 @@
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { partnerOf } from './letters';
+import { recordSerendipity } from './serendipity';
+
+// ── 우연 '같은 걸 동시에' 감지 ──
+// 내가 던진 시각 ↔ 상대가 던진 시각이 15초 이내면 = 서로 모르고 동시에 하트를 던진 것.
+const SYNC_WINDOW_MS = 15_000;
+let lastThrowMs = 0;
+let lastRecvMs = 0;
+let lastRecvNonce = '';
+function maybeSyncAction(emoji: string): void {
+  if (lastThrowMs && lastRecvMs && Math.abs(lastThrowMs - lastRecvMs) <= SYNC_WINDOW_MS) {
+    void recordSerendipity('sync-action', { gapSec: Math.abs(lastThrowMs - lastRecvMs) / 1000, detail: emoji });
+    lastThrowMs = 0; lastRecvMs = 0;   // 한 번 잡으면 리셋(연타 중복 방지)
+  }
+}
 
 export interface LiveHeartPing {
   from: string;
@@ -21,6 +35,8 @@ export async function throwHeart(from: string, emoji: string = '❤️'): Promis
   const nonce = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   try {
     await setDoc(doc(db, 'liveHearts', to), { from, nonce, at: serverTimestamp(), emoji });
+    lastThrowMs = Date.now();
+    maybeSyncAction(emoji);   // 상대가 방금(15초 내) 던졌으면 '같은 걸 동시에' 우연
   } catch (e) {
     console.warn('하트 던지기 실패:', e);
   }
@@ -34,6 +50,14 @@ export function subscribeLiveHearts(me: string, cb: (ping: LiveHeartPing) => voi
     (snap) => {
       const d = snap.data() as { from?: string; nonce?: string; at?: Timestamp; emoji?: string } | undefined;
       if (!d?.nonce) return;
+      // 우연 감지 — 새 nonce + 방금(20초 내) 도착한 하트만 '상대가 방금 던짐'으로 침(첫 스냅샷/과거 하트 제외)
+      const atMs = d.at?.toDate?.().getTime() ?? 0;
+      if (d.nonce !== lastRecvNonce && atMs && Date.now() - atMs < 20_000) {
+        lastRecvNonce = d.nonce; lastRecvMs = Date.now();
+        maybeSyncAction(d.emoji || '❤️');
+      } else if (d.nonce !== lastRecvNonce) {
+        lastRecvNonce = d.nonce;   // 오래된 하트는 감지 안 하되 nonce는 갱신
+      }
       cb({ from: d.from ?? '', nonce: d.nonce, at: d.at?.toDate?.() ?? null, emoji: d.emoji || '❤️' });
     },
     (err) => console.error('liveHearts 구독 오류:', err)

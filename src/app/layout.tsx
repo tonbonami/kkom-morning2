@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Toaster } from '@/components/ui/toaster';
 import { PwaRegister } from '@/components/pwa-register';
 import PresenceHeartbeat from '@/components/PresenceHeartbeat';
+import SerendipityWatch from '@/components/SerendipityWatch';
 import AppViewportHeight from '@/components/AppViewportHeight';
 import './globals.css';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ export default function RootLayout({
         <Toaster />
         <PwaRegister />
         <PresenceHeartbeat />
+        <SerendipityWatch />
       </body>
     </html>
   );
