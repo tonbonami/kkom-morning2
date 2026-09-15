@@ -1119,7 +1119,7 @@ export default function KkomMorningHome() {
           <>
             {/* 살아있는 꼼이 — 홈 최상단 마스코트. 공간의 온기를 움짤 기분으로 비춤(다그치지 않음) */}
             {(userName === '우댕' || userName === '꼼이') && (
-              <LivingKkom presence={partnerPresence} partner={partner} tick={presenceTick} />
+              <LivingKkom presence={partnerPresence} partner={partner} me={userName} tick={presenceTick} />
             )}
             {/* 오늘의 조각 — 헤더 바로 아래(옛 위치토글 자리). 오늘 새로 생긴 것부터 */}
             {(userName === '우댕' || userName === '꼼이') && (
