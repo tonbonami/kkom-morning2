@@ -148,6 +148,9 @@ final class WatchStore: ObservableObject {
             connected = false   // presence 조회 자체가 실패 = 네트워크 없음(B: 오프라인 배지)
             online = false
         }
+        // 내 접속을 워치 presence에 기록(폰 presence와 별개) — 상대에게 '워치로 보는 중' 신호.
+        //   손목 내리면 폴링 중단 → lastSeenAt 갱신 멈춤 → 웹이 90초 후 '워치도 꺼짐'으로 봄.
+        await Fire.writeWatchPresence(name: me, atMs: serverNow())
         if let h = await Fire.fetchHeartNonce(for: me) {
             if !baselineSet {
                 lastHeartNonce = h.nonce; baselineSet = true

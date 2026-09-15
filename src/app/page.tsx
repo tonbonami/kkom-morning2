@@ -38,7 +38,7 @@ import LivingKkom from '@/components/LivingKkom';
 import { subscribeTodayStats } from '@/lib/dailyStats';
 import LiveHeartLayer from '@/components/LiveHeartLayer';
 import { subscribeTodayMoods, moodFromKey, type MoodMap } from '@/lib/moods';
-import { touchPresence, subscribePresence, formatPresenceRelative, isTogetherNow, type Presence } from '@/lib/presence';
+import { touchPresence, subscribePresence, subscribeWatchPresence, formatPresenceRelative, isTogetherNow, type Presence } from '@/lib/presence';
 import { subscribeLive, liveKey, DEFAULT_BOARD, DEFAULT_BOOK, subscribeCurrentPage, subscribeStrokes, type BoardStroke } from '@/lib/canvasBoard';
 import DoodleThumb from '@/components/DoodleThumb';
 import { pushWidgetSnapshot, clearWidgetSnapshot } from '@/lib/widget';
@@ -211,6 +211,7 @@ export default function KkomMorningHome() {
   const [dDay, setDDay] = useState(0);
   const [dateText, setDateText] = useState('');
   const [partnerPresence, setPartnerPresence] = useState<Presence>({ lastSeenAt: null, active: false });
+  const [partnerWatchPresence, setPartnerWatchPresence] = useState<Presence>({ lastSeenAt: null, active: false });
   const [partnerDrawing, setPartnerDrawing] = useState(false); // 상대가 낙서장에서 실시간 필기 중 (RTDB live)
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -342,6 +343,7 @@ export default function KkomMorningHome() {
     const partner = partnerOf(userName);
     // presence 쓰기(heartbeat)는 전역 PresenceHeartbeat가 담당 → 여기선 구독만.
     const unsub = subscribePresence(partner, setPartnerPresence);
+    const unsubWatch = subscribeWatchPresence(partner, setPartnerWatchPresence);   // 상대 워치 접속(별개)
     // 상대가 낙서장에서 실시간 필기 중인지 (RTDB live)
     const unsubLive = subscribeLive(DEFAULT_BOARD, liveKey(partner as '우댕' | '꼼이'), (s) => {
       setPartnerDrawing(!!s && Array.isArray(s.points) && s.points.length > 0);
@@ -350,7 +352,7 @@ export default function KkomMorningHome() {
     const tick = setInterval(() => setPresenceTick((x) => x + 1), 60_000);
     getPushState(userName).then(setPushState);
     registerNativePush(liveKey(userName as '우댕' | '꼼이'));   // 네이티브 앱 APNs 푸시 등록
-    return () => { clearInterval(tick); unsub(); unsubLive(); };
+    return () => { clearInterval(tick); unsub(); unsubWatch(); unsubLive(); };
   }, [userName]);
 
   // Live Activity — 내가 접속 중이면 상대 activity에 "나 접속 💚" 실시간 푸시(앱 닫혀 있어도 잠금화면에 뜸).
@@ -1039,7 +1041,11 @@ export default function KkomMorningHome() {
           <p className="text-xs font-bold text-slate-500 mt-1.5">
             <span className="text-[#E4685E]">{partner}</span>
             <span className="text-slate-400"> · </span>
-            <span suppressHydrationWarning>{formatPresenceRelative(partnerPresence)}</span>
+            <span suppressHydrationWarning>{
+              !isTogetherNow(partnerPresence) && isTogetherNow(partnerWatchPresence)
+                ? '⌚ 워치로 보는 중'
+                : formatPresenceRelative(partnerPresence)
+            }</span>
             {/* presenceTick 참조로 매분 리렌더 */}
             <span className="hidden">{presenceTick}</span>
           </p>
@@ -1219,6 +1225,7 @@ export default function KkomMorningHome() {
           onClose={() => setChatOpen(false)}
           onSend={(text, imageUrl, sticker, replyTo, audio, video) => sendMessage(userName, text, isTogetherNow(partnerPresence), imageUrl, sticker, replyTo, audio, video)}
           partnerOnline={isTogetherNow(partnerPresence)}
+          partnerOnWatch={!isTogetherNow(partnerPresence) && isTogetherNow(partnerWatchPresence)}
           onLoadMore={() => setMsgLimit((l) => l + 40)}
           hasMore={messages.length >= msgLimit}
           onSendCapsule={(text, deliverAt) => sendCapsule(userName, text, deliverAt)}

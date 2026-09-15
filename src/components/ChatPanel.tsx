@@ -72,6 +72,7 @@ interface Props {
   onClose: () => void;
   onSend: (text: string, imageUrl?: string, sticker?: string, replyTo?: ReplyRef, audio?: { url: string; dur: number }, video?: { url: string; dur?: number }) => void;
   partnerOnline: boolean;
+  partnerOnWatch?: boolean;   // 폰은 꺼졌고 워치만 켜짐 — '워치로 보는 중'(길게 답장은 못 하는 상태)
   onLoadMore: () => void;
   hasMore: boolean;
   onSendCapsule: (text: string, deliverAt: Date) => void;
@@ -495,7 +496,7 @@ function hexA(hex: string, a: number): string {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
 
-export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, onLoadMore, hasMore, onSendCapsule }: Props) {
+export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, partnerOnWatch, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
   // 챗 테마(기기별) — 라이트/다크 팔레트를 따로 고른다(모드별 선택 기억). [[feedback-design-workflow]] 팔레트는 제미나이.
@@ -905,8 +906,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             <img src={avatarOf(partner)} alt={partner} className="w-9 h-9 rounded-full object-cover" />
             <div className="flex-1">
               <div className="text-base font-extrabold" style={{ color: 'var(--ct-chip-text)' }}>{partner}</div>
-              <div className={`text-xs font-bold ${partnerTyping ? 'text-[#FB7BA8]' : partnerOnline ? 'text-emerald-500' : 'text-slate-400'}`}>
-                {partnerTyping ? '입력 중…' : partnerOnline ? '지금 함께 💚' : '오프라인'}
+              <div className={`text-xs font-bold ${partnerTyping ? 'text-[#FB7BA8]' : partnerOnline ? 'text-emerald-500' : partnerOnWatch ? 'text-amber-500' : 'text-slate-400'}`}>
+                {partnerTyping ? '입력 중…' : partnerOnline ? '지금 함께 💚' : partnerOnWatch ? '⌚ 워치로 보는 중' : '오프라인'}
               </div>
             </div>
             {/* 아이콘 셋을 한 덩어리로 묶어 gap-0.5로 붙인다 — '셋'이 아니라 한 뭉치로 읽히게(사이담 팁) */}

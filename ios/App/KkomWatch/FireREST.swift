@@ -101,6 +101,20 @@ enum Fire {
         return await patch(url, body)
     }
 
+    // 내(워치) 접속을 presenceWatch/{name}에 기록 — 폰 presence(presence/{name})와 별개.
+    //   폰/웹이 "폰 켜짐=지금 함께 / 워치만 켜짐=워치로 보는 중"을 구분하게 한다. atMs는 시계보정된 서버시각.
+    //   워치는 입력이 제한이라, 상대가 '길게 답장은 못 하지만 여기 있다'를 알 수 있게 하는 신호.
+    @discardableResult
+    static func writeWatchPresence(name: String, atMs: Double) async -> Bool {
+        guard let url = URL(string: "\(base)/presenceWatch/\(enc(name))?key=\(apiKey)") else { return false }
+        let body: [String: Any] = ["fields": [
+            "name":       ["stringValue": name],
+            "active":     ["booleanValue": true],
+            "lastSeenAt": ["timestampValue": formatTS(Date(timeIntervalSince1970: atMs / 1000))],
+        ]]
+        return await patch(url, body)
+    }
+
     // 오늘 내 기분 저장 — moods/{name}_{day}. 웹 setMyMood와 동일 스키마.
     @discardableResult
     static func setMood(name: String, emoji: String, day: String) async -> Bool {

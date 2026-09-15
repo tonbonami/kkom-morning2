@@ -69,6 +69,28 @@ export function isTogetherNow(p: Presence): boolean {
   return Math.max(0, serverNow() - p.lastSeenAt.getTime()) < ACTIVE_THRESHOLD_MS;
 }
 
+// 워치 접속 — presenceWatch/{name}. 폰 presence(presence/{name})와 별개.
+//   워치는 입력이 제한이라 '워치로 보는 중'으로 구분해, 상대가 '여기 있지만 길게 답장은 못 해'를 알게 한다.
+export function subscribeWatchPresence(name: string, cb: (p: Presence) => void): () => void {
+  if (!name) { cb({ lastSeenAt: null, active: false }); return () => {}; }
+  return onSnapshot(
+    doc(db, 'presenceWatch', name),
+    (snap) => {
+      const d = snap.data() as { lastSeenAt?: Timestamp; active?: boolean } | undefined;
+      cb({ lastSeenAt: d?.lastSeenAt?.toDate?.() ?? null, active: !!d?.active });
+    },
+    () => cb({ lastSeenAt: null, active: false }),
+  );
+}
+
+// 폰+워치 종합 상태. 폰이 우선(폰 켜져 있으면 '지금 함께'), 폰 꺼졌고 워치만 최근이면 '워치로 보는 중'.
+export type PresenceStatus = 'together' | 'watch' | 'away';
+export function combinedStatus(phone: Presence, watch: Presence): PresenceStatus {
+  if (isTogetherNow(phone)) return 'together';
+  if (isTogetherNow(watch)) return 'watch';
+  return 'away';
+}
+
 // '지금 함께 💚' / '5분 전' 등으로 변환 (serverNow로 시계 오차 보정)
 export function formatPresenceRelative(p: Presence): string {
   if (!p.lastSeenAt) return '아직 한 번도';
