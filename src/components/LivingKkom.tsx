@@ -182,7 +182,7 @@ export default function LivingKkom({ presence, partner, me, tick }: {
             </AnimatePresence>
           </div>
           <div className="pointer-events-none min-w-0">
-            <div className="text-[10.5px] font-bold uppercase tracking-[2px]" style={{ color: '#D98BA8' }}>살아있는 꼼이</div>
+            <div className="text-[11px] font-extrabold tracking-[0.5px]" style={{ color: '#D98BA8' }}>꼼이Now</div>
             <div className="mt-1 text-[16px] font-bold leading-snug" style={{ color: 'var(--sd-ink)' }}>
               {justSent ? '❤️ 하트 보냈어!' : inGift ? `${subjName(incoming!.from)}가 ${inGift.label} 두고 갔어` : mood.caption}
             </div>
