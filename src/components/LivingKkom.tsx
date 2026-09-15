@@ -4,7 +4,7 @@
 //   ⚠️ 절대 다그치지 않음(오늘의 조각 철학): 스트릭·"N일째 조용" 없음. 지금 느낌만 존재로.
 //   '살아있음'이 느껴지게 — ① 늘 미세하게 통통(idle) ② 탭하면 통 튀고 하트가 뿅 + 상대에게
 //   라이브 하트 전송(쓰다듬기=애정) ③ 기분 바뀔 때 크로스페이드로 눈에 보이게.
-import { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence, useAnimationControls, useReducedMotion } from 'framer-motion';
 import { isTogetherNow, serverNow, type Presence } from '@/lib/presence';
 import { throwHeart } from '@/lib/liveHearts';
@@ -40,26 +40,65 @@ export default function LivingKkom({ presence, partner, me, tick }: {
   const seq = useRef(0);
   const sentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 쓰다듬기 — 강아지만 크게 통통 튀고(점프+스쿼시+살짝 넘어감), 하트 여러 개 뿅, 상대 화면에 라이브 하트.
-  const pet = () => {
-    bounce.start(
-      { scale: [1, 1.34, 0.9, 1.12, 1], y: [0, -18, 4, -7, 0], rotate: [0, -9, 7, -3, 0] },
-      { duration: 0.62, ease: [0.34, 1.4, 0.5, 1] },   // back-out: 끝에 살짝 넘어가서 통통
-    );
-    const three = [{ id: ++seq.current, x: -18 }, { id: ++seq.current, x: 3 }, { id: ++seq.current, x: 21 }];
-    const ids = new Set(three.map((t) => t.id));
-    setFloats((f) => [...f, ...three]);
+  const lastSend = useRef(0);
+  const lastPulse = useRef(0);
+  const stroked = useRef(false);
+  const down = useRef(false);
+  const lastPt = useRef({ x: 0, y: 0 });
+  const moved = useRef(0);
+
+  const spawnHearts = (n: number) => {
+    const arr = Array.from({ length: n }, (_, i) => ({ id: ++seq.current, x: [-18, 3, 21][i % 3] }));
+    const ids = new Set(arr.map((a) => a.id));
+    setFloats((f) => [...f, ...arr]);
     setTimeout(() => setFloats((f) => f.filter((x) => !ids.has(x.id))), 1250);
+  };
+  const flashSent = () => {
     setJustSent(true);
     if (sentTimer.current) clearTimeout(sentTimer.current);
     sentTimer.current = setTimeout(() => setJustSent(false), 1400);
-    if (me) throwHeart(me).catch(() => {});
-    try { (navigator as unknown as { vibrate?: (n: number) => void }).vibrate?.(14); } catch { /* noop */ }
+  };
+  // 하트 전송 — 쓰다듬는 동안 도배되지 않게 최소 간격(800ms).
+  const sendHeart = () => {
+    const now = Date.now();
+    if (me && now - lastSend.current > 800) {
+      lastSend.current = now;
+      throwHeart(me).catch(() => {});
+      try { (navigator as unknown as { vibrate?: (n: number) => void }).vibrate?.(14); } catch { /* noop */ }
+    }
+  };
+  // 톡 — 크게 통통(점프+스쿼시+살짝 넘어감) + 하트 3개.
+  const tap = () => {
+    bounce.start({ scale: [1, 1.34, 0.9, 1.12, 1], y: [0, -18, 4, -7, 0], rotate: [0, -9, 7, -3, 0] },
+      { duration: 0.62, ease: [0.34, 1.4, 0.5, 1] });
+    spawnHearts(3); flashSent(); sendHeart();
+  };
+  // 쓰다듬기 한 번 — 작게 통 + 하트 1개(가로로 문지르면 빠르게 반복).
+  const strokePulse = () => {
+    bounce.start({ scale: [1, 1.16, 0.97, 1], y: [0, -8, 0] }, { duration: 0.34, ease: 'easeOut' });
+    spawnHearts(1); flashSent(); sendHeart();
   };
 
+  const onDown = (e: React.PointerEvent) => { down.current = true; stroked.current = false; lastPt.current = { x: e.clientX, y: e.clientY }; moved.current = 0; };
+  const onMove = (e: React.PointerEvent) => {
+    if (!down.current) return;
+    const dx = e.clientX - lastPt.current.x, dy = e.clientY - lastPt.current.y;
+    lastPt.current = { x: e.clientX, y: e.clientY };
+    moved.current += Math.hypot(dx, dy);
+    // 가로 문지르기만 쓰다듬기로 침(세로는 스크롤이라 무시). 3px+ 움직일 때마다 240ms 스로틀.
+    const now = Date.now();
+    if (Math.abs(dx) > Math.abs(dy) && Math.hypot(dx, dy) > 3 && now - lastPulse.current > 240) {
+      lastPulse.current = now; stroked.current = true; strokePulse();
+    }
+  };
+  const onUp = () => { down.current = false; };
+  // 순수 탭만 tap(). 쓰다듬은 뒤 딸려오는 click은 무시(이중발사 방지).
+  const onClick = () => { if (!stroked.current) tap(); };
+
   return (
-    <motion.button onClick={pet} aria-label="꼼이 쓰다듬기"
-      className="relative flex h-full w-full items-center gap-4 rounded-[22px] px-5 py-4 text-left outline-none select-none [-webkit-touch-callout:none]"
+    <motion.button onClick={onClick} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+      aria-label="꼼이 쓰다듬기"
+      className="relative flex h-full w-full touch-pan-y items-center gap-4 rounded-[22px] px-5 py-4 text-left outline-none select-none [-webkit-touch-callout:none]"
       style={{ background: 'linear-gradient(135deg, #FFF6F0 0%, #FCEEF3 100%)', boxShadow: '0 6px 18px -12px rgba(180,100,120,0.28)' }}>
       {/* ⚠️ 내부 요소는 pointer-events-none — iOS에서 <img>가 탭을 먹어 버튼 onClick이 안 불리는 것 방지 */}
       <div className="pointer-events-none relative shrink-0">
