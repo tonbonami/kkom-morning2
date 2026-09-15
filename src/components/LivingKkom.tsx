@@ -79,26 +79,34 @@ export default function LivingKkom({ presence, partner, me, tick }: {
     spawnHearts(1); flashSent(); sendHeart();
   };
 
-  const onDown = (e: React.PointerEvent) => { down.current = true; stroked.current = false; lastPt.current = { x: e.clientX, y: e.clientY }; moved.current = 0; };
+  const onDown = (e: React.PointerEvent) => {
+    down.current = true; stroked.current = false; moved.current = 0;
+    lastPt.current = { x: e.clientX, y: e.clientY };
+    // 포인터 캡처 — 손가락이 카드 밖(강아지 옆·위아래)으로 넘어가도 계속 쓰다듬기로 인식.
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* noop */ }
+  };
   const onMove = (e: React.PointerEvent) => {
     if (!down.current) return;
     const dx = e.clientX - lastPt.current.x, dy = e.clientY - lastPt.current.y;
     lastPt.current = { x: e.clientX, y: e.clientY };
-    moved.current += Math.hypot(dx, dy);
-    // 가로 문지르기만 쓰다듬기로 침(세로는 스크롤이라 무시). 3px+ 움직일 때마다 240ms 스로틀.
+    const d = Math.hypot(dx, dy);
+    moved.current += d;
+    // 방향 무관 — 문지르든 스와이프든, 3px+ 움직일 때마다 160ms 스로틀로 하트.
     const now = Date.now();
-    if (Math.abs(dx) > Math.abs(dy) && Math.hypot(dx, dy) > 3 && now - lastPulse.current > 240) {
+    if (d > 3 && now - lastPulse.current > 160) {
       lastPulse.current = now; stroked.current = true; strokePulse();
     }
   };
-  const onUp = () => { down.current = false; };
-  // 순수 탭만 tap(). 쓰다듬은 뒤 딸려오는 click은 무시(이중발사 방지).
-  const onClick = () => { if (!stroked.current) tap(); };
+  const onUp = (e: React.PointerEvent) => {
+    if (down.current && !stroked.current && moved.current < 8) tap();   // 움직임 거의 없으면 = 탭(크게)
+    down.current = false;
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
+  };
 
   return (
-    <motion.button onClick={onClick} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+    <motion.button onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
       aria-label="꼼이 쓰다듬기"
-      className="relative flex h-full w-full touch-pan-y items-center gap-4 rounded-[22px] px-5 py-4 text-left outline-none select-none [-webkit-touch-callout:none]"
+      className="relative flex h-full w-full touch-none items-center gap-4 rounded-[22px] px-5 py-4 text-left outline-none select-none [-webkit-touch-callout:none]"
       style={{ background: 'linear-gradient(135deg, #FFF6F0 0%, #FCEEF3 100%)', boxShadow: '0 6px 18px -12px rgba(180,100,120,0.28)' }}>
       {/* ⚠️ 내부 요소는 pointer-events-none — iOS에서 <img>가 탭을 먹어 버튼 onClick이 안 불리는 것 방지 */}
       <div className="pointer-events-none relative shrink-0">
