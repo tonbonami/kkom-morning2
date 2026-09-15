@@ -36,16 +36,17 @@ function vocative(name: string): string {
   return name + (hasFinal ? '아' : '야');
 }
 
-function fillTemplate(template: string, from: string, to: string): string {
+function fillTemplate(template: string, from: string, to: string, item = ''): string {
   return template
     .replace(/\{fromName\}/g, nameWithI(from))
     .replace(/\{toName\}/g, nameWithI(to))
     .replace(/\{fromSubj\}/g, withSubjectParticle(from))
     .replace(/\{toSubj\}/g, withSubjectParticle(to))
-    .replace(/\{toVoc\}/g, vocative(to));
+    .replace(/\{toVoc\}/g, vocative(to))
+    .replace(/\{item\}/g, item);
 }
 
-type BumpKind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening' | 'night' | 'pet';
+type BumpKind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening' | 'night' | 'pet' | 'gift';
 
 // 각 종류별 narrator 톤 멘트 변주. 매번 랜덤 셔플 → 매번 새로운 푸시 멘트.
 const TEMPLATES: Record<BumpKind, Array<{ title: string; body: string }>> = {
@@ -122,6 +123,13 @@ const TEMPLATES: Record<BumpKind, Array<{ title: string; body: string }>> = {
     { title: '☁️ 온기 하나 두고 갔어', body: '{fromSubj} 다녀간 자리야' },
     { title: '🙈 이 정도면 보고싶은 거지', body: '{fromName}가 또 쓰담하고 갔어' },
   ],
+  // 두고 가기 — 상대 홈 마스코트에 {item}(담요·치킨 등)을 얹어 두고 감.
+  gift: [
+    { title: '🎁 {fromSubj} {item} 두고 갔어', body: '홈에서 확인해봐 💗' },
+    { title: '🎁 {toVoc}, {item} 왔어', body: '{fromSubj} 살포시 두고 갔대' },
+    { title: '💗 {fromName}가 {item} 두고 갔어', body: '네 생각하면서 뒀대' },
+    { title: '🍽️ 누가 {item} 놓고 갔네', body: '{fromName} 마음이야' },
+  ],
 };
 
 // ⚠️ 알림 본문 맨 앞에 '무슨 범프인지'를 항상 박는다.
@@ -136,6 +144,7 @@ const BUMP_HEADLINE: Record<BumpKind, string> = {
   whitening: '💪 화이트닝 보냈어',
   night: '🌙 잘 자 보냈어',
   pet: '🐾 쓰담쓰담 받았어',
+  gift: '🎁 {item} 두고 갔어',
 };
 
 function pickRandom<T>(arr: T[]): T {
@@ -143,25 +152,26 @@ function pickRandom<T>(arr: T[]): T {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { from?: string; to?: string; kind?: BumpKind };
+  let body: { from?: string; to?: string; kind?: BumpKind; item?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'invalid json' }, { status: 400 });
   }
-  const { from, to, kind = 'miss' } = body;
+  const { from, to, kind = 'miss', item = '' } = body;
   if (!to || !from) {
     return NextResponse.json({ error: 'to/from required' }, { status: 400 });
   }
+  const itemLabel = String(item).slice(0, 20);   // gift 소품 이름(담요·치킨 등)
 
   // 누른 사람에게 필요한 건 '무슨 문구가 갔는지' 하나뿐 — 그건 지금 이 자리에서 확정된다.
   // 그래서 문구만 '즉시' 응답하고, 집계·APNs·웹푸시는 응답 뒤(after)로 미룬다 → 영수증이 곧바로 뜬다.
   // (사이담 세션 제안 ①: 이전엔 이 전부를 순서대로 await한 뒤에야 응답 → 영수증이 늦게 떴음)
   const templates = TEMPLATES[kind] || TEMPLATES.miss;
   const picked = pickRandom(templates);
-  const title = fillTemplate(picked.title, from, to);
+  const title = fillTemplate(picked.title, from, to, itemLabel);
   // 명확한 한마디('보고싶어 보냈어')를 앞에 + 재미난 나레이션을 뒤에. 알림엔 body만 보여서 여기가 관건.
-  const bodyText = `${BUMP_HEADLINE[kind]} · ${fillTemplate(picked.body, from, to)}`;
+  const bodyText = `${fillTemplate(BUMP_HEADLINE[kind], from, to, itemLabel)} · ${fillTemplate(picked.body, from, to, itemLabel)}`;
 
   after(async () => {
     // 집계 — '보냈다'는 사실이므로 푸시 결과와 무관하게 항상 increment.
@@ -177,8 +187,8 @@ export async function POST(req: NextRequest) {
     // 워치용 — 받은 범프를 워치 앱에서 '보고싶어'처럼 또렷이 띄우게 liveBumps 문서에 남긴다.
     //   푸시(코이한 랜덤 문구)만으론 워치에서 '무슨 범프인지' 안 보여서, 워치가 이 doc을 폴링해
     //   kind로 라벨을 그린다(하트의 liveHearts와 같은 방식). nonce로 새 범프를 감지.
-    // pet(쓰담쓰담)은 워치 라벨이 아직 없어 liveBumps 제외 — 폰/웹 푸시만(워치는 C 복구 때 라벨 추가).
-    if (kind !== 'night' && kind !== 'pet') {
+    // pet(쓰담쓰담)·gift(두고 가기)는 워치 라벨이 아직 없어 liveBumps 제외 — 폰/웹 푸시만.
+    if (kind !== 'night' && kind !== 'pet' && kind !== 'gift') {
       try {
         await setDoc(doc(db, 'liveBumps', to), {
           from, kind, nonce: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, at: Date.now(),
