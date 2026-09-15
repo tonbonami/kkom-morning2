@@ -45,7 +45,7 @@ function fillTemplate(template: string, from: string, to: string): string {
     .replace(/\{toVoc\}/g, vocative(to));
 }
 
-type BumpKind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening' | 'night';
+type BumpKind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening' | 'night' | 'pet';
 
 // 각 종류별 narrator 톤 멘트 변주. 매번 랜덤 셔플 → 매번 새로운 푸시 멘트.
 const TEMPLATES: Record<BumpKind, Array<{ title: string; body: string }>> = {
@@ -113,6 +113,15 @@ const TEMPLATES: Record<BumpKind, Array<{ title: string; body: string }>> = {
     { title: '🌙 {fromName} 굿나잇 도착', body: '편안한 밤 💤' },
     { title: '🌙 오늘 하루 수고했어', body: '{fromName}가 {toName}한테 잘 자래 ✨' },
   ],
+  // 살아있는 꼼이를 쓰다듬으면 — 상대가 앱을 안 보고 있을 때만(라이브 하트로 안 닿을 때) 이 알림이 간다.
+  pet: [
+    { title: '🐶 {fromSubj} {toName} 보고싶나 봐', body: '또 만지작만지작하고 갔어' },
+    { title: '💗 {toVoc}, 방금 쓰담받았어', body: '{fromSubj} 왔다 갔대' },
+    { title: '🐾 누가 살짝 쓰다듬고 갔어', body: '{fromName} 손길이던데?' },
+    { title: '🥹 {fromSubj} 또 {toName} 생각났나 봐', body: '가만히 쓰다듬고 갔어' },
+    { title: '☁️ 온기 하나 두고 갔어', body: '{fromSubj} 다녀간 자리야' },
+    { title: '🙈 이 정도면 보고싶은 거지', body: '{fromName}가 또 쓰담하고 갔어' },
+  ],
 };
 
 // ⚠️ 알림 본문 맨 앞에 '무슨 범프인지'를 항상 박는다.
@@ -126,6 +135,7 @@ const BUMP_HEADLINE: Record<BumpKind, string> = {
   kiss: '😘 뽀뽀 보냈어',
   whitening: '💪 화이트닝 보냈어',
   night: '🌙 잘 자 보냈어',
+  pet: '🐾 쓰담쓰담 받았어',
 };
 
 function pickRandom<T>(arr: T[]): T {
@@ -167,7 +177,8 @@ export async function POST(req: NextRequest) {
     // 워치용 — 받은 범프를 워치 앱에서 '보고싶어'처럼 또렷이 띄우게 liveBumps 문서에 남긴다.
     //   푸시(코이한 랜덤 문구)만으론 워치에서 '무슨 범프인지' 안 보여서, 워치가 이 doc을 폴링해
     //   kind로 라벨을 그린다(하트의 liveHearts와 같은 방식). nonce로 새 범프를 감지.
-    if (kind !== 'night') {
+    // pet(쓰담쓰담)은 워치 라벨이 아직 없어 liveBumps 제외 — 폰/웹 푸시만(워치는 C 복구 때 라벨 추가).
+    if (kind !== 'night' && kind !== 'pet') {
       try {
         await setDoc(doc(db, 'liveBumps', to), {
           from, kind, nonce: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, at: Date.now(),

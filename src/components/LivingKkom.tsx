@@ -41,6 +41,7 @@ export default function LivingKkom({ presence, partner, me, tick }: {
   const sentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const lastSend = useRef(0);
+  const lastPush = useRef(0);
   const lastPulse = useRef(0);
   const stroked = useRef(false);
   const down = useRef(false);
@@ -59,12 +60,21 @@ export default function LivingKkom({ presence, partner, me, tick }: {
     sentTimer.current = setTimeout(() => setJustSent(false), 1400);
   };
   // 하트 전송 — 쓰다듬는 동안 도배되지 않게 최소 간격(800ms).
+  //   + 상대가 앱을 '지금 보고 있지 않으면'(라이브 하트가 안 닿음) 쓰담 알림(pet 범프)을 푸시.
+  //     쓰담 세션당 1회만(60초 스로틀) — 100번 쓰다듬어도 알림은 한 번. 보고 있으면 안 보냄(하트로 충분).
   const sendHeart = () => {
     const now = Date.now();
     if (me && now - lastSend.current > 800) {
       lastSend.current = now;
       throwHeart(me).catch(() => {});
       try { (navigator as unknown as { vibrate?: (n: number) => void }).vibrate?.(14); } catch { /* noop */ }
+    }
+    if (me && !isTogetherNow(presence) && now - lastPush.current > 60_000) {
+      lastPush.current = now;
+      fetch('/api/bump', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: me, to: partner, kind: 'pet' }),
+      }).catch(() => {});
     }
   };
   // 톡 — 크게 통통(점프+스쿼시+살짝 넘어감) + 하트 3개.
