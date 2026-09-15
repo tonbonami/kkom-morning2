@@ -54,10 +54,12 @@ export default function LivingKkom({ presence, partner, me, tick }: {
   };
 
   return (
-    <button onClick={pet} aria-label="꼼이 쓰다듬기"
-      className="relative flex h-full w-full items-center gap-4 rounded-[22px] px-5 py-4 text-left outline-none select-none active:scale-[0.99] transition-transform"
+    <motion.button onClick={pet} aria-label="꼼이 쓰다듬기"
+      whileTap={{ scale: 0.96 }}
+      className="relative flex h-full w-full items-center gap-4 rounded-[22px] px-5 py-4 text-left outline-none select-none [-webkit-touch-callout:none]"
       style={{ background: 'linear-gradient(135deg, #FFF6F0 0%, #FCEEF3 100%)', boxShadow: '0 6px 18px -12px rgba(180,100,120,0.28)' }}>
-      <div className="relative shrink-0">
+      {/* ⚠️ 내부 요소는 pointer-events-none — iOS에서 <img>가 탭을 먹어 버튼 onClick이 안 불리는 것 방지 */}
+      <div className="pointer-events-none relative shrink-0">
         {/* idle 통통 */}
         <motion.div
           animate={reduce ? undefined : { y: [0, -4, 0] }}
@@ -88,13 +90,13 @@ export default function LivingKkom({ presence, partner, me, tick }: {
         </AnimatePresence>
       </div>
 
-      <div className="min-w-0">
+      <div className="pointer-events-none min-w-0">
         <div className="text-[10.5px] font-bold uppercase tracking-[2px]" style={{ color: '#D98BA8' }}>살아있는 꼼이</div>
         <div className="mt-1 text-[16px] font-bold leading-snug" style={{ color: 'var(--sd-ink)' }}>
           {justSent ? '❤️ 하트 보냈어!' : mood.caption}
         </div>
         <div className="mt-0.5 text-[11.5px] font-semibold" style={{ color: 'var(--sd-faint)' }}>쓰다듬으면 하트가 가</div>
       </div>
-    </button>
+    </motion.button>
   );
 }
