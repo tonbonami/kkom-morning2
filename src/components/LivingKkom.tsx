@@ -35,27 +35,30 @@ export default function LivingKkom({ presence, partner, me, tick }: {
   const reduce = useReducedMotion();
   const mood = moodFor(presence, partner);
   const bounce = useAnimationControls();
-  const [floats, setFloats] = useState<number[]>([]);
+  const [floats, setFloats] = useState<{ id: number; x: number }[]>([]);
   const [justSent, setJustSent] = useState(false);
   const seq = useRef(0);
   const sentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 쓰다듬기 — 통 튀고, 하트 뿅, 상대 화면에 라이브 하트.
+  // 쓰다듬기 — 강아지만 크게 통통 튀고(점프+스쿼시+살짝 넘어감), 하트 여러 개 뿅, 상대 화면에 라이브 하트.
   const pet = () => {
-    bounce.start({ scale: [1, 1.16, 0.94, 1], rotate: [0, -5, 5, 0] }, { duration: 0.5, ease: 'easeInOut' });
-    const id = ++seq.current;
-    setFloats((f) => [...f, id]);
-    setTimeout(() => setFloats((f) => f.filter((x) => x !== id)), 1100);
+    bounce.start(
+      { scale: [1, 1.34, 0.9, 1.12, 1], y: [0, -18, 4, -7, 0], rotate: [0, -9, 7, -3, 0] },
+      { duration: 0.62, ease: [0.34, 1.4, 0.5, 1] },   // back-out: 끝에 살짝 넘어가서 통통
+    );
+    const three = [{ id: ++seq.current, x: -18 }, { id: ++seq.current, x: 3 }, { id: ++seq.current, x: 21 }];
+    const ids = new Set(three.map((t) => t.id));
+    setFloats((f) => [...f, ...three]);
+    setTimeout(() => setFloats((f) => f.filter((x) => !ids.has(x.id))), 1250);
     setJustSent(true);
     if (sentTimer.current) clearTimeout(sentTimer.current);
     sentTimer.current = setTimeout(() => setJustSent(false), 1400);
     if (me) throwHeart(me).catch(() => {});
-    try { (navigator as unknown as { vibrate?: (n: number) => void }).vibrate?.(12); } catch { /* noop */ }
+    try { (navigator as unknown as { vibrate?: (n: number) => void }).vibrate?.(14); } catch { /* noop */ }
   };
 
   return (
     <motion.button onClick={pet} aria-label="꼼이 쓰다듬기"
-      whileTap={{ scale: 0.96 }}
       className="relative flex h-full w-full items-center gap-4 rounded-[22px] px-5 py-4 text-left outline-none select-none [-webkit-touch-callout:none]"
       style={{ background: 'linear-gradient(135deg, #FFF6F0 0%, #FCEEF3 100%)', boxShadow: '0 6px 18px -12px rgba(180,100,120,0.28)' }}>
       {/* ⚠️ 내부 요소는 pointer-events-none — iOS에서 <img>가 탭을 먹어 버튼 onClick이 안 불리는 것 방지 */}
@@ -80,12 +83,12 @@ export default function LivingKkom({ presence, partner, me, tick }: {
         </motion.div>
         {/* 쓰다듬을 때 떠오르는 하트 */}
         <AnimatePresence>
-          {floats.map((id) => (
-            <motion.span key={id} className="pointer-events-none absolute left-1/2 top-1 text-[20px]"
-              initial={{ y: 0, x: '-50%', opacity: 0.95, scale: 0.6 }}
-              animate={{ y: -46, opacity: 0, scale: 1.1 }}
+          {floats.map((h) => (
+            <motion.span key={h.id} className="pointer-events-none absolute left-[34px] top-2 text-[24px]"
+              initial={{ y: 6, x: h.x, opacity: 0, scale: 0.4 }}
+              animate={{ y: -54, x: h.x, opacity: [0, 1, 1, 0], scale: 1.2 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.05, ease: 'easeOut' }}>❤️</motion.span>
+              transition={{ duration: 1.2, ease: 'easeOut' }}>❤️</motion.span>
           ))}
         </AnimatePresence>
       </div>
