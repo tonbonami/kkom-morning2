@@ -125,7 +125,7 @@ function StickerWrap({ src, emoji, count }: { src?: string; emoji?: string; coun
         );
       })}
       {count > safeCount && (
-        <span className="text-xs font-bold text-slate-400 ml-1">+{count - safeCount}</span>
+        <span className="text-[14px] font-bold text-slate-400 ml-1">+{count - safeCount}</span>
       )}
     </div>
   );
@@ -153,7 +153,7 @@ function PraiseRow({
     return (
       <article className={cn('relative rounded-[18px] bg-[#FFF8D9] px-4 py-3 ring-1 ring-amber-100 shadow-md', tilt)}>
         <div className="tape -top-2 left-1/2 -translate-x-1/2 w-14 -rotate-3 rounded-sm" />
-        <p className="text-[11px] font-black text-amber-600">
+        <p className="text-[13px] font-black text-amber-600">
           {formatDate(item.createdAt)} · 🥺 {item.from}가 칭찬을 졸랐어
         </p>
         <p className="font-handwriting mt-1 text-[17px] leading-snug text-slate-800">
@@ -161,7 +161,7 @@ function PraiseRow({
         </p>
         <button
           onClick={() => onOpenReplies(item)}
-          className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-amber-600/80 active:scale-95"
+          className="mt-2 inline-flex items-center gap-1 text-[13px] font-bold text-amber-600/80 active:scale-95"
         >
           <MessageCircle size={12} /> {replyCount > 0 ? `답글 ${replyCount}` : '답글 달기'}
         </button>
@@ -182,7 +182,7 @@ function PraiseRow({
         <p className="font-handwriting text-[18px] leading-snug text-slate-800 whitespace-pre-wrap">
           {item.reason}
         </p>
-        <p className="mt-2 text-[10px] font-black text-slate-400">
+        <p className="mt-2 text-[12px] font-black text-slate-400">
           {formatDate(item.createdAt)} · 📝 {item.from}의 메모
         </p>
       </article>
@@ -212,7 +212,7 @@ function PraiseRow({
       <p className="font-handwriting mt-3 text-[20px] leading-snug text-slate-800">
         {item.reason}
       </p>
-      <p className="mt-2 text-[11px] font-bold text-slate-400">
+      <p className="mt-2 text-[13px] font-bold text-slate-400">
         {formatDate(item.createdAt)} · {isMine ? `${vocativeOf(item.to)} 보낸 칭찬` : `${item.from}가 보낸 칭찬`}
       </p>
 
@@ -226,7 +226,7 @@ function PraiseRow({
       {/* 답글 버튼 — 카드 하단 작은 액션 */}
       <button
         onClick={() => onOpenReplies(item)}
-        className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 active:scale-95 hover:text-pink-500 transition-colors"
+        className="mt-2 inline-flex items-center gap-1 text-[13px] font-bold text-slate-400 active:scale-95 hover:text-pink-500 transition-colors"
       >
         <MessageCircle size={12} />
         {replyCount > 0 ? `답글 ${replyCount}` : '답글 달기'}
@@ -315,7 +315,7 @@ function Composer({
             <button
               onClick={() => setKind('praise')}
               className={cn(
-                'h-10 rounded-xl text-[11px] font-black transition-all',
+                'h-10 rounded-xl text-[13px] font-black transition-all',
                 kind === 'praise' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'
               )}
             >
@@ -324,7 +324,7 @@ function Composer({
             <button
               onClick={() => setKind('request')}
               className={cn(
-                'h-10 rounded-xl text-[11px] font-black transition-all',
+                'h-10 rounded-xl text-[13px] font-black transition-all',
                 kind === 'request' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-400'
               )}
             >
@@ -333,7 +333,7 @@ function Composer({
             <button
               onClick={() => setKind('memo')}
               className={cn(
-                'h-10 rounded-xl text-[11px] font-black transition-all',
+                'h-10 rounded-xl text-[13px] font-black transition-all',
                 kind === 'memo' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-400'
               )}
             >
@@ -391,8 +391,8 @@ function Composer({
               {/* 개수 빠른 칩 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-black text-slate-500">스티커 개수</span>
-                  <span className="text-sm font-black text-emerald-600">{stickerCount}개</span>
+                  <span className="text-[14px] font-black text-slate-500">스티커 개수</span>
+                  <span className="text-[16px] font-black text-emerald-600">{stickerCount}개</span>
                 </div>
                 <div className="grid grid-cols-5 gap-1.5">
                   {QUICK_COUNTS.map((n) => (
@@ -400,7 +400,7 @@ function Composer({
                       key={n}
                       onClick={() => setStickerCount(n)}
                       className={cn(
-                        'h-9 rounded-xl text-xs font-black transition-all',
+                        'h-9 rounded-xl text-[14px] font-black transition-all',
                         stickerCount === n
                           ? 'bg-emerald-500 text-white shadow-sm'
                           : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
@@ -423,7 +423,7 @@ function Composer({
             onClick={handleSend}
             disabled={sending}
             className={cn(
-              'w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 transition',
+              'w-full h-12 rounded-2xl font-black text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 transition',
               kind === 'praise' ? 'bg-slate-900 text-white'
               : kind === 'request' ? 'bg-pink-500 text-white'
               : 'bg-amber-500 text-white'
@@ -434,7 +434,7 @@ function Composer({
           </button>
 
           {toast && (
-            <div className="text-center text-xs font-bold text-slate-500 pt-1">{toast}</div>
+            <div className="text-center text-[14px] font-bold text-slate-500 pt-1">{toast}</div>
           )}
         </div>
       )}
@@ -531,7 +531,9 @@ export default function PraisePage() {
   if (!me) return <div className="min-h-app bg-[#FFFCF5] max-w-md mx-auto" />;
 
   return (
-    <div className="min-h-app bg-[#FFFCF5] text-slate-800 notebook-bg">
+    // 칭찬 페이지 글씨체 — IBM Plex Sans KR(각이 살아있는 산세리프, 사이담 문서와 동일). 이 페이지에만.
+    <div className="min-h-app bg-[#FFFCF5] text-slate-800 notebook-bg"
+      style={{ fontFamily: '"IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, sans-serif' }}>
       <main className="max-w-md mx-auto px-5 pt-6 pb-safe-bottom space-y-5">
         {/* 헤더 */}
         <header className="flex items-center justify-between">
@@ -557,7 +559,7 @@ export default function PraisePage() {
             aria-label="통계 보기"
           >
             <Crown size={14} />
-            <span className="text-[11px] font-black">{receivedTotal}</span>
+            <span className="text-[13px] font-black">{receivedTotal}</span>
           </a>
         </header>
 
@@ -566,7 +568,7 @@ export default function PraisePage() {
           <button
             onClick={() => setView('received')}
             className={cn(
-              'h-10 rounded-xl text-xs font-black transition-all',
+              'h-10 rounded-xl text-[14px] font-black transition-all',
               view === 'received' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'
             )}
           >
@@ -575,7 +577,7 @@ export default function PraisePage() {
           <button
             onClick={() => setView('sent')}
             className={cn(
-              'h-10 rounded-xl text-xs font-black transition-all',
+              'h-10 rounded-xl text-[14px] font-black transition-all',
               view === 'sent' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'
             )}
           >
@@ -600,7 +602,7 @@ export default function PraisePage() {
                 <span className="font-handwriting text-[20px] font-bold text-amber-800 leading-tight">
                   모아둔 왕칭찬 컬렉션
                 </span>
-                <span className="text-[11px] font-medium text-amber-600/80 mt-0.5">
+                <span className="text-[13px] font-medium text-amber-600/80 mt-0.5">
                   서로의 마음이 100번 닿을 때마다 ✨
                 </span>
               </div>
@@ -658,13 +660,13 @@ export default function PraisePage() {
           {!showMore && hasMore && (
             <button
               onClick={() => setShowMore(true)}
-              className="w-full py-3 rounded-2xl bg-white/80 border border-slate-200 text-slate-500 text-sm font-bold active:scale-[0.98] transition"
+              className="w-full py-3 rounded-2xl bg-white/80 border border-slate-200 text-slate-500 text-[16px] font-bold active:scale-[0.98] transition"
             >
               📜 옛 칭찬도 펼쳐보기
             </button>
           )}
           {showMore && (
-            <p className="text-center text-[11px] font-bold text-slate-400 pt-2">
+            <p className="text-center text-[13px] font-bold text-slate-400 pt-2">
               ✨ 다 펼쳐졌어
             </p>
           )}
@@ -673,29 +675,29 @@ export default function PraisePage() {
         {/* KPI 푸터 (강등) — 헤더 마이크로 KPI에서 스크롤 anchor */}
         <section id="stats" className="scroll-mt-4 rounded-[26px] bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-5 shadow-[0_14px_36px_rgba(16,185,129,0.18)] relative overflow-hidden">
           <div className="absolute -right-7 -top-7 h-28 w-28 rounded-full bg-white/12" />
-          <p className="text-[11px] font-bold text-emerald-50">{me}가 받은 칭찬</p>
+          <p className="text-[13px] font-bold text-emerald-50">{me}가 받은 칭찬</p>
           <div className="mt-1 flex items-end gap-2">
             <span className="text-3xl font-black leading-none">{receivedTotal}</span>
-            <span className="pb-0.5 text-xs font-bold text-emerald-50">스티커</span>
+            <span className="pb-0.5 text-[14px] font-bold text-emerald-50">스티커</span>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
             <div className="rounded-xl bg-white/15 px-3 py-2">
-              <p className="text-[10px] font-bold text-emerald-50">이번 달</p>
+              <p className="text-[12px] font-bold text-emerald-50">이번 달</p>
               <p className="text-base font-black">{thisMonthCount}</p>
             </div>
             <div className="rounded-xl bg-white/15 px-3 py-2">
-              <p className="text-[10px] font-bold text-emerald-50">왕칭찬</p>
+              <p className="text-[12px] font-bold text-emerald-50">왕칭찬</p>
               <p className="text-base font-black">{royalCount}👑</p>
             </div>
             <div className="rounded-xl bg-white/15 px-3 py-2">
-              <p className="text-[10px] font-bold text-emerald-50">내가 준 것</p>
+              <p className="text-[12px] font-bold text-emerald-50">내가 준 것</p>
               <p className="text-base font-black">{sentTotal}</p>
             </div>
           </div>
           <div className="mt-3 h-1.5 rounded-full bg-white/20 overflow-hidden">
             <div className="h-full rounded-full bg-white" style={{ width: `${royalProgress}%` }} />
           </div>
-          <p className="mt-1.5 text-[11px] font-bold text-emerald-50">
+          <p className="mt-1.5 text-[13px] font-bold text-emerald-50">
             다음 왕칭찬까지 {nextRoyalLeft}개
           </p>
         </section>
