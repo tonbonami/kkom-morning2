@@ -35,6 +35,8 @@ import DdayAttentionV2 from '@/components/DdayAttentionV2';
 import QuickReplyBar from '@/components/QuickReplyBar';
 import TodayDigest from '@/components/TodayDigest';
 import LivingKkom from '@/components/LivingKkom';
+import BirthdayHero from '@/components/BirthdayHero';
+import BirthdayPrep from '@/components/BirthdayPrep';
 import { subscribeTodayStats } from '@/lib/dailyStats';
 import LiveHeartLayer from '@/components/LiveHeartLayer';
 import { subscribeTodayMoods, moodFromKey, type MoodMap } from '@/lib/moods';
@@ -1123,6 +1125,13 @@ export default function KkomMorningHome() {
           </div>
         ) : (
           <>
+            {/* 생일 — 당일이면 히어로(배너·파티헐·편지), 다가오면(D-14~1) 우댕에게 편지 준비 카드 */}
+            {(userName === '우댕' || userName === '꼼이') && (
+              <BirthdayHero me={userName} partner={partner} />
+            )}
+            {(userName === '우댕' || userName === '꼼이') && (
+              <BirthdayPrep me={userName} partner={partner} />
+            )}
             {/* 살아있는 꼼이 — 홈 최상단 마스코트. 공간의 온기를 움짤 기분으로 비춤(다그치지 않음) */}
             {(userName === '우댕' || userName === '꼼이') && (
               <LivingKkom presence={partnerPresence} partner={partner} me={userName} tick={presenceTick} />
