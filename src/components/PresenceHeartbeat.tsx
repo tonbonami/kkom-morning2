@@ -20,9 +20,17 @@ export default function PresenceHeartbeat() {
   useEffect(() => {
     const beat = (active: boolean) => {
       const name = currentUser();
-      if (name) touchPresence(name, active);
+      if (!name) return;
+      // ⚠️ active=true(=지금 보고 있음)는 화면이 '실제로 보일 때'만 쓴다.
+      //   iOS/Capacitor는 백그라운드에서 웹뷰를 웨이크·리로드한다(아침 푸시 수신·백그라운드 새로고침 등).
+      //   그때 이 컴포넌트가 '안 보이는 채로' 마운트되는데, 예전엔 mount의 beat(true)를 무조건 실행해서
+      //   앱을 안 켰는데도 presence active=true + 최신 lastSeenAt이 써졌다 → 상대 화면에 '지금 함께' 오탐
+      //   (자다 깬 아침 7시대에 '같이 있다'고 뜨던 그것). 이미 hidden이라 visibilitychange도 안 떠 90초간 안 꺼짐.
+      //   여기서 막으면 mount·interval·onVis 어느 경로든 active=true는 보일 때만 나간다.
+      if (active && document.visibilityState !== 'visible') return;
+      touchPresence(name, active);
     };
-    beat(true);
+    beat(true);   // 위 가드로 '보일 때만' 실제 기록됨 — 백그라운드 마운트에선 아무것도 안 씀
     const hb = setInterval(() => {
       if (document.visibilityState === 'visible') beat(true);
     }, 60 * 1000);
