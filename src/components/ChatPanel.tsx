@@ -1362,39 +1362,50 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 </button>
               </div>
             ) : (
-              <div className="flex items-end gap-2">
+              // 입력줄 = 하나의 둥근 알약(사이담 참고). 버튼은 알약 안에 얹혀 입력칸이 넓게 숨쉰다.
+              <div className="flex items-end gap-1 rounded-[26px] p-1.5 ring-1 ring-black/[0.06] shadow-sm transition focus-within:ring-2 focus-within:ring-[#FB7BA8]/35"
+                style={{ background: 'var(--ct-chip)' }}>
                 <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={onFile} />
-                <button onClick={() => setStickerOpen((v) => !v)} aria-label="이모티콘"
-                  className="shrink-0 w-11 h-11 rounded-full border border-black/5 flex items-center justify-center active:scale-95 transition"
-                  style={stickerOpen ? { background: '#FB7BA8', color: '#fff' } : { background: 'var(--ct-chip)', color: 'var(--ct-chip-icon)' }}>
-                  <Smile size={20} />
-                </button>
-                <button onClick={() => { setStickerOpen(false); fileRef.current?.click(); }} disabled={uploading} aria-label="사진·동영상"
-                  className="shrink-0 w-11 h-11 rounded-full border border-black/5 flex items-center justify-center disabled:opacity-40 active:scale-95 transition"
-                  style={{ background: 'var(--ct-chip)', color: 'var(--ct-chip-icon)' }}>
-                  <ImagePlus size={20} />
-                </button>
+                {/* 왼쪽 버튼 묶음 — 서로 붙여 gap이 안 벌어지게(입력칸에 자리 양보). 테두리 없는 아이콘 */}
+                <div className="flex shrink-0 items-center self-end">
+                  <button onClick={() => setStickerOpen((v) => !v)} aria-label="이모티콘"
+                    className="grid h-10 w-10 place-items-center rounded-full active:scale-90 transition"
+                    style={{ color: stickerOpen ? '#FB7BA8' : 'var(--ct-chip-icon)' }}>
+                    <Smile size={21} />
+                  </button>
+                  <button onClick={() => { setStickerOpen(false); fileRef.current?.click(); }} disabled={uploading} aria-label="사진·동영상"
+                    className="grid h-10 w-10 place-items-center rounded-full disabled:opacity-40 active:scale-90 transition"
+                    style={{ color: 'var(--ct-chip-icon)' }}>
+                    <ImagePlus size={21} />
+                  </button>
+                </div>
+                {/* ⚠️ 모바일(터치)에선 Enter = 줄바꿈. 폰 키보드엔 Shift+Enter가 없어 Enter를 전송에 쓰면
+                    줄바꿈이 불가능하다 → 전송은 오른쪽 보내기 버튼으로. 데스크톱(정밀 포인터)만 Enter로 전송.
+                    e.nativeEvent.isComposing — 한글 조합 중 Enter로 조합 확정할 때 오전송 방지. */}
                 <textarea ref={taRef} value={draft} onChange={onInput} onBlur={stopTyping}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-                  rows={1} placeholder={uploading ? '올리는 중…' : '포차코에게 할 말…'}
-                  style={{ background: 'var(--ct-chip)', color: 'var(--ct-chip-text)' }}
-                  className="flex-1 resize-none rounded-3xl ring-1 ring-black/[0.07] shadow-sm px-4 py-2.5 text-[15px] outline-none focus:ring-[#FB7BA8]/40 max-h-[120px]" />
+                  onKeyDown={(e) => {
+                    const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+                    if (e.key === 'Enter' && !e.shiftKey && !coarse && !e.nativeEvent.isComposing) { e.preventDefault(); send(); }
+                  }}
+                  rows={1} placeholder={uploading ? '올리는 중…' : `${partner}에게 할 말…`}
+                  style={{ background: 'transparent', color: 'var(--ct-chip-text)' }}
+                  className="min-w-0 flex-1 resize-none px-1.5 py-2.5 text-[15px] leading-snug outline-none max-h-[132px]" />
                 {draft.trim() ? (
-                  <>
+                  <div className="flex shrink-0 items-center gap-0.5 self-end">
                     <button onClick={openCapsule} aria-label="타임캡슐"
-                      className="shrink-0 w-11 h-11 rounded-full border border-black/5 text-[#FB7BA8] flex items-center justify-center active:scale-95 transition"
-                      style={{ background: 'var(--ct-chip)' }}>
-                      <Hourglass size={18} />
+                      className="grid h-10 w-10 place-items-center rounded-full active:scale-90 transition"
+                      style={{ color: 'var(--ct-chip-icon)' }}>
+                      <Hourglass size={19} />
                     </button>
                     {/* onPointerDown preventDefault — 버튼이 입력창 포커스를 뺏지 않게(연속 전송 시 자판 유지) */}
                     <button onClick={send} onPointerDown={(e) => e.preventDefault()} aria-label="보내기"
-                      className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center shadow-[0_4px_14px_rgba(251,123,168,0.35)] active:scale-90 transition">
+                      className="grid h-10 w-10 place-items-center rounded-full bg-[#FB7BA8] text-white shadow-[0_4px_14px_rgba(251,123,168,0.35)] active:scale-90 transition">
                       <Send size={18} />
                     </button>
-                  </>
+                  </div>
                 ) : (
                   <button onClick={startRec} disabled={uploading} aria-label="음성 메시지"
-                    className="shrink-0 w-11 h-11 rounded-full bg-[#FB7BA8] text-white flex items-center justify-center shadow-[0_4px_14px_rgba(251,123,168,0.35)] disabled:opacity-40 active:scale-90 transition">
+                    className="grid h-10 w-10 shrink-0 self-end place-items-center rounded-full bg-[#FB7BA8] text-white shadow-[0_4px_14px_rgba(251,123,168,0.35)] disabled:opacity-40 active:scale-90 transition">
                     <Mic size={18} />
                   </button>
                 )}
