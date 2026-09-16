@@ -47,29 +47,32 @@ export async function sendMessage(
   if (video) { payload.videoUrl = video.url; if (video.dur != null) payload.videoDur = video.dur; }
   if (replyTo) payload.replyTo = { id: replyTo.id, from: replyTo.from, text: replyTo.text.slice(0, 80) };
   await addDoc(collection(db, 'messages'), payload);
-  if (!partnerOnline) {
-    const to = from === '우댕' ? '꼼이' : '우댕';
-    // 링크는 잠금화면에도 주소 대신 종류 라벨로.
-    const linkUrl = firstUrl(clipped);
-    const withLinkLabel = linkUrl
-      ? (() => {
-          const tag = youTubeId(linkUrl) ? '▶️ 유튜브 영상' : '🔗 링크';
-          const rest = clipped.replace(/https?:\/\/[^\s<]+/gi, '').trim();
-          return (rest ? `${rest} ${tag}` : tag);
-        })()
-      : clipped;
-    const plain = withLinkLabel.replace(/\[\[e:[a-z]+\]\]/g, '🐶').slice(0, 140); // 미니 이모티콘 토큰 → 🐶
-    const pushText = video ? '동영상을 보냈어 🎬'
-      : audio ? '음성 메시지를 보냈어 🎤'
-      : sticker ? '이모티콘을 보냈어 🐶'
-      : imageUrl ? (plain || '사진을 보냈어 📷')
-      : plain;
-    fetch('/api/message', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, text: pushText }),
-    }).catch(() => {});
-  }
+  // 잠금화면 알림 — 항상 서버로 보내고, 서버가 받는 사람의 '최신 presence'로 판단한다
+  //   (진짜 앱 보고 있으면 스킵 / 아니면 무조건 푸시).
+  // ⚠️ 예전엔 여기(클라)서 partnerOnline이면 아예 안 보냈다. presence가 '지금 함께'로 오탐되면
+  //    꼼이 톡이 우댕 잠금화면에 통째로 안 뜨던 원인. 이제 클라 판단에 안 맡기고 서버가 authoritative하게 결정.
+  void partnerOnline;
+  const to = from === '우댕' ? '꼼이' : '우댕';
+  // 링크는 잠금화면에도 주소 대신 종류 라벨로.
+  const linkUrl = firstUrl(clipped);
+  const withLinkLabel = linkUrl
+    ? (() => {
+        const tag = youTubeId(linkUrl) ? '▶️ 유튜브 영상' : '🔗 링크';
+        const rest = clipped.replace(/https?:\/\/[^\s<]+/gi, '').trim();
+        return (rest ? `${rest} ${tag}` : tag);
+      })()
+    : clipped;
+  const plain = withLinkLabel.replace(/\[\[e:[a-z]+\]\]/g, '🐶').slice(0, 140); // 미니 이모티콘 토큰 → 🐶
+  const pushText = video ? '동영상을 보냈어 🎬'
+    : audio ? '음성 메시지를 보냈어 🎤'
+    : sticker ? '이모티콘을 보냈어 🐶'
+    : imageUrl ? (plain || '사진을 보냈어 📷')
+    : plain;
+  fetch('/api/message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to, text: pushText }),
+  }).catch(() => {});
 }
 
 // 사진 업로드 → 다운로드 URL. Storage chat/ 아래.

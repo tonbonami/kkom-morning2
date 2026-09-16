@@ -24,6 +24,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'from/to/text required' }, { status: 400 });
   }
 
+  // ⚠️ 받는 사람이 '지금 앱을 실제로 보고 있을 때만'(active + 최근 90초) 잠금화면 알림을 스킵한다.
+  //   그 외(백그라운드·잠금·오프라인·기록 없음)엔 반드시 푸시. 예전엔 보내는 클라가 partnerOnline을
+  //   판단했는데 presence가 '지금 함께'로 오탐되면 알림이 통째로 안 갔다. 이제 서버가 최신 presence로 결정.
+  try {
+    const pSnap = await getDoc(doc(db, 'presence', to));
+    const p = pSnap.data() as { active?: boolean; lastSeenAt?: { toDate?: () => Date } } | undefined;
+    const seenMs = p?.lastSeenAt?.toDate?.().getTime();
+    if (p?.active === true && seenMs && Date.now() - seenMs < 90_000) {
+      return NextResponse.json({ ok: true, skipped: 'recipient foreground' });
+    }
+  } catch { /* presence 못 읽으면 그냥 푸시(안전 쪽) */ }
+
   // 커뮤니케이션 알림(아바타+이름) + 답장 액션(KKOM_MSG). 워치엔 별도 토큰으로 병행 발송.
   const toKey = keyForName(to);
   const [apnsOk] = await Promise.all([
