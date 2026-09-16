@@ -3,6 +3,7 @@
 // 살아있는 꼼이 — 홈 최상단 마스코트. ① 기분 비추기 ② 쓰다듬기(하트) ③ 선물함(두고 가기).
 //   ⚠️ 절대 다그치지 않음(오늘의 조각 철학). 선물함 UI는 Gemini 디자인 스펙 이식(수정0).
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useAnimationControls, useReducedMotion } from 'framer-motion';
 import { isTogetherNow, serverNow, type Presence } from '@/lib/presence';
 import { throwHeart } from '@/lib/liveHearts';
@@ -53,6 +54,9 @@ export default function LivingKkom({ presence, partner, me, tick }: {
   const [picked, setPicked] = useState<string | null>(null);
   const [flying, setFlying] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // 오버레이를 body로 portal(아래 이유). SSR 하이드레이션 후에만.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const spawnHearts = (n: number) => {
     const arr = Array.from({ length: n }, (_, i) => ({ id: ++seq.current, x: [-18, 3, 21][i % 3] }));
@@ -199,55 +203,65 @@ export default function LivingKkom({ presence, partner, me, tick }: {
         </button>
       </div>
 
-      {/* 선물함 모달 — 바텀시트(글래스) */}
-      <AnimatePresence>
-        {sheetOpen && (
-          <>
-            <motion.div className="fixed inset-0 z-[55] bg-black/30"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSheetOpen(false)} />
-            <motion.div
-              className="fixed inset-x-0 bottom-0 z-[56] rounded-t-[28px] border-t border-white/60 bg-white/80 px-4 pt-3 backdrop-blur-xl"
-              style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
-              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 360, damping: 36 }}>
-              <div className="mx-auto mb-3 h-1.5 w-12 rounded-full" style={{ background: 'var(--sd-faint)' }} />
-              <div className="text-center text-[16px] font-extrabold" style={{ color: 'var(--sd-ink)' }}>선물함 🎁</div>
-              <div className="mb-1 text-center text-[12px]" style={{ color: 'var(--sd-muted)' }}>{subjName(partner)}에게 하나 두고 오기</div>
-              <div className="max-h-[52vh] overflow-y-auto pb-1">
-                <GiftGroup title={`${subjName(partner)}가 좋아하는 것`} items={foods} picked={picked} onPick={setPicked} />
-                <GiftGroup title="보살핌" items={care} picked={picked} onPick={setPicked} />
-              </div>
-              <button onClick={doGive} disabled={!picked}
-                className="mt-3 h-14 w-full rounded-[20px] text-[16px] font-bold text-white transition active:scale-[0.98] disabled:opacity-40"
-                style={{ background: '#FB7BA8', boxShadow: '0 8px 20px rgba(251,123,168,0.3)' }}>
-                {picked ? `${giftById(picked)?.label} 두고 오기` : '하나 골라줘'}
-              </button>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {/* ⚠️ 오버레이(모달·flying·토스트)는 반드시 body로 portal한다.
+          홈 전체가 <main class="relative z-10"> 안이라, 여기서 아무리 fixed z-[80]을 줘도
+          그 z-10 스태킹 컨텍스트에 갇힌다. 그럼 형제인 하단 이모티콘 바(fixed z-40)가
+          모달·"두고 오기" 버튼을 덮어버려서 → 버튼 클릭이 이모티콘 바로 새고 선물이 안 감.
+          portal로 컨텍스트를 탈출시켜야 z-index가 전역에서 먹힌다. */}
+      {mounted && createPortal(
+        <>
+          {/* 선물함 모달 — 바텀시트(글래스) */}
+          <AnimatePresence>
+            {sheetOpen && (
+              <>
+                <motion.div className="fixed inset-0 z-[80] bg-black/30"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSheetOpen(false)} />
+                <motion.div
+                  className="fixed inset-x-0 bottom-0 z-[81] rounded-t-[28px] border-t border-white/60 bg-white/80 px-4 pt-3 backdrop-blur-xl"
+                  style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+                  initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 360, damping: 36 }}>
+                  <div className="mx-auto mb-3 h-1.5 w-12 rounded-full" style={{ background: 'var(--sd-faint)' }} />
+                  <div className="text-center text-[16px] font-extrabold" style={{ color: 'var(--sd-ink)' }}>선물함 🎁</div>
+                  <div className="mb-1 text-center text-[12px]" style={{ color: 'var(--sd-muted)' }}>{subjName(partner)}에게 하나 두고 오기</div>
+                  <div className="max-h-[52vh] overflow-y-auto pb-1">
+                    <GiftGroup title={`${subjName(partner)}가 좋아하는 것`} items={foods} picked={picked} onPick={setPicked} />
+                    <GiftGroup title="보살핌" items={care} picked={picked} onPick={setPicked} />
+                  </div>
+                  <button onClick={doGive} disabled={!picked}
+                    className="mt-3 h-14 w-full rounded-[20px] text-[16px] font-bold text-white transition active:scale-[0.98] disabled:opacity-40"
+                    style={{ background: '#FB7BA8', boxShadow: '0 8px 20px rgba(251,123,168,0.3)' }}>
+                    {picked ? `${giftById(picked)?.label} 두고 오기` : '하나 골라줘'}
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
 
-      {/* 보내는 순간 — 소품이 포물선 그리며 날아감 */}
-      <AnimatePresence>
-        {flying && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <motion.img src={flying} alt=""
-            className="pointer-events-none fixed left-1/2 top-1/2 z-[60] h-20 w-20 -translate-x-1/2 -translate-y-1/2 drop-shadow-xl"
-            initial={{ y: 0, scale: 0.5, opacity: 0 }}
-            animate={{ y: [0, -40, -120], scale: [0.5, 1.2, 0.8], opacity: [0, 1, 0], rotate: [0, -10, 15] }}
-            exit={{ opacity: 0 }} transition={{ duration: 0.8, ease: 'easeInOut', times: [0, 0.4, 1] }} />
-        )}
-      </AnimatePresence>
+          {/* 보내는 순간 — 소품이 포물선 그리며 날아감 */}
+          <AnimatePresence>
+            {flying && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <motion.img src={flying} alt=""
+                className="pointer-events-none fixed left-1/2 top-1/2 z-[82] h-20 w-20 -translate-x-1/2 -translate-y-1/2 drop-shadow-xl"
+                initial={{ y: 0, scale: 0.5, opacity: 0 }}
+                animate={{ y: [0, -40, -120], scale: [0.5, 1.2, 0.8], opacity: [0, 1, 0], rotate: [0, -10, 15] }}
+                exit={{ opacity: 0 }} transition={{ duration: 0.8, ease: 'easeInOut', times: [0, 0.4, 1] }} />
+            )}
+          </AnimatePresence>
 
-      {/* 토스트 */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div className="fixed bottom-24 left-1/2 z-[60] -translate-x-1/2 rounded-full px-4 py-2 text-[13px] font-bold text-white shadow-lg"
-            style={{ background: 'rgba(58,45,48,0.92)' }}
-            initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}>
-            {toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
+          {/* 토스트 */}
+          <AnimatePresence>
+            {toast && (
+              <motion.div className="fixed bottom-24 left-1/2 z-[82] -translate-x-1/2 rounded-full px-4 py-2 text-[13px] font-bold text-white shadow-lg"
+                style={{ background: 'rgba(58,45,48,0.92)' }}
+                initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}>
+                {toast}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>,
+        document.body,
+      )}
     </>
   );
 }
