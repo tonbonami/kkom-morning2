@@ -109,9 +109,13 @@ export default function SerendipityWatch() {
     if (me) void markSerendipitySeen(s.id, me);
   };
 
-  // 홈에서만, 아직 안 본(그리고 방금 닫지 않은) 최신 우연 하나
+  // 홈에서만, 아직 안 본(그리고 방금 닫지 않은) 최신 우연 하나.
+  // ⚠️ 반드시 '최근(10분)'만 — 문구가 "방금"이라 옛 우연은 말이 안 되고,
+  //    seen 저장이 어긋나도 시간이 지나면 스스로 사라져 '영구 박제'가 구조적으로 불가능해진다.
+  const RECENT_MS = 10 * 60_000;
   const unseen = me && pathname === '/'
-    ? items.find((s) => !s.seen?.[me] && !dismissed.has(s.id)) ?? null
+    ? items.find((s) => !s.seen?.[me] && !dismissed.has(s.id)
+        && s.at != null && serverNow() - s.at.getTime() < RECENT_MS) ?? null
     : null;
   const line = unseen ? serendipityLine(unseen) : null;
 

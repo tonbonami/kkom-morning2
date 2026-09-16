@@ -28,16 +28,15 @@ export default function PresenceHeartbeat() {
     }, 60 * 1000);
     const onVis = () => beat(document.visibilityState === 'visible');
     document.addEventListener('visibilitychange', onVis);
-    // ⚠️ '지금 함께' 오탐 방지 — iOS에서 visibilitychange가 늦거나 안 오는 경우가 있어(앱 백그라운드·화면 잠금),
-    //   앱이 포커스를 잃는 즉시(blur)에도 '나감'으로 못박는다. 자는 중 '함께'로 남는 것 방지.
+    // 앱이 완전히 내려갈 때(탭 종료·언로드)만 '나감'으로. 화면잠금·백그라운드는 위 visibilitychange가 처리.
+    // ⚠️ window 'blur'는 절대 쓰지 말 것 — iOS WKWebView에서 포커스가 잠깐 흔들려도(오버레이·애니메이션·
+    //    시스템 UI) 수시로 터져 active=false를 난사한다 → '오프라인↔지금 함께' 5초 깜빡임 + 챗 자동 재오픈.
     const onHide = () => beat(false);
     window.addEventListener('pagehide', onHide);
-    window.addEventListener('blur', onHide);
     return () => {
       clearInterval(hb);
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('pagehide', onHide);
-      window.removeEventListener('blur', onHide);
       beat(false);
     };
   }, []);
