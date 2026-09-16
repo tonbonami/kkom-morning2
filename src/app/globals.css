@@ -94,6 +94,14 @@
   font-weight: 700;
 }
 
+/* 칭찬 페이지 글씨체 — 읽는 글은 IBM Plex Sans KR(각진 산세리프, 사이담 문서 동일).
+   손글씨 헤딩(Dongle)·headline은 그대로 둔다. font-sans/font-body 클래스보다 우선하도록
+   자손 선택자로 강제(specificity 0,2,0 > 0,1,0). */
+.praise-font,
+.praise-font *:not(.font-handwriting):not(.font-headline) {
+  font-family: "IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, sans-serif;
+}
+
 /* Claude 참고: 칭찬 다이어리 노트 라인 — 옅으면 안 보임. 줄을 좀 진하게.
    카드 사이 간격이 더 넓어야 줄이 잘 보임. */
 .notebook-bg {

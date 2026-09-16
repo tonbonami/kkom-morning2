@@ -532,8 +532,8 @@ export default function PraisePage() {
 
   return (
     // 칭찬 페이지 글씨체 — IBM Plex Sans KR(각이 살아있는 산세리프, 사이담 문서와 동일). 이 페이지에만.
-    <div className="min-h-app bg-[#FFFCF5] text-slate-800 notebook-bg"
-      style={{ fontFamily: '"IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, sans-serif' }}>
+    //   globals.css .praise-font 규칙이 읽는 글에 Plex를 강제(손글씨 헤딩 Dongle은 유지).
+    <div className="praise-font min-h-app bg-[#FFFCF5] text-slate-800 notebook-bg">
       <main className="max-w-md mx-auto px-5 pt-6 pb-safe-bottom space-y-5">
         {/* 헤더 */}
         <header className="flex items-center justify-between">
