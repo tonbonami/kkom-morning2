@@ -17,7 +17,11 @@ export const GIFT_ITEMS: GiftItem[] = [
   { id: 'watermelon', label: '수박',       for: '꼼이' },
   { id: 'pizza',      label: '피자',       for: '꼼이' },
   { id: 'cake',       label: '딸기케이크',  for: '꼼이' },
-  // 우댕 최애(누룽지·과자·빵·강아지)는 소품 그려지면 추가 → { for: '우댕' }
+  { id: 'nurungji',   label: '누룽지',     for: '우댕' },
+  { id: 'cookie',     label: '과자',       for: '우댕' },
+  { id: 'bread',      label: '빵',         for: '우댕' },
+  { id: 'coffee',     label: '커피',       for: '우댕' },
+  { id: 'puppy',      label: '강아지',     for: '우댕' },
 ];
 export const giftImg = (id: string) => `/emo/gifts/${id}.png`;
 export const giftsFor = (receiver: string): GiftItem[] =>
