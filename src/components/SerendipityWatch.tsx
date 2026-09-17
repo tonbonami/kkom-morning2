@@ -110,14 +110,26 @@ export default function SerendipityWatch() {
   };
 
   // 홈에서만, 아직 안 본(그리고 방금 닫지 않은) 최신 우연 하나.
-  // ⚠️ 반드시 '최근(10분)'만 — 문구가 "방금"이라 옛 우연은 말이 안 되고,
+  // ⚠️ 반드시 '최근(3분)'만 — 문구가 "방금"이라 옛 우연은 말이 안 되고,
   //    seen 저장이 어긋나도 시간이 지나면 스스로 사라져 '영구 박제'가 구조적으로 불가능해진다.
-  const RECENT_MS = 10 * 60_000;
+  const RECENT_MS = 3 * 60_000;
   const unseen = me && pathname === '/'
     ? items.find((s) => !s.seen?.[me] && !dismissed.has(s.id)
         && s.at != null && serverNow() - s.at.getTime() < RECENT_MS) ?? null
     : null;
   const line = unseen ? serendipityLine(unseen) : null;
+
+  // ⚠️ 우연은 '찰나'의 알림 — 뜨면 잠깐(8초) 보였다가 스스로 사라진다(토스트처럼).
+  //   seen도 같이 찍어 다신 안 뜬다. 배너가 계속 남아 거슬리던 문제 해결.
+  useEffect(() => {
+    if (!unseen) return;
+    const id = unseen.id;
+    const t = setTimeout(() => {
+      setDismissed((prev) => new Set(prev).add(id));
+      if (me) void markSerendipitySeen(id, me);
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [unseen?.id, me]);   // 카드(id)당 한 번만 타이머
 
   return (
     <AnimatePresence>
