@@ -169,29 +169,100 @@ const sugCouple = (w: string): Suggestion | undefined => {
   const img = TEXT_STICKERS[w];
   return img ? { key: w, image: img, thumb: img, mode: 'couple' } : undefined;
 };
-// 키워드(동의어 포함) → 관련 스티커. 위에서부터 매칭되는 규칙의 스티커를 모아 보여준다.
+// 아래 세트 배열들(SAI/SAIDAMI/DANG/KKOM)은 이 파일 뒤에서 정의되지만, get()이 지연 호출이라 런타임엔 안전.
+const sugSai = (w: string): Suggestion | undefined => {   // 말티푸 '사이' 팩(일상 단어)
+  const s = SAI_STICKERS.find((x) => x.word === w);
+  return s ? { key: s.word, image: s.image, thumb: drawerThumb(s.image), mode: 'maltipoo' } : undefined;
+};
+const sugMini = (w: string): Suggestion | undefined => {  // 사이담이 미니 표정
+  const s = SAIDAMI_STICKERS.find((x) => x.word === w);
+  return s ? { key: s.word, image: s.image, thumb: s.image, mode: 'mini' } : undefined;
+};
+const sugDang = (w: string): Suggestion | undefined => {
+  const s = DANG_STICKERS.find((x) => x.word === w);
+  return s ? { key: s.word, image: s.image, thumb: s.image, mode: 'dang' } : undefined;
+};
+const sugKkom = (w: string): Suggestion | undefined => {
+  const s = KKOM_STICKERS.find((x) => x.word === w);
+  return s ? { key: s.word, image: s.image, thumb: s.image, mode: 'kkom' } : undefined;
+};
+
+// ── 키워드(동의어) → 관련 스티커 규칙 ──
+// ⚠️ 한 이모티콘 ≠ 한 단어. 여러 동의어·구어·오타·초성까지 걸어 '일상 단어'로 다 뜨게 한다.
+//   ⚠️ SAI 일상팩(출근·배고파·헐·맛점·심심해…)과 미니·당·꼼이 예전엔 추천에서 통째로 빠져 있었음 → 여기서 다 포함.
+//   각 규칙의 첫 스티커가 대표(밑줄 탭 시 이게 전송됨). 위에서부터 매칭.
 const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
-  { re: /뽀뽀|쪽쪽|쪽!|😘|💋/,                    get: () => [sugCouple('뽀뽀')] },
-  { re: /보고\s?싶|보고파|그리워|보곺/,             get: () => [sugAnim('보고싶어'), sugCouple('보고파')] },
-  { re: /사랑|러브|❤|💕|💗|좋아해|조아/,           get: () => [sugAnim('사랑해'), sugCouple('사랑해'), sugAnim('두근두근')] },
-  { re: /안아|포옹|꼬옥|폭\s?안|안겨|토닥/,          get: () => [sugAnim('꼬옥'), sugCouple('토닥토닥')] },
-  { re: /고마|감사|땡큐|ㄱㅅ/,                       get: () => [sugAnim('고마워')] },
-  { re: /축하|생일|생축|🎉|🎊/,                     get: () => [sugAnim('축하해!'), sugAnim('선물')] },
-  { re: /선물|기프트/,                              get: () => [sugAnim('선물')] },
-  { re: /미안|죄송|쏘리|ㅈㅅ/,                       get: () => [sugAnim('미안해')] },
-  { re: /잘\s?자|굿\s?밤|굿나잇|자자|자야/,          get: () => [sugAnim('잘자')] },
-  { re: /비\s?와|비\s?온|비온다|장마|우중충|빗소리|비\s?내/, get: () => [sugAnim('비온다')] },
-  { re: /졸려|피곤|일어나|이불|자고\s?싶|늦잠|눕고/, get: () => [sugAnim('일어나기 싫어'), sugAnim('잘자')] },
-  { re: /두근|설레/,                               get: () => [sugAnim('두근두근')] },
-  { re: /굿모닝|좋은\s?아침|모닝|잘\s?잤/,           get: () => [sugAnim('좋은 아침'), sugCouple('굿모닝')] },
-  { re: /안녕|하이|방가|ㅎㅇ|하잉/,                  get: () => [sugAnim('안녕!')] },
-  { re: /아파|아프|열나|감기|몸살|아픔/,             get: () => [sugAnim('아파')] },
-  { re: /삐졌|삐짐|삐질|흥칫|서운|토라/,             get: () => [sugAnim('삐짐'), sugAnim('흥!')] },
-  { re: /최고|짱|굿|좋았|대박|멋져/,                get: () => [sugAnim('좋아!')] },
-  { re: /으악|헐|깜짝|놀랐|헉/,                      get: () => [sugAnim('으악')] },
-  { re: /부끄|수줍|쑥스/,                            get: () => [sugAnim('부끄')] },
-  { re: /빼꼼|까꿍/,                                get: () => [sugAnim('빼꼼')] },
-  { re: /힘내|화이팅|파이팅|응원/,                  get: () => [sugCouple('헹가래')] },
+  // ── 인사·아침·밤·잠 ──
+  { re: /굿모닝|좋은\s?아침|모닝|잘\s?잤|일어났|기상/,           get: () => [sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
+  { re: /안녕|하이|방가|ㅎㅇ|하잉|헬로|하이염/,                  get: () => [sugAnim('안녕!')] },
+  { re: /잘\s?자|굿\s?밤|굿나잇|자자|자야|잘게|취침|나이트|굿밤/, get: () => [sugAnim('잘자'), sugSai('굿밤')] },
+  { re: /졸려|졸립|하품|잠\s?와|잠온|눈\s?감|나른/,             get: () => [sugSai('졸려'), sugMini('졸려')] },
+  { re: /일어나기\s?싫|이불|늦잠|더\s?잘래|눕고|자고\s?싶/,      get: () => [sugAnim('일어나기 싫어')] },
+
+  // ── 사랑·보고싶·설렘·스킨십 ──
+  { re: /사랑|러브|❤|💕|💗|좋아해|조아해|사랑해|알러뷰/,        get: () => [sugAnim('사랑해'), sugMini('사랑해'), sugCouple('사랑해'), sugAnim('두근두근')] },
+  { re: /보고\s?싶|보고파|그리워|보곺|생각나|보고시퍼/,          get: () => [sugAnim('보고싶어'), sugMini('보고파'), sugCouple('보고파')] },
+  { re: /두근|설레|떨려|콩닥|심쿵/,                            get: () => [sugAnim('두근두근')] },
+  { re: /뽀뽀|쪽쪽|쪽!|😘|💋|키스|입맞/,                       get: () => [sugCouple('뽀뽀')] },
+  { re: /안아|포옹|꼬옥|폭\s?안|안겨|허그|안아줘|꼭\s?안/,       get: () => [sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥')] },
+  { re: /토닥|다독|위로|괜찮아|다\s?잘\s?될/,                   get: () => [sugCouple('토닥토닥'), sugMini('평온')] },
+
+  // ── 긍정 감정 ──
+  { re: /행복|기뻐|행복해|좋다\b|만족/,                         get: () => [sugMini('행복'), sugAnim('좋아!')] },
+  { re: /신나|들떠|룰루|기대돼|설렌|개신남/,                    get: () => [sugMini('신나'), sugCouple('야호')] },
+  { re: /평온|편안|힐링|여유|느긋/,                            get: () => [sugMini('평온')] },
+  { re: /반짝|빛나|예뻐|이뻐|반짝반짝|영롱/,                    get: () => [sugMini('반짝')] },
+  { re: /하트|❤️|💛|💙|💜|하투/,                              get: () => [sugMini('하트'), sugCouple('하트')] },
+  { re: /야호|이야|우와|와아|신난다/,                          get: () => [sugCouple('야호'), sugMini('신나')] },
+
+  // ── 부정 감정 ──
+  { re: /삐졌|삐짐|삐질|흥칫|서운|토라|시무룩/,                  get: () => [sugMini('삐졌어'), sugAnim('삐짐'), sugAnim('흥!')] },
+  { re: /화났|화나|빡쳐|짜증|열받|킹받|화남/,                   get: () => [sugMini('화났어')] },
+  { re: /속상|서럽|눈물|슬퍼|슬프|우울|ㅠㅠ|ㅜㅜ|훌쩍/,          get: () => [sugMini('속상해')] },
+  { re: /흥!|칫\b|삐룽/,                                       get: () => [sugAnim('흥!')] },
+
+  // ── 미안·고마·축하·칭찬·응원 ──
+  { re: /미안|죄송|쏘리|sorry|ㅈㅅ|사과할|미얀/,                get: () => [sugAnim('미안해'), sugSai('미안'), sugMini('미안해')] },
+  { re: /고마|감사|땡큐|thanks|ㄱㅅ|고맙|감솨/,                 get: () => [sugAnim('고마워'), sugMini('고마워')] },
+  { re: /축하|생일|생축|축하해|🎉|🎊|추카/,                     get: () => [sugAnim('축하해!'), sugAnim('선물')] },
+  { re: /선물|기프트|present|기프티콘/,                         get: () => [sugAnim('선물')] },
+  { re: /칭찬|잘했|대견|기특|잘한다|기특해/,                    get: () => [sugMini('잘했어'), sugMini('칭찬해줘')] },
+  { re: /짝짝|박수|굿잡|짝짝짝/,                               get: () => [sugMini('짝짝짝')] },
+  { re: /힘내|화이팅|파이팅|아자|응원|힘들|지치/,               get: () => [sugMini('힘내'), sugCouple('헹가래')] },
+  { re: /헹가래|헹\s?가래/,                                    get: () => [sugCouple('헹가래')] },
+  { re: /꽃다발|꽃\s?줄|플라워|장미|꽃선물/,                    get: () => [sugMini('꽃다발'), sugCouple('장미')] },
+  { re: /최고|짱\b|짱이|굿\b|좋았|대박|멋져|쩐다|리스펙|👍/,     get: () => [sugAnim('좋아!'), sugMini('최고야')] },
+
+  // ── 놀람·리액션·웃음 ──
+  { re: /헐|헉|대박|깜짝|놀랐|놀람|뭐야|실화|미쳤|헐랭|헉스/,    get: () => [sugSai('헐'), sugAnim('으악')] },
+  { re: /으악|으아|꺄|악!|끼야/,                               get: () => [sugAnim('으악'), sugSai('헐')] },
+  { re: /ㅋㅋ|ㅎㅎ|웃겨|웃김|빵\s?터|풉|낄낄|개웃|ㅋ큐/,         get: () => [sugSai('ㅋㅋㅋ')] },
+  { re: /뭐해|모해|뭐하|머해|뭐함|뭐하니|모하/,                 get: () => [sugSai('뭐해?')] },
+  { re: /ㄴㄴ|아니야|아니\b|노노|싫어|절대\s?안|안돼|노우/,      get: () => [sugSai('ㄴㄴ')] },
+  { re: /부끄|수줍|쑥스|민망|부끄러/,                          get: () => [sugAnim('부끄')] },
+  { re: /빼꼼|까꿍|몰래\s?봄|살짝\s?봄/,                        get: () => [sugAnim('빼꼼')] },
+
+  // ── 일상: 밥·출퇴근·이동·상태 ──
+  { re: /배고파|배고픔|허기|꼬르륵|밥\s?줘|밥\s?먹고|먹고\s?싶|배곺/, get: () => [sugSai('배고파')] },
+  { re: /맛점|점심|점심\s?뭐|밥\s?먹었|런치|점심시간/,           get: () => [sugSai('맛점')] },
+  { re: /배불|배\s?터|과식|든든|잘\s?먹었|배불러/,              get: () => [sugSai('배불러')] },
+  { re: /출근|회사\s?간|일하러|지각|출근중|일\s?간다|출근길/,     get: () => [sugSai('출근중')] },
+  { re: /퇴근|집\s?간다|이제\s?집|퇴근각|칼퇴/,                 get: () => [sugSai('가는중'), sugSai('도착!')] },
+  { re: /가는\s?중|가고\s?있|출발했|이동중|가는중|출발한다/,      get: () => [sugSai('가는중')] },
+  { re: /도착|왔어\b|집\s?왔|다\s?왔|도착함|도착!/,             get: () => [sugSai('도착!')] },
+  { re: /바빠|바쁨|정신없|바쁘|바빠서|바쁠/,                    get: () => [sugSai('바빠')] },
+  { re: /심심|노잼|재미없|지루|할\s?거\s?없|심심해/,            get: () => [sugSai('심심해')] },
+  { re: /씻고\s?올|샤워하고|씻으러|목욕/,                       get: () => [sugAnim('씻고 올게')] },
+  { re: /양치|이\s?닦|치카|칫솔/,                              get: () => [sugDang('치카치카'), sugKkom('치카치카')] },
+  { re: /꾸미는|화장|메이크업|단장|꾸안꾸/,                     get: () => [sugKkom('꾸미는 중')] },
+  { re: /달려가|뛰어가|급하게\s?가|헐레벌떡/,                   get: () => [sugKkom('달려가는 중')] },
+  { re: /인싸|파티\s?가|놀러\s?가/,                            get: () => [sugKkom('인싸강아지')] },
+  { re: /귀여|커여|기여|졸귀|귀엽|커엽/,                        get: () => [sugDang('귀엽꼬미'), sugDang('앙 귀여워')] },
+  { re: /푸데데|시무룩\s?강|삐진\s?강/,                         get: () => [sugDang('푸데데')] },
+
+  // ── 아픔·날씨 ──
+  { re: /아파|아프|열나|감기|몸살|아픔|몸\s?안\s?좋|골골/,       get: () => [sugAnim('아파'), sugMini('아파')] },
+  { re: /비\s?와|비\s?온|비온다|장마|우중충|빗소리|비\s?내|비올/, get: () => [sugAnim('비온다')] },
 ];
 function computeSuggestions(draft: string): Suggestion[] {
   const t = draft.trim();
@@ -609,6 +680,14 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  // 자동 높이 — 타이핑(onInput) 말고 setDraft로 프로그램적 변경(수정 모드 원문 채우기·미니 삽입)될 때도
+  //   칸 높이가 따라오게. (사이담 팁) onInput만으론 onChange 안 거치는 변경에서 한 줄로 남는다.
+  useLayoutEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 132) + 'px';
+  }, [draft]);
   const fileRef = useRef<HTMLInputElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPrepending = useRef(false);
@@ -1288,7 +1367,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                       transition={{ duration: reduceMotion ? 0 : 0.12 }}>
                       {suggestions.map((it) => (
-                        <button key={it.image} onClick={() => pickSticker(it.mode, it.key, it.image)} aria-label={`${it.key} 추천 이모티콘`}
+                        // 추천은 모드 상관없이 항상 '단독 전송'(미니도 여기선 인라인 삽입 아니라 바로 보냄) — 일관성
+                        <button key={it.image} onClick={() => { recordPick(it); onSend('', undefined, it.image, replyTo ?? undefined); setReplyTo(null); }} aria-label={`${it.key} 추천 이모티콘`}
                           className="shrink-0 grid h-12 w-12 place-items-center rounded-xl transition duration-100 active:scale-95 active:opacity-80"
                           style={{ background: 'var(--ct-cell)', boxShadow: 'var(--ct-cell-shadow)' }}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
