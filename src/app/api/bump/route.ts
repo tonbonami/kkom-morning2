@@ -36,14 +36,15 @@ function vocative(name: string): string {
   return name + (hasFinal ? '아' : '야');
 }
 
-function fillTemplate(template: string, from: string, to: string, item = ''): string {
+function fillTemplate(template: string, from: string, to: string, item = '', note = ''): string {
   return template
     .replace(/\{fromName\}/g, nameWithI(from))
     .replace(/\{toName\}/g, nameWithI(to))
     .replace(/\{fromSubj\}/g, withSubjectParticle(from))
     .replace(/\{toSubj\}/g, withSubjectParticle(to))
     .replace(/\{toVoc\}/g, vocative(to))
-    .replace(/\{item\}/g, item);
+    .replace(/\{item\}/g, item)
+    .replace(/\{note\}/g, note);   // 선물 '짧은 말'(gift msg) — 그림이 대신 건네는 한마디
 }
 
 type BumpKind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening' | 'night' | 'pet' | 'gift';
@@ -125,10 +126,10 @@ const TEMPLATES: Record<BumpKind, Array<{ title: string; body: string }>> = {
   ],
   // 두고 가기 — 상대 홈 마스코트에 {item}(담요·치킨 등)을 얹어 두고 감.
   gift: [
-    { title: '🎁 {fromSubj} {item} 두고 갔어', body: '홈에서 확인해봐 💗' },
-    { title: '🎁 {toVoc}, {item} 왔어', body: '{fromSubj} 살포시 두고 갔대' },
-    { title: '💗 {fromName}가 {item} 두고 갔어', body: '네 생각하면서 뒀대' },
-    { title: '🍽️ 누가 {item} 놓고 갔네', body: '{fromName} 마음이야' },
+    { title: '🎁 {fromSubj} {item} 두고 갔어', body: '{note}' },
+    { title: '🎁 {toVoc}, {item} 왔어', body: '{note} · 살포시 두고 갔대' },
+    { title: '💗 {fromName}가 {item} 두고 갔어', body: '{note}' },
+    { title: '🍽️ 누가 {item} 놓고 갔네', body: '{note} — {fromName} 마음이야' },
   ],
 };
 
@@ -152,26 +153,27 @@ function pickRandom<T>(arr: T[]): T {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { from?: string; to?: string; kind?: BumpKind; item?: string };
+  let body: { from?: string; to?: string; kind?: BumpKind; item?: string; note?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'invalid json' }, { status: 400 });
   }
-  const { from, to, kind = 'miss', item = '' } = body;
+  const { from, to, kind = 'miss', item = '', note = '' } = body;
   if (!to || !from) {
     return NextResponse.json({ error: 'to/from required' }, { status: 400 });
   }
   const itemLabel = String(item).slice(0, 20);   // gift 소품 이름(담요·치킨 등)
+  const noteText = String(note).slice(0, 40);     // gift '짧은 말'(따뜻하게 있어 등)
 
   // 누른 사람에게 필요한 건 '무슨 문구가 갔는지' 하나뿐 — 그건 지금 이 자리에서 확정된다.
   // 그래서 문구만 '즉시' 응답하고, 집계·APNs·웹푸시는 응답 뒤(after)로 미룬다 → 영수증이 곧바로 뜬다.
   // (사이담 세션 제안 ①: 이전엔 이 전부를 순서대로 await한 뒤에야 응답 → 영수증이 늦게 떴음)
   const templates = TEMPLATES[kind] || TEMPLATES.miss;
   const picked = pickRandom(templates);
-  const title = fillTemplate(picked.title, from, to, itemLabel);
+  const title = fillTemplate(picked.title, from, to, itemLabel, noteText);
   // 명확한 한마디('보고싶어 보냈어')를 앞에 + 재미난 나레이션을 뒤에. 알림엔 body만 보여서 여기가 관건.
-  const bodyText = `${fillTemplate(BUMP_HEADLINE[kind], from, to, itemLabel)} · ${fillTemplate(picked.body, from, to, itemLabel)}`;
+  const bodyText = `${fillTemplate(BUMP_HEADLINE[kind], from, to, itemLabel, noteText)} · ${fillTemplate(picked.body, from, to, itemLabel, noteText)}`;
 
   after(async () => {
     // 집계 — '보냈다'는 사실이므로 푸시 결과와 무관하게 항상 increment.

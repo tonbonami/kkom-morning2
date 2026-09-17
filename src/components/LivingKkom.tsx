@@ -11,7 +11,7 @@ import { giveGift, subscribeGift, clearGift, giftsFor, giftById, giftImg, type G
 
 const V = 4;
 const emo = (name: string) => `/emo/sai-anim/${name}.webp?v=${V}`;
-const CARE = new Set(['blanket', 'flower', 'cocoa', 'giftbox', 'umbrella']);
+const CARE = new Set(['blanket', 'flower', 'cocoa', 'giftbox', 'umbrella', 'book', 'vitamin', 'massagecoupon', 'restcoupon', 'crown']);
 const subjName = (n: string) => (n === '우댕' ? '우댕이' : '꼼이');
 
 type Mood = { name: string; caption: string };
@@ -121,13 +121,13 @@ export default function LivingKkom({ presence, partner, me, tick }: {
     setSheetOpen(false);
     setFlying(giftImg(picked));
     setTimeout(() => setFlying(null), 850);
-    setToast(`${subjName(partner)}에게 ${g?.label ?? '선물'} 두고 왔어 🐾`);
+    setToast(`${g?.label ?? '선물'} 두고 왔어 🐾${g?.msg ? ` · ${g.msg}` : ''}`);
     setTimeout(() => setToast(null), 2200);
     void giveGift(me, picked);
     if (!isTogetherNow(presence)) {
       fetch('/api/bump', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: me, to: partner, kind: 'gift', item: g?.label ?? '선물' }),
+        body: JSON.stringify({ from: me, to: partner, kind: 'gift', item: g?.label ?? '선물', note: g?.msg ?? '' }),
       }).catch(() => {});
     }
     setPicked(null);
@@ -188,10 +188,10 @@ export default function LivingKkom({ presence, partner, me, tick }: {
           <div className="pointer-events-none min-w-0">
             <div className="text-[11px] font-extrabold tracking-[0.5px]" style={{ color: '#D98BA8' }}>꼼이Now</div>
             <div className="mt-1 text-[16px] font-bold leading-snug" style={{ color: 'var(--sd-ink)' }}>
-              {justSent ? '❤️ 하트 보냈어!' : inGift ? `${subjName(incoming!.from)}가 ${inGift.label} 두고 갔어` : mood.caption}
+              {justSent ? '❤️ 하트 보냈어!' : inGift ? inGift.msg : mood.caption}
             </div>
             <div className="mt-0.5 text-[11.5px] font-semibold" style={{ color: 'var(--sd-faint)' }}>
-              {inGift ? '톡 눌러서 받기 💗' : '쓰다듬으면 하트가 가'}
+              {inGift ? `${subjName(incoming!.from)}가 두고 갔어 · 톡 눌러서 받기 💗` : '쓰다듬으면 하트가 가'}
             </div>
           </div>
         </div>
