@@ -33,8 +33,7 @@ export const GIFT_ITEMS: GiftItem[] = [
   { id: 'bagel',        label: '베이글',     for: 'all',  msg: '아침 거르지 마' },
   { id: 'book',         label: '책',         for: 'all',  msg: '쉬면서 읽어' },
   { id: 'vitamin',      label: '비타민',     for: 'all',  msg: '아프지 말고' },
-  { id: 'massagecoupon', label: '안마쿠폰',  for: 'all',  msg: '뭉친 데 풀어줄게' },
-  { id: 'restcoupon',   label: '쉬는 쿠폰',  for: 'all',  msg: '오늘은 푹 쉬어' },
+  { id: 'massagecoupon', label: '안마쿠폰',  for: 'all',  msg: '뭉친 데 풀어줄게' },   // 강아지가 안마받고 쉬는 그림
   { id: 'crown',        label: '공주왕관',   for: '꼼이', msg: '오늘도 꼼이가 최고 👑' },
 ];
 export const giftImg = (id: string) => `/emo/gifts/${id}.png`;

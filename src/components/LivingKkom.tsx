@@ -11,7 +11,7 @@ import { giveGift, subscribeGift, clearGift, giftsFor, giftById, giftImg, type G
 
 const V = 4;
 const emo = (name: string) => `/emo/sai-anim/${name}.webp?v=${V}`;
-const CARE = new Set(['blanket', 'flower', 'cocoa', 'giftbox', 'umbrella', 'book', 'vitamin', 'massagecoupon', 'restcoupon', 'crown']);
+const CARE = new Set(['blanket', 'flower', 'cocoa', 'giftbox', 'umbrella', 'book', 'vitamin', 'massagecoupon', 'crown']);
 const subjName = (n: string) => (n === '우댕' ? '우댕이' : '꼼이');
 
 type Mood = { name: string; caption: string };
