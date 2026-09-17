@@ -13,7 +13,6 @@
 		2D88668530DA944420D8884D /* LiveActivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90633BA335ABAE160954A1DD /* LiveActivityBridge.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		3744C7C36D96315079592B63 /* FireREST.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76A69DDCA0A8BD1C11921EBE /* FireREST.swift */; };
-		FEEDFACE0000000000000101 /* WatchPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEDFACE0000000000000102 /* WatchPush.swift */; };
 		3C42BD7070C3B68F6F7E9BAC /* CanvasPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9EF21D41F65473FE811E1A /* CanvasPlugin.swift */; };
 		3EB90BA3C5188642EB285A01 /* kkomi_avatar.png in Resources */ = {isa = PBXBuildFile; fileRef = A27D05FCF7F9F3DACADCBC9D /* kkomi_avatar.png */; };
 		47F057D37D50CCF5CDDCF5CA /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E7132EF8F94C13984C0045 /* Foundation.framework */; };
@@ -25,6 +24,7 @@
 		507DEF43FBA7081B1DC6DD2B /* KkomActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19745C55F7234D45630743AE /* KkomActivityAttributes.swift */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		53B260FA3AC53ABB40843C01 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 474FCE64304F0513B5EA322B /* ContentView.swift */; };
+		6113B048D551908DBCE78F42 /* KkomShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5861F52B9D2C0563302F66A2 /* KkomShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		64AD27C7EDD4C658C6BAB8FB /* WatchStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B5441AB547E3A521A83969 /* WatchStore.swift */; };
 		96F636B7A4A3F29803F4E4F9 /* KkomActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19745C55F7234D45630743AE /* KkomActivityAttributes.swift */; };
 		99EA9F2FDD7308892BF4BB4D /* heartbeat.caf in Resources */ = {isa = PBXBuildFile; fileRef = CDB55EB644281CF5DABEEFBA /* heartbeat.caf */; };
@@ -35,10 +35,12 @@
 		A7F02733B971CFF61012F47E /* InkCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7FE18AAAD6CAAA0BC69073D /* InkCanvas.swift */; };
 		A8057E254D9AFBD603329EE4 /* KkomWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */; };
 		B39118D307E7FF5225D637CF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03E83283EDE47AFA52F15E55 /* Foundation.framework */; };
+		BE5BAFBB2FF01EE2B43AC152 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFED05479BA6801EE154AFA0 /* ShareViewController.swift */; };
 		C15473C9BCFE6E608251475D /* KkomWatchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0985B3199406CFEA5EEFE583 /* KkomWatchWidget.swift */; };
 		C200BDA8490062092F231CA3 /* KkomWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 5B1BFE32B2792896DF3CC9DD /* KkomWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C2415ECF6F4E595ACB18992C /* woodang_avatar.png in Resources */ = {isa = PBXBuildFile; fileRef = F43FBAF5F6601C3AEB5DCD7E /* woodang_avatar.png */; };
 		C8004F6ADF8E21866AC3BB76 /* KkomNotifyService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9D6B09A1C33CEA1F166CFD8C /* KkomNotifyService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D0065FD0700813CEA915ADE0 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03E83283EDE47AFA52F15E55 /* Foundation.framework */; };
 		DF6DF869301C25680029DEE0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF6DF839301B9E3C0029DEE0 /* WidgetKit.framework */; };
 		DF6DF86A301C25680029DEE0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF6DF83B301B9E3C0029DEE0 /* SwiftUI.framework */; };
 		DF6DF875301C25680029DEE0 /* KkomWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DF6DF868301C25680029DEE0 /* KkomWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -46,6 +48,7 @@
 		EA57C752D99C7B618F0898A2 /* CanvasScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E811AD988B947C59DE5916 /* CanvasScreen.swift */; };
 		F20E82AE748042443919FD8C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5B2E72E83E1B27DDF4150575 /* Assets.xcassets */; };
 		FD2B817BEC8FF35CB58B4E82 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E7132EF8F94C13984C0045 /* Foundation.framework */; };
+		FEEDFACE0000000000000101 /* WatchPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEDFACE0000000000000102 /* WatchPush.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +65,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 87E9D1E0C5D35106500B058A;
 			remoteInfo = KkomNotifyService;
+		};
+		B582A204459ED0DCD049C646 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F8862E3B8A583957430DF707;
+			remoteInfo = KkomShare;
 		};
 		C834978162B649A0A40BC6E0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -110,6 +120,7 @@
 			files = (
 				DF6DF875301C25680029DEE0 /* KkomWidgetExtension.appex in Embed Foundation Extensions */,
 				C8004F6ADF8E21866AC3BB76 /* KkomNotifyService.appex in Embed Foundation Extensions */,
+				6113B048D551908DBCE78F42 /* KkomShare.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -136,10 +147,10 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		5861F52B9D2C0563302F66A2 /* KkomShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KkomShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5B1BFE32B2792896DF3CC9DD /* KkomWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KkomWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5B2E72E83E1B27DDF4150575 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		76A69DDCA0A8BD1C11921EBE /* FireREST.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FireREST.swift; sourceTree = "<group>"; };
-		FEEDFACE0000000000000102 /* WatchPush.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchPush.swift; sourceTree = "<group>"; };
 		78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomWatchApp.swift; sourceTree = "<group>"; };
 		8F0F37C8B7C8934708BAB4C9 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		90633BA335ABAE160954A1DD /* LiveActivityBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveActivityBridge.swift; sourceTree = "<group>"; };
@@ -162,9 +173,13 @@
 		DF6DF863301C20A20029DEE0 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		DF6DF868301C25680029DEE0 /* KkomWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KkomWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF6DF87A301C25EB0029DEE0 /* KkomWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KkomWidgetExtension.entitlements; sourceTree = "<group>"; };
+		EFED05479BA6801EE154AFA0 /* ShareViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		F234C43565F8C1E53C30097B /* KkomShare.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = KkomShare.entitlements; sourceTree = "<group>"; };
 		F2B5441AB547E3A521A83969 /* WatchStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchStore.swift; sourceTree = "<group>"; };
 		F43FBAF5F6601C3AEB5DCD7E /* woodang_avatar.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = woodang_avatar.png; sourceTree = "<group>"; };
+		FBE0148C76439DD8AA06FCC9 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
+		FEEDFACE0000000000000102 /* WatchPush.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchPush.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -222,6 +237,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				B39118D307E7FF5225D637CF /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A492F106B733C6197F2B6D43 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D0065FD0700813CEA915ADE0 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -297,6 +320,7 @@
 				3CCB663D739B48DCD2885CF5 /* KkomWatch */,
 				A5EB3E4898CB4EA591EF50C0 /* KkomWatchWidget */,
 				4A19A305BDBCAB5D9F40B9BC /* KkomNotifyService */,
+				7F80F7B1BC12F967D1DCD0F5 /* KkomShare */,
 			);
 			sourceTree = "<group>";
 		};
@@ -308,6 +332,7 @@
 				5B1BFE32B2792896DF3CC9DD /* KkomWatch.app */,
 				B44EFC782AD0E00A83D34740 /* KkomWatchWidget.appex */,
 				9D6B09A1C33CEA1F166CFD8C /* KkomNotifyService.appex */,
+				5861F52B9D2C0563302F66A2 /* KkomShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -338,6 +363,17 @@
 			);
 			path = App;
 			sourceTree = "<group>";
+		};
+		7F80F7B1BC12F967D1DCD0F5 /* KkomShare */ = {
+			isa = PBXGroup;
+			children = (
+				EFED05479BA6801EE154AFA0 /* ShareViewController.swift */,
+				FBE0148C76439DD8AA06FCC9 /* Info.plist */,
+				F234C43565F8C1E53C30097B /* KkomShare.entitlements */,
+			);
+			name = KkomShare;
+			path = KkomShare;
+			sourceTree = SOURCE_ROOT;
 		};
 		7F8756D8B27F46E3366F6CEA /* Pods */ = {
 			isa = PBXGroup;
@@ -405,6 +441,7 @@
 				DF6DF874301C25680029DEE0 /* PBXTargetDependency */,
 				A3B52DE2E21D245AABCFB8B2 /* PBXTargetDependency */,
 				9B941A05537B21D55C4FFC19 /* PBXTargetDependency */,
+				7FAFD8F696533B04D6A50568 /* PBXTargetDependency */,
 			);
 			name = App;
 			productName = App;
@@ -467,6 +504,23 @@
 			productReference = DF6DF868301C25680029DEE0 /* KkomWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		F8862E3B8A583957430DF707 /* KkomShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 325A9CFC73F09C4BFEC07B3E /* Build configuration list for PBXNativeTarget "KkomShare" */;
+			buildPhases = (
+				BE765FD8385D96D34AB6977B /* Sources */,
+				A492F106B733C6197F2B6D43 /* Frameworks */,
+				A02A6BF4FF97C7BCC3FDAE6E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KkomShare;
+			productName = KkomShare;
+			productReference = 5861F52B9D2C0563302F66A2 /* KkomShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -504,6 +558,7 @@
 				D7E47D6555AA41519434F864 /* KkomWatch */,
 				2CA064763DAF831F10E6C307 /* KkomWatchWidget */,
 				87E9D1E0C5D35106500B058A /* KkomNotifyService */,
+				F8862E3B8A583957430DF707 /* KkomShare */,
 			);
 		};
 /* End PBXProject section */
@@ -529,6 +584,13 @@
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				99EA9F2FDD7308892BF4BB4D /* heartbeat.caf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A02A6BF4FF97C7BCC3FDAE6E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -639,6 +701,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BE765FD8385D96D34AB6977B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BE5BAFBB2FF01EE2B43AC152 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DF6DF864301C25680029DEE0 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -655,6 +725,12 @@
 			name = KkomWatchWidget;
 			target = 2CA064763DAF831F10E6C307 /* KkomWatchWidget */;
 			targetProxy = 05B6FC16AB67BA4220149508 /* PBXContainerItemProxy */;
+		};
+		7FAFD8F696533B04D6A50568 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KkomShare;
+			target = F8862E3B8A583957430DF707 /* KkomShare */;
+			targetProxy = B582A204459ED0DCD049C646 /* PBXContainerItemProxy */;
 		};
 		9B941A05537B21D55C4FFC19 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -761,6 +837,29 @@
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
+		};
+		44B15853ED1F720C356B8CB0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = KkomShare/KkomShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 48;
+				DEVELOPMENT_TEAM = JDDK6B2EKF;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KkomShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "꼼모닝";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tonbonami.kkommorning.KkomShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
 		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1083,9 +1182,42 @@
 			};
 			name = Release;
 		};
+		F564EB884862FD29526E0CB0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = KkomShare/KkomShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 48;
+				DEVELOPMENT_TEAM = JDDK6B2EKF;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KkomShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "꼼모닝";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tonbonami.kkommorning.KkomShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		325A9CFC73F09C4BFEC07B3E /* Build configuration list for PBXNativeTarget "KkomShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F564EB884862FD29526E0CB0 /* Release */,
+				44B15853ED1F720C356B8CB0 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		504EC2FF1FED79650016851F /* Build configuration list for PBXProject "App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
