@@ -45,7 +45,9 @@ final class WatchPush: NSObject, UNUserNotificationCenterDelegate {
     func syncToken() {
         guard let hex = lastTokenHex, let r = role,
               let url = URL(string: "\(RTDB)/watchTokens/\(keyForName(r)).json") else { return }
-        let body: [String: Any] = ["token": hex, "platform": "watchos", "t": Int(Date().timeIntervalSince1970 * 1000)]
+        // ⚠️ 애플워치(arm64_32)는 Int가 32비트 → 밀리초(≈1.75조)를 Int로 넣으면 Int.max 초과로 '켜자마자 크래시'.
+        //   토큰 등록은 런치 직후 실행돼서 앱이 열자마자 꺼졌다. Int64 필수(JSONSerialization도 Int64 OK).
+        let body: [String: Any] = ["token": hex, "platform": "watchos", "t": Int64(Date().timeIntervalSince1970 * 1000)]
         var req = URLRequest(url: url); req.httpMethod = "PUT"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
