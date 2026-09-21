@@ -8,6 +8,7 @@ import webpush from 'web-push';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { sendApns, keyForName } from '@/lib/apns';
+import { promotePendingLetters } from '@/lib/promoteLetters';
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
 const PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY!;
@@ -64,6 +65,8 @@ export async function GET(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
+  // 예약편지 봉인 해제 + 도착 알림도 이 크론에 얹음 (하루 4윈도우 커버 — Hobby 무료 유지).
+  await promotePendingLetters().catch(() => null);
   const url = new URL(req.url);
   const origin = url.origin;
   const force = url.searchParams.get('force') === '1';

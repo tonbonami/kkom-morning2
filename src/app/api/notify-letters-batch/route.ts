@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { db } from '@/lib/firebase';
+import { promotePendingLetters } from '@/lib/promoteLetters';
 import {
   collection, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc, deleteField,
 } from 'firebase/firestore';
@@ -29,12 +30,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
+  // 예약편지 봉인 해제 + 도착 알림도 이 크론에 얹음 (하루 4윈도우 커버 — Hobby 무료 유지).
+  const letterPromo = await promotePendingLetters().catch(() => null);
+
   // pendingNotify=true 인 편지 전부
   const q = query(collection(db, 'letters'), where('pendingNotify', '==', true));
   const snap = await getDocs(q);
 
   if (snap.empty) {
-    return NextResponse.json({ sent: 0, reason: 'no pending letters' });
+    return NextResponse.json({ sent: 0, reason: 'no pending letters', letterPromo });
   }
 
   // 수신자별 그룹
@@ -92,5 +96,5 @@ export async function GET(req: NextRequest) {
     })
   );
 
-  return NextResponse.json({ sent: results.filter(r => r.ok).length, total: snap.size, results });
+  return NextResponse.json({ sent: results.filter(r => r.ok).length, total: snap.size, results, letterPromo });
 }
