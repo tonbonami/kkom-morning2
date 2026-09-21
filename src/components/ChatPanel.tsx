@@ -5,6 +5,8 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, CornerDownLeft, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
 import { saveLink, deleteLink, subscribeLinks, firstUrl, youTubeId, type SavedLink } from '@/lib/links';
+import { addWish } from '@/lib/wishlist';
+import { isNaverPlaceUrl, looksNaver, storeNameFromText } from '@/lib/naverPlace';
 import {
   type ChatMessage, type ReplyRef,
   subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage, uploadChatAudio, uploadChatVideo,
@@ -672,6 +674,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   // "이거봐봐" — 저장한 링크들. 링크 보내면 저장할지 묻는 프롬프트.
   const [links, setLinks] = useState<SavedLink[] | null>(null);
   const [linkPrompt, setLinkPrompt] = useState<string | null>(null);
+  // 네이버 가게 링크 → 위시리스트('같이 갈 곳') 담기 프롬프트. 자동저장 X, 묻는다.
+  const [placePrompt, setPlacePrompt] = useState<{ url: string; name: string } | null>(null);
+  const [placeCat, setPlaceCat] = useState<'food' | 'place'>('food');
+  const [placeSaving, setPlaceSaving] = useState(false);
   const [linkSaving, setLinkSaving] = useState(false);
   const [memories, setMemories] = useState<ChatMessage[] | null>(null);
   const [capsuleOpen, setCapsuleOpen] = useState(false);
@@ -763,9 +769,41 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     onSend(t, undefined, undefined, replyTo ?? undefined);
     setDraft(''); setReplyTo(null); stopTyping();
     if (taRef.current) { taRef.current.style.height = 'auto'; taRef.current.focus(); }  // 연속 전송 — 자판 유지
-    // 링크가 들어있으면 "이거봐봐에 저장할까요?" 물어보기
+    // 링크가 들어있으면 저장 물어보기 — 네이버 가게면 위시리스트, 아니면 이거봐봐.
     const url = firstUrl(t);
-    if (url) setLinkPrompt(url);
+    if (url) void detectLinkPrompt(url, t);
+  };
+
+  // 보낸 링크 판정 → 네이버 '장소'면 위시리스트 담기 띠(가게명은 보낸 말 첫 줄), 아니면 이거봐봐 띠.
+  // ⚠️ naver.me 는 지도 전용이 아니라 finalUrl 로 풀어 판정. 판정 실패해도 이거봐봐로 떨어뜨린다
+  //    — 아무 띠도 안 뜨는 게 제일 나쁘다(사이담 교훈).
+  const detectLinkPrompt = async (url: string, text: string) => {
+    if (looksNaver(url)) {
+      let finalUrl = url;
+      try {
+        const r = await fetch(`/api/og-preview?url=${encodeURIComponent(url)}`);
+        const j = await r.json();
+        if (j?.finalUrl) finalUrl = j.finalUrl as string;   // naver.me 단축 풀기
+      } catch { /* 못 풀어도 원래 url로 판정 시도 */ }
+      if (isNaverPlaceUrl(finalUrl)) {
+        setPlaceCat('food');
+        setPlacePrompt({ url: finalUrl, name: storeNameFromText(text) });
+        return;
+      }
+    }
+    setLinkPrompt(url);   // 네이버 아님/장소 아님/못 풀음 → 이거봐봐(아무 띠도 안 뜨는 게 제일 나쁘다)
+  };
+
+  const savePlace = async () => {
+    if (!placePrompt || placeSaving) return;
+    const name = placePrompt.name.trim();
+    if (!name) return;   // 이름 비면 담기 X — 「네이버지도」 같은 쓰레기 항목을 막는 마지막 문
+    setPlaceSaving(true);
+    try {
+      await addWish({ category: placeCat, title: name, url: placePrompt.url, by: me as '우댕' | '꼼이' });
+      flashToast('위시리스트에 담았어 📍');
+    } catch { flashToast('저장 실패 — 다시 시도해줘'); }
+    setPlaceSaving(false); setPlacePrompt(null);
   };
 
   // "이거봐봐" 링크 구독 — 탭 열자마자 바로 보이게 상시 구독(≤100건).
@@ -1412,6 +1450,42 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 </motion.div>
               )}
             </AnimatePresence>
+            {/* 네이버 가게 링크 → 위시리스트('같이 갈 곳') 담기 — 자동저장 X, 이름은 보낸 말에서 미리 채움 */}
+            <AnimatePresence>
+              {placePrompt && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: 8, height: 0 }}
+                  className="mb-2 overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.06] shadow-sm px-3 py-2.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-[17px] leading-none">📍</span>
+                    <input
+                      value={placePrompt.name}
+                      onChange={(e) => setPlacePrompt((p) => (p ? { ...p, name: e.target.value } : p))}
+                      placeholder="가게 이름을 적어줘"
+                      className="min-w-0 flex-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-[13px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="flex shrink-0 rounded-full bg-slate-100 p-0.5 text-[12px] font-bold">
+                      <button onClick={() => setPlaceCat('food')}
+                        className={`rounded-full px-2.5 py-1 transition ${placeCat === 'food' ? 'bg-white text-[#FB7BA8] shadow-sm' : 'text-slate-400'}`}>🍽️ 먹을곳</button>
+                      <button onClick={() => setPlaceCat('place')}
+                        className={`rounded-full px-2.5 py-1 transition ${placeCat === 'place' ? 'bg-white text-[#FB7BA8] shadow-sm' : 'text-slate-400'}`}>📍 갈곳</button>
+                    </div>
+                    <span className="min-w-0 flex-1" />
+                    <button onClick={() => setPlacePrompt(null)} className="shrink-0 px-2 py-1 text-[13px] font-semibold text-slate-400 active:scale-95">닫기</button>
+                    <button onClick={savePlace} disabled={placeSaving || !placePrompt.name.trim()}
+                      className="shrink-0 rounded-full bg-[#FB7BA8] px-3.5 py-1.5 text-[13px] font-bold text-white active:scale-95 disabled:opacity-50">
+                      {placeSaving ? '담는 중…' : '담기'}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* 링크 저장 프롬프트 — 링크 보내면 "이거봐봐에 저장할까요?" */}
             <AnimatePresence>
               {linkPrompt && (

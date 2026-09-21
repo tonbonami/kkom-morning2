@@ -89,9 +89,12 @@ export async function GET(req: NextRequest) {
       signal: AbortSignal.timeout(8000),
     });
 
+    // 리다이렉트 푼 최종 주소 — naver.me 같은 단축링크 판정에 쓴다(사이담: 반드시 풀어 판정).
+    const finalUrl = res.url || target.toString();
+
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('text/html')) {
-      return NextResponse.json({ error: 'not html' });
+      return NextResponse.json({ error: 'not html', finalUrl });
     }
 
     // HTML 너무 크면 앞부분만 (head 안에 og 다 있음, ~256KB)
@@ -114,6 +117,7 @@ export async function GET(req: NextRequest) {
       description: extractMeta(slice, 'og:description') || extractMeta(slice, 'description'),
       image,
       siteName: extractMeta(slice, 'og:site_name'),
+      finalUrl,
     });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 200 });
