@@ -59,3 +59,39 @@ enum KkomHeart {
         _ = try? await URLSession.shared.data(for: req)
     }
 }
+
+// ── 위젯 범프 버튼(iOS17+ 인터랙티브) — 앱 안 열고 상대에게 범프(보고싶어·사랑해·안아줘·뽀뽀).
+//   하트와 달리 서버(/api/bump)가 푸시+liveBumps를 한 번에 처리하므로 위젯은 POST 하나면 된다.
+// ⚠️ kind는 enum이 아니라 String — 새 범프 종류를 늘려도 앱을 새로 올릴 필요 없게(사이담 교훈).
+//    서버가 모르는 kind는 miss로 처리하므로 안전하다.
+@available(iOS 17.0, *)
+struct SendBumpIntent: AppIntent {
+    static var title: LocalizedStringResource = "범프 보내기"
+    static var description = IntentDescription("상대에게 범프(보고싶어·사랑해 등)를 보냅니다.")
+    static var openAppWhenRun = false
+
+    @Parameter(title: "종류") var kind: String
+
+    init() { self.kind = "miss" }
+    init(kind: String) { self.kind = kind }
+
+    func perform() async throws -> some IntentResult {
+        guard let s = loadKkomState() else { return .result() }
+        let to = s.partnerName
+        let me = (s.partnerName == "꼼이") ? "우댕" : "꼼이"
+        await KkomBump.send(from: me, to: to, kind: kind)
+        return .result()
+    }
+}
+
+enum KkomBump {
+    static let webBase = "https://kkommorning-v2.vercel.app"
+    // 서버가 나머지(푸시·워치·liveBumps·집계)를 다 함 — 위젯은 '누가·누구에게·무슨 범프'만 넘긴다.
+    static func send(from: String, to: String, kind: String) async {
+        guard let url = URL(string: "\(webBase)/api/bump") else { return }
+        var req = URLRequest(url: url); req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["from": from, "to": to, "kind": kind])
+        _ = try? await URLSession.shared.data(for: req)
+    }
+}

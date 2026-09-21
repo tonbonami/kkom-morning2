@@ -221,48 +221,68 @@ struct HeartSendButton: View {
     }
 }
 
-// ── 홈: 중형(메인) ──
+// ── 위젯 범프 버튼 (iOS17+ 인터랙티브 — 앱 안 열고 상대에게 보고싶어·사랑해·안아줘·뽀뽀) ──
+//   ⚠️ 폭을 '고정으로 박지 않는다' — maxWidth:.infinity 로 칸이 신축한다(사이담 교훈: 고정이면 슬롯 늘 때 잘림).
+//   ⚠️ 탭 영역 HIG 최소 44pt 이상(minHeight 46). '누르는 게 제일 큰' 요소여야 한다.
+@available(iOS 17.0, *)
+struct BumpButton: View {
+    let kind: String; let emoji: String; let label: String
+    var body: some View {
+        Button(intent: SendBumpIntent(kind: kind)) {
+            VStack(spacing: 2) {
+                Text(emoji).font(.system(size: 21))
+                Text(label).font(.system(size: 9, weight: .bold)).foregroundStyle(cInkSoft).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity, minHeight: 46)
+            .background(cCard)
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(cMint.opacity(0.55), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+}
+@available(iOS 17.0, *)
+struct BumpRow: View {
+    var body: some View {
+        HStack(spacing: 5) {
+            BumpButton(kind: "miss", emoji: "💗", label: "보고싶어")
+            BumpButton(kind: "love", emoji: "❤️", label: "사랑해")
+            BumpButton(kind: "hug",  emoji: "🤗", label: "안아줘")
+            BumpButton(kind: "kiss", emoji: "😘", label: "뽀뽀")
+            BumpButton(kind: "night", emoji: "🌙", label: "잘자")
+        }
+    }
+}
+
+// ── 홈: 중형(메인) — 상단은 정보(작게), 하단 범프 줄이 '탭 대상'으로 제일 크다 ──
+//   하트는 범프 줄 '밖'(우상단)에 둔다 — 하트=고정 액션, 범프=고르는 것, 섞으면 헷갈린다(사이담).
 struct MediumView: View {
     let e: KkomEntry
     var body: some View {
         if let s = e.state {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 10) {
                     Link(destination: URL(string: "kkommorning://home")!) {
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 3) {
                             Text(ddayText(s, at: e.date))
-                                .font(.system(size: 34, weight: .heavy, design: .rounded)).foregroundStyle(cInk)
+                                .font(.system(size: 26, weight: .heavy, design: .rounded)).foregroundStyle(cInk)
                             if let g = s.airGrade {
                                 HStack(spacing: 4) {
-                                    Image(systemName: "sun.max.fill").font(.system(size: 11)).foregroundStyle(cRose)
+                                    Image(systemName: "sun.max.fill").font(.system(size: 10)).foregroundStyle(cRose)
                                     Text("\(s.airLoc ?? "") 미세 \(g)\(s.weatherTemp != nil ? ", \(s.weatherTemp!)°" : "")")
-                                        .font(.system(size: 12, weight: .medium)).foregroundStyle(cInkSoft).lineLimit(1)
+                                        .font(.system(size: 11, weight: .medium)).foregroundStyle(cInkSoft).lineLimit(1)
                                 }
                             }
                         }
                     }
                     Spacer(minLength: 0)
-                    if let mood = s.partnerMood {
-                        Text("오늘 \(s.partnerName) \(mood)").font(.system(size: 12, weight: .semibold)).foregroundStyle(cInkSoft)
+                    VStack(alignment: .trailing, spacing: 6) {
+                        StatusBadge(s: s, date: e.date, compact: true)
+                        if #available(iOS 17.0, *) { HeartSendButton(size: 32) }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                VStack(alignment: .trailing, spacing: 8) {
-                    StatusBadge(s: s, date: e.date, compact: true)
-                    if #available(iOS 17.0, *) { HeartSendButton() }
-                    Spacer(minLength: 0)
-                    if let t = s.nextEventTitle, let d = eventDText(s, at: e.date) {
-                        Link(destination: URL(string: "kkommorning://calendar")!) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(t).font(.system(size: 12, weight: .bold)).foregroundStyle(cInk).lineLimit(1)
-                                Text(d).font(.system(size: 15, weight: .heavy, design: .rounded)).foregroundStyle(cRose)
-                            }
-                            .padding(8).background(cCard).clipShape(RoundedRectangle(cornerRadius: 12))
-                            .rotationEffect(.degrees(2))
-                        }
-                    }
-                }
+                Spacer(minLength: 0)
+                if #available(iOS 17.0, *) { BumpRow() }
             }
         } else { SetupView() }
     }
@@ -290,25 +310,66 @@ struct SmallView: View {
     }
 }
 
-// ── 홈: 대형 ──
+// ── 홈: 대형 — 정보 밀도 유지(중형에서 뺀 기분·일정 카드를 여기 살림) + 범프 줄 + 낙서장 ──
 struct LargeView: View {
     let e: KkomEntry
     var body: some View {
-        if e.state != nil {
-            VStack(spacing: 10) {
-                MediumView(e: e)
-                Rectangle().fill(cSlate.opacity(0.15)).frame(height: 1)
-                Link(destination: URL(string: "kkommorning://canvas")!) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 18).fill(cCream)
-                        RoundedRectangle(cornerRadius: 18).stroke(cSlate.opacity(0.15), lineWidth: 1)
-                        VStack(spacing: 6) {
-                            Image(systemName: "pencil.and.scribble").font(.system(size: 26)).foregroundStyle(cRose)
-                            Text("우리 낙서장 열기").font(.system(size: 13, weight: .bold)).foregroundStyle(cInkSoft)
+        if let s = e.state {
+            VStack(alignment: .leading, spacing: 10) {
+                // 상단: D+ 크게 + 상태 + 하트(범프 줄 밖)
+                HStack(alignment: .top, spacing: 10) {
+                    Link(destination: URL(string: "kkommorning://home")!) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(ddayText(s, at: e.date))
+                                .font(.system(size: 34, weight: .heavy, design: .rounded)).foregroundStyle(cInk)
+                            if let g = s.airGrade {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "sun.max.fill").font(.system(size: 11)).foregroundStyle(cRose)
+                                    Text("\(s.airLoc ?? "") 미세 \(g)\(s.weatherTemp != nil ? ", \(s.weatherTemp!)°" : "")")
+                                        .font(.system(size: 12, weight: .medium)).foregroundStyle(cInkSoft).lineLimit(1)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    VStack(alignment: .trailing, spacing: 6) {
+                        StatusBadge(s: s, date: e.date, compact: true)
+                        if #available(iOS 17.0, *) { HeartSendButton(size: 34) }
+                    }
+                }
+
+                // 기분 + 다음 일정 카드 (중형에서 뺀 것 — 대형엔 자리가 있어 살린다)
+                HStack(alignment: .center, spacing: 8) {
+                    if let mood = s.partnerMood {
+                        Text("오늘 \(s.partnerName) \(mood)").font(.system(size: 12, weight: .semibold)).foregroundStyle(cInkSoft).lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    if let t = s.nextEventTitle, let d = eventDText(s, at: e.date) {
+                        Link(destination: URL(string: "kkommorning://calendar")!) {
+                            HStack(spacing: 6) {
+                                Text(t).font(.system(size: 12, weight: .bold)).foregroundStyle(cInk).lineLimit(1)
+                                Text(d).font(.system(size: 14, weight: .heavy, design: .rounded)).foregroundStyle(cRose)
+                            }
+                            .padding(.horizontal, 10).padding(.vertical, 6).background(cCard).clipShape(Capsule())
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                Spacer(minLength: 0)
+                // 범프 줄 (탭 대상)
+                if #available(iOS 17.0, *) { BumpRow() }
+
+                // 낙서장 바로가기
+                Link(destination: URL(string: "kkommorning://canvas")!) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "pencil.and.scribble").font(.system(size: 14)).foregroundStyle(cRose)
+                        Text("우리 낙서장 열기").font(.system(size: 12, weight: .bold)).foregroundStyle(cInkSoft)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 9)
+                    .frame(maxWidth: .infinity)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(cCream).overlay(RoundedRectangle(cornerRadius: 14).stroke(cSlate.opacity(0.15), lineWidth: 1)))
+                }
             }
         } else { SetupView() }
     }
