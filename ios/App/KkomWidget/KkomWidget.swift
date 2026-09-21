@@ -89,7 +89,7 @@ private func eventDText(_ s: KkomState, at date: Date) -> String? {
 }
 
 // ── Timeline ──
-struct KkomEntry: TimelineEntry { let date: Date; let state: KkomState? }
+struct KkomEntry: TimelineEntry { let date: Date; let state: KkomState?; var sentKind: String? = nil }
 
 struct Provider: TimelineProvider {
     func placeholder(in c: Context) -> KkomEntry { KkomEntry(date: Date(), state: nil) }
@@ -100,9 +100,24 @@ struct Provider: TimelineProvider {
         let st = loadKkomState()
         let now = Date()
         var entries: [KkomEntry] = []
-        for m in stride(from: 0, through: 30, by: 5) {
-            entries.append(KkomEntry(date: now.addingTimeInterval(Double(m) * 60), state: st))
+        // 방금 위젯에서 보낸 게 있으면 4초간 '보냈어 ✓'를 심고, 그 뒤 원래대로 되돌린다.
+        //   ⚠️ iOS17은 perform() 뒤 타임라인을 자동 리드로우하지만 '원래대로' 스스로 안 돌아온다 →
+        //      되돌리는 엔트리를 직접 심는다. 그리고 그 마지막 엔트리보다 '이른' 5분 엔트리는 건너뛴다 —
+        //      날짜가 역행하면 타임라인이 통째로 무시된다(사이담 교훈).
+        var floor = now
+        if let kind = WidgetSent.recent(within: 4000, at: now) {
+            entries.append(KkomEntry(date: now, state: st, sentKind: kind))
+            let revert = max(Date(timeIntervalSince1970: WidgetSent.sentAtMs() / 1000 + 4),
+                             now.addingTimeInterval(0.5))
+            entries.append(KkomEntry(date: revert, state: st, sentKind: nil))
+            floor = revert
         }
+        for m in stride(from: 0, through: 30, by: 5) {
+            let d = now.addingTimeInterval(Double(m) * 60)
+            if d <= floor { continue }
+            entries.append(KkomEntry(date: d, state: st, sentKind: nil))
+        }
+        if entries.isEmpty { entries.append(KkomEntry(date: now, state: st, sentKind: nil)) }
         completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(15 * 60))))
     }
 }
@@ -137,6 +152,7 @@ struct HeartSendButton: View {
 
     var size: CGFloat = 36 // 15는 터치 영역으로 다소 작을 수 있어 36을 기본값으로 제안합니다.
     var style: ButtonStyleOption = .stickerGradient
+    var sentKind: String? = nil   // "heart"면 방금 보낸 것 → ✓ 오버레이
 
     // MARK: - Design Tokens
     private var cCream: Color { Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hexW: "#272522") : UIColor(hexW: "#FBF8F2") }) }
@@ -151,6 +167,14 @@ struct HeartSendButton: View {
         // AppIntent를 통한 인터랙티브 버튼 (위젯용)
         Button(intent: SendHeartIntent()) {
             label(for: style)
+                .overlay {
+                    if sentKind == "heart" {
+                        ZStack {
+                            Circle().fill(cEmerald)
+                            Image(systemName: "checkmark").font(.system(size: size * 0.42, weight: .bold)).foregroundStyle(.white)
+                        }
+                    }
+                }
         }
         .buttonStyle(.plain)
     }
@@ -227,6 +251,7 @@ struct HeartSendButton: View {
 @available(iOS 17.0, *)
 struct BumpButton: View {
     let kind: String; let emoji: String; let label: String
+    var sentKind: String? = nil   // 이 kind를 방금 보냈으면 ✓ 오버레이(라벨은 그대로 두고 위에 얹는다)
     var body: some View {
         Button(intent: SendBumpIntent(kind: kind)) {
             VStack(spacing: 2) {
@@ -237,19 +262,31 @@ struct BumpButton: View {
             .background(cCard)
             .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(cMint.opacity(0.55), lineWidth: 1))
+            .overlay {
+                if sentKind == kind {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 13, style: .continuous).fill(cEmerald)
+                        VStack(spacing: 1) {
+                            Image(systemName: "checkmark").font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+                            Text("보냈어").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                        }
+                    }
+                }
+            }
         }
         .buttonStyle(.plain)
     }
 }
 @available(iOS 17.0, *)
 struct BumpRow: View {
+    var sentKind: String? = nil
     var body: some View {
         HStack(spacing: 5) {
-            BumpButton(kind: "miss", emoji: "💗", label: "보고싶어")
-            BumpButton(kind: "love", emoji: "❤️", label: "사랑해")
-            BumpButton(kind: "hug",  emoji: "🤗", label: "안아줘")
-            BumpButton(kind: "kiss", emoji: "😘", label: "뽀뽀")
-            BumpButton(kind: "night", emoji: "🌙", label: "잘자")
+            BumpButton(kind: "miss", emoji: "💗", label: "보고싶어", sentKind: sentKind)
+            BumpButton(kind: "love", emoji: "❤️", label: "사랑해", sentKind: sentKind)
+            BumpButton(kind: "hug",  emoji: "🤗", label: "안아줘", sentKind: sentKind)
+            BumpButton(kind: "kiss", emoji: "😘", label: "뽀뽀", sentKind: sentKind)
+            BumpButton(kind: "night", emoji: "🌙", label: "잘자", sentKind: sentKind)
         }
     }
 }
@@ -278,11 +315,11 @@ struct MediumView: View {
                     Spacer(minLength: 0)
                     VStack(alignment: .trailing, spacing: 6) {
                         StatusBadge(s: s, date: e.date, compact: true)
-                        if #available(iOS 17.0, *) { HeartSendButton(size: 32) }
+                        if #available(iOS 17.0, *) { HeartSendButton(size: 32, sentKind: e.sentKind) }
                     }
                 }
                 Spacer(minLength: 0)
-                if #available(iOS 17.0, *) { BumpRow() }
+                if #available(iOS 17.0, *) { BumpRow(sentKind: e.sentKind) }
             }
         } else { SetupView() }
     }
@@ -304,7 +341,7 @@ struct SmallView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .bottomTrailing) {
-                if #available(iOS 17.0, *) { HeartSendButton(size: 28).padding(4) }
+                if #available(iOS 17.0, *) { HeartSendButton(size: 28, sentKind: e.sentKind).padding(4) }
             }
         } else { SetupView() }
     }
@@ -334,7 +371,7 @@ struct LargeView: View {
                     Spacer(minLength: 0)
                     VStack(alignment: .trailing, spacing: 6) {
                         StatusBadge(s: s, date: e.date, compact: true)
-                        if #available(iOS 17.0, *) { HeartSendButton(size: 34) }
+                        if #available(iOS 17.0, *) { HeartSendButton(size: 34, sentKind: e.sentKind) }
                     }
                 }
 
@@ -357,7 +394,7 @@ struct LargeView: View {
 
                 Spacer(minLength: 0)
                 // 범프 줄 (탭 대상)
-                if #available(iOS 17.0, *) { BumpRow() }
+                if #available(iOS 17.0, *) { BumpRow(sentKind: e.sentKind) }
 
                 // 낙서장 바로가기
                 Link(destination: URL(string: "kkommorning://canvas")!) {

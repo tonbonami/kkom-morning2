@@ -1,5 +1,31 @@
 import AppIntents
 import Foundation
+import WidgetKit
+
+// ── 위젯 '보냈어 ✓' 피드백 상태 (앱그룹 공유) ──
+// iOS는 위젯 버튼 눌린 상태를 안 그려준다. 그래서 '방금 무엇을 보냈나'를 앱그룹에 적어두고
+// 위젯이 4초간 그 칸에 ✓를 그린다.
+// ⚠️ 2xx 성공일 때만 mark — 안 간 걸 갔다고 하는 게 제일 나쁘다(사이담 교훈).
+// ⚠️ 한 화면에 피드백 있는 버튼/없는 버튼을 섞으면 없는 쪽이 '고장난 버튼'으로 읽힌다 →
+//    범프뿐 아니라 '하트'에도 반드시 ✓를 붙인다(kind="heart").
+enum WidgetSent {
+    static let APP_GROUP = "group.com.tonbonami.kkommorning"
+    static func mark(_ kind: String) {
+        let d = UserDefaults(suiteName: APP_GROUP)
+        d?.set(kind, forKey: "widgetSentKind")
+        d?.set(Date().timeIntervalSince1970 * 1000, forKey: "widgetSentAtMs")
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+    static func sentAtMs() -> Double { UserDefaults(suiteName: APP_GROUP)?.double(forKey: "widgetSentAtMs") ?? 0 }
+    // 최근 within(ms) 안에 보낸 kind (아니면 nil)
+    static func recent(within ms: Double, at date: Date) -> String? {
+        let d = UserDefaults(suiteName: APP_GROUP)
+        guard let kind = d?.string(forKey: "widgetSentKind") else { return nil }
+        let at = sentAtMs(); if at <= 0 { return nil }
+        let elapsed = date.timeIntervalSince1970 * 1000 - at
+        return (elapsed >= 0 && elapsed < ms) ? kind : nil
+    }
+}
 
 // 위젯 하트 버튼(iOS17+ 인터랙티브) — 앱 안 열고 상대에게 하트.
 // 워치 fling+notifyHeart와 동일: Firestore liveHearts(둘 다 접속 시 실시간 폭탄) + /api/heart(잠금기기 푸시).
@@ -25,17 +51,19 @@ enum KkomHeart {
     static let webBase = "https://kkommorning-v2.vercel.app"
 
     static func send(from: String, to: String) async {
-        async let a: Void = fling(from: from, to: to)
-        async let b: Void = notifyHeart(from: from, to: to)
-        _ = await (a, b)
+        async let a = fling(from: from, to: to)
+        async let b = notifyHeart(from: from, to: to)
+        let (okA, okB) = await (a, b)
+        if okA || okB { WidgetSent.mark("heart") }   // ✅ 하나라도 2xx면 '보냈어 ✓'
     }
 
     // Firestore liveHearts/{to} 덮어쓰기(nonce 매번 새로) — 웹 throwHeart/워치 fling과 동일 스키마.
-    static func fling(from: String, to: String) async {
+    @discardableResult
+    static func fling(from: String, to: String) async -> Bool {
         let enc = to.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? to
         guard let url = URL(string:
             "https://firestore.googleapis.com/v1/projects/\(projectId)/databases/(default)/documents/liveHearts/\(enc)?key=\(apiKey)")
-        else { return }
+        else { return false }
         let nonce = "\(Int64(Date().timeIntervalSince1970 * 1000))_wg\(Int.random(in: 100000...999999))"
         let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let body: [String: Any] = ["fields": [
@@ -47,16 +75,21 @@ enum KkomHeart {
         var req = URLRequest(url: url); req.httpMethod = "PATCH"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        _ = try? await URLSession.shared.data(for: req)
+        if let (_, resp) = try? await URLSession.shared.data(for: req),
+           let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) { return true }
+        return false
     }
 
     // 상대 잠금 기기 푸시(서버 쿨다운 20초).
-    static func notifyHeart(from: String, to: String) async {
-        guard let url = URL(string: "\(webBase)/api/heart") else { return }
+    @discardableResult
+    static func notifyHeart(from: String, to: String) async -> Bool {
+        guard let url = URL(string: "\(webBase)/api/heart") else { return false }
         var req = URLRequest(url: url); req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: ["from": from, "to": to])
-        _ = try? await URLSession.shared.data(for: req)
+        if let (_, resp) = try? await URLSession.shared.data(for: req),
+           let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) { return true }
+        return false
     }
 }
 
@@ -92,6 +125,10 @@ enum KkomBump {
         var req = URLRequest(url: url); req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: ["from": from, "to": to, "kind": kind])
-        _ = try? await URLSession.shared.data(for: req)
+        // ✅ 2xx 성공일 때만 '보냈어 ✓' 기록 — 결과를 버리면(_ = try?) 실패해도 ✓가 떠 거짓말이 된다.
+        if let (_, resp) = try? await URLSession.shared.data(for: req),
+           let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) {
+            WidgetSent.mark(kind)
+        }
     }
 }
