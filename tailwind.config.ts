@@ -5,6 +5,10 @@ export default {
   content: [
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    // ⚠️ src/lib 도 반드시 포함 — calendar.ts(주인색 rose/blue/purple…)·feedback·praise·weather 가
+    //    className 문자열을 여기서 만든다. 빠지면 그 클래스가 CSS로 안 만들어져 '조용히' 색이 죽는다
+    //    (오류·경고 없음). 사이담이 달력 띠 색 안 뜨던 것도 같은 원인. (2026-09 사이담 교차점검)
+    './src/lib/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
