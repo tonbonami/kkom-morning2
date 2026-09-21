@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, CornerDownLeft, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles } from 'lucide-react';
+import { X, Send, ImagePlus, Smile, CornerDownLeft, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
 import { saveLink, deleteLink, subscribeLinks, firstUrl, youTubeId, type SavedLink } from '@/lib/links';
 import { addWish } from '@/lib/wishlist';
@@ -678,6 +678,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [placePrompt, setPlacePrompt] = useState<{ url: string; name: string } | null>(null);
   const [placeCat, setPlaceCat] = useState<'food' | 'place'>('food');
   const [placeSaving, setPlaceSaving] = useState(false);
+  // 입력창 ＋ 첨부 패널(사진·음성·타임캡슐 접기 — 카톡식). 이모티콘 서랍과 서로 닫힌다.
+  const [attachOpen, setAttachOpen] = useState(false);
   const [linkSaving, setLinkSaving] = useState(false);
   const [memories, setMemories] = useState<ChatMessage[] | null>(null);
   const [capsuleOpen, setCapsuleOpen] = useState(false);
@@ -1505,6 +1507,34 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* ＋ 첨부 패널 — 사진·음성·타임캡슐. ⚠️ 파일 input은 이 패널이 아니라 아래 입력줄(pill) 안에 둔다.
+                패널 버튼이 닫힌 직후 .click() 하는데, input이 패널 안이면 화면에서 사라져 사진을 골라도
+                change를 받을 자리가 없어 '조용히' 안 올라간다(사이담 교훈). */}
+            <AnimatePresence>
+              {attachOpen && !recording && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: 8, height: 0 }}
+                  className="mb-2 flex items-center gap-2 overflow-hidden"
+                >
+                  <button onClick={() => { setAttachOpen(false); fileRef.current?.click(); }} disabled={uploading}
+                    className="flex items-center gap-1.5 rounded-full bg-white ring-1 ring-black/[0.06] shadow-sm px-3.5 py-2 text-[13px] font-bold text-slate-600 active:scale-95 disabled:opacity-40 transition">
+                    <ImagePlus size={17} className="text-[#FB7BA8]" /> 사진·동영상
+                  </button>
+                  <button onClick={() => { setAttachOpen(false); startRec(); }} disabled={uploading}
+                    className="flex items-center gap-1.5 rounded-full bg-white ring-1 ring-black/[0.06] shadow-sm px-3.5 py-2 text-[13px] font-bold text-slate-600 active:scale-95 disabled:opacity-40 transition">
+                    <Mic size={16} className="text-[#FB7BA8]" /> 음성
+                  </button>
+                  <button onClick={() => { setAttachOpen(false); openCapsule(); }}
+                    className="flex items-center gap-1.5 rounded-full bg-white ring-1 ring-black/[0.06] shadow-sm px-3.5 py-2 text-[13px] font-bold text-slate-600 active:scale-95 transition">
+                    <Hourglass size={16} className="text-[#FB7BA8]" /> 타임캡슐
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {recording ? (
               <div className="flex items-center gap-3 h-11 px-2">
                 <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
@@ -1520,19 +1550,12 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               <div className="flex items-end gap-1 rounded-[26px] p-1.5 ring-1 ring-black/[0.06] shadow-sm transition focus-within:ring-2 focus-within:ring-[#FB7BA8]/35"
                 style={{ background: 'var(--ct-chip)' }}>
                 <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={onFile} />
-                {/* 왼쪽 버튼 묶음 — 서로 붙여 gap이 안 벌어지게(입력칸에 자리 양보). 테두리 없는 아이콘 */}
-                <div className="flex shrink-0 items-center self-end">
-                  <button onClick={() => setStickerOpen((v) => !v)} aria-label="이모티콘"
-                    className="grid h-10 w-10 place-items-center rounded-full active:scale-90 transition"
-                    style={{ color: stickerOpen ? '#FB7BA8' : 'var(--ct-chip-icon)' }}>
-                    <Smile size={21} />
-                  </button>
-                  <button onClick={() => { setStickerOpen(false); fileRef.current?.click(); }} disabled={uploading} aria-label="사진·동영상"
-                    className="grid h-10 w-10 place-items-center rounded-full disabled:opacity-40 active:scale-90 transition"
-                    style={{ color: 'var(--ct-chip-icon)' }}>
-                    <ImagePlus size={21} />
-                  </button>
-                </div>
+                {/* 왼쪽 ＋ — 사진·음성·타임캡슐 접기(카톡식). 이모티콘은 오른쪽으로 옮겨 입력칸을 넓혔다. */}
+                <button onClick={() => { setAttachOpen((v) => !v); setStickerOpen(false); }} aria-label="첨부"
+                  className="grid h-10 w-10 shrink-0 self-end place-items-center rounded-full active:scale-90 transition"
+                  style={{ color: attachOpen ? '#FB7BA8' : 'var(--ct-chip-icon)' }}>
+                  <Plus size={22} />
+                </button>
                 {/* ⚠️ 모바일(터치)에선 Enter = 줄바꿈. 폰 키보드엔 Shift+Enter가 없어 Enter를 전송에 쓰면
                     줄바꿈이 불가능하다 → 전송은 오른쪽 보내기 버튼으로. 데스크톱(정밀 포인터)만 Enter로 전송.
                     e.nativeEvent.isComposing — 한글 조합 중 Enter로 조합 확정할 때 오전송 방지. */}
@@ -1544,25 +1567,21 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   rows={1} placeholder={uploading ? '올리는 중…' : `${partner}에게 할 말…`}
                   style={{ background: 'transparent', color: 'var(--ct-chip-text)' }}
                   className="min-w-0 flex-1 resize-none px-1.5 py-2.5 text-[15px] leading-snug outline-none max-h-[132px]" />
-                {draft.trim() ? (
-                  <div className="flex shrink-0 items-center gap-0.5 self-end">
-                    <button onClick={openCapsule} aria-label="타임캡슐"
-                      className="grid h-10 w-10 place-items-center rounded-full active:scale-90 transition"
-                      style={{ color: 'var(--ct-chip-icon)' }}>
-                      <Hourglass size={19} />
-                    </button>
-                    {/* onPointerDown preventDefault — 버튼이 입력창 포커스를 뺏지 않게(연속 전송 시 자판 유지) */}
+                {/* 오른쪽 — 이모티콘 + (글이 있으면) 보내기. 음성·타임캡슐은 ＋로 옮겼다. */}
+                <div className="flex shrink-0 items-center gap-0.5 self-end">
+                  <button onClick={() => { setStickerOpen((v) => !v); setAttachOpen(false); }} aria-label="이모티콘"
+                    className="grid h-10 w-10 place-items-center rounded-full active:scale-90 transition"
+                    style={{ color: stickerOpen ? '#FB7BA8' : 'var(--ct-chip-icon)' }}>
+                    <Smile size={21} />
+                  </button>
+                  {draft.trim() && (
+                    // onPointerDown preventDefault — 버튼이 입력창 포커스를 뺏지 않게(연속 전송 시 자판 유지)
                     <button onClick={send} onPointerDown={(e) => e.preventDefault()} aria-label="보내기"
                       className="grid h-10 w-10 place-items-center rounded-full bg-[#FB7BA8] text-white shadow-[0_4px_14px_rgba(251,123,168,0.35)] active:scale-90 transition">
                       <Send size={18} />
                     </button>
-                  </div>
-                ) : (
-                  <button onClick={startRec} disabled={uploading} aria-label="음성 메시지"
-                    className="grid h-10 w-10 shrink-0 self-end place-items-center rounded-full bg-[#FB7BA8] text-white shadow-[0_4px_14px_rgba(251,123,168,0.35)] disabled:opacity-40 active:scale-90 transition">
-                    <Mic size={18} />
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
             )}
           </div>
