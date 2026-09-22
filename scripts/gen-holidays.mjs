@@ -22,7 +22,14 @@ function gen(year){
   const hset=new Set(Object.keys(byDate)), subs={};
   for(const date of Object.keys(byDate).sort()){
     const names=byDate[date];
-    if(names.some(n=>SUB_OK.has(n)) && (dow(date)===0||dow(date)===6||names.length>=2)){
+    // ⚠️ 공휴일법 시행령 제3조 — 대체휴일 규칙이 갈린다:
+    //   · 설날·추석 연휴: '일요일'에 겹칠 때만 (토요일은 아님).
+    //   · 그 외(삼일절·어린이날·부처님·광복절·개천절·한글날·성탄절): '토·일' 둘 다.
+    //   둘을 한 규칙으로 돌리면 '토요일에 걸린 설날/추석'에 가짜 대체휴일이 생긴다(안 쉬는 날이 빨간날로).
+    //   (임시공휴일은 정부가 개별 지정 — 규칙으로 못 구함. 필요하면 LUNAR 옆에 수동 추가.)
+    const seolChu = names.includes('설날') || names.includes('추석');
+    const weekendOK = dow(date)===0 || (!seolChu && dow(date)===6);
+    if(names.some(n=>SUB_OK.has(n)) && (weekendOK || names.length>=2)){
       let nd=add(date,1); while(dow(nd)===0||dow(nd)===6||hset.has(nd)||subs[nd]) nd=add(nd,1);
       subs[nd]='대체공휴일'; hset.add(nd);
     }
