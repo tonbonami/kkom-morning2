@@ -680,6 +680,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [placeSaving, setPlaceSaving] = useState(false);
   // 입력창 ＋ 첨부 패널(사진·음성·타임캡슐 접기 — 카톡식). 이모티콘 서랍과 서로 닫힌다.
   const [attachOpen, setAttachOpen] = useState(false);
+  // 사진 붙여넣기(⌘V) — PC에서 캡처 바로 붙여넣기. 보내기 전에 미리보기로 한 번 묻는다.
+  const [pastePreview, setPastePreview] = useState<{ file: File; url: string } | null>(null);
   const [linkSaving, setLinkSaving] = useState(false);
   const [memories, setMemories] = useState<ChatMessage[] | null>(null);
   const [capsuleOpen, setCapsuleOpen] = useState(false);
@@ -806,6 +808,48 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       flashToast('위시리스트에 담았어 📍');
     } catch { flashToast('저장 실패 — 다시 시도해줘'); }
     setPlaceSaving(false); setPlacePrompt(null);
+  };
+
+  // ── 사진 붙여넣기(⌘V) ──
+  // ⚠️ preventDefault는 '이미지가 있을 때만' — 안 그러면 평범한 글자 붙여넣기가 깨진다(사이담 교훈).
+  // ⚠️ 브라우저마다 clipboardData의 items/files 중 어디에 담기는지 달라 '둘 다' 본다(중복이면 하나만).
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const dt = e.clipboardData;
+    if (!dt) return;
+    let file: File | null = null;
+    for (const it of Array.from(dt.items || [])) {
+      if (it.kind === 'file' && it.type.startsWith('image/')) { file = it.getAsFile(); if (file) break; }
+    }
+    if (!file) {
+      for (const f of Array.from(dt.files || [])) {
+        if (f.type.startsWith('image/')) { file = f; break; }
+      }
+    }
+    if (!file) return;     // 이미지 없음 → 글자 붙여넣기는 막지 않는다
+    e.preventDefault();
+    const picked = file;
+    setPastePreview((prev) => {
+      if (prev) { try { URL.revokeObjectURL(prev.url); } catch { /* noop */ } }
+      return { file: picked, url: URL.createObjectURL(picked) };
+    });
+  };
+  const closePaste = () => {
+    setPastePreview((prev) => {
+      if (prev) { try { URL.revokeObjectURL(prev.url); } catch { /* noop */ } }
+      return null;
+    });
+  };
+  const sendPasted = async () => {
+    if (!pastePreview || uploading) return;
+    const file = pastePreview.file;
+    setUploadKind('image'); setUploading(true);
+    try {
+      const url = await uploadChatImage(file);
+      onSend('', url, undefined, replyTo ?? undefined);
+      setReplyTo(null);
+    } catch { flashToast('사진 전송 실패 — 다시 시도해줘'); }
+    setUploading(false); setUploadKind(null);
+    closePaste();
   };
 
   // "이거봐봐" 링크 구독 — 탭 열자마자 바로 보이게 상시 구독(≤100건).
@@ -1452,6 +1496,27 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 </motion.div>
               )}
             </AnimatePresence>
+            {/* 사진 붙여넣기(⌘V) 확인 — 미리보기 + 보낼까요? */}
+            <AnimatePresence>
+              {pastePreview && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: 8, height: 0 }}
+                  className="mb-2 flex items-center gap-2.5 overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.06] shadow-sm px-3 py-2.5"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={pastePreview.url} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover ring-1 ring-black/5" />
+                  <span className="min-w-0 flex-1 text-[13px] font-semibold text-slate-600">이 사진을 보낼까요?</span>
+                  <button onClick={closePaste} disabled={uploading} className="shrink-0 px-2 py-1 text-[13px] font-semibold text-slate-400 active:scale-95 disabled:opacity-50">취소</button>
+                  <button onClick={sendPasted} disabled={uploading}
+                    className="shrink-0 rounded-full bg-[#FB7BA8] px-3.5 py-1.5 text-[13px] font-bold text-white active:scale-95 disabled:opacity-50">
+                    {uploading ? '보내는 중…' : '보내기'}
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* 네이버 가게 링크 → 위시리스트('같이 갈 곳') 담기 — 자동저장 X, 이름은 보낸 말에서 미리 채움 */}
             <AnimatePresence>
               {placePrompt && (
@@ -1559,7 +1624,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 {/* ⚠️ 모바일(터치)에선 Enter = 줄바꿈. 폰 키보드엔 Shift+Enter가 없어 Enter를 전송에 쓰면
                     줄바꿈이 불가능하다 → 전송은 오른쪽 보내기 버튼으로. 데스크톱(정밀 포인터)만 Enter로 전송.
                     e.nativeEvent.isComposing — 한글 조합 중 Enter로 조합 확정할 때 오전송 방지. */}
-                <textarea ref={taRef} value={draft} onChange={onInput} onBlur={stopTyping}
+                <textarea ref={taRef} value={draft} onChange={onInput} onBlur={stopTyping} onPaste={onPaste}
                   onKeyDown={(e) => {
                     const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
                     if (e.key === 'Enter' && !e.shiftKey && !coarse && !e.nativeEvent.isComposing) { e.preventDefault(); send(); }
