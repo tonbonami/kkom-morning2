@@ -195,7 +195,7 @@ const sugKkom = (w: string): Suggestion | undefined => {
 //   각 규칙의 첫 스티커가 대표(밑줄 탭 시 이게 전송됨). 위에서부터 매칭.
 const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   // ── 인사·아침·밤·잠 ──
-  { re: /굿모닝|좋은\s?아침|모닝|잘\s?잤|일어났|기상/,           get: () => [sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
+  { re: /굿모닝|좋은\s?아침|모닝(?!콜)|잘\s?잤|일어났|기상(?!청|캐스)/, get: () => [sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
   { re: /안녕|하이|방가|ㅎㅇ|하잉|헬로|하이염/,                  get: () => [sugAnim('안녕!')] },
   { re: /잘\s?자|굿\s?밤|굿나잇|자자|자야|잘게|취침|나이트|굿밤/, get: () => [sugAnim('잘자'), sugSai('굿밤')] },
   { re: /졸려|졸립|하품|잠\s?와|잠온|눈\s?감|나른/,             get: () => [sugSai('졸려'), sugMini('졸려')] },
@@ -206,11 +206,11 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /보고\s?싶|보고파|그리워|보곺|생각나|보고시퍼/,          get: () => [sugAnim('보고싶어'), sugMini('보고파'), sugCouple('보고파')] },
   { re: /두근|설레|떨려|콩닥|심쿵/,                            get: () => [sugAnim('두근두근')] },
   { re: /뽀뽀|쪽쪽|쪽!|😘|💋|키스|입맞/,                       get: () => [sugCouple('뽀뽀')] },
-  { re: /안아|포옹|꼬옥|폭\s?안|안겨|허그|안아줘|꼭\s?안/,       get: () => [sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥')] },
+  { re: /안아(?!파|프)|포옹|꼬옥|폭\s?안|안겨|허그|안아줘|꼭\s?안/, get: () => [sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥')] },
   { re: /토닥|다독|위로|괜찮아|다\s?잘\s?될/,                   get: () => [sugCouple('토닥토닥'), sugMini('평온')] },
 
   // ── 긍정 감정 ──
-  { re: /행복|기뻐|행복해|좋다\b|만족/,                         get: () => [sugMini('행복'), sugAnim('좋아!')] },
+  { re: /행복|기뻐|행복해|좋다(?![가-힣])|만족/,                get: () => [sugMini('행복'), sugAnim('좋아!')] },
   { re: /신나|들떠|룰루|기대돼|설렌|개신남/,                    get: () => [sugMini('신나'), sugCouple('야호')] },
   { re: /평온|편안|힐링|여유|느긋/,                            get: () => [sugMini('평온')] },
   { re: /반짝|빛나|예뻐|이뻐|반짝반짝|영롱/,                    get: () => [sugMini('반짝')] },
@@ -221,7 +221,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /삐졌|삐짐|삐질|흥칫|서운|토라|시무룩/,                  get: () => [sugMini('삐졌어'), sugAnim('삐짐'), sugAnim('흥!')] },
   { re: /화났|화나|빡쳐|짜증|열받|킹받|화남/,                   get: () => [sugMini('화났어')] },
   { re: /속상|서럽|눈물|슬퍼|슬프|우울|ㅠㅠ|ㅜㅜ|훌쩍/,          get: () => [sugMini('속상해')] },
-  { re: /흥!|칫\b|삐룽/,                                       get: () => [sugAnim('흥!')] },
+  { re: /흥!|칫(?![가-힣])|삐룽/,                              get: () => [sugAnim('흥!')] },
 
   // ── 미안·고마·축하·칭찬·응원 ──
   { re: /미안|죄송|쏘리|sorry|ㅈㅅ|사과할|미얀/,                get: () => [sugAnim('미안해'), sugSai('미안'), sugMini('미안해')] },
@@ -233,16 +233,17 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /힘내|화이팅|파이팅|아자|응원|힘들|지치/,               get: () => [sugMini('힘내'), sugCouple('헹가래')] },
   { re: /헹가래|헹\s?가래/,                                    get: () => [sugCouple('헹가래')] },
   { re: /꽃다발|꽃\s?줄|플라워|장미|꽃선물/,                    get: () => [sugMini('꽃다발'), sugCouple('장미')] },
-  { re: /최고|짱\b|짱이|굿\b|좋았|대박|멋져|쩐다|리스펙|👍/,     get: () => [sugAnim('좋아!'), sugMini('최고야')] },
+  { re: /최고|짱(?![가-힣])|짱이|굿(?![가-힣])|좋았|대박|멋져|쩐다|리스펙|👍/, get: () => [sugAnim('좋아!'), sugMini('최고야')] },
 
   // ── 놀람·리액션·웃음 ──
   { re: /헐|헉|대박|깜짝|놀랐|놀람|뭐야|실화|미쳤|헐랭|헉스/,    get: () => [sugSai('헐'), sugAnim('으악')] },
   { re: /으악|으아|꺄|악!|끼야/,                               get: () => [sugAnim('으악'), sugSai('헐')] },
   { re: /ㅋㅋ|ㅎㅎ|웃겨|웃김|빵\s?터|풉|낄낄|개웃|ㅋ큐/,         get: () => [sugSai('ㅋㅋㅋ')] },
   { re: /뭐해|모해|뭐하|머해|뭐함|뭐하니|모하/,                 get: () => [sugSai('뭐해?')] },
-  { re: /ㄴㄴ|아니야|아니\b|노노|싫어|절대\s?안|안돼|노우/,      get: () => [sugSai('ㄴㄴ')] },
+  { re: /ㄴㄴ|아니야|아니(?![가-힣])|노노|싫어|절대\s?안|안돼|노우/, get: () => [sugSai('ㄴㄴ')] },
   { re: /부끄|수줍|쑥스|민망|부끄러/,                          get: () => [sugAnim('부끄')] },
   { re: /빼꼼|까꿍|몰래\s?봄|살짝\s?봄/,                        get: () => [sugAnim('빼꼼')] },
+  { re: /얍|얏|에잇|받아라|얍얍|펀치|공격/,                      get: () => [sugKkom('얍')] },
 
   // ── 일상: 밥·출퇴근·이동·상태 ──
   { re: /배고파|배고픔|허기|꼬르륵|밥\s?줘|밥\s?먹고|먹고\s?싶|배곺/, get: () => [sugSai('배고파')] },
@@ -251,7 +252,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /출근|회사\s?간|일하러|지각|출근중|일\s?간다|출근길/,     get: () => [sugSai('출근중')] },
   { re: /퇴근|집\s?간다|이제\s?집|퇴근각|칼퇴/,                 get: () => [sugSai('가는중'), sugSai('도착!')] },
   { re: /가는\s?중|가고\s?있|출발했|이동중|가는중|출발한다/,      get: () => [sugSai('가는중')] },
-  { re: /도착|왔어\b|집\s?왔|다\s?왔|도착함|도착!/,             get: () => [sugSai('도착!')] },
+  { re: /도착|왔어(?![가-힣])|집\s?왔|다\s?왔|도착함|도착!/,     get: () => [sugSai('도착!')] },
   { re: /바빠|바쁨|정신없|바쁘|바빠서|바쁠/,                    get: () => [sugSai('바빠')] },
   { re: /심심|노잼|재미없|지루|할\s?거\s?없|심심해/,            get: () => [sugSai('심심해')] },
   { re: /씻고\s?올|샤워하고|씻으러|목욕/,                       get: () => [sugAnim('씻고 올게')] },
@@ -259,6 +260,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /꾸미는|화장|메이크업|단장|꾸안꾸/,                     get: () => [sugKkom('꾸미는 중')] },
   { re: /달려가|뛰어가|급하게\s?가|헐레벌떡/,                   get: () => [sugKkom('달려가는 중')] },
   { re: /인싸|파티\s?가|놀러\s?가/,                            get: () => [sugKkom('인싸강아지')] },
+  { re: /날아|훨훨|날아가|떠나자|여행\s?가|어디론가|날아오/,      get: () => [sugCouple('날아가자')] },
   { re: /귀여|커여|기여|졸귀|귀엽|커엽/,                        get: () => [sugDang('귀엽꼬미'), sugDang('앙 귀여워')] },
   { re: /푸데데|시무룩\s?강|삐진\s?강/,                         get: () => [sugDang('푸데데')] },
 
@@ -266,8 +268,15 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /아파|아프|열나|감기|몸살|아픔|몸\s?안\s?좋|골골/,       get: () => [sugAnim('아파'), sugMini('아파')] },
   { re: /비\s?와|비\s?온|비온다|장마|우중충|빗소리|비\s?내|비올/, get: () => [sugAnim('비온다')] },
 ];
+// 입력 정규화 — 정규식 매칭 '전에' 변형을 흡수한다(사이담 아이디어의 안전판 버전).
+//   · 반복 3+글자 → 2로: 「배고파아아아」→「배고파아」 (→ /배고파/ 걸림)
+//   · 공백은 '제거'가 아니라 '한 칸으로 축약': 「가는  중」(두 칸)→「가는 중」 (→ /가는\s?중/ 걸림)
+//   ⚠️ 공백을 아예 지우면 substring식 오탐(예: 「미안해」에 「안해」)이 생긴다 — 우린 regex라 이 선을 지킨다.
+function normalizeInput(t: string): string {
+  return t.replace(/\s+/g, ' ').replace(/(.)\1{2,}/gu, '$1$1');
+}
 function computeSuggestions(draft: string): Suggestion[] {
-  const t = draft.trim();
+  const t = normalizeInput(draft.trim());
   if (t.length === 0 || t.length > 60) return [];   // 빈 입력/너무 긴 문장은 추천 안 함
   const out: Suggestion[] = []; const seen = new Set<string>();
   for (const rule of SUGGEST_RULES) {
