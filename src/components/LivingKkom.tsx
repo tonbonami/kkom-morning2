@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useAnimationControls, useReducedMotion } from 'framer-motion';
 import { isTogetherNow, serverNow, type Presence } from '@/lib/presence';
 import { throwHeart } from '@/lib/liveHearts';
-import { giveGift, subscribeGift, clearGift, giftsFor, giftById, giftImg, GIFT_STORAGES, type Gift, type GiftCat } from '@/lib/gifts';
+import { giveGift, subscribeGifts, clearGifts, giftsFor, giftById, giftImg, GIFT_STORAGES, type Gift, type GiftCat } from '@/lib/gifts';
 
 const V = 4;
 const emo = (name: string) => `/emo/sai-anim/${name}.webp?v=${V}`;
@@ -46,9 +46,9 @@ export default function LivingKkom({ presence, partner, me, tick }: {
   const lastPt = useRef({ x: 0, y: 0 });
   const moved = useRef(0);
 
-  // ── 선물(두고 가기) ──
-  const [incoming, setIncoming] = useState<Gift | null>(null);
-  useEffect(() => (me ? subscribeGift(me, setIncoming) : undefined), [me]);
+  // ── 선물(두고 가기) — 최대 3개까지 쌓임(오래된→최신). 캡션 메시지는 '가장 최근' 것만. ──
+  const [incoming, setIncoming] = useState<Gift[]>([]);
+  useEffect(() => (me ? subscribeGifts(me, setIncoming) : undefined), [me]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeStorage, setActiveStorage] = useState<GiftCat | null>(null);   // 어느 수납장(냉장고/서랍/쿠폰/보물상자)을 연 상태인지
   const [picked, setPicked] = useState<string | null>(null);
@@ -133,10 +133,11 @@ export default function LivingKkom({ presence, partner, me, tick }: {
     }
     setPicked(null);
   };
-  const receive = () => { if (me) void clearGift(me); setIncoming(null); };
+  const receive = () => { if (me) void clearGifts(me); setIncoming([]); };
 
   const items = giftsFor(partner);   // 상대가 받을 수 있는 소품(공통 + 상대 최애)
-  const inGift = incoming ? giftById(incoming.item) : null;
+  const latest = incoming.length ? incoming[incoming.length - 1] : null;   // 가장 최근 선물
+  const inGift = latest ? giftById(latest.item) : null;   // 캡션(메시지)은 이 최근 것만
 
   return (
     <>
@@ -167,19 +168,23 @@ export default function LivingKkom({ presence, partner, me, tick }: {
                   exit={{ opacity: 0 }} transition={{ duration: 1.2, ease: 'easeOut' }}>❤️</motion.span>
               ))}
             </AnimatePresence>
-            {/* 받은 소품 — 마스코트에 얹힘. 톡 누르면 고마워하고 사라짐 */}
+            {/* 받은 소품 — 마스코트에 얹힘. 톡 누르면 (전부) 고마워하고 사라짐.
+                ⚠️ 임시 배치: 최근 1개 + 개수 배지. 3개 펼쳐 보이는 진짜 배치는 Gemini 시안 대기(자리가 애매). */}
             <AnimatePresence>
-              {inGift && (
+              {inGift && latest && (
                 <motion.button
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); receive(); }}
                   className="pointer-events-auto absolute -bottom-1 -right-3 z-10"
-                  aria-label={`${inGift.label} 받기`}
+                  aria-label={incoming.length > 1 ? `선물 ${incoming.length}개 받기` : `${inGift.label} 받기`}
                   initial={{ scale: 0, y: 8, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }}
                   exit={{ scale: 0, opacity: 0, y: -18 }} whileTap={{ scale: 0.9 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={giftImg(incoming!.item)} alt={inGift.label} className="h-11 w-11 object-contain drop-shadow-md" />
+                  <img src={giftImg(latest.item)} alt={inGift.label} className="h-11 w-11 object-contain drop-shadow-md" />
+                  {incoming.length > 1 && (
+                    <span className="absolute -top-1 -right-1 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-[#FB7BA8] px-1 text-[9px] font-extrabold text-white shadow">{incoming.length}</span>
+                  )}
                 </motion.button>
               )}
             </AnimatePresence>
@@ -190,7 +195,7 @@ export default function LivingKkom({ presence, partner, me, tick }: {
               {justSent ? '❤️ 하트 보냈어!' : inGift ? inGift.msg : mood.caption}
             </div>
             <div className="mt-0.5 text-[11.5px] font-semibold" style={{ color: 'var(--sd-faint)' }}>
-              {inGift ? `${subjName(incoming!.from)}가 두고 갔어 · 톡 눌러서 받기 💗` : '쓰다듬으면 하트가 가'}
+              {inGift && latest ? `${subjName(latest.from)}가 ${incoming.length > 1 ? `${incoming.length}개 ` : ''}두고 갔어 · 톡 눌러서 받기 💗` : '쓰다듬으면 하트가 가'}
             </div>
           </div>
         </div>

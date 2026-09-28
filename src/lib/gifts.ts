@@ -1,7 +1,8 @@
 // 두고 가기 — 상대 홈 마스코트(살아있는 꼼이)에 소품을 살짝 얹어 두고 온다. 쓰다듬기의 '주는' 짝.
-//   gifts/{받는이} 단일 doc(한 번에 하나, 최신으로 덮어씀). 받는 쪽이 톡 누르면 지워진다(고마워).
+//   gifts/{받는이} doc 의 items[] 에 '쌓는다'(최대 3개, 넘치면 오래된 것부터 밀어냄). 받는 쪽이
+//   톡 누르면 전부 지워진다(고마워). 캡션 메시지는 '가장 최근' 선물 것만 보여준다(우댕 요청).
 import { db } from './firebase';
-import { doc, setDoc, onSnapshot, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, onSnapshot, deleteDoc, Timestamp } from 'firebase/firestore';
 import { partnerOf } from './letters';
 
 // 소품 — 공통(보살핌, 누구든 서로에게) + 받는 사람 최애. 이미지 /emo/gifts/{id}.png (투명 256, ChatGPT 그림).
@@ -63,32 +64,46 @@ export const giftById = (id: string): GiftItem | undefined => GIFT_ITEMS.find((g
 
 export interface Gift { from: string; item: string; at: Date | null; nonce: string; }
 
-// 두고 가기 — 상대 gifts/{받는이} 덮어씀.
+export const MAX_GIFTS = 3;   // 한 번에 쌓을 수 있는 선물 수
+
+type RawEntry = { from?: string; item?: string; at?: Timestamp | null; nonce?: string };
+// 문서에서 목록 추출 — 신규 items[] 또는 레거시 단일({item,nonce}) 둘 다 읽는다(과거 데이터 호환).
+function readItems(d: Record<string, unknown> | undefined): RawEntry[] {
+  if (!d) return [];
+  if (Array.isArray(d.items)) return (d.items as RawEntry[]).filter((x) => x?.item && x?.nonce);
+  const legacy = d as RawEntry;
+  return legacy.item && legacy.nonce ? [legacy] : [];
+}
+
+// 두고 가기 — 상대 gifts/{받는이}.items 에 쌓는다(최대 MAX_GIFTS, 오래된 것부터 밀어냄).
+// ⚠️ Firestore는 배열 '원소 안'에 serverTimestamp() sentinel을 못 넣는다 → 클라 Timestamp.now() 사용.
 export async function giveGift(from: string, itemId: string): Promise<void> {
   if (!from) return;
   const to = partnerOf(from);
   const nonce = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const entry: RawEntry = { from, item: itemId, at: Timestamp.now(), nonce };
+  const ref = doc(db, 'gifts', to);
   try {
-    await setDoc(doc(db, 'gifts', to), { from, item: itemId, at: serverTimestamp(), nonce });
+    const snap = await getDoc(ref);
+    const items = [...readItems(snap.data()), entry].slice(-MAX_GIFTS);   // 최근 3개만 유지
+    await setDoc(ref, { items });
   } catch (e) { console.warn('두고 가기 실패:', e); }
 }
 
-// 내가 받은 소품 구독.
-export function subscribeGift(me: string, cb: (g: Gift | null) => void): () => void {
-  if (!me) { cb(null); return () => {}; }
+// 내가 받은 소품 목록 구독(오래된→최신 순, 마지막이 가장 최근).
+export function subscribeGifts(me: string, cb: (gifts: Gift[]) => void): () => void {
+  if (!me) { cb([]); return () => {}; }
   return onSnapshot(
     doc(db, 'gifts', me),
-    (snap) => {
-      const d = snap.data() as { from?: string; item?: string; at?: Timestamp; nonce?: string } | undefined;
-      if (!d?.item || !d?.nonce) { cb(null); return; }
-      cb({ from: d.from ?? '', item: d.item, at: d.at?.toDate?.() ?? null, nonce: d.nonce });
-    },
-    () => cb(null),
+    (snap) => cb(readItems(snap.data() as Record<string, unknown> | undefined).map((x) => ({
+      from: x.from ?? '', item: x.item as string, at: x.at?.toDate?.() ?? null, nonce: x.nonce as string,
+    }))),
+    () => cb([]),
   );
 }
 
-// 받았어(고마워) — 지운다.
-export async function clearGift(me: string): Promise<void> {
+// 받았어(고마워) — 전부 지운다.
+export async function clearGifts(me: string): Promise<void> {
   if (!me) return;
   try { await deleteDoc(doc(db, 'gifts', me)); } catch { /* noop */ }
 }
