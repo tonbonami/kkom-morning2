@@ -1,5 +1,5 @@
 // 공유 확장(KkomShare)용 — 유튜브 등에서 '공유 → 꼼모닝' 하면 URL이 여기로 온다.
-//   메타(title/image/site)를 og-preview로 긁어서 '이거봐봐'(Firestore links)에 저장.
+//   메타를 og-preview로 긁어서 '공유 리스트'(Firestore shareList)에 저장.
 //   확장을 얇게 유지하려고 무거운 일(메타·저장)은 전부 서버가 한다. from은 앱그룹 pushUser 매핑.
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
@@ -51,14 +51,19 @@ export async function POST(req: NextRequest) {
   } catch { /* 메타 실패 무시 */ }
   if (!meta.site) { try { meta.site = new URL(url).hostname.replace(/^www\./, ''); } catch {} }
 
-  // undefined 필드는 Firestore 저장 안 됨 — 값 있을 때만.
-  const payload: Record<string, unknown> = { url, from, createdAt: serverTimestamp() };
-  if (meta.title) payload.title = meta.title;
-  if (meta.image) payload.image = meta.image;
-  if (meta.site) payload.site = meta.site;
+  // '공유 리스트'(shareList) 스키마로 저장 — preview{title,image,siteName} + by/seenBy.
+  // (예전엔 별도 'links'(이거봐봐)에 저장했는데, 공유 리스트와 이원화돼 헷갈려서 shareList로 통합.)
+  const preview: Record<string, unknown> = {};
+  if (meta.title) preview.title = meta.title;
+  if (meta.image) preview.image = meta.image;
+  if (meta.site) preview.siteName = meta.site;
+  const payload: Record<string, unknown> = {
+    url, by: from, seenBy: from ? [from] : [], createdAt: serverTimestamp(),
+  };
+  if (Object.keys(preview).length) payload.preview = preview;
 
   try {
-    await addDoc(collection(db, 'links'), payload);
+    await addDoc(collection(db, 'shareList'), payload);
     return NextResponse.json({ ok: true, saved: { url, title: meta.title ?? null } });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 200 });

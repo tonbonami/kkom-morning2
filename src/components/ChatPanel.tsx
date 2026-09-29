@@ -4,7 +4,8 @@ import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 're
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
-import { saveLink, deleteLink, subscribeLinks, firstUrl, youTubeId, type SavedLink } from '@/lib/links';
+import { firstUrl, youTubeId } from '@/lib/links';
+import { addShare, deleteShare, subscribeShareList, type ShareItemView } from '@/lib/share';
 import { addWish } from '@/lib/wishlist';
 import { isNaverPlaceUrl, looksNaver, storeNameFromText } from '@/lib/naverPlace';
 import {
@@ -681,7 +682,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [memoryTab, setMemoryTab] = useState<'star' | 'photo' | 'link'>('star');
   // "이거봐봐" — 저장한 링크들. 링크 보내면 저장할지 묻는 프롬프트.
-  const [links, setLinks] = useState<SavedLink[] | null>(null);
+  const [links, setLinks] = useState<ShareItemView[] | null>(null);
   const [linkPrompt, setLinkPrompt] = useState<string | null>(null);
   // 네이버 가게 링크 → 위시리스트('같이 갈 곳') 담기 프롬프트. 자동저장 X, 묻는다.
   const [placePrompt, setPlacePrompt] = useState<{ url: string; name: string } | null>(null);
@@ -862,11 +863,11 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   };
 
   // "이거봐봐" 링크 구독 — 탭 열자마자 바로 보이게 상시 구독(≤100건).
-  useEffect(() => subscribeLinks(setLinks), []);
+  useEffect(() => subscribeShareList(setLinks), []);
   const saveCurrentLink = async () => {
     if (!linkPrompt || linkSaving) return;
     setLinkSaving(true);
-    try { await saveLink(linkPrompt, me); flashToast('이거봐봐에 저장했어 🔖'); }
+    try { await addShare({ url: linkPrompt, by: me as '우댕' | '꼼이' }); flashToast('공유 리스트에 저장했어 🔖'); }
     catch { flashToast('저장 실패 — 다시 시도해줘'); }
     setLinkSaving(false); setLinkPrompt(null);
   };
@@ -1572,7 +1573,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   className="mb-2 flex items-center gap-2 overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.06] shadow-sm px-3 py-2"
                 >
                   <span className="text-[17px] leading-none">🔖</span>
-                  <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-slate-600">이거봐봐에 저장할까요?</span>
+                  <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-slate-600">공유 리스트에 저장할까요?</span>
                   <button onClick={() => setLinkPrompt(null)} className="shrink-0 px-2 py-1 text-[13px] font-semibold text-slate-400 active:scale-95">닫기</button>
                   <button onClick={saveCurrentLink} disabled={linkSaving}
                     className="shrink-0 rounded-full bg-[#FB7BA8] px-3.5 py-1.5 text-[13px] font-bold text-white active:scale-95 disabled:opacity-50">
@@ -1719,36 +1720,36 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 <div className="flex gap-1.5 px-4 py-2">
                   <button onClick={() => setMemoryTab('star')} className={`px-3.5 py-1.5 rounded-full text-[13px] font-bold ${memoryTab === 'star' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>⭐️ 별표</button>
                   <button onClick={() => setMemoryTab('photo')} className={`px-3.5 py-1.5 rounded-full text-[13px] font-bold ${memoryTab === 'photo' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>📷 사진</button>
-                  <button onClick={() => setMemoryTab('link')} className={`px-3.5 py-1.5 rounded-full text-[13px] font-bold ${memoryTab === 'link' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>🔖 이거봐봐</button>
+                  <button onClick={() => setMemoryTab('link')} className={`px-3.5 py-1.5 rounded-full text-[13px] font-bold ${memoryTab === 'link' ? 'bg-[#FB7BA8] text-white' : 'bg-black/5 text-slate-500'}`}>🔖 공유 리스트</button>
                 </div>
                 <div className="flex-1 overflow-y-auto px-4 pb-8">
                   {memoryTab === 'link' ? (
                     (() => {
                       if (links === null) return <div className="h-40 flex items-center justify-center text-slate-400 text-sm">불러오는 중…</div>;
-                      if (!links.length) return <div className="h-40 flex flex-col items-center justify-center text-slate-400 gap-2"><span className="text-3xl">🔖</span><p className="text-sm font-semibold">링크 보내고 &quot;이거봐봐&quot;에 저장</p></div>;
+                      if (!links.length) return <div className="h-40 flex flex-col items-center justify-center text-slate-400 gap-2"><span className="text-3xl">🔖</span><p className="text-sm font-semibold">링크 보내고 &quot;공유 리스트&quot;에 저장</p></div>;
                       return (
                         <div className="space-y-2 pt-1">
                           {links.map((lk) => (
                             <a key={lk.id} href={lk.url} target="_blank" rel="noopener noreferrer"
                               className="flex gap-3 items-center p-2.5 rounded-2xl bg-white shadow-sm active:scale-[0.99] transition">
-                              {lk.image ? (
+                              {lk.preview?.image ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={lk.image} alt="" className="h-14 w-20 shrink-0 rounded-lg object-cover bg-black/5" />
+                                <img src={lk.preview.image} alt="" className="h-14 w-20 shrink-0 rounded-lg object-cover bg-black/5" />
                               ) : (
                                 <div className="h-14 w-20 shrink-0 rounded-lg bg-[#FB7BA8]/10 flex items-center justify-center text-2xl">🔗</div>
                               )}
                               <div className="flex-1 min-w-0">
                                 <div className="text-[13.5px] font-bold text-slate-700 break-keep"
                                   style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                  {lk.title || lk.url}
+                                  {lk.preview?.title || lk.url}
                                 </div>
                                 <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-400">
-                                  <span className="truncate">{lk.site || '링크'}</span>
+                                  <span className="truncate">{lk.preview?.siteName || '링크'}</span>
                                   <span>·</span>
-                                  <span className="shrink-0">{lk.from}</span>
+                                  <span className="shrink-0">{lk.by}</span>
                                 </div>
                               </div>
-                              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteLink(lk.id); }}
+                              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteShare(lk.id); }}
                                 aria-label="삭제" className="shrink-0 p-1.5 text-slate-300 active:text-slate-500"><Trash2 size={15} /></button>
                             </a>
                           ))}
