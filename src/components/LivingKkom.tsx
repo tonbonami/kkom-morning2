@@ -168,23 +168,61 @@ export default function LivingKkom({ presence, partner, me, tick }: {
                   exit={{ opacity: 0 }} transition={{ duration: 1.2, ease: 'easeOut' }}>❤️</motion.span>
               ))}
             </AnimatePresence>
-            {/* 받은 소품 — 마스코트에 얹힘. 톡 누르면 (전부) 고마워하고 사라짐.
-                ⚠️ 임시 배치: 최근 1개 + 개수 배지. 3개 펼쳐 보이는 진짜 배치는 Gemini 시안 대기(자리가 애매). */}
+            {/* 받은 소품 — 마스코트 우측 하단 발치에 쌓임 (최대 3개, 옹기종기 피라미드). Gemini 시안 이식.
+                톡 누르면 전부 받기(고마워하고 사라짐). 캡션 메시지는 '가장 최근' 것만(아래 별도). */}
             <AnimatePresence>
-              {inGift && latest && (
+              {incoming.length > 0 && (
                 <motion.button
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); receive(); }}
-                  className="pointer-events-auto absolute -bottom-1 -right-3 z-10"
-                  aria-label={incoming.length > 1 ? `선물 ${incoming.length}개 받기` : `${inGift.label} 받기`}
-                  initial={{ scale: 0, y: 8, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0, y: -18 }} whileTap={{ scale: 0.9 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={giftImg(latest.item)} alt={inGift.label} className="h-11 w-11 object-contain drop-shadow-md" />
-                  {incoming.length > 1 && (
-                    <span className="absolute -top-1 -right-1 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-[#FB7BA8] px-1 text-[9px] font-extrabold text-white shadow">{incoming.length}</span>
-                  )}
+                  // HIG 44pt 이상을 만족하는 64x64의 넉넉한 탭 영역
+                  className="pointer-events-auto absolute -bottom-3 -right-5 z-10 flex h-[64px] w-[64px] items-center justify-center"
+                  aria-label={`선물 ${incoming.length}개 받기`}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0, y: -18 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                >
+                  {/* 선물 아이템 렌더링 (최대 3개) — idx 0이 가장 오래된 것, 마지막이 최신 */}
+                  {incoming.slice(-3).map((gift, idx, arr) => {
+                    const count = arr.length;
+                    let x = 0, y = 0, rotate = 0, scale = 1, zIndex = idx;
+                    if (count === 1) {
+                      x = 0; y = 0; rotate = 0; scale = 1;
+                    } else if (count === 2) {
+                      if (idx === 0) { x = -10; y = 6; rotate = -12; scale = 0.9; }        // 왼쪽 뒤
+                      if (idx === 1) { x = 8; y = -2; rotate = 6; scale = 1.05; zIndex = 10; } // 오른쪽 앞
+                    } else if (count === 3) {
+                      if (idx === 0) { x = -14; y = 10; rotate = -15; scale = 0.85; }       // 바닥 왼쪽
+                      if (idx === 1) { x = 14; y = 8; rotate = 12; scale = 0.85; }          // 바닥 오른쪽
+                      if (idx === 2) { x = 0; y = -8; rotate = 0; scale = 1.1; zIndex = 10; } // 꼭대기(최신)
+                    }
+                    return (
+                      <motion.img
+                        key={gift.nonce ?? idx}
+                        src={giftImg(gift.item)}
+                        alt=""
+                        className="absolute h-11 w-11 object-contain drop-shadow-md"
+                        style={{ zIndex }}
+                        initial={{ scale: 0, y: -15, opacity: 0 }}
+                        animate={{ x, y, rotate, scale, opacity: 1 }}
+                        transition={{ type: 'spring', stiffness: 350, damping: 22 }}
+                      />
+                    );
+                  })}
+
+                  {/* 2개 이상일 때 개수 배지 */}
+                  <AnimatePresence>
+                    {incoming.length > 1 && (
+                      <motion.span
+                        initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+                        className="absolute -top-1 -right-1 z-20 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#FB7BA8] px-1 text-[10px] font-extrabold text-white shadow-sm ring-2 ring-white/80"
+                      >
+                        {incoming.length}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </motion.button>
               )}
             </AnimatePresence>
