@@ -141,10 +141,10 @@ export default function LivingKkom({ presence, partner, me, tick }: {
 
   return (
     <>
-      <div className="relative flex h-full items-center gap-4 rounded-[22px] px-5 py-4 select-none [-webkit-touch-callout:none]"
+      <div className="relative flex flex-col rounded-[22px] px-5 py-4 select-none [-webkit-touch-callout:none]"
         style={{ background: 'linear-gradient(135deg, #FFF6F0 0%, #FCEEF3 100%)', boxShadow: '0 6px 18px -12px rgba(180,100,120,0.28)' }}>
-        {/* 쓰다듬기 영역 — 마스코트 + 문구 */}
-        <div className="flex flex-1 items-center gap-4 touch-none"
+        {/* 쓰다듬기 영역 — 마스코트 + 문구 (윗줄) */}
+        <div className="flex items-center gap-4 touch-none"
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
           <div className="pointer-events-none relative shrink-0">
             <motion.div
@@ -168,75 +168,50 @@ export default function LivingKkom({ presence, partner, me, tick }: {
                   exit={{ opacity: 0 }} transition={{ duration: 1.2, ease: 'easeOut' }}>❤️</motion.span>
               ))}
             </AnimatePresence>
-            {/* 받은 소품 — 마스코트 우측 하단 발치에 쌓임 (최대 3개, 옹기종기 피라미드). Gemini 시안 이식.
-                톡 누르면 전부 받기(고마워하고 사라짐). 캡션 메시지는 '가장 최근' 것만(아래 별도). */}
-            <AnimatePresence>
-              {incoming.length > 0 && (
-                <motion.button
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); receive(); }}
-                  // HIG 44pt 이상을 만족하는 64x64의 넉넉한 탭 영역
-                  className="pointer-events-auto absolute -bottom-3 -right-5 z-10 flex h-[64px] w-[64px] items-center justify-center"
-                  aria-label={`선물 ${incoming.length}개 받기`}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0, y: -18 }}
-                  whileTap={{ scale: 0.9 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                >
-                  {/* 선물 아이템 렌더링 (최대 3개) — idx 0이 가장 오래된 것, 마지막이 최신 */}
-                  {incoming.slice(-3).map((gift, idx, arr) => {
-                    const count = arr.length;
-                    let x = 0, y = 0, rotate = 0, scale = 1, zIndex = idx;
-                    if (count === 1) {
-                      x = 0; y = 0; rotate = 0; scale = 1;
-                    } else if (count === 2) {
-                      if (idx === 0) { x = -10; y = 6; rotate = -12; scale = 0.9; }        // 왼쪽 뒤
-                      if (idx === 1) { x = 8; y = -2; rotate = 6; scale = 1.05; zIndex = 10; } // 오른쪽 앞
-                    } else if (count === 3) {
-                      if (idx === 0) { x = -14; y = 10; rotate = -15; scale = 0.85; }       // 바닥 왼쪽
-                      if (idx === 1) { x = 14; y = 8; rotate = 12; scale = 0.85; }          // 바닥 오른쪽
-                      if (idx === 2) { x = 0; y = -8; rotate = 0; scale = 1.1; zIndex = 10; } // 꼭대기(최신)
-                    }
-                    return (
-                      <motion.img
-                        key={gift.nonce ?? idx}
-                        src={giftImg(gift.item)}
-                        alt=""
-                        className="absolute h-11 w-11 object-contain drop-shadow-md"
-                        style={{ zIndex }}
-                        initial={{ scale: 0, y: -15, opacity: 0 }}
-                        animate={{ x, y, rotate, scale, opacity: 1 }}
-                        transition={{ type: 'spring', stiffness: 350, damping: 22 }}
-                      />
-                    );
-                  })}
-
-                  {/* 2개 이상일 때 개수 배지 */}
-                  <AnimatePresence>
-                    {incoming.length > 1 && (
-                      <motion.span
-                        initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-                        className="absolute -top-1 -right-1 z-20 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#FB7BA8] px-1 text-[10px] font-extrabold text-white shadow-sm ring-2 ring-white/80"
-                      >
-                        {incoming.length}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </motion.button>
-              )}
-            </AnimatePresence>
           </div>
           <div className="pointer-events-none min-w-0">
             <div className="text-[11px] font-extrabold tracking-[0.5px]" style={{ color: '#D98BA8' }}>꼼이Now</div>
             <div className="mt-1 text-[16px] font-bold leading-snug" style={{ color: 'var(--sd-ink)' }}>
               {justSent ? '❤️ 하트 보냈어!' : inGift ? inGift.msg : mood.caption}
             </div>
-            <div className="mt-0.5 text-[11.5px] font-semibold" style={{ color: 'var(--sd-faint)' }}>
-              {inGift && latest ? `${subjName(latest.from)}가 ${incoming.length > 1 ? `${incoming.length}개 ` : ''}두고 갔어 · 톡 눌러서 받기 💗` : '쓰다듬으면 하트가 가'}
-            </div>
+            {!inGift && (
+              <div className="mt-0.5 text-[11.5px] font-semibold" style={{ color: 'var(--sd-faint)' }}>
+                쓰다듬으면 하트가 가
+              </div>
+            )}
           </div>
         </div>
+
+        {/* 받은 소품 — 마스코트/문구 '아래 별도 줄'에 크게 쫙 (우댕 피드백: 발치에 겹쳐 쌓으니 다 가려 안 보임).
+            선물 있을 때만 이 줄이 생겨 카드가 커진다. 톡 누르면 전부 받기. */}
+        <AnimatePresence>
+          {incoming.length > 0 && latest && (
+            <motion.button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); receive(); }}
+              aria-label={`선물 ${incoming.length}개 받기`}
+              className="pointer-events-auto flex items-center gap-3 self-stretch overflow-hidden rounded-2xl bg-white/55 px-3 py-2 active:scale-[0.985] transition"
+              initial={{ opacity: 0, height: 0, marginTop: 0 }}
+              animate={{ opacity: 1, height: 'auto', marginTop: 10 }}
+              exit={{ opacity: 0, height: 0, marginTop: 0 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 32 }}>
+              <div className="flex shrink-0 items-end">
+                {incoming.slice(-3).map((gift, idx) => (
+                  <motion.img key={gift.nonce ?? idx} src={giftImg(gift.item)} alt=""
+                    className="h-[58px] w-[58px] object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.18)]"
+                    style={{ marginLeft: idx === 0 ? 0 : -6 }}
+                    initial={{ scale: 0, y: -10, opacity: 0 }}
+                    animate={{ scale: 1, y: 0, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 340, damping: 22, delay: idx * 0.06 }} />
+                ))}
+              </div>
+              <div className="min-w-0 flex-1 text-left">
+                <div className="text-[13px] font-extrabold" style={{ color: '#c94c7a' }}>{subjName(latest.from)}가 {incoming.length}개 뒀어 🎁</div>
+                <div className="text-[11.5px] font-semibold" style={{ color: 'var(--sd-faint)' }}>톡 눌러서 받기 💗</div>
+              </div>
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         {/* 선물함 버튼 — 글래스, 우측 상단(쓰다듬기와 안 헷갈리게) */}
         <button onClick={(e) => { e.stopPropagation(); setSheetOpen(true); }} aria-label="선물함"
