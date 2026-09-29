@@ -29,6 +29,9 @@ export const GIFT_ITEMS: GiftItem[] = [
   { id: 'cocoa',       label: '따뜻한 코코아', for: 'all', msg: '몸 좀 녹여',             cat: 'fridge' },
   { id: 'matchalatte', label: '말차라떼',   for: 'all',  msg: '나른할 때 한 잔',          cat: 'fridge' },
   { id: 'icematcha',   label: '아이스말차', for: 'all',  msg: '시원한 말차 한 잔',        cat: 'fridge' },
+  { id: 'bungeoppang', label: '붕어빵',     for: 'all',  msg: '겨울 간식 하나 🐟',        cat: 'fridge' },
+  { id: 'tteokbokki',  label: '떡볶이',     for: 'all',  msg: '매콤한 거 땡길 때',        cat: 'fridge' },
+  { id: 'tangerine',   label: '귤',         for: 'all',  msg: '까먹으면서 쉬어 🍊',       cat: 'fridge' },
   // 🗄️ 서랍 — 마음·보살핌
   { id: 'blanket',     label: '담요',       for: 'all',  msg: '따뜻하게 있어',            cat: 'drawer' },
   { id: 'flower',      label: '꽃',         for: 'all',  msg: '그냥 네 생각나서',         cat: 'drawer' },
@@ -44,6 +47,8 @@ export const GIFT_ITEMS: GiftItem[] = [
   { id: 'lovebattery', label: '사랑 배터리', for: 'all', msg: '사랑 가득 충전 ⚡',        cat: 'drawer' },
   { id: 'sunset',      label: '노을',       for: 'all',  msg: '오늘 같이 보고 싶어',      cat: 'drawer' },
   { id: 'guitar',      label: '기타',       for: 'all',  msg: '노래 하나 불러줘',         cat: 'drawer' },
+  { id: 'handwarmer',  label: '핫팩',       for: 'all',  msg: '손 시릴 때 꼭 쥐어',       cat: 'drawer' },
+  { id: 'scarf',       label: '목도리',     for: 'all',  msg: '목 따뜻하게',              cat: 'drawer' },
   // 🎟️ 쿠폰
   { id: 'massagecoupon', label: '안마쿠폰', for: 'all',  msg: '뭉친 데 풀어줄게',         cat: 'coupon' },   // 강아지 안마
   { id: 'kisscoupon',  label: '뽀뽀쿠폰',   for: 'all',  msg: '이거 쓰면 뽀뽀 한 번 💋',  cat: 'coupon' },
