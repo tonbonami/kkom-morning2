@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
@@ -579,6 +579,21 @@ function hexA(hex: string, a: number): string {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
 
+// clipboardData / dataTransfer 어디에 담겨도 첫 이미지 파일 하나를 집어낸다.
+//   ⚠️ 브라우저마다 items/files 중 어디에 담기는지 달라 '둘 다' 본다(중복이면 하나만).
+function pickImageFile(dt: DataTransfer | null): File | null {
+  if (!dt) return null;
+  for (const it of Array.from(dt.items || [])) {
+    if (it.kind === 'file' && it.type.startsWith('image/')) { const f = it.getAsFile(); if (f) return f; }
+  }
+  for (const f of Array.from(dt.files || [])) {
+    if (f.type.startsWith('image/')) return f;
+  }
+  return null;
+}
+// 드래그 중 데이터에 '파일'이 실려 있나(내용은 drop 전까지 못 읽으니 종류만 본다).
+const dtHasFile = (dt: DataTransfer | null) => !!dt && Array.from(dt.types || []).includes('Files');
+
 export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, partnerOnWatch, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
   const [stickerOpen, setStickerOpen] = useState(false);
@@ -690,8 +705,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [placeSaving, setPlaceSaving] = useState(false);
   // 입력창 ＋ 첨부 패널(사진·음성·타임캡슐 접기 — 카톡식). 이모티콘 서랍과 서로 닫힌다.
   const [attachOpen, setAttachOpen] = useState(false);
-  // 사진 붙여넣기(⌘V) — PC에서 캡처 바로 붙여넣기. 보내기 전에 미리보기로 한 번 묻는다.
+  // 사진 붙여넣기(⌘V)·드래그드롭 — PC에서 캡처·이미지파일 바로 반입. 보내기 전에 미리보기로 한 번 묻는다.
   const [pastePreview, setPastePreview] = useState<{ file: File; url: string } | null>(null);
+  const [dragActive, setDragActive] = useState(false);   // 이미지 드래그가 창 위에 떠 있는 중
   const [linkSaving, setLinkSaving] = useState(false);
   const [memories, setMemories] = useState<ChatMessage[] | null>(null);
   const [capsuleOpen, setCapsuleOpen] = useState(false);
@@ -820,28 +836,20 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     setPlaceSaving(false); setPlacePrompt(null);
   };
 
-  // ── 사진 붙여넣기(⌘V) ──
-  // ⚠️ preventDefault는 '이미지가 있을 때만' — 안 그러면 평범한 글자 붙여넣기가 깨진다(사이담 교훈).
-  // ⚠️ 브라우저마다 clipboardData의 items/files 중 어디에 담기는지 달라 '둘 다' 본다(중복이면 하나만).
-  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const dt = e.clipboardData;
-    if (!dt) return;
-    let file: File | null = null;
-    for (const it of Array.from(dt.items || [])) {
-      if (it.kind === 'file' && it.type.startsWith('image/')) { file = it.getAsFile(); if (file) break; }
-    }
-    if (!file) {
-      for (const f of Array.from(dt.files || [])) {
-        if (f.type.startsWith('image/')) { file = f; break; }
-      }
-    }
-    if (!file) return;     // 이미지 없음 → 글자 붙여넣기는 막지 않는다
-    e.preventDefault();
-    const picked = file;
+  // ── 사진 반입(⌘V 붙여넣기 · 드래그드롭) — 카톡처럼 창에 던지면 첨부창으로 ──
+  // 미리보기로 보내기 전에 한 번 묻는다. 이전 미리보기 url은 해제.
+  const stageImage = useCallback((file: File) => {
     setPastePreview((prev) => {
       if (prev) { try { URL.revokeObjectURL(prev.url); } catch { /* noop */ } }
-      return { file: picked, url: URL.createObjectURL(picked) };
+      return { file, url: URL.createObjectURL(file) };
     });
+  }, []);
+  // 붙여넣기(textarea 포커스 시) — ⚠️ preventDefault는 '이미지가 있을 때만'(아니면 글자 붙여넣기가 깨짐, 사이담 교훈).
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = pickImageFile(e.clipboardData);
+    if (!file) return;     // 이미지 없음 → 글자 붙여넣기는 막지 않는다
+    e.preventDefault();
+    stageImage(file);
   };
   const closePaste = () => {
     setPastePreview((prev) => {
@@ -849,6 +857,49 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       return null;
     });
   };
+
+  // 드래그드롭 · 전역 붙여넣기 — 채팅창이 열려 있는 동안 문서 전체에서 이미지를 가로챈다.
+  //   ⚠️ 핵심 버그: drop/dragover를 안 막으면 브라우저가 그 이미지를 '새 탭에서 열어버린다'(우댕 신고).
+  //   그래서 파일 드래그면 무조건 preventDefault로 기본동작(탐색)을 죽이고, 이미지면 첨부창에 얹는다.
+  useEffect(() => {
+    if (!open) return;
+    const onDragOver = (e: DragEvent) => {
+      if (!dtHasFile(e.dataTransfer)) return;         // 파일 아닌 드래그(텍스트 선택 등)는 건드리지 않는다
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      setDragActive(true);
+    };
+    const onDragLeave = (e: DragEvent) => {
+      if (e.relatedTarget == null) setDragActive(false); // 창 밖으로 완전히 나갈 때만 해제
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!dtHasFile(e.dataTransfer)) return;
+      e.preventDefault();                              // 이미지든 아니든 '새 탭 열기' 차단
+      setDragActive(false);
+      const file = pickImageFile(e.dataTransfer);
+      if (file) stageImage(file);
+      else { setToast('이미지 파일만 보낼 수 있어'); setTimeout(() => setToast(''), 2400); }
+    };
+    const onDocPaste = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')) return; // 입력칸 포커스 시엔 각자 onPaste가 담당
+      const file = pickImageFile(e.clipboardData);
+      if (!file) return;
+      e.preventDefault();
+      stageImage(file);
+    };
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
+    window.addEventListener('paste', onDocPaste);
+    return () => {
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onDrop);
+      window.removeEventListener('paste', onDocPaste);
+      setDragActive(false);
+    };
+  }, [open, stageImage]);
   const sendPasted = async () => {
     if (!pastePreview || uploading) return;
     const file = pastePreview.file;
@@ -1070,6 +1121,22 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           dragElastic={{ left: 0, right: 0.9 }}
           onDragEnd={(_e, info) => { if (info.offset.x > 110 || info.velocity.x > 550) onClose(); }}
         >
+          {/* 사진 드래그드롭 안내 — 이미지가 창 위에 떠 있을 때만. pointer-events-none이라 drop은 window가 받는다. */}
+          <AnimatePresence>
+            {dragActive && (
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="pointer-events-none absolute inset-0 z-[90] flex items-center justify-center bg-black/45 backdrop-blur-[2px]"
+              >
+                <div className="flex flex-col items-center gap-2.5 rounded-3xl border-2 border-dashed border-white/70 px-9 py-7 text-white">
+                  <ImagePlus size={34} strokeWidth={2.2} />
+                  <div className="text-[15px] font-extrabold">여기에 놓으면 사진 전송 💌</div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* 헤더 — 사이챗처럼 대화 바탕에 녹인다: 보더·섀도·블러 없이 바탕색(tc.bg) 그대로 + 컴팩트.
               선 하나가 '띠'를 만들어 위가 분리돼 보였다(우댕: 못생김). 패널은 tc.bg로 불투명이라 뒤 안 비쳐 안전.
               ⚠️ pt-safe(노치)는 유지 — 빼면 상태바 시계와 이름이 겹친다(사이담이 실기기서 겪음). 브라우저엔 노치 없어 안 보임. */}
