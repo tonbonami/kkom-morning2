@@ -1,15 +1,35 @@
 import UIKit
 import Capacitor
 import WidgetKit
+import ObjectiveC
 
 // Capacitor 브릿지 로드 시 커스텀 플러그인을 명시적으로 등록.
 class MainViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
+        FormAccessoryBar.hide()
         bridge?.registerPluginInstance(CanvasPlugin())
         bridge?.registerPluginInstance(WidgetBridgePlugin())
         bridge?.registerPluginInstance(PushBridgePlugin())
         bridge?.registerPluginInstance(LiveActivityBridgePlugin())
         bridge?.registerPluginInstance(HapticBridgePlugin())
+    }
+}
+
+// 키보드 위 '^ ∨ ✓'(이전칸·다음칸·완료) 폼 도구막대 끄기 — 카톡처럼.
+//   웹 input/textarea에 포커스가 가면 WebKit이 WKContentView.inputAccessoryView로 이 막대를 붙인다(카톡은 네이티브 입력창이라 없음).
+//   공식 @capacitor/keyboard도 같은 방식으로 '기본 숨김'인데, 그 플러그인은 키보드 리사이즈 동작까지 바꿔
+//   채팅 입력창 위치가 흔들릴 수 있어 막대 끄는 부분만 직접 둔다.
+//   UIKit은 키보드가 뜨는 순간 이 값을 읽으므로 앱 시작 때 한 번 걸어두면 타이밍 문제 없음.
+//   class_replaceMethod라 WKContentView에만 적용(다른 UIResponder·네이티브 캔버스는 영향 없음).
+enum FormAccessoryBar {
+    private static var applied = false
+    static func hide() {
+        guard !applied, let cls = NSClassFromString("WKContentView") else { return }
+        let sel = #selector(getter: UIResponder.inputAccessoryView)
+        guard let method = class_getInstanceMethod(cls, sel) else { return }
+        let none: @convention(block) (AnyObject) -> UIView? = { _ in nil }
+        class_replaceMethod(cls, sel, imp_implementationWithBlock(none), method_getTypeEncoding(method))
+        applied = true
     }
 }
 
