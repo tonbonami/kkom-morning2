@@ -2,6 +2,7 @@
 // 위시리스트 추가 시트에서 사용자가 URL 붙여넣으면 호출됨.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { igPost, igThumbPath, fetchInstagramMeta, decodeHtml } from '@/lib/instagram';
 
 // 짧은 캐시 (같은 URL 반복 요청 절약)
 export const revalidate = 3600;
@@ -17,16 +18,6 @@ function extractMeta(html: string, key: string): string | undefined {
     if (m?.[1]) return decodeHtml(m[1]);
   }
   return undefined;
-}
-
-function decodeHtml(s: string): string {
-  return s
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ');
 }
 
 export async function GET(req: NextRequest) {
@@ -67,12 +58,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ title: 'YouTube 영상', image: thumb, siteName: 'YouTube' });
   }
 
-  // Instagram 분기 (로그인 벽 — 메타 거의 못 긁음. 모달에선 공식 embed.js로 처리.)
-  if (/instagram\.com\/(?:p|reel|tv)\/[a-zA-Z0-9_-]+/.test(url)) {
+  // Instagram 분기 — 로그인 벽이라 미리보기 봇으로 요청해야 og 를 준다(lib/instagram).
+  //   이미지는 만료되는 CDN 주소 대신 고정 주소(/api/ig-thumb)로 — 공유 리스트에 저장돼도 안 깨진다.
+  //   못 긁으면 예전처럼 글자 카드. (게시물 모달은 여전히 공식 embed.js)
+  const ig = igPost(url);
+  if (ig) {
+    const meta = await fetchInstagramMeta(url).catch(() => null);
     return NextResponse.json({
-      title: 'Instagram 게시물',
-      description: '카드를 누르면 인스타그램 게시물이 떠요',
-      siteName: 'Instagram',
+      title: meta?.caption || 'Instagram 게시물',
+      description: meta?.user ? `@${meta.user}` : '카드를 누르면 인스타그램 게시물이 떠요',
+      image: meta?.image ? igThumbPath(ig) : undefined,
+      siteName: meta?.user ? `Instagram · @${meta.user}` : 'Instagram',
     });
   }
 

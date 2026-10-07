@@ -5,6 +5,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
 import { firstUrl, youTubeId } from '@/lib/links';
+import { igPost } from '@/lib/instagram';
 import { addShare, deleteShare, subscribeShareList, type ShareItemView } from '@/lib/share';
 import { addWish } from '@/lib/wishlist';
 import { isNaverPlaceUrl, looksNaver, storeNameFromText } from '@/lib/naverPlace';
@@ -483,15 +484,19 @@ function BigMinis({ srcs }: { srcs: string[] }) {
   );
 }
 
-// 채팅 속 링크 인라인 미리보기 카드 — 유튜브 등. og-preview 결과를 모듈 캐시에 담아 재스크롤 시 재요청 X.
+// 채팅 속 링크 인라인 미리보기 카드 — 유튜브·인스타 등. og-preview 결과를 모듈 캐시에 담아 재스크롤 시 재요청 X.
+//   인스타는 세로 사진(게시물 4:5, 릴스 9:16)이라 16:9로 자르면 반 넘게 잘린다 → 4:5 틀.
+//   인스타 썸네일은 서버가 미리보기 봇으로 받아와야 해서 1초쯤 걸린다 → 그동안 같은 크기 자리를 먼저 깔아 카드가 안 튄다.
 const ogCache = new Map<string, { title?: string; image?: string; site?: string }>();
 function LinkPreview({ url, mine }: { url: string; mine: boolean }) {
   const ytId = youTubeId(url);
+  const ig = igPost(url);
   const host = (() => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } })();
   const [meta, setMeta] = useState<{ title?: string; image?: string; site?: string }>(() =>
     ogCache.get(url) ?? (ytId ? { image: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`, site: 'YouTube' } : {}));
+  const [loading, setLoading] = useState(() => !ogCache.has(url));
   useEffect(() => {
-    if (ogCache.has(url)) { setMeta(ogCache.get(url)!); return; }
+    if (ogCache.has(url)) { setMeta(ogCache.get(url)!); setLoading(false); return; }
     let alive = true;
     (async () => {
       try {
@@ -507,18 +512,23 @@ function LinkPreview({ url, mine }: { url: string; mine: boolean }) {
         ogCache.set(url, m);
         if (alive) setMeta(m);
       } catch { /* 미리보기 실패 무시 */ }
+      finally { if (alive) setLoading(false); }
     })();
     return () => { alive = false; };
   }, [url, ytId, host]);
 
+  const frame = ig ? 'aspect-[4/5]' : 'aspect-video';
+  const playable = !!ytId || ig?.kind === 'reel' || ig?.kind === 'tv';
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-      className={`block w-[248px] max-w-full overflow-hidden rounded-2xl border shadow-sm active:scale-[0.99] transition ${mine ? 'border-black/5 bg-white' : 'border-black/5 bg-white dark:bg-[#332F2A] dark:border-white/10'}`}>
+      className={`block ${ig ? 'w-[220px]' : 'w-[248px]'} max-w-full overflow-hidden rounded-2xl border shadow-sm active:scale-[0.99] transition ${mine ? 'border-black/5 bg-white' : 'border-black/5 bg-white dark:bg-[#332F2A] dark:border-white/10'}`}>
+      {!meta.image && ig && loading && <div className={`${frame} w-full animate-pulse bg-black/[0.06]`} />}
       {meta.image && (
         <div className="relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={meta.image} alt="" className="aspect-video w-full object-cover bg-black/5" />
-          {ytId && (
+          <img src={meta.image} alt="" className={`${frame} w-full object-cover bg-black/5`}
+            onError={() => setMeta((p) => ({ ...p, image: undefined }))} />
+          {playable && (
             <span className="absolute inset-0 grid place-items-center">
               <span className="grid h-11 w-11 place-items-center rounded-full bg-black/55"><Play size={18} fill="white" className="ml-0.5 text-white" /></span>
             </span>
@@ -528,9 +538,9 @@ function LinkPreview({ url, mine }: { url: string; mine: boolean }) {
       <div className="px-3 py-2">
         <div className="text-[13px] font-bold text-slate-800 dark:text-[#E8E2D8] break-keep"
           style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {meta.title || url}
+          {meta.title || (ig ? 'Instagram 게시물' : url)}
         </div>
-        <div className="mt-0.5 truncate text-[11px] text-slate-400">{meta.site || host}</div>
+        <div className="mt-0.5 truncate text-[11px] text-slate-400">{meta.site || (ig ? 'Instagram' : host)}</div>
       </div>
     </a>
   );
@@ -544,7 +554,7 @@ export function preview(m: ChatMessage): string {
   // 링크는 주소 그대로 노출하지 않고 종류 라벨로 — 홈 꼼톡 미리보기/답장 미리보기 공통.
   const url = firstUrl(m.text);
   if (url) {
-    const tag = youTubeId(url) ? '▶️ 유튜브 영상' : '🔗 링크';
+    const tag = youTubeId(url) ? '▶️ 유튜브 영상' : igPost(url) ? '📷 인스타그램' : '🔗 링크';
     const rest = stripEmo(m.text.replace(/https?:\/\/[^\s<]+/gi, '').trim());
     return rest ? `${rest} ${tag}` : tag;
   }
