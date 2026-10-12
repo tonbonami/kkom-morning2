@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus } from 'lucide-react';
+import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
 import { firstUrl, youTubeId } from '@/lib/links';
 import { igPost } from '@/lib/instagram';
@@ -601,6 +601,20 @@ function pickImageFile(dt: DataTransfer | null): File | null {
   }
   return null;
 }
+// 스티커 버튼의 읽어 주는 이름 — 감정 스티커 키는 영어 id(happy·missing…)라 한국어 이름으로 바꿔 준다(Aside 1부).
+const stickerName = (key: string) => MOOD_OPTIONS.find((o) => o.id === key)?.label ?? key;
+
+// 메시지 메뉴의 동작 버튼 하나 — 아이콘 아래 글자. 6개가 폰 폭(390)에 한 줄로 들어가게 칸 44px.
+function MenuAction({ onClick, label, icon, tone }: { onClick: () => void; label: string; icon: React.ReactNode; tone?: 'danger' | 'faint' }) {
+  const color = tone === 'danger' ? 'text-rose-400' : tone === 'faint' ? 'text-slate-300' : 'text-slate-500';
+  return (
+    <button onClick={onClick} className={`flex w-11 flex-col items-center gap-0.5 rounded-xl py-1 active:scale-90 transition-transform ${color}`}>
+      {icon}
+      <span className="text-[10.5px] font-semibold leading-none text-slate-500">{label}</span>
+    </button>
+  );
+}
+
 // 드래그 중 데이터에 '파일'이 실려 있나(내용은 drop 전까지 못 읽으니 종류만 본다).
 const dtHasFile = (dt: DataTransfer | null) => !!dt && Array.from(dt.types || []).includes('Files');
 
@@ -776,8 +790,48 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
   }, [messages, open, partnerTyping]);
 
+  // 바닥 지키기 — 바닥에 붙어 있었으면, ☺서랍·＋칸·키보드로 목록 높이가 줄거나 사진·링크 썸네일이 늦게 떠
+  //   내용이 길어져도 다시 바닥으로. 새 메시지 때만 내리던 탓에 서랍을 열면 마지막 말풍선이 가려졌다(Aside 1부·2부).
+  //   ⚠️ 한 번만 내리면 늦게 커지는 내용에 반드시 재발한다 → 크기 변화마다 재고정(관제탑 교훈).
+  const stickBottom = useRef(true);
+  // 메시지 메뉴가 열리면 보이는 데까지만 살짝 스크롤 — 마지막 말풍선의 메뉴는 화면 아래로 열려 안 보였다.
+  //   ⚠️ 나타나는 순간(ref 콜백)에 부르면 등장 애니메이션 첫 프레임이라 안 먹었다 → 열린 뒤 잠깐 있다가.
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!actionMsg) return;
+    const t = setTimeout(() => menuRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 80);
+    return () => clearTimeout(t);
+  }, [actionMsg]);
+  useEffect(() => {
+    if (!open) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const pin = () => { if (stickBottom.current) el.scrollTop = el.scrollHeight; };
+    const ro = new ResizeObserver(pin);
+    ro.observe(el);
+    el.addEventListener('load', pin, true);   // img·video 로드는 버블링 안 해서 캡처로 받는다
+    return () => { ro.disconnect(); el.removeEventListener('load', pin, true); };
+  }, [open]);
+
+  // Esc — 맨 위에 떠 있는 것부터 하나씩 닫는다(메뉴 → 테마 → 추억함 → 서랍·＋칸). 채팅 자체는 안 닫는다.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.isComposing) return;
+      if (actionMsg) setActionMsg(null);
+      else if (themeOpen) setThemeOpen(false);
+      else if (memoryOpen) setMemoryOpen(false);
+      else if (stickerOpen || attachOpen) { setStickerOpen(false); setAttachOpen(false); }
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, actionMsg, themeOpen, memoryOpen, stickerOpen, attachOpen]);
+
   const onScroll = () => {
     const el = scrollRef.current;
+    if (el) stickBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     if (!el || !hasMore) return;
     if (el.scrollTop < 60 && pendingAnchor.current == null) {
       isPrepending.current = true;
@@ -820,14 +874,17 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const detectLinkPrompt = async (url: string, text: string) => {
     if (looksNaver(url)) {
       let finalUrl = url;
+      let ogName = '';
       try {
         const r = await fetch(`/api/og-preview?url=${encodeURIComponent(url)}`);
         const j = await r.json();
         if (j?.finalUrl) finalUrl = j.finalUrl as string;   // naver.me 단축 풀기
+        if (typeof j?.title === 'string') ogName = j.title;  // 서버가 휴대폰 UA로 받아 온 장소 이름(" : 네이버" 뗀 것)
       } catch { /* 못 풀어도 원래 url로 판정 시도 */ }
       if (isNaverPlaceUrl(finalUrl)) {
         setPlaceCat('food');
-        setPlacePrompt({ url: finalUrl, name: storeNameFromText(text) });
+        // 이름은 보낸 말 첫 줄 우선(사람이 붙인 이름), 링크만 보냈으면 장소 페이지 이름
+        setPlacePrompt({ url: finalUrl, name: storeNameFromText(text) || ogName.slice(0, 40) });
         return;
       }
     }
@@ -938,9 +995,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     const p = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   };
-  const flashToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2400); };
+  const flashToast = (msg: string, ms = 2400) => { setToast(msg); setTimeout(() => setToast(''), ms); };
   const openCapsule = () => {
-    if (!draft.trim()) { flashToast('먼저 메시지를 써줘 ✍️'); return; }
+    // 칩엔 '타임캡슐'뿐이라 뭔지 몰랐다(Aside 1부) → 글 없이 누르면 한 줄 설명. 칩 글자는 폰 폭에 꽉 차서 안 늘린다(2부).
+    if (!draft.trim()) { flashToast('⏳ 타임캡슐: 지금 쓴 말이 정한 날짜에 도착해. 먼저 메시지를 써줘 ✍️', 4000); return; }
     const d = new Date(); d.setFullYear(d.getFullYear() + 1);
     setCapsuleDate(toLocalInput(d));
     setCapsuleOpen(true);
@@ -955,7 +1013,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     flashToast(`타임캡슐 예약됨 ⏳ ${when.getFullYear()}.${when.getMonth() + 1}.${when.getDate()} 도착`);
   };
 
-  // 텍스트 미니 — 커서 위치에 카톡식 (단어) 삽입 (피커 열린 채 여러 개 가능). 렌더 시 32px 그림.
+  // 텍스트 미니 — 커서 위치에 카톡식 (단어) 삽입. 넣고 나면 pickSticker 가 서랍을 닫는다. 렌더 시 32px 그림.
   const insertParen = (word: string) => {
     const token = `(${word})`;
     const ta = taRef.current;
@@ -1104,6 +1162,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   }, [messages, me]);
 
   const openMemory = async () => {
+    setThemeOpen(false);   // 테마 시트 위에 추억함이 겹쳐 열리던 것(Aside 1부)
     setMemoryOpen(true);
     setMemories(null);
     try { setMemories(await fetchRecentMessages(300)); } catch { setMemories([]); }
@@ -1119,9 +1178,16 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
 
   return (
     <AnimatePresence>
+      {/* 넓은 화면(768px↑) — 채팅은 가운데 40rem(사이담 .sd-shell 과 같은 폭), 양옆은 살짝 어둡게.
+          1440px에서 입력줄이 화면 끝까지 늘어나고 스티커가 한 줄 4개로 거대해지던 것(Aside 1부). */}
+      {open && (
+        <motion.div key="chat-backdrop" className="fixed inset-0 z-[59] hidden bg-black/25 md:block" onClick={onClose}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+      )}
       {open && (
         <motion.div
-          className="fixed inset-0 z-[60] flex flex-col"
+          key="chat"
+          className="fixed inset-0 z-[60] flex flex-col md:left-[calc(50%-20rem)] md:right-[calc(50%-20rem)] md:shadow-2xl"
           style={chatThemeStyle}
           initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
           transition={{ type: 'spring', stiffness: 380, damping: 40 }}
@@ -1162,13 +1228,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             </div>
             {/* 아이콘 셋을 한 덩어리로 묶어 gap-0.5로 붙인다 — '셋'이 아니라 한 뭉치로 읽히게(사이담 팁) */}
             <div className="flex items-center gap-0.5 -mr-1">
-              <button onClick={() => setThemeOpen(true)} aria-label="챗 테마" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
+              <button onClick={() => { setMemoryOpen(false); setThemeOpen(true); }} aria-label="챗 테마" title="챗 테마" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
                 <Palette size={20} />
               </button>
-              <button onClick={openMemory} aria-label="추억 보관함" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
+              <button onClick={openMemory} aria-label="추억 보관함" title="추억 보관함" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
                 <Bookmark size={20} />
               </button>
-              <button onClick={onClose} aria-label="닫기" className="p-1.5 text-slate-400 hover:text-slate-600"><X size={22} /></button>
+              <button onClick={onClose} aria-label="닫기" title="채팅 닫기" className="p-1.5 text-slate-400 hover:text-slate-600"><X size={22} /></button>
             </div>
           </div>
 
@@ -1182,6 +1248,11 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
                   initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 380, damping: 38 }}>
                   <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-black/10" />
+                  {/* 닫기 버튼 — 전엔 어두운 바깥을 눌러야만 닫혔다(Aside 1부) */}
+                  <button onClick={() => setThemeOpen(false)} aria-label="챗 테마 닫기" title="닫기"
+                    className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-black/5 active:scale-90 transition">
+                    <X size={18} />
+                  </button>
                   <div className="mb-2.5 text-center text-[15px] font-extrabold text-slate-700">챗 테마 <span className="ml-1 text-[11px] font-semibold text-slate-400">이 기기에만 적용</span></div>
                   <div className="mb-3 flex rounded-full bg-black/[0.06] p-1 text-[13px] font-bold">
                     <button onClick={() => applyChatMode('light')} className={`flex-1 rounded-full py-1.5 transition ${!dk ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400'}`}>☀️ 라이트</button>
@@ -1213,7 +1284,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
 
           {/* 메시지 — 길게눌러 답장 시 iOS 기본 텍스트선택/콜아웃(Copy·Look Up) 뜨는 것 차단 */}
           <div ref={scrollRef} onScroll={onScroll}
-            onClick={() => { if (stickerOpen) setStickerOpen(false); }}
+            onClick={() => { if (stickerOpen) setStickerOpen(false); if (actionMsg) setActionMsg(null); }}
             className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5 select-none [-webkit-touch-callout:none] [-webkit-user-select:none]">
             {hasMore && (
               <div className="flex justify-center py-1">
@@ -1255,7 +1326,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       className={`relative flex flex-col select-none ${m.sticker && FULL_STICKERS.has(m.sticker) ? 'max-w-[88%]' : 'max-w-[78%]'} ${reactionEmojis.length > 0 ? 'mb-3' : ''}`}
                       style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}
                       // 사이담처럼 — 말풍선 한 번 탭하면 바로 반응/답장 줄 토글(꾹 누르기 아님). 삭제/예약은 제외.
-                      onClick={() => { if (!m.deleted && !pending) setActionMsg(actionMsg?.id === m.id ? null : m); }}
+                      onClick={(e) => { e.stopPropagation(); setStickerOpen(false); if (!m.deleted && !pending) setActionMsg(actionMsg?.id === m.id ? null : m); }}
                       onContextMenu={(e) => { e.preventDefault(); if (!m.deleted) setActionMsg(m); }}
                     >
                       {/* 답장 인용 — 사이담 룩(왼쪽 세로줄 + 배경 없음, 한 줄 말줄임). 탭하면 원본으로 점프.
@@ -1362,29 +1433,35 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                         </div>
                       )}
 
-                      {/* 사이담식 인라인 액션 줄 — 말풍선 한 번 탭하면 바로 아래에 떠오름(반응+답장+보관+복사+삭제+닫기) */}
+                      {/* 사이담식 인라인 메뉴 — 말풍선 한 번 탭하면 바로 아래에 떠오름. 위 줄 반응, 아래 줄 동작.
+                          아이콘만 있던 걸 글자 라벨로(Aside 1부: 답장·보관이 글자 없는 아이콘 7개 뒤에 숨어 있었다).
+                          한 줄에 다 넣으면 폰 폭에서 넘쳐서 두 줄. 바깥 탭·Esc로 닫힌다. */}
                       <AnimatePresence>
                         {actionMsg?.id === m.id && !m.deleted && (
-                          <motion.div onClick={(e) => e.stopPropagation()}
+                          <motion.div onClick={(e) => e.stopPropagation()} ref={menuRef}
                             initial={{ opacity: 0, y: -6, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
                             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                            className="mt-2 flex items-center gap-0.5 rounded-full bg-white px-2 py-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.14)]">
-                            {REACTIONS.map((emo) => (
-                              <button key={emo} onClick={() => doReact(emo)} className="px-1 text-[20px] leading-none active:scale-90 transition-transform">{emo}</button>
-                            ))}
-                            <span className="mx-1 h-5 w-px bg-black/10" />
-                            <button onClick={doReply} aria-label="답장" className="p-1.5 text-slate-500 active:scale-90 transition-transform"><CornerDownRight size={17} /></button>
-                            <button onClick={doStar} aria-label="추억 보관" className="p-1.5 active:scale-90 transition-transform">{actionMsg.starred ? <BookmarkCheck size={17} className="text-[#FB7BA8]" /> : <Bookmark size={17} className="text-slate-500" />}</button>
-                            {m.text && !m.sticker && !m.imageUrl && (
-                              <button onClick={doCopy} aria-label="복사" className="p-1.5 text-slate-500 active:scale-90 transition-transform"><Copy size={16} /></button>
-                            )}
-                            {/* 수정 — 내 텍스트 메시지만(상대 글 고치면 안 한 말이 남으니까) */}
-                            {m.from === me && m.text && !m.sticker && !m.imageUrl && !m.videoUrl && !m.audioUrl && (
-                              <button onClick={doEdit} aria-label="수정" className="p-1.5 text-slate-500 active:scale-90 transition-transform"><Pencil size={15} /></button>
-                            )}
-                            {/* 삭제 — 둘 다 서로 것도 지울 수 있음(Storage 파일도 함께 삭제) */}
-                            <button onClick={doDelete} aria-label="삭제" className="p-1.5 text-rose-400 active:scale-90 transition-transform"><Trash2 size={16} /></button>
-                            <button onClick={() => setActionMsg(null)} aria-label="닫기" className="p-1.5 text-slate-300 active:scale-90 transition-transform"><X size={16} /></button>
+                            className="mt-2 w-max max-w-[calc(100vw-2rem)] rounded-2xl bg-white px-1.5 py-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.14)]">
+                            <div className="flex items-center justify-center gap-1 border-b border-black/[0.06] pb-1.5">
+                              {REACTIONS.map((emo) => (
+                                <button key={emo} onClick={() => doReact(emo)} aria-label={`${emo} 반응`} className="px-1.5 text-[20px] leading-none active:scale-90 transition-transform">{emo}</button>
+                              ))}
+                            </div>
+                            <div className="flex items-start pt-1">
+                              <MenuAction onClick={doReply} label="답장" icon={<CornerDownRight size={17} />} />
+                              <MenuAction onClick={doStar} label={actionMsg.starred ? '보관됨' : '보관'}
+                                icon={actionMsg.starred ? <BookmarkCheck size={17} className="text-[#FB7BA8]" /> : <Bookmark size={17} />} />
+                              {m.text && !m.sticker && !m.imageUrl && (
+                                <MenuAction onClick={doCopy} label="복사" icon={<Copy size={16} />} />
+                              )}
+                              {/* 수정 — 내 텍스트 메시지만(상대 글 고치면 안 한 말이 남으니까) */}
+                              {m.from === me && m.text && !m.sticker && !m.imageUrl && !m.videoUrl && !m.audioUrl && (
+                                <MenuAction onClick={doEdit} label="수정" icon={<Pencil size={15} />} />
+                              )}
+                              {/* 삭제 — 둘 다 서로 것도 지울 수 있음(Storage 파일도 함께 삭제) */}
+                              <MenuAction onClick={doDelete} label="삭제" icon={<Trash2 size={16} />} tone="danger" />
+                              <MenuAction onClick={() => setActionMsg(null)} label="닫기" icon={<X size={16} />} tone="faint" />
+                            </div>
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -1442,7 +1519,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           <h3 className="mb-1.5 text-[11px] font-bold text-[#FB7BA8]">⭐ 자주 쓰는</h3>
                           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
                             {frequentList.map((p) => (
-                              <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={p.key}
+                              <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={stickerName(p.key)}
                                 className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-[var(--ct-cell-shadow)] active:scale-90 transition-transform">
                                 {isVideoSrc(p.image)
                                   ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
@@ -1457,7 +1534,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           <h3 className="mb-1.5 text-[11px] font-bold text-[color:var(--ct-label)]">🕒 최근 사용</h3>
                           <div className="grid grid-cols-4 gap-1.5">
                             {recentPicks.map((p) => (
-                              <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={p.key}
+                              <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={stickerName(p.key)}
                                 className="grid aspect-square place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-[var(--ct-cell-shadow)] active:scale-90 transition-transform">
                                 {isVideoSrc(p.image)
                                   ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
@@ -1479,7 +1556,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       )}
                       <div className="grid grid-cols-4 gap-1.5">
                         {sec.items.map((it) => (
-                          <button key={it.key} onClick={() => pickSticker(stickerMode, it.key, it.image)} aria-label={it.key}
+                          <button key={it.key} onClick={() => pickSticker(stickerMode, it.key, it.image)} aria-label={stickerName(it.key)}
                             className="grid aspect-square place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-[var(--ct-cell-shadow)] active:scale-90 transition-transform">
                             {it.video ? (
                               <video src={it.image} poster={posterOf(it.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
@@ -1706,12 +1783,16 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 <button onClick={() => { setAttachOpen((v) => !v); setStickerOpen(false); }} aria-label="첨부"
                   className="grid h-10 w-10 shrink-0 self-end place-items-center rounded-full active:scale-90 transition"
                   style={{ color: attachOpen ? '#FB7BA8' : 'var(--ct-chip-icon)' }}>
-                  <Plus size={22} />
+                  {/* 열리면 ×로 돌아 '다시 누르면 닫힌다'가 보이게(Aside 1부) */}
+                  <Plus size={22} className={`transition-transform duration-200 ${attachOpen ? 'rotate-45' : ''}`} />
                 </button>
                 {/* ⚠️ 모바일(터치)에선 Enter = 줄바꿈. 폰 키보드엔 Shift+Enter가 없어 Enter를 전송에 쓰면
                     줄바꿈이 불가능하다 → 전송은 오른쪽 보내기 버튼으로. 데스크톱(정밀 포인터)만 Enter로 전송.
                     e.nativeEvent.isComposing — 한글 조합 중 Enter로 조합 확정할 때 오전송 방지. */}
+                {/* onFocus — 입력칸을 누르면 이모티콘 서랍을 닫고 키보드로(카톡 방식). 전엔 서랍이 열린 채로 남아
+                    메시지 영역이 반 넘게 가려졌다(Aside 1부: 703→336px). */}
                 <textarea ref={taRef} value={draft} onChange={onInput} onBlur={stopTyping} onPaste={onPaste}
+                  onFocus={() => setStickerOpen(false)}
                   onKeyDown={(e) => {
                     const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
                     if (e.key === 'Enter' && !e.shiftKey && !coarse && !e.nativeEvent.isComposing) { e.preventDefault(); send(); }
@@ -1721,10 +1802,16 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   className="min-w-0 flex-1 resize-none px-1.5 py-2.5 text-[15px] leading-snug outline-none max-h-[132px]" />
                 {/* 오른쪽 — 이모티콘 + (글이 있으면) 보내기. 음성·타임캡슐은 ＋로 옮겼다. */}
                 <div className="flex shrink-0 items-center gap-0.5 self-end">
-                  <button onClick={() => { setStickerOpen((v) => !v); setAttachOpen(false); }} aria-label="이모티콘"
+                  {/* 서랍이 열리면 ⌨로 바뀐다 — 누르면 서랍 닫고 바로 입력칸으로(카톡 방식).
+                      서랍을 열 땐 키보드를 내린다: 폰에서 키보드와 서랍이 같이 뜨면 메시지가 거의 안 보인다. */}
+                  <button onClick={() => {
+                      if (stickerOpen) { setStickerOpen(false); taRef.current?.focus(); }
+                      else { setStickerOpen(true); setAttachOpen(false); taRef.current?.blur(); }
+                    }}
+                    aria-label={stickerOpen ? '키보드로' : '이모티콘'} title={stickerOpen ? '키보드로' : '이모티콘'}
                     className="grid h-10 w-10 place-items-center rounded-full active:scale-90 transition"
                     style={{ color: stickerOpen ? '#FB7BA8' : 'var(--ct-chip-icon)' }}>
-                    <Smile size={21} />
+                    {stickerOpen ? <Keyboard size={21} /> : <Smile size={21} />}
                   </button>
                   {draft.trim() && (
                     // onPointerDown preventDefault — 버튼이 입력창 포커스를 뺏지 않게(연속 전송 시 자판 유지)
@@ -1771,7 +1858,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           {/* 토스트 */}
           <AnimatePresence>
             {toast && (
-              <motion.div className="absolute left-1/2 -translate-x-1/2 bottom-28 z-[75] px-4 py-2.5 rounded-full bg-slate-800/90 text-white text-[13px] font-semibold shadow-lg whitespace-nowrap"
+              // 가운데 정렬은 inset-x-0+mx-auto(w-fit) — translate 클래스는 motion의 y 변형에 덮여 한쪽으로 쏠린다. 긴 안내는 줄바꿈.
+              <motion.div className="absolute inset-x-0 mx-auto w-fit max-w-[calc(100%-2rem)] bottom-28 z-[75] px-4 py-2.5 rounded-2xl bg-slate-800/90 text-center text-white text-[13px] font-semibold leading-snug shadow-lg"
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}>
                 {toast}
               </motion.div>
