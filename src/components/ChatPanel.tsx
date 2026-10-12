@@ -604,6 +604,51 @@ function pickImageFile(dt: DataTransfer | null): File | null {
 // 스티커 버튼의 읽어 주는 이름 — 감정 스티커 키는 영어 id(happy·missing…)라 한국어 이름으로 바꿔 준다(Aside 1부).
 const stickerName = (key: string) => MOOD_OPTIONS.find((o) => o.id === key)?.label ?? key;
 
+// 키보드 측정 창 — 실기기(iOS 27)에서 키보드가 입력줄을 몇 px 가리는지 숫자로 본다(임시 진단).
+//   Aside 2부: "고치기 전에 먼저 재라. 빌드 53·54를 같은 iOS에서 비교하면 막대 끄기가 원인인지 바로 갈린다."
+//   시뮬레이터는 iOS 26.5까지라 우댕 폰(27.0.1)과 다를 수 있어 실기기용. 헤더 이름 5번 연속 탭으로 켜고 끈다.
+//   가림 = 입력줄 아래끝 − 보이는 화면 아래끝(visualViewport.offsetTop + height). 둘 다 레이아웃 뷰포트 기준.
+function KbReadout({ pillRef }: { pillRef: React.RefObject<HTMLDivElement | null> }) {
+  const [txt, setTxt] = useState('');
+  useEffect(() => {
+    const read = () => {
+      const vv = window.visualViewport;
+      const pill = pillRef.current?.getBoundingClientRect();
+      const visBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      const cover = pill ? Math.max(0, Math.round(pill.bottom - visBottom)) : -1;
+      const focused = document.activeElement?.tagName === 'TEXTAREA';
+      setTxt([
+        `입력칸 ${focused ? '포커스' : '-'} · 가림 ${cover}px`,
+        `innerH ${window.innerHeight} · clientH ${document.documentElement.clientHeight}`,
+        `vv.h ${vv ? Math.round(vv.height) : '-'} · vv.top ${vv ? Math.round(vv.offsetTop) : '-'} · scrollY ${Math.round(window.scrollY)}`,
+        `입력줄 ${pill ? Math.round(pill.top) : '-'}~${pill ? Math.round(pill.bottom) : '-'} · 보이는 아래끝 ${Math.round(visBottom)}`,
+      ].join('\n'));
+    };
+    read();
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', read);
+    vv?.addEventListener('scroll', read);
+    window.addEventListener('scroll', read);
+    document.addEventListener('focusin', read);
+    document.addEventListener('focusout', read);
+    const t = setInterval(read, 250);
+    return () => {
+      vv?.removeEventListener('resize', read);
+      vv?.removeEventListener('scroll', read);
+      window.removeEventListener('scroll', read);
+      document.removeEventListener('focusin', read);
+      document.removeEventListener('focusout', read);
+      clearInterval(t);
+    };
+  }, [pillRef]);
+  return (
+    <pre className="pointer-events-none absolute inset-x-2 z-[95] whitespace-pre-wrap rounded-lg bg-black/75 px-2.5 py-1.5 font-mono text-[11px] leading-snug text-white"
+      style={{ top: 'calc(max(env(safe-area-inset-top), 0.5rem) + 3.25rem)' }}>
+      {txt}
+    </pre>
+  );
+}
+
 // 메시지 메뉴의 동작 버튼 하나 — 아이콘 아래 글자. 6개가 폰 폭(390)에 한 줄로 들어가게 칸 44px.
 function MenuAction({ onClick, label, icon, tone }: { onClick: () => void; label: string; icon: React.ReactNode; tone?: 'danger' | 'faint' }) {
   const color = tone === 'danger' ? 'text-rose-400' : tone === 'faint' ? 'text-slate-300' : 'text-slate-500';
@@ -794,6 +839,21 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   //   내용이 길어져도 다시 바닥으로. 새 메시지 때만 내리던 탓에 서랍을 열면 마지막 말풍선이 가려졌다(Aside 1부·2부).
   //   ⚠️ 한 번만 내리면 늦게 커지는 내용에 반드시 재발한다 → 크기 변화마다 재고정(관제탑 교훈).
   const stickBottom = useRef(true);
+  // 키보드 측정 창(KbReadout) — 헤더 이름 5번 연속 탭(2초 안)으로 켜고 끔. 기기에 기억(localStorage).
+  const pillRef = useRef<HTMLDivElement | null>(null);
+  const [kbDebug, setKbDebug] = useState(false);
+  useEffect(() => { try { setKbDebug(localStorage.getItem('kkom-kbdebug') === '1'); } catch { /* noop */ } }, []);
+  const nameTaps = useRef<number[]>([]);
+  const onNameTap = () => {
+    const now = Date.now();
+    nameTaps.current = [...nameTaps.current.filter((t) => now - t < 2000), now];
+    if (nameTaps.current.length < 5) return;
+    nameTaps.current = [];
+    const next = !kbDebug;
+    setKbDebug(next);
+    try { localStorage.setItem('kkom-kbdebug', next ? '1' : '0'); } catch { /* noop */ }
+    flashToast(next ? '키보드 측정 켬 📏' : '키보드 측정 끔');
+  };
   // 메시지 메뉴가 열리면 보이는 데까지만 살짝 스크롤 — 마지막 말풍선의 메뉴는 화면 아래로 열려 안 보였다.
   //   ⚠️ 나타나는 순간(ref 콜백)에 부르면 등장 애니메이션 첫 프레임이라 안 먹었다 → 열린 뒤 잠깐 있다가.
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -1197,6 +1257,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           dragElastic={{ left: 0, right: 0.9 }}
           onDragEnd={(_e, info) => { if (info.offset.x > 110 || info.velocity.x > 550) onClose(); }}
         >
+          {kbDebug && <KbReadout pillRef={pillRef} />}
+
           {/* 사진 드래그드롭 안내 — 이미지가 창 위에 떠 있을 때만. pointer-events-none이라 drop은 window가 받는다. */}
           <AnimatePresence>
             {dragActive && (
@@ -1221,7 +1283,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={avatarOf(partner)} alt={partner} className="w-9 h-9 rounded-full object-cover" />
             <div className="flex-1">
-              <div className="text-base font-extrabold" style={{ color: 'var(--ct-chip-text)' }}>{partner}</div>
+              <div className="text-base font-extrabold select-none" style={{ color: 'var(--ct-chip-text)' }} onClick={onNameTap}>{partner}</div>
               <div className={`text-xs font-bold ${partnerTyping ? 'text-[#FB7BA8]' : partnerOnline ? 'text-emerald-500' : partnerOnWatch ? 'text-amber-500' : 'text-slate-400'}`}>
                 {partnerTyping ? '입력 중…' : partnerOnline ? '지금 함께 💚' : partnerOnWatch ? '⌚ 워치로 보는 중' : '오프라인'}
               </div>
@@ -1776,7 +1838,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               </div>
             ) : (
               // 입력줄 = 하나의 둥근 알약(사이담 참고). 버튼은 알약 안에 얹혀 입력칸이 넓게 숨쉰다.
-              <div className="flex items-end gap-1 rounded-[26px] p-1.5 ring-1 ring-black/[0.06] shadow-sm transition focus-within:ring-2 focus-within:ring-[#FB7BA8]/35"
+              <div ref={pillRef} className="flex items-end gap-1 rounded-[26px] p-1.5 ring-1 ring-black/[0.06] shadow-sm transition focus-within:ring-2 focus-within:ring-[#FB7BA8]/35"
                 style={{ background: 'var(--ct-chip)' }}>
                 <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={onFile} />
                 {/* 왼쪽 ＋ — 사진·음성·타임캡슐 접기(카톡식). 이모티콘은 오른쪽으로 옮겨 입력칸을 넓혔다. */}
