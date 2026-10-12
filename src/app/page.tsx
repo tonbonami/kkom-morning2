@@ -1046,7 +1046,7 @@ export default function KkomMorningHome() {
           <button
             onClick={() => { setChatOpen(true); setChatUnread(false); }}
             className="relative p-2 bg-white/50 backdrop-blur-md rounded-full text-[#FB7BA8] hover:text-[#e0568f] transition-colors"
-            aria-label="대화"
+            aria-label="꼼톡"
             title="꼼톡"
           >
             <MessageCircle size={20} />

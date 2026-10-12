@@ -839,6 +839,17 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   //   내용이 길어져도 다시 바닥으로. 새 메시지 때만 내리던 탓에 서랍을 열면 마지막 말풍선이 가려졌다(Aside 1부·2부).
   //   ⚠️ 한 번만 내리면 늦게 커지는 내용에 반드시 재발한다 → 크기 변화마다 재고정(관제탑 교훈).
   const stickBottom = useRef(true);
+  // 넓은 화면(768px↑ = Tailwind md) — 끌어서 닫기를 끄는 데 쓴다.
+  const [isWide, setIsWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const on = () => setIsWide(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  const ignoreScroll = useRef(false);
+  const offX = typeof window !== 'undefined' ? window.innerWidth : 1000;   // 채팅이 드나드는 거리(화면 폭 px)   // 바로 다음 scroll 이벤트가 내 바닥 붙이기에서 온 것
 
   // ── 키보드 대응: 입력줄 아래 여백만 키보드 높이만큼(Aside 2부 처방) ──
   //   실기기 측정(iOS 27.0.1, 빌드 54, 측정 창): 키보드가 떠도 WebKit이 화면을 안 밀어 입력줄이 281px 가려졌고
@@ -889,17 +900,30 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   };
   // 메시지 메뉴가 열리면 보이는 데까지만 살짝 스크롤 — 마지막 말풍선의 메뉴는 화면 아래로 열려 안 보였다.
   //   ⚠️ 나타나는 순간(ref 콜백)에 부르면 등장 애니메이션 첫 프레임이라 안 먹었다 → 열린 뒤 잠깐 있다가.
+  //   ⚠️ 80ms에 재면 아직 커지는 중(scale 0.9)이라 다 커진 뒤 4px 잘렸다(Aside 3부) → 애니메이션 끝(260ms)에 재고 12px 여유.
   const menuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!actionMsg) return;
-    const t = setTimeout(() => menuRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 80);
+    const t = setTimeout(() => {
+      const list = scrollRef.current, m = menuRef.current;
+      if (!list || !m) return;
+      const over = m.getBoundingClientRect().bottom - list.getBoundingClientRect().bottom + 12;
+      if (over > 0) list.scrollBy({ top: over, behavior: 'smooth' });
+    }, 320);
     return () => clearTimeout(t);
   }, [actionMsg]);
   useEffect(() => {
     if (!open) return;
     const el = scrollRef.current;
     if (!el) return;
-    const pin = () => { if (stickBottom.current) el.scrollTop = el.scrollHeight; };
+    // ⚠️ 내가 바닥에 붙이며 만든 스크롤은 '사람이 위로 올렸다'로 세면 안 된다. 그 스크롤 이벤트가 늦게 와서
+    //   그 사이 서랍이 한 번 더 커지면(이모티콘 그림이 처음 뜰 때) 바닥 간격이 크게 잡혀 바닥 지키기가 꺼졌다
+    //   (Aside 3부: ☺ 열면 바닥과 324px 떨어진 채 멈춤 — 그림이 캐시된 브라우저에선 안 보임).
+    const pin = () => {
+      if (!stickBottom.current) return;
+      const target = el.scrollHeight - el.clientHeight;
+      if (Math.abs(el.scrollTop - target) > 1) { ignoreScroll.current = true; el.scrollTop = target; }
+    };
     const ro = new ResizeObserver(pin);
     ro.observe(el);
     el.addEventListener('load', pin, true);   // img·video 로드는 버블링 안 해서 캡처로 받는다
@@ -924,7 +948,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
 
   const onScroll = () => {
     const el = scrollRef.current;
-    if (el) stickBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (ignoreScroll.current) ignoreScroll.current = false;   // 내가 붙인 스크롤 — 판정에서 뺀다
+    else if (el) stickBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     if (!el || !hasMore) return;
     if (el.scrollTop < 60 && pendingAnchor.current == null) {
       isPrepending.current = true;
@@ -1272,9 +1297,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   return (
     <AnimatePresence>
       {/* 넓은 화면(768px↑) — 채팅은 가운데 40rem(사이담 .sd-shell 과 같은 폭), 양옆은 살짝 어둡게.
-          1440px에서 입력줄이 화면 끝까지 늘어나고 스티커가 한 줄 4개로 거대해지던 것(Aside 1부). */}
+          1440px에서 입력줄이 화면 끝까지 늘어나고 스티커가 한 줄 4개로 거대해지던 것(Aside 1부).
+          양옆을 눌러 닫기는 뺐다(Aside 3부: 실수로 누르기 쉽고 왜 닫혔는지 모른다). 닫기는 ×·스와이프. 뒤 홈 클릭만 막는다. */}
       {open && (
-        <motion.div key="chat-backdrop" className="fixed inset-0 z-[59] hidden bg-black/25 md:block" onClick={onClose}
+        <motion.div key="chat-backdrop" className="fixed inset-0 z-[59] hidden bg-black/25 md:block"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
       )}
       {open && (
@@ -1282,9 +1308,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           key="chat"
           className="fixed inset-0 z-[60] flex flex-col md:left-[calc(50%-20rem)] md:right-[calc(50%-20rem)] md:shadow-2xl"
           style={chatThemeStyle}
-          initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+          // 들어오고 나갈 때 '화면 폭'만큼 — '100%'(자기 폭 640px)면 넓은 화면에서 다 안 빠져나가 오른쪽에 걸려 남았다(Aside 3부).
+          //   ⚠️ '100vw' 문자열은 motion이 0으로 못 움직여 열리지도 않았다 → 화면 폭을 px 숫자로.
+          initial={{ x: offX }} animate={{ x: 0 }} exit={{ x: offX }}
           transition={{ type: 'spring', stiffness: 380, damping: 40 }}
-          drag={(memoryOpen || viewerImage || actionMsg || capsuleOpen || stickerOpen) ? false : 'x'}
+          // 넓은 화면(768px↑)에선 끌어서 닫기를 끈다 — 손가락 기기가 아니고, 드래그 제한값이 닫힘 애니메이션과 부딪혀
+          //   채팅이 화면 밖에 남고 어두운 배경도 안 걷혔다(Aside 3부 'B1 걸려 남음'의 실체).
+          drag={(isWide || memoryOpen || viewerImage || actionMsg || capsuleOpen || stickerOpen) ? false : 'x'}
           dragDirectionLock
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={{ left: 0, right: 0.9 }}
@@ -1345,8 +1375,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-black/10" />
                   {/* 닫기 버튼 — 전엔 어두운 바깥을 눌러야만 닫혔다(Aside 1부) */}
                   <button onClick={() => setThemeOpen(false)} aria-label="챗 테마 닫기" title="닫기"
-                    className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-black/5 active:scale-90 transition">
-                    <X size={18} />
+                    className="absolute right-2.5 top-2.5 grid h-10 w-10 place-items-center rounded-full text-slate-400 hover:bg-black/5 active:scale-90 transition">
+                    <X size={20} />
                   </button>
                   <div className="mb-2.5 text-center text-[15px] font-extrabold text-slate-700">챗 테마 <span className="ml-1 text-[11px] font-semibold text-slate-400">이 기기에만 적용</span></div>
                   <div className="mb-3 flex rounded-full bg-black/[0.06] p-1 text-[13px] font-bold">
@@ -1380,6 +1410,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           {/* 메시지 — 길게눌러 답장 시 iOS 기본 텍스트선택/콜아웃(Copy·Look Up) 뜨는 것 차단 */}
           <div ref={scrollRef} onScroll={onScroll}
             onClick={() => { if (stickerOpen) setStickerOpen(false); if (actionMsg) setActionMsg(null); }}
+            // 메뉴가 열려 있으면 아래 여유를 더 준다 — 떠 있는 메뉴가 맨 아래 말풍선보다 아래로 나와 스크롤 여유가 모자랐다.
+            style={actionMsg ? { paddingBottom: 112 } : undefined}
             className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5 select-none [-webkit-touch-callout:none] [-webkit-user-select:none]">
             {hasMore && (
               <div className="flex justify-center py-1">
@@ -1536,7 +1568,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                           <motion.div onClick={(e) => e.stopPropagation()} ref={menuRef}
                             initial={{ opacity: 0, y: -6, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
                             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                            className="mt-2 w-max max-w-[calc(100vw-2rem)] rounded-2xl bg-white px-1.5 py-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.14)]">
+                            // 말풍선 아래에 '떠서' 열린다(absolute) — 목록 안에서 자리를 차지하면 아래 말풍선·시간 표시가
+                            //   밀렸다(Aside 3부). 떠 있어도 스크롤 길이엔 들어가서 아래로 보여 주기는 된다.
+                            className={`absolute top-full z-20 mt-3 w-max max-w-[calc(100vw-2rem)] rounded-2xl bg-white px-1.5 py-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.14)] ${mine ? 'right-0' : 'left-0'}`}>
                             <div className="flex items-center justify-center gap-1 border-b border-black/[0.06] pb-1.5">
                               {REACTIONS.map((emo) => (
                                 <button key={emo} onClick={() => doReact(emo)} aria-label={`${emo} 반응`} className="px-1.5 text-[20px] leading-none active:scale-90 transition-transform">{emo}</button>
@@ -1955,7 +1989,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           <AnimatePresence>
             {toast && (
               // 가운데 정렬은 inset-x-0+mx-auto(w-fit) — translate 클래스는 motion의 y 변형에 덮여 한쪽으로 쏠린다. 긴 안내는 줄바꿈.
-              <motion.div className="absolute inset-x-0 mx-auto w-fit max-w-[calc(100%-2rem)] bottom-28 z-[75] px-4 py-2.5 rounded-2xl bg-slate-800/90 text-center text-white text-[13px] font-semibold leading-snug shadow-lg"
+              <motion.div className="absolute inset-x-0 mx-auto w-fit max-w-[calc(100%-2rem)] bottom-28 z-[75] px-4 py-2.5 rounded-2xl bg-slate-800 text-center text-white text-[13px] font-semibold leading-snug shadow-lg"
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}>
                 {toast}
               </motion.div>
@@ -1975,7 +2009,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 transition={{ type: 'spring', stiffness: 320, damping: 32 }}>
                 <div className="flex items-center gap-3 px-4 pb-3 bg-[#FBF8F2]/95 backdrop-blur-xl border-b border-black/[0.04] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
                   style={{ paddingTop: 'max(env(safe-area-inset-top), 2.75rem)' }}>
-                  <button onClick={() => setMemoryOpen(false)} aria-label="닫기" className="p-1.5 -ml-1 text-slate-400"><X size={22} /></button>
+                  <button onClick={() => setMemoryOpen(false)} aria-label="추억함 닫기" title="닫기" className="grid h-10 w-10 -ml-2 place-items-center rounded-full text-slate-400 active:scale-90 transition"><X size={22} /></button>
                   <div className="flex-1 font-['Dongle'] text-3xl font-bold leading-none text-[#334155] dark:text-[#E8E2D8]">우리의 추억함</div>
                 </div>
                 <div className="flex gap-1.5 px-4 py-2">
