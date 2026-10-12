@@ -1450,7 +1450,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     )}
 
                     <div
-                      className={`relative flex flex-col select-none ${m.sticker && FULL_STICKERS.has(m.sticker) ? 'max-w-[88%]' : 'max-w-[78%]'} ${reactionEmojis.length > 0 ? 'mb-3' : ''}`}
+                      // 메뉴가 열린 말풍선엔 분홍 테두리 — 떠 있는 메뉴가 아래 말풍선을 덮어 '어느 메시지 메뉴인지' 안 보였다(Aside 3부 재확인).
+                      className={`relative flex flex-col select-none ${m.sticker && FULL_STICKERS.has(m.sticker) ? 'max-w-[88%]' : 'max-w-[78%]'} ${reactionEmojis.length > 0 ? 'mb-3' : ''} ${actionMsg?.id === m.id ? 'rounded-[22px] outline outline-2 outline-offset-4 outline-[#FB7BA8]/60' : ''}`}
                       style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}
                       // 사이담처럼 — 말풍선 한 번 탭하면 바로 반응/답장 줄 토글(꾹 누르기 아님). 삭제/예약은 제외.
                       onClick={(e) => { e.stopPropagation(); setStickerOpen(false); if (!m.deleted && !pending) setActionMsg(actionMsg?.id === m.id ? null : m); }}
