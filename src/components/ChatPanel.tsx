@@ -876,10 +876,14 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     update();
     vv.addEventListener('resize', update);
     vv.addEventListener('scroll', update);
+    // 문서 자체 스크롤도 듣는다 — WebKit이 문서를 통째로 밀면 vv.offsetTop은 그대로라 vv scroll 이벤트가 안 와서
+    //   헤더가 상태바 위로 밀린 채 남았다(우댕 실기기 2번째 사진, 입력줄은 보였음).
+    window.addEventListener('scroll', update);
     return () => {
       cancelAnimationFrame(raf);
       vv.removeEventListener('resize', update);
       vv.removeEventListener('scroll', update);
+      window.removeEventListener('scroll', update);
       setKbInset(0);
     };
   }, [open]);
