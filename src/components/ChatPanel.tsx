@@ -839,6 +839,39 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   //   내용이 길어져도 다시 바닥으로. 새 메시지 때만 내리던 탓에 서랍을 열면 마지막 말풍선이 가려졌다(Aside 1부·2부).
   //   ⚠️ 한 번만 내리면 늦게 커지는 내용에 반드시 재발한다 → 크기 변화마다 재고정(관제탑 교훈).
   const stickBottom = useRef(true);
+
+  // ── 키보드 대응: 입력줄 아래 여백만 키보드 높이만큼(Aside 2부 처방) ──
+  //   실기기 측정(iOS 27.0.1, 빌드 54, 측정 창): 키보드가 떠도 WebKit이 화면을 안 밀어 입력줄이 281px 가려졌고
+  //   (scrollY 0), 어떨 땐 문서를 통째로 밀어 헤더가 상태바 밑으로 갔다 — WebKit 자동 '입력칸 보이게'는 들쭉날쭉.
+  //   빌드 53(막대 있음)도 문서를 밀어서 우연히 보였을 뿐. visualViewport 값은 정확했다(보이는 아래끝 511 = 키보드 윗선).
+  //   ⚠️ 채팅 '전체' 높이는 안 바꾼다 — 앱 높이를 resize마다 바꾸면 화면이 출렁인 기록(AppViewportHeight 주석).
+  //   inset = innerHeight − vv.height − vv.offsetTop. 80px 미만은 키보드가 아니라 툴바 변화로 보고 무시.
+  const [kbInset, setKbInset] = useState(0);
+  useEffect(() => {
+    if (!open) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let raf = 0;
+    const update = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+        // 채팅은 화면 전체를 덮는 고정 패널이라 문서 스크롤은 WebKit '입력칸 보이게'의 부작용뿐 → 되돌려 헤더를 지킨다.
+        //   되돌리면 scroll 이벤트가 다시 와서 offsetTop 0 기준으로 다시 잰다.
+        if (inset > 80 && (window.scrollY !== 0 || vv.offsetTop !== 0)) window.scrollTo(0, 0);
+        setKbInset(inset > 80 ? inset : 0);
+      });
+    };
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      cancelAnimationFrame(raf);
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+      setKbInset(0);
+    };
+  }, [open]);
   // 키보드 측정 창(KbReadout) — 헤더 이름 5번 연속 탭(2초 안)으로 켜고 끔. 기기에 기억(localStorage).
   const pillRef = useRef<HTMLDivElement | null>(null);
   const [kbDebug, setKbDebug] = useState(false);
@@ -1694,7 +1727,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
 
           {/* 입력 */}
           <div className="px-3 pt-2 backdrop-blur-xl border-t border-black/[0.04]"
-            style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1.25rem)', background: 'var(--ct-header)' }}>
+            // 키보드가 떠 있으면 키보드 높이 + 8px만(아래 안전영역 틈은 키보드가 덮으니 뺀다 — 카톡처럼 붙게)
+            style={{ paddingBottom: kbInset ? `${kbInset + 8}px` : 'max(env(safe-area-inset-bottom), 1.25rem)', background: 'var(--ct-header)' }}>
             {/* 업로드 진행 — 동영상은 실제 % 바, 사진은 짧아서 간단한 진행 표시 */}
             <AnimatePresence>
               {uploading && (
