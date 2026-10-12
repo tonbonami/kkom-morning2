@@ -219,9 +219,7 @@ export default function KkomMorningHome() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatUnread, setChatUnread] = useState(false);
   const [msgLimit, setMsgLimit] = useState(40);
-  const wasOnlineRef = useRef(false);
   const homeTouch = useRef<{ x: number; y: number } | null>(null);
-  const autoOpenedRef = useRef(false);
   const lastReadIdRef = useRef<string | null>(null);
   const [nextEvent, setNextEvent] = useState<{ title: string; date: string } | null>(null); // 위젯용 다음 일정
   const [heroStrokes, setHeroStrokes] = useState<BoardStroke[]>([]); // 홈 히어로 미니 썸네일용 현재 페이지 획
@@ -452,17 +450,8 @@ export default function KkomMorningHome() {
     }
   }, [messages, chatOpen, userName, chatUnread]);
 
-  // 둘 다 접속하면 대화창 자동 오픈 (접속 세션당 1회 — 닫으면 다시 안 뜸, 오프라인 됐다 다시 접속하면 또 열림)
-  useEffect(() => {
-    if (!userName) return;
-    const online = isTogetherNow(partnerPresence);
-    if (online && !wasOnlineRef.current && !autoOpenedRef.current) {
-      setChatOpen(true);
-      autoOpenedRef.current = true;
-    }
-    if (!online) autoOpenedRef.current = false;
-    wasOnlineRef.current = online;
-  }, [userName, partnerPresence]);
+  // (둘 다 접속하면 대화창을 자동으로 열던 기능은 뺐다 — 2026-10-12 우댕 요청. 상대가 앱을 켤 때마다
+  //  내 화면에 채팅이 불쑥 떠서 하던 일을 끊었다. 채팅은 꼼톡 카드·말풍선 아이콘·왼쪽 스와이프로만 연다.)
 
   const togglePush = async () => {
     if (pushState === 'on') {
