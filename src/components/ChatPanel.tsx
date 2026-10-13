@@ -887,10 +887,11 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       setKbInset(0);
     };
   }, [open]);
-  // 키보드 측정 창(KbReadout) — 헤더 이름 5번 연속 탭(2초 안)으로 켜고 끔. 기기에 기억(localStorage).
+  // 키보드 측정 창(KbReadout) — 헤더 이름 5번 연속 탭(2초 안)으로 켜고 끔. 기억 안 함: 새로 열면 늘 꺼져 있다.
+  // (예전엔 localStorage에 남아서 새로고침해도 안 꺼졌다 — 남은 값은 지운다.)
   const pillRef = useRef<HTMLDivElement | null>(null);
   const [kbDebug, setKbDebug] = useState(false);
-  useEffect(() => { try { setKbDebug(localStorage.getItem('kkom-kbdebug') === '1'); } catch { /* noop */ } }, []);
+  useEffect(() => { try { localStorage.removeItem('kkom-kbdebug'); } catch { /* noop */ } }, []);
   const nameTaps = useRef<number[]>([]);
   const onNameTap = () => {
     const now = Date.now();
@@ -899,7 +900,6 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     nameTaps.current = [];
     const next = !kbDebug;
     setKbDebug(next);
-    try { localStorage.setItem('kkom-kbdebug', next ? '1' : '0'); } catch { /* noop */ }
     flashToast(next ? '키보드 측정 켬 📏' : '키보드 측정 끔');
   };
   // 메시지 메뉴가 열리면 보이는 데까지만 살짝 스크롤 — 마지막 말풍선의 메뉴는 화면 아래로 열려 안 보였다.
