@@ -159,6 +159,7 @@ const ANIM_RAW: { word: string; image: string; still: string }[] = [
   // 꼼모닝이 Kling으로 만든 것(사이담 제작 아님) — 원본·키프레임은 art/kling/puff, art/kling/sleepy
   { word: '힘내!',      image: '/emo/sai-anim/himnae.webp',  still: '/emo/sai-anim/himnae-still.png' }, // 털 펑
   { word: '졸려',       image: '/emo/sai-anim/doze.webp',    still: '/emo/sai-anim/doze-still.png' },   // 콧방울 펑(반복 고리)
+  { word: '뽀뽀',       image: '/emo/sai-anim/kiss.webp',    still: '/emo/sai-anim/kiss-still.png' },   // 귀로 하트(반복 고리) — art/kling/kiss
 ];
 // ⚠️ sai-anim webp/still을 사이담이 같은 이름으로 재인코딩(알파 복구·재작업)할 때마다 EMO_V를 +1 → 기기 캐시 무효화(전역).
 //   2026-09-11 알파 복구(라이트에서 눈 회색) 14종 반영으로 3. (사이담 EMO_V와 별개, 값만 맞춰 올리면 됨)
@@ -210,7 +211,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /사랑|러브|❤|💕|💗|좋아해|조아해|사랑해|알러뷰/,        get: () => [sugAnim('사랑해'), sugMini('사랑해'), sugCouple('사랑해'), sugAnim('두근두근')] },
   { re: /보고\s?싶|보고파|그리워|보곺|생각나|보고시퍼/,          get: () => [sugAnim('보고싶어'), sugMini('보고파'), sugCouple('보고파')] },
   { re: /두근|설레|떨려|콩닥|심쿵/,                            get: () => [sugAnim('두근두근')] },
-  { re: /뽀뽀|쪽쪽|쪽!|😘|💋|키스|입맞/,                       get: () => [sugCouple('뽀뽀')] },
+  { re: /뽀뽀|쪽쪽|쪽!|😘|💋|키스|입맞/,                       get: () => [sugAnim('뽀뽀'), sugCouple('뽀뽀')] },
   { re: /안아(?!파|프)|포옹|꼬옥|폭\s?안|안겨|허그|안아줘|꼭\s?안/, get: () => [sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥')] },
   { re: /토닥|다독|위로|괜찮아|다\s?잘\s?될/,                   get: () => [sugCouple('토닥토닥'), sugMini('평온')] },
 
