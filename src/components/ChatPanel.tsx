@@ -194,26 +194,35 @@ const sugKkom = (w: string): Suggestion | undefined => {
   const s = KKOM_STICKERS.find((x) => x.word === w);
   return s ? { key: s.word, image: s.image, thumb: s.image, mode: 'kkom' } : undefined;
 };
+const sugKkul = (w: string): Suggestion | undefined => {  // 꿀댕이(꿀벌 조끼 아기돼지) 16종
+  const s = KKUL_STICKERS.find((x) => x.word === w);
+  return s ? { key: s.word, image: s.image, thumb: s.image, mode: 'kkul' } : undefined;
+};
 
 // ── 키워드(동의어) → 관련 스티커 규칙 ──
 // ⚠️ 한 이모티콘 ≠ 한 단어. 여러 동의어·구어·오타·초성까지 걸어 '일상 단어'로 다 뜨게 한다.
 //   ⚠️ SAI 일상팩(출근·배고파·헐·맛점·심심해…)과 미니·당·꼼이 예전엔 추천에서 통째로 빠져 있었음 → 여기서 다 포함.
 //   각 규칙의 첫 스티커가 대표(밑줄 탭 시 이게 전송됨). 위에서부터 매칭.
 const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
+  // ── 꿀댕이 전용(둘만 쓰는 말) ──
+  { re: /꼼슌|꼼슌아|꼼슌이|꼼슌띠/,                            get: () => [sugKkul('꼼슌아')] },
+  { re: /화이트닝/,                                            get: () => [sugKkul('화이트닝')] },
+  { re: /^(응+|웅+|ㅇㅇ+|맞아|맞아맞아|알겠어|오케이?|ㅇㅋ)(?![가-힣])/, get: () => [sugKkul('응응')] },
+
   // ── 인사·아침·밤·잠 ──
-  { re: /굿모닝|좋은\s?아침|모닝(?!콜)|잘\s?잤|일어났|기상(?!청|캐스)/, get: () => [sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
+  { re: /굿모닝|좋은\s?아침|모닝(?!콜)|잘\s?잤|일어났|기상(?!청|캐스)/, get: () => [sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝'), sugKkul('좋은아침')] },
   { re: /안녕|하이|방가|ㅎㅇ|하잉|헬로|하이염/,                  get: () => [sugAnim('안녕!')] },
   { re: /잘\s?자|굿\s?밤|굿나잇|자자|자야|잘게|취침|나이트|굿밤/, get: () => [sugAnim('잘자'), sugSai('굿밤')] },
   { re: /졸려|졸립|하품|잠\s?와|잠온|눈\s?감|나른/,             get: () => [sugAnim('졸려'), sugSai('졸려'), sugMini('졸려')] },
   { re: /일어나기\s?싫|이불|늦잠|더\s?잘래|눕고|자고\s?싶/,      get: () => [sugAnim('일어나기 싫어')] },
 
   // ── 사랑·보고싶·설렘·스킨십 ──
-  { re: /사랑|러브|❤|💕|💗|좋아해|조아해|사랑해|알러뷰/,        get: () => [sugAnim('사랑해'), sugMini('사랑해'), sugCouple('사랑해'), sugAnim('두근두근')] },
-  { re: /보고\s?싶|보고파|그리워|보곺|생각나|보고시퍼/,          get: () => [sugAnim('보고싶어'), sugMini('보고파'), sugCouple('보고파')] },
+  { re: /사랑|러브|❤|💕|💗|좋아해|조아해|사랑해|알러뷰/,        get: () => [sugAnim('사랑해'), sugMini('사랑해'), sugCouple('사랑해'), sugAnim('두근두근'), sugKkul('사랑해')] },
+  { re: /보고\s?싶|보고파|그리워|보곺|생각나|보고시퍼/,          get: () => [sugAnim('보고싶어'), sugMini('보고파'), sugCouple('보고파'), sugKkul('보고싶어')] },
   { re: /두근|설레|떨려|콩닥|심쿵/,                            get: () => [sugAnim('두근두근')] },
   { re: /뽀뽀|쪽쪽|쪽!|😘|💋|키스|입맞/,                       get: () => [sugAnim('뽀뽀'), sugCouple('뽀뽀')] },
-  { re: /안아(?!파|프)|포옹|꼬옥|폭\s?안|안겨|허그|안아줘|꼭\s?안/, get: () => [sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥')] },
-  { re: /토닥|다독|위로|괜찮아|다\s?잘\s?될/,                   get: () => [sugCouple('토닥토닥'), sugMini('평온')] },
+  { re: /안아(?!파|프)|포옹|꼬옥|폭\s?안|안겨|허그|안아줘|꼭\s?안/, get: () => [sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥'), sugKkul('꼬옥')] },
+  { re: /토닥|다독|위로|괜찮아|다\s?잘\s?될/,                   get: () => [sugCouple('토닥토닥'), sugMini('평온'), sugKkul('괜찮아?')] },
 
   // ── 긍정 감정 ──
   { re: /행복|기뻐|행복해|좋다(?![가-힣])|만족/,                get: () => [sugMini('행복'), sugAnim('좋아!')] },
@@ -231,7 +240,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
 
   // ── 미안·고마·축하·칭찬·응원 ──
   { re: /미안|죄송|쏘리|sorry|ㅈㅅ|사과할|미얀/,                get: () => [sugAnim('미안해'), sugSai('미안'), sugMini('미안해')] },
-  { re: /고마|감사|땡큐|thanks|ㄱㅅ|고맙|감솨/,                 get: () => [sugAnim('고마워'), sugMini('고마워')] },
+  { re: /고마|감사|땡큐|thanks|ㄱㅅ|고맙|감솨/,                 get: () => [sugAnim('고마워'), sugMini('고마워'), sugKkul('고마워')] },
   { re: /축하|생일|생축|축하해|🎉|🎊|추카/,                     get: () => [sugAnim('축하해!'), sugAnim('선물')] },
   { re: /선물|기프트|present|기프티콘/,                         get: () => [sugAnim('선물')] },
   { re: /칭찬|잘했|대견|기특|잘한다|기특해/,                    get: () => [sugMini('잘했어'), sugMini('칭찬해줘')] },
@@ -242,9 +251,10 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /최고|짱(?![가-힣])|짱이|굿(?![가-힣])|좋았|대박|멋져|쩐다|리스펙|👍/, get: () => [sugAnim('좋아!'), sugMini('최고야')] },
 
   // ── 놀람·리액션·웃음 ──
-  { re: /헐|헉|대박|깜짝|놀랐|놀람|뭐야|실화|미쳤|헐랭|헉스/,    get: () => [sugSai('헐'), sugAnim('으악')] },
-  { re: /으악|으아|꺄|악!|끼야/,                               get: () => [sugAnim('으악'), sugSai('헐')] },
-  { re: /ㅋㅋ|ㅎㅎ|웃겨|웃김|빵\s?터|풉|낄낄|개웃|ㅋ큐/,         get: () => [sugSai('ㅋㅋㅋ')] },
+  { re: /헐|헉|대박|깜짝|놀랐|놀람|뭐야|실화|미쳤|헐랭|헉스/,    get: () => [sugSai('헐'), sugAnim('으악'), sugKkul('진짜아?'), sugKkul('으악')] },
+  { re: /진짜\?|진짜아|레알\?|정말\?|ㄹㅇ\?/,                     get: () => [sugKkul('진짜아?')] },
+  { re: /으악|으아|꺄|악!|끼야/,                               get: () => [sugAnim('으악'), sugSai('헐'), sugKkul('으악')] },
+  { re: /ㅋㅋ|ㅎㅎ|웃겨|웃김|빵\s?터|풉|낄낄|개웃|ㅋ큐/,         get: () => [sugSai('ㅋㅋㅋ'), sugKkul('ㅋㅋㅋ')] },
   { re: /뭐해|모해|뭐하|머해|뭐함|뭐하니|모하/,                 get: () => [sugSai('뭐해?')] },
   { re: /ㄴㄴ|아니야|아니(?![가-힣])|노노|싫어|절대\s?안|안돼|노우/, get: () => [sugSai('ㄴㄴ')] },
   { re: /부끄|수줍|쑥스|민망|부끄러/,                          get: () => [sugAnim('부끄')] },
@@ -252,13 +262,13 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /얍|얏|에잇|받아라|얍얍|펀치|공격/,                      get: () => [sugKkom('얍')] },
 
   // ── 일상: 밥·출퇴근·이동·상태 ──
-  { re: /배고파|배고픔|허기|꼬르륵|밥\s?줘|밥\s?먹고|먹고\s?싶|배곺/, get: () => [sugSai('배고파')] },
+  { re: /배고파|배고픔|허기|꼬르륵|밥\s?줘|밥\s?먹고|먹고\s?싶|배곺/, get: () => [sugSai('배고파'), sugKkul('배고파')] },
   { re: /맛점|점심|점심\s?뭐|밥\s?먹었|런치|점심시간/,           get: () => [sugSai('맛점')] },
   { re: /배불|배\s?터|과식|든든|잘\s?먹었|배불러/,              get: () => [sugSai('배불러')] },
   { re: /출근|회사\s?간|일하러|지각|출근중|일\s?간다|출근길/,     get: () => [sugSai('출근중')] },
-  { re: /퇴근|집\s?간다|이제\s?집|퇴근각|칼퇴/,                 get: () => [sugSai('가는중'), sugSai('도착!')] },
-  { re: /가는\s?중|가고\s?있|출발했|이동중|가는중|출발한다/,      get: () => [sugSai('가는중')] },
-  { re: /도착|왔어(?![가-힣])|집\s?왔|다\s?왔|도착함|도착!/,     get: () => [sugSai('도착!')] },
+  { re: /퇴근|집\s?간다|이제\s?집|퇴근각|칼퇴/,                 get: () => [sugSai('가는중'), sugSai('도착!'), sugKkul('가는중')] },
+  { re: /가는\s?중|가고\s?있|출발했|이동중|가는중|출발한다/,      get: () => [sugSai('가는중'), sugKkul('가는중')] },
+  { re: /도착|왔어(?![가-힣])|집\s?왔|다\s?왔|도착함|도착!/,     get: () => [sugSai('도착!'), sugKkul('도착!')] },
   { re: /바빠|바쁨|정신없|바쁘|바빠서|바쁠/,                    get: () => [sugSai('바빠')] },
   { re: /심심|노잼|재미없|지루|할\s?거\s?없|심심해/,            get: () => [sugSai('심심해')] },
   { re: /씻고\s?올|샤워하고|씻으러|목욕/,                       get: () => [sugAnim('씻고 올게')] },
@@ -267,11 +277,11 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /달려가|뛰어가|급하게\s?가|헐레벌떡/,                   get: () => [sugKkom('달려가는 중')] },
   { re: /인싸|파티\s?가|놀러\s?가/,                            get: () => [sugKkom('인싸강아지')] },
   { re: /날아|훨훨|날아가|떠나자|여행\s?가|어디론가|날아오/,      get: () => [sugCouple('날아가자')] },
-  { re: /귀여|커여|기여|졸귀|귀엽|커엽/,                        get: () => [sugDang('귀엽꼬미'), sugDang('앙 귀여워')] },
+  { re: /귀여|커여|기여|졸귀|귀엽|커엽/,                        get: () => [sugDang('귀엽꼬미'), sugDang('앙 귀여워'), sugKkul('앙귀여워')] },
   { re: /푸데데|시무룩\s?강|삐진\s?강/,                         get: () => [sugDang('푸데데')] },
 
   // ── 아픔·날씨 ──
-  { re: /아파|아프|열나|감기|몸살|아픔|몸\s?안\s?좋|골골/,       get: () => [sugAnim('아파'), sugMini('아파')] },
+  { re: /아파|아프|열나|감기|몸살|아픔|몸\s?안\s?좋|골골/,       get: () => [sugAnim('아파'), sugMini('아파'), sugKkul('괜찮아?')] },
   { re: /비\s?와|비\s?온|비온다|장마|우중충|빗소리|비\s?내|비올/, get: () => [sugAnim('비온다')] },
 ];
 // 입력 정규화 — 정규식 매칭 '전에' 변형을 흡수한다(사이담 아이디어의 안전판 버전).
@@ -306,6 +316,27 @@ const KKOM_STICKERS: { word: string; image: string }[] = [
   { word: '얍', image: '/pochacco_kkom/kkomiyap.png' },
   { word: '푸데데', image: '/pochacco_kkom/kkomipudede.png' },
   { word: '인싸강아지', image: '/pochacco_kkom/pochaccofly.png' },
+];
+
+// 꿀댕 탭 — 우댕 캐릭터 '꿀댕이'(꿀벌 조끼 아기돼지) 16종. 우댕이 꼼이에게 보낸 말 2,049개를 세어 고름(2026-10-15).
+//   글자는 그림 안에(주아체 배지, 사이담 규칙). 원본·초록판·만든 스크립트 메모는 art/kkuldaeng/set16.
+const KKUL_STICKERS: { word: string; image: string }[] = [
+  { word: '꼼슌아',   image: '/emo/kkuldaeng/01-ggomsyun.webp' },
+  { word: '사랑해',   image: '/emo/kkuldaeng/02-saranghae.webp' },
+  { word: '보고싶어', image: '/emo/kkuldaeng/03-bogosipeo.webp' },
+  { word: '앙귀여워', image: '/emo/kkuldaeng/04-anggwiyeowo.webp' },
+  { word: 'ㅋㅋㅋ',   image: '/emo/kkuldaeng/05-kkk.webp' },
+  { word: '배고파',   image: '/emo/kkuldaeng/06-baegopa.webp' },
+  { word: '가는중',   image: '/emo/kkuldaeng/07-ganeunjung.webp' },
+  { word: '도착!',    image: '/emo/kkuldaeng/08-dochak.webp' },
+  { word: '으악',     image: '/emo/kkuldaeng/09-euak.webp' },
+  { word: '꼬옥',     image: '/emo/kkuldaeng/10-kkoook.webp' },
+  { word: '고마워',   image: '/emo/kkuldaeng/11-gomawo.webp' },
+  { word: '진짜아?',  image: '/emo/kkuldaeng/12-jinjja.webp' },
+  { word: '화이트닝', image: '/emo/kkuldaeng/13-whitening.webp' },
+  { word: '응응',     image: '/emo/kkuldaeng/14-eungeung.webp' },
+  { word: '괜찮아?',  image: '/emo/kkuldaeng/15-gwaenchanha.webp' },
+  { word: '좋은아침', image: '/emo/kkuldaeng/16-joeunachim.webp' },
 ];
 
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
@@ -368,10 +399,11 @@ const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
 // 이모티콘 서랍 탭 — 사이챗과 동일 구조(썸네일 + 이름). id/데이터는 꼼모닝 것.
 // 카톡식 탭 — 최근·자주(🕒) + 세트별 탭. 아이콘은 '실제 스티커 대표 그림'(썸네일)이라
 //   어떤 세트인지 한눈에 보인다(윈도우 이모지 X). 포차코는 한 탭에 몰지 않고 기본/우댕/꼼이/커플로 분리.
-type StickerMode = 'recent' | 'gif' | 'maltipoo' | 'basic' | 'dang' | 'kkom' | 'couple' | 'mini';
+type StickerMode = 'recent' | 'gif' | 'kkul' | 'maltipoo' | 'basic' | 'dang' | 'kkom' | 'couple' | 'mini';
 const STICKER_TABS: { id: StickerMode; name: string; thumb?: string; icon?: string }[] = [
   { id: 'recent',   name: '최근·자주', icon: '🕒' },
   { id: 'gif',      name: '움짤',      thumb: '/emo/sai-anim/love-still.png' },
+  { id: 'kkul',     name: '꿀댕',      thumb: '/emo/kkuldaeng/01-ggomsyun.webp' },
   { id: 'maltipoo', name: '말티푸',    thumb: '/emo/sai/kkk.webp' },
   { id: 'basic',    name: '기본',      thumb: '/pochacco/face_happy.png' },
   { id: 'dang',     name: '우댕',      thumb: '/pochacco_dang/cutekkomi.png' },
@@ -1158,6 +1190,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const stickerSections = (mode: StickerMode): { label?: string; items: SItem[] }[] => {
     switch (mode) {
       case 'gif': return [{ items: ANIM_STICKERS.map((s) => ({ key: s.word, image: s.image, thumb: s.still })) }];
+      case 'kkul': return [{ items: KKUL_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'maltipoo': return [{ items: SAI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'mini': return [{ items: SAIDAMI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'basic': return [{ items: MOOD_OPTIONS.map((o) => ({ key: o.id, image: o.image })) }];
