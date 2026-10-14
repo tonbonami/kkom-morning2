@@ -318,7 +318,7 @@ const KKOM_STICKERS: { word: string; image: string }[] = [
   { word: '인싸강아지', image: '/pochacco_kkom/pochaccofly.png' },
 ];
 
-// 꿀댕 탭 — 우댕 캐릭터 '꿀댕이'(꿀벌 조끼 아기돼지) 16종. 우댕이 꼼이에게 보낸 말 2,049개를 세어 고름(2026-10-15).
+// 꿀됑 탭(우댕 지정 이름) — 우댕 캐릭터 '꿀댕이'(꿀벌 조끼 아기돼지) 16종. 우댕이 꼼이에게 보낸 말 2,049개를 세어 고름(2026-10-15).
 //   글자는 그림 안에(주아체 배지, 사이담 규칙). 원본·초록판·만든 스크립트 메모는 art/kkuldaeng/set16.
 const KKUL_STICKERS: { word: string; image: string }[] = [
   { word: '꼼슌아',   image: '/emo/kkuldaeng/01-ggomsyun.webp' },
@@ -403,7 +403,7 @@ type StickerMode = 'recent' | 'gif' | 'kkul' | 'maltipoo' | 'basic' | 'dang' | '
 const STICKER_TABS: { id: StickerMode; name: string; thumb?: string; icon?: string }[] = [
   { id: 'recent',   name: '최근·자주', icon: '🕒' },
   { id: 'gif',      name: '움짤',      thumb: '/emo/sai-anim/love-still.png' },
-  { id: 'kkul',     name: '꿀댕',      thumb: '/emo/kkuldaeng/01-ggomsyun.webp' },
+  { id: 'kkul',     name: '꿀됑',      thumb: '/emo/kkuldaeng/01-ggomsyun.webp' },
   { id: 'maltipoo', name: '말티푸',    thumb: '/emo/sai/kkk.webp' },
   { id: 'basic',    name: '기본',      thumb: '/pochacco/face_happy.png' },
   { id: 'dang',     name: '우댕',      thumb: '/pochacco_dang/cutekkomi.png' },
