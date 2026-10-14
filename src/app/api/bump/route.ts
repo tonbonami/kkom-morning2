@@ -1,6 +1,6 @@
 // 한 번-탭 Bump 푸시 — narrator 톤으로 다양한 멘트를 랜덤 셔플 (사용자 요청).
 // body { from, to, kind?: 'miss' | 'love' | 'hug' | 'kiss' | 'whitening' | 'night' }
-// 방해 금지 시간(22-07) 적용 안 함 — 사용자가 명시적으로 누른 즉시 액션.
+// 밤(22-07)에도 미루지 않고 바로 보낸다(즉시 액션) — 다만 소리·진동 없이 조용히(apns.ts·sw.js에서 처리).
 
 import { NextRequest, NextResponse, after } from 'next/server';
 import webpush from 'web-push';

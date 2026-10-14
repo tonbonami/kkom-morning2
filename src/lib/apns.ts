@@ -3,6 +3,7 @@
 // 환경변수(Vercel): APNS_KEY(.p8 PEM 내용), APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID.
 import crypto from 'node:crypto';
 import http2 from 'node:http2';
+import { isQuietHoursKst } from './kst';
 
 const RTDB =
   process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL ||
@@ -85,7 +86,10 @@ export async function sendApns(userKey: string, title: string, body: string, opt
   }
   if (!token) { console.warn(`[apns] ${userKey} — 저장된 토큰 없음`); return false; }
 
-  const aps: Record<string, unknown> = { alert: { title, body }, sound: opts?.sound || 'default' };
+  // 밤(KST 22~07)엔 카톡 조용히 받기처럼 — 소리·진동 없이(sound 키 생략), 화면도 안 켜고(passive) 알림 목록에만.
+  const aps: Record<string, unknown> = { alert: { title, body } };
+  if (isQuietHoursKst()) aps['interruption-level'] = 'passive';
+  else aps.sound = opts?.sound || 'default';
   if (opts?.category) aps.category = opts.category;
   if (opts?.threadId) aps['thread-id'] = opts.threadId;
   if (opts?.sender) aps['mutable-content'] = 1; // NSE 실행 트리거 → 아바타/이름 입힘
@@ -126,7 +130,11 @@ export async function sendApnsWatch(userKey: string, title: string, body: string
   }
   if (!token) return false; // 워치 미등록(폰만 있을 수 있음) → 조용히 skip
 
-  const payload = JSON.stringify({ aps: { alert: { title, body }, sound: 'default' } });
+  // 밤엔 워치도 조용히 — 손목 탭(햅틱)도 잠을 깨운다.
+  const quiet = isQuietHoursKst();
+  const payload = JSON.stringify({ aps: quiet
+    ? { alert: { title, body }, 'interruption-level': 'passive' }
+    : { alert: { title, body }, sound: 'default' } });
   const headers = { 'apns-topic': WATCH_TOPIC };
   let res = await post('api.push.apple.com', token, payload, headers);
   if (res.status === 400 && res.body.includes('BadDeviceToken')) {

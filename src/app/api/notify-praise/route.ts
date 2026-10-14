@@ -1,6 +1,6 @@
 // 칭찬 스티커/칭찬 조르기 푸시.
 // 기존 /api/bump 구조를 그대로 따라 새 기능만 독립 API로 붙였습니다.
-// Claude 참고: 방해 금지 시간은 적용하지 않습니다. 사용자가 직접 누르는 즉시성 액션이라 퀵메시지와 같은 UX입니다.
+// Claude 참고: 밤(22-07)에도 미루지 않습니다(즉시성 액션). 다만 소리·진동 없이 조용히 갑니다(apns.ts·sw.js).
 
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
