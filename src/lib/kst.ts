@@ -17,11 +17,11 @@ export function kstParts(d: Date): { year: number; month: number; day: number; h
   return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour') % 24, minute: get('minute') };
 }
 
-// 밤 조용한 시간 KST 22:00~06:59 — 편지 미루기(notify-letter)와 같은 창.
-// 이 시간의 푸시는 소리·진동 없이 알림 목록에만 쌓인다(apns.ts). 꼼이 잠귀 예민(우댕 2026-10-15).
+// 밤 조용한 시간 KST 23:00~06:59 — 이 시간에 꼼이에게 가는 푸시는 소리·진동 없이 알림 목록에만(apns.ts).
+// 꼼이 잠귀 예민 · 꼼이만 · 11시부터(우댕 2026-10-15). 편지 미루기(notify-letter 22~07)와는 별개.
 export function isQuietHoursKst(d: Date = new Date()): boolean {
   const h = kstParts(d).hour;
-  return h >= 22 || h < 7;
+  return h >= 23 || h < 7;
 }
 
 // 'YYYY-M-D' — 같은 날인지 비교용 키 (KST 자정 기준)

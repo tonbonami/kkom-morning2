@@ -1,5 +1,5 @@
 // 칭찬 답글 푸시 (Phase 3). 답글 단 사람의 partner에게 즉시 알림.
-// 밤(22-07)에도 미루지 않음 — 다른 즉시성 알림(bump/praise)과 동일. 소리·진동만 빠진다(apns.ts·sw.js).
+// 밤에도 미루지 않음 — 다른 즉시성 알림(bump/praise)과 동일. 꼼이에게는 23~07시 소리·진동만 빠진다(apns.ts quietFor).
 
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';

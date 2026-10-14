@@ -1,6 +1,6 @@
 // 칭찬 스티커/칭찬 조르기 푸시.
 // 기존 /api/bump 구조를 그대로 따라 새 기능만 독립 API로 붙였습니다.
-// Claude 참고: 밤(22-07)에도 미루지 않습니다(즉시성 액션). 다만 소리·진동 없이 조용히 갑니다(apns.ts·sw.js).
+// Claude 참고: 밤에도 미루지 않습니다(즉시성 액션). 꼼이에게는 23~07시 소리·진동 없이 갑니다(apns.ts quietFor).
 
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';

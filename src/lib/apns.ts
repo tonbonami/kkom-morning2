@@ -20,6 +20,9 @@ const BUNDLE = process.env.APNS_BUNDLE_ID || 'com.tonbonami.kkommorning';
 // 워치 앱은 독립 번들 = 독립 APNs 토픽. 폰과 별개 토큰(watchTokens/*)로 직접 쏜다.
 const WATCH_TOPIC = `${BUNDLE}.watchkitapp`;
 
+// 밤 조용히 받기 — 꼼이만(잠귀 예민). 우댕은 밤에도 소리 그대로.
+const quietFor = (userKey: string) => userKey === 'kkomi' && isQuietHoursKst();
+
 // 이름(우댕/꼼이) → 토큰 저장 키(udaeng/kkomi)
 export function keyForName(name: string): 'udaeng' | 'kkomi' {
   return name === '우댕' ? 'udaeng' : 'kkomi';
@@ -86,9 +89,9 @@ export async function sendApns(userKey: string, title: string, body: string, opt
   }
   if (!token) { console.warn(`[apns] ${userKey} — 저장된 토큰 없음`); return false; }
 
-  // 밤(KST 22~07)엔 카톡 조용히 받기처럼 — 소리·진동 없이(sound 키 생략), 화면도 안 켜고(passive) 알림 목록에만.
+  // 꼼이는 밤(KST 23~07)엔 카톡 조용히 받기처럼 — 소리·진동 없이(sound 키 생략), 화면도 안 켜고(passive) 알림 목록에만.
   const aps: Record<string, unknown> = { alert: { title, body } };
-  if (isQuietHoursKst()) aps['interruption-level'] = 'passive';
+  if (quietFor(userKey)) aps['interruption-level'] = 'passive';
   else aps.sound = opts?.sound || 'default';
   if (opts?.category) aps.category = opts.category;
   if (opts?.threadId) aps['thread-id'] = opts.threadId;
@@ -130,8 +133,8 @@ export async function sendApnsWatch(userKey: string, title: string, body: string
   }
   if (!token) return false; // 워치 미등록(폰만 있을 수 있음) → 조용히 skip
 
-  // 밤엔 워치도 조용히 — 손목 탭(햅틱)도 잠을 깨운다.
-  const quiet = isQuietHoursKst();
+  // 꼼이 워치도 밤엔 조용히 — 손목 탭(햅틱)도 잠을 깨운다.
+  const quiet = quietFor(userKey);
   const payload = JSON.stringify({ aps: quiet
     ? { alert: { title, body }, 'interruption-level': 'passive' }
     : { alert: { title, body }, sound: 'default' } });

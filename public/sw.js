@@ -11,16 +11,12 @@ self.addEventListener('fetch', () => {});
 self.addEventListener('push', (event) => {
   let data = { title: 'Kkom-Morning', body: '' };
   try { data = event.data ? event.data.json() : data; } catch (_) {}
-  // 밤(KST 22~07)엔 소리·진동 없이 — 네이티브 apns.ts의 isQuietHoursKst와 같은 창.
-  const kstHour = (new Date().getUTCHours() + 9) % 24;
-  const quiet = kstHour >= 22 || kstHour < 7;
   event.waitUntil(
     self.registration.showNotification(data.title || 'Kkom-Morning', {
       body: data.body || '',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       data: data.url || '/',
-      silent: quiet,
     })
   );
 });
