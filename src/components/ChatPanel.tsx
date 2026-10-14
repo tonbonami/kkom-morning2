@@ -156,6 +156,9 @@ const ANIM_RAW: { word: string; image: string; still: string }[] = [
   { word: '빼꼼',       image: '/emo/sai-anim/peek.webp',    still: '/emo/sai-anim/peek-still.png' },  // ⚠️ 장면 스티커(배경 그려진 둥근 카드, 투명 컷아웃 아님)
   { word: '일어나기 싫어', image: '/emo/sai-anim/bed.webp',   still: '/emo/sai-anim/bed-still.png' },   // 장면 카드 — 이불 속
   { word: '비온다',     image: '/emo/sai-anim/rain.webp',    still: '/emo/sai-anim/rain-still.png' },  // 장면 카드 — 창밖 비
+  // 꼼모닝이 Kling으로 만든 것(사이담 제작 아님) — 원본·키프레임은 art/kling/puff, art/kling/sleepy
+  { word: '힘내!',      image: '/emo/sai-anim/himnae.webp',  still: '/emo/sai-anim/himnae-still.png' }, // 털 펑
+  { word: '졸려',       image: '/emo/sai-anim/doze.webp',    still: '/emo/sai-anim/doze-still.png' },   // 콧방울 펑(반복 고리)
 ];
 // ⚠️ sai-anim webp/still을 사이담이 같은 이름으로 재인코딩(알파 복구·재작업)할 때마다 EMO_V를 +1 → 기기 캐시 무효화(전역).
 //   2026-09-11 알파 복구(라이트에서 눈 회색) 14종 반영으로 3. (사이담 EMO_V와 별개, 값만 맞춰 올리면 됨)
@@ -200,7 +203,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /굿모닝|좋은\s?아침|모닝(?!콜)|잘\s?잤|일어났|기상(?!청|캐스)/, get: () => [sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
   { re: /안녕|하이|방가|ㅎㅇ|하잉|헬로|하이염/,                  get: () => [sugAnim('안녕!')] },
   { re: /잘\s?자|굿\s?밤|굿나잇|자자|자야|잘게|취침|나이트|굿밤/, get: () => [sugAnim('잘자'), sugSai('굿밤')] },
-  { re: /졸려|졸립|하품|잠\s?와|잠온|눈\s?감|나른/,             get: () => [sugSai('졸려'), sugMini('졸려')] },
+  { re: /졸려|졸립|하품|잠\s?와|잠온|눈\s?감|나른/,             get: () => [sugAnim('졸려'), sugSai('졸려'), sugMini('졸려')] },
   { re: /일어나기\s?싫|이불|늦잠|더\s?잘래|눕고|자고\s?싶/,      get: () => [sugAnim('일어나기 싫어')] },
 
   // ── 사랑·보고싶·설렘·스킨십 ──
@@ -232,7 +235,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /선물|기프트|present|기프티콘/,                         get: () => [sugAnim('선물')] },
   { re: /칭찬|잘했|대견|기특|잘한다|기특해/,                    get: () => [sugMini('잘했어'), sugMini('칭찬해줘')] },
   { re: /짝짝|박수|굿잡|짝짝짝/,                               get: () => [sugMini('짝짝짝')] },
-  { re: /힘내|화이팅|파이팅|아자|응원|힘들|지치/,               get: () => [sugMini('힘내'), sugCouple('헹가래')] },
+  { re: /힘내|화이팅|파이팅|아자|응원|힘들|지치/,               get: () => [sugAnim('힘내!'), sugMini('힘내'), sugCouple('헹가래')] },
   { re: /헹가래|헹\s?가래/,                                    get: () => [sugCouple('헹가래')] },
   { re: /꽃다발|꽃\s?줄|플라워|장미|꽃선물/,                    get: () => [sugMini('꽃다발'), sugCouple('장미')] },
   { re: /최고|짱(?![가-힣])|짱이|굿(?![가-힣])|좋았|대박|멋져|쩐다|리스펙|👍/, get: () => [sugAnim('좋아!'), sugMini('최고야')] },
