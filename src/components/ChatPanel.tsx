@@ -227,7 +227,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /보고\s?싶|보고파|그리워|보곺|생각나|보고시퍼/,          get: () => [sugAnim('보고싶어'), sugMini('보고파'), sugCouple('보고파'), sugKkul('보고싶어')] },
   { re: /두근|설레|떨려|콩닥|심쿵/,                            get: () => [sugAnim('두근두근')] },
   { re: /뽀뽀|쪽쪽|쪽!|😘|💋|키스|입맞/,                       get: () => [sugAnim('뽀뽀'), sugCouple('뽀뽀')] },
-  { re: /안아(?!파|프)|포옹|꼬옥|폭\s?안|안겨|허그|안아줘|꼭\s?안/, get: () => [sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥'), sugKkul('꼬옥')] },
+  { re: /안아(?!파|프)|포옹|꼬옥|폭\s?안|안겨|허그|안아줘|꼭\s?안/, get: () => [sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥'), sugKkul('꼬옥'), sugKkulAnim('안아줘 꼬리하트')] },
   { re: /토닥|다독|위로|괜찮아|다\s?잘\s?될/,                   get: () => [sugCouple('토닥토닥'), sugMini('평온'), sugKkul('괜찮아?')] },
 
   // ── 긍정 감정 ──
@@ -325,7 +325,7 @@ const INTENTS: Intent[] = [
   { id: 'congrats', aliases: ['축하해', '축하', '축하한다', '추카', '추카해', '생일축하', '생축', '생일', '기념일', 'ㅊㅋ', '🎉', '🎊'], get: () => [sugAnim('축하해!'), sugAnim('선물'), sugCouple('헹가래')] },
   { id: 'gift',     aliases: ['선물', '선물이야', '선물줄게', '기프트', '기프티콘', '서프라이즈', '택배', '🎁'], get: () => [sugAnim('선물'), sugKkulAnim('꽃 줄게')] },
   { id: 'shy',      aliases: ['부끄러워', '부끄', '수줍어', '쑥스러워', '민망해', '창피해', '헤헤', 'ㅂㄲ'], get: () => [sugAnim('부끄')] },
-  { id: 'hug',      pop: 3, aliases: ['안아줘', '안아줄게', '안고싶어', '꼬옥', '꼭안아', '포옹', '허그', '폭안겨', '안겨', 'ㅇㅇㅈ'], get: () => [sugKkul('꼬옥'), sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥')] },
+  { id: 'hug',      pop: 3, aliases: ['안아줘', '안아줄게', '안고싶어', '꼬옥', '꼭안아', '포옹', '허그', '폭안겨', '안겨', 'ㅇㅇㅈ'], get: () => [sugKkulAnim('안아줘 꼬리하트'), sugKkul('꼬옥'), sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥')] },
   { id: 'peek',     aliases: ['빼꼼', '까꿍', '슬쩍', '몰래봐', '살짝봐', '기웃기웃', 'ㅃㄲ'], get: () => [sugAnim('빼꼼')] },
   { id: 'bed',      aliases: ['일어나기싫어', '못일어나', '이불밖은위험해', '더잘래', '늦잠', '이불', '눕고싶어', '월요일싫어'], get: () => [sugAnim('일어나기 싫어')] },
   { id: 'rain',     aliases: ['비온다', '비와', '비오네', '비올듯', '장마', '우중충', '빗소리', '비내려', '우산', '☔'], get: () => [sugAnim('비온다')] },
@@ -469,6 +469,7 @@ const KKUL_ANIM: { word: string; image: string }[] = [
   { word: '으악 펄쩍', image: '/emo/sai-anim/kkul-euak.webp' },
   { word: 'ㅋㅋㅋ 발라당', image: '/emo/sai-anim/kkul-kkk.webp' },   // art/kkuldaeng/kkk
   { word: '꽃 줄게', image: '/emo/sai-anim/kkul-flower.webp' },   // art/kkuldaeng/flower
+  { word: '안아줘 꼬리하트', image: '/emo/sai-anim/kkul-hug.webp' },   // art/kkuldaeng/hug
 ];
 
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
