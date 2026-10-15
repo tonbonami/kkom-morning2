@@ -31,8 +31,11 @@ def badge(text,size):
     from PIL import ImageFilter, ImageChops
     S=4  # 크게 그려 줄여서 매끈하게
     def masks(sz):
+        # 띄어쓰기는 잉크가 없어 getbbox()가 None → 글자 폭 0.32만큼 빈 칸(투명 1줄)으로 둔다(「꽃 줄게」).
         ms=[]
         for ch in text:
+            if ch.isspace():
+                g=Image.new('L',(max(1,int(sz*S*0.32)),1),0); g.putpixel((0,0),1); ms.append(g); continue
             g=syun(sz*S) if ch=='슌' else glyph_mask(ch,sz*S)
             ms.append(g)
         return ms
