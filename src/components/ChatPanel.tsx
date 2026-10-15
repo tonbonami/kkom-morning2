@@ -16,6 +16,7 @@ import {
 } from '@/lib/chat';
 import { MOOD_OPTIONS } from '@/lib/moods';
 import { normForMatch, toJamo, prepareAlias, matchTier, isConsonantsOnly } from '@/lib/hangulMatch';
+import StickerSuggestTray, { type SuggestItem } from './StickerSuggestTray';
 import ChatEffectLayer, { type ChatEffect } from '@/components/ChatEffectLayer';
 
 // 메시지 효과 키워드 → 이모지
@@ -911,7 +912,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     prevSugOrder.current = out.map((x) => x.image);
     return out;
   }, [draft, me, freqPicks]);
-  const sugKey = suggestions.map((s) => s.key).join(',');   // 키워드 바뀌면 크로스페이드 트리거
+  // ✕ 닫기 — 지금 치는 단어 동안만 숨긴다(GPT 권장). 공백 뒤 새 단어가 시작되거나, 다 지우거나, 보내면 다시 뜬다.
+  //   기억하는 건 '닫을 때 마지막 단어가 시작된 위치까지의 앞부분' — 그 앞부분이 그대로이고 같은 단어를 치는 중이면 숨김.
+  const [sugClosed, setSugClosed] = useState<{ prefix: string } | null>(null);
+  const tokenStart = (t: string) => { const m = t.match(/\S+$/); return m ? t.length - m[0].length : t.length; };
+  const sugHidden = !!sugClosed && draft.length > 0 && !/\s$/.test(draft)
+    && tokenStart(draft) === sugClosed.prefix.length && draft.startsWith(sugClosed.prefix);
+  useEffect(() => { if (!draft) setSugClosed(null); }, [draft]);
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -920,6 +927,11 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [actionMsg, setActionMsg] = useState<ChatMessage | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);  // 내 메시지 수정 중
+  // 추천 트레이(제미나이 C안, 수정 0)에 넘길 형태 — editing 선언 뒤여야 한다(TDZ). id=그림 경로(고유), 썸네일은 서랍과 같은 정지컷.
+  const trayItems = useMemo<SuggestItem[]>(
+    () => (sugHidden || stickerOpen || editing ? [] : suggestions.map((it) => ({ id: it.image, thumb: drawerThumb(it.thumb), label: `${it.key} 추천 이모티콘` }))),
+    [suggestions, sugHidden, stickerOpen, editing],
+  );
   const [flashId, setFlashId] = useState<string | null>(null);  // 인용 탭 → 원본 잠깐 강조
 
   // 인용 말풍선 탭 → 원본 메시지로 스크롤 + 잠깐 강조. (원본이 로드 범위 밖이면 조용히 무시.)
@@ -1906,42 +1918,20 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             </div>
           )}
 
-          {/* 카톡식 이모티콘 추천 — 제미나이 폴리시: 입력바와 이어지는 일체형 글래스 트레이 + ✨ 고정 + 그룹 모션. 탭=전송 */}
-          <AnimatePresence>
-            {suggestions.length > 0 && !stickerOpen && !editing && (
-              <motion.div
-                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
-                transition={{ duration: reduceMotion ? 0.12 : 0.25, ease: 'easeOut' }}
-                className="flex items-center gap-1 px-4 border-t backdrop-blur-xl"
-                style={{ height: 60, background: 'var(--ct-header)', borderColor: 'var(--ct-sheet-border)' }}>
-                <span className="shrink-0 grid w-8 place-items-center" style={{ color: '#FB7BA8' }}><Sparkles size={17} /></span>
-                <div className="flex-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  <AnimatePresence mode="wait">
-                    <motion.div key={sugKey} className="flex items-center gap-2"
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      transition={{ duration: reduceMotion ? 0 : 0.12 }}>
-                      {suggestions.map((it) => (
-                        // 추천은 모드 상관없이 항상 '단독 전송'(미니도 여기선 인라인 삽입 아니라 바로 보냄) — 일관성
-                        <button key={it.image} onClick={() => { recordPick(it); onSend('', undefined, it.image, replyTo ?? undefined); setReplyTo(null); }} aria-label={`${it.key} 추천 이모티콘`}
-                          className="shrink-0 grid h-12 w-12 place-items-center rounded-xl transition duration-100 active:scale-95 active:opacity-80"
-                          style={{ background: 'var(--ct-cell)', boxShadow: 'var(--ct-cell-shadow)' }}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={drawerThumb(it.thumb)} alt="" className="h-[86%] w-[86%] object-contain" />
-                        </button>
-                      ))}
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {/* 입력 */}
-          <div className="px-3 pt-2 backdrop-blur-xl border-t border-black/[0.04]"
+          <div className="relative px-3 pt-2 backdrop-blur-xl border-t border-black/[0.04]"
             // 키보드가 떠 있으면 키보드 높이 + 8px만(아래 안전영역 틈은 키보드가 덮으니 뺀다 — 카톡처럼 붙게)
             style={{ paddingBottom: kbInset ? `${kbInset + 8}px` : 'max(env(safe-area-inset-bottom), 1.25rem)', background: 'var(--ct-header)' }}>
+            {/* 카톡식 이모티콘 추천 트레이 — 제미나이 C안 그대로(StickerSuggestTray). 입력바 바로 위에 떠 있다(absolute bottom-full). 탭=전송 */}
+            <StickerSuggestTray
+              items={trayItems}
+              reduceMotion={!!reduceMotion}
+              onPick={(t) => {
+                const it = suggestions.find((x) => x.image === t.id); if (!it) return;
+                recordPick(it); onSend('', undefined, it.image, replyTo ?? undefined); setReplyTo(null);
+              }}
+              onClose={() => setSugClosed({ prefix: draft.slice(0, tokenStart(draft)) })}
+            />
             {/* 업로드 진행 — 동영상은 실제 % 바, 사진은 짧아서 간단한 진행 표시 */}
             <AnimatePresence>
               {uploading && (
