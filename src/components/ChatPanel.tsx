@@ -333,7 +333,7 @@ const INTENTS: Intent[] = [
   { id: 'sleepy',   aliases: ['졸려', '졸립다', '졸림', '잠와', '잠온다', '하품', '나른해', '눈감겨', '꾸벅꾸벅', '피곤해', '피곤', 'ㅈㄹ'], get: () => [sugAnim('졸려'), sugSai('졸려'), sugMini('졸려')] },
   { id: 'kiss',     pop: 2, aliases: ['뽀뽀', '뽀뽀해줘', '쪽', '쪽쪽', '키스', '입맞춤', '음마', 'ㅃㅃ', '😘', '💋'], get: () => [sugAnim('뽀뽀'), sugCouple('뽀뽀')] },
   { id: 'cute',     pop: 4, aliases: ['귀여워', '귀엽다', '귀엽', '앙귀여워', '귀엽꼬미', '기여워', '커여워', '커엽다', '졸귀', '귀요미', '깨물고싶어', 'ㄱㅇㅇ'], get: () => [sugKkul('앙귀여워'), sugDang('귀엽꼬미'), sugDang('앙 귀여워')] },
-  { id: 'lol',      pop: 6, aliases: ['ㅋㅋ', 'ㅋㅋㅋ', 'ㅎㅎ', '웃겨', '개웃겨', '빵터짐', '빵터져', '웃김', '풉', '낄낄', '웃기다', 'ㅋ큐', 'lol'], get: () => [sugKkul('ㅋㅋㅋ'), sugSai('ㅋㅋㅋ')] },
+  { id: 'lol',      pop: 6, aliases: ['ㅋㅋ', 'ㅋㅋㅋ', 'ㅎㅎ', '웃겨', '개웃겨', '빵터짐', '빵터져', '웃김', '풉', '낄낄', '웃기다', 'ㅋ큐', 'lol'], get: () => [sugKkulAnim('ㅋㅋㅋ 발라당'), sugKkul('ㅋㅋㅋ'), sugSai('ㅋㅋㅋ')] },
   { id: 'hungry',   pop: 5, aliases: ['배고파', '배고픔', '배곺', '꼬르륵', '출출해', '출출', '허기져', '허기', '밥줘', '뭐먹지', '먹고싶어', '야식', '간식', '굶었어', 'ㅂㄱㅍ'], get: () => [sugKkul('배고파'), sugSai('배고파'), sugSai('맛점')] },
   { id: 'going',    pop: 4, aliases: ['가는중', '가고있어', '출발', '출발했어', '출발한다', '이동중', '오는중', '퇴근', '퇴근중', '퇴근길', '집가는중', '집에가', '곧가', '금방가', '버스탔어', '지하철', '버스', '지금가', 'ㄱㄴㅈ'], get: () => [sugKkul('가는중'), sugSai('가는중'), sugKkom('달려가는 중'), sugSai('출근중')] },
   { id: 'commute',  aliases: ['출근', '출근중', '출근길', '회사가는중', '일하러가', '회사간다', '지각', '업무시작', 'ㅊㄱ'], get: () => [sugSai('출근중'), sugSai('가는중'), sugKkul('가는중'), sugSai('바빠')] },
@@ -467,6 +467,7 @@ const KKUL_STICKERS: { word: string; image: string }[] = [
 //   만든 법·원본은 art/kkuldaeng/{euak,…} (Codex 키프레임 → Kling → 편집 → make_anim.py).
 const KKUL_ANIM: { word: string; image: string }[] = [
   { word: '으악 펄쩍', image: '/emo/sai-anim/kkul-euak.webp' },
+  { word: 'ㅋㅋㅋ 발라당', image: '/emo/sai-anim/kkul-kkk.webp' },   // art/kkuldaeng/kkk
 ];
 
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
