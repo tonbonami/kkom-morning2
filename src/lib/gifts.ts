@@ -42,6 +42,7 @@ export const GIFT_ITEMS: GiftItem[] = [
   { id: 'umbrella',    label: '우산',       for: 'all',  msg: '비 안 맞게',              cat: 'drawer' },
   { id: 'giftbox',     label: '선물',       for: 'all',  msg: '깜짝 선물이야',            cat: 'drawer' },
   { id: 'puppy',       label: '강아지',     for: '우댕', msg: '귀여운 거 보고 기분 풀어', cat: 'drawer' },
+  { id: 'kkuldoll',    label: '꿀됑 인형',  for: '꼼이', msg: '나 대신 꼭 안고 자 🐷',    cat: 'drawer' },   // 우댕 캐릭터 꿀댕이 봉제인형(강아지 인형의 짝)
   { id: 'book',        label: '책',         for: 'all',  msg: '쉬면서 읽어',             cat: 'drawer' },
   { id: 'vitamin',     label: '비타민',     for: 'all',  msg: '아프지 말고',             cat: 'drawer' },
   { id: 'plant',       label: '화분',       for: 'all',  msg: '무럭무럭 자라자',          cat: 'drawer' },
