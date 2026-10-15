@@ -196,7 +196,11 @@ const sugKkom = (w: string): Suggestion | undefined => {
 };
 const sugKkul = (w: string): Suggestion | undefined => {  // 꿀댕이(꿀벌 조끼 아기돼지) 16종
   const s = KKUL_STICKERS.find((x) => x.word === w);
-  return s ? { key: s.word, image: s.image, thumb: drawerThumb(s.image), mode: 'kkul' } : undefined;
+  return s ? { key: s.word, image: s.image, thumb: s.image, mode: 'kkul' } : undefined;
+};
+const sugKkulAnim = (w: string): Suggestion | undefined => {  // 꿀됑 움짤
+  const s = KKUL_ANIM.find((x) => x.word === w);
+  return s ? { key: s.word, image: s.image, thumb: drawerThumb(s.image), mode: 'kkulgif' } : undefined;
 };
 
 // ── 키워드(동의어) → 관련 스티커 규칙 ──
@@ -253,7 +257,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   // ── 놀람·리액션·웃음 ──
   { re: /헐|헉|대박|깜짝|놀랐|놀람|뭐야|실화|미쳤|헐랭|헉스/,    get: () => [sugSai('헐'), sugAnim('으악'), sugKkul('진짜아?'), sugKkul('으악')] },
   { re: /진짜\?|진짜아|레알\?|정말\?|ㄹㅇ\?/,                     get: () => [sugKkul('진짜아?')] },
-  { re: /으악|으아|꺄|악!|끼야/,                               get: () => [sugAnim('으악'), sugSai('헐'), sugKkul('으악 펄쩍'), sugKkul('으악')] },
+  { re: /으악|으아|꺄|악!|끼야/,                               get: () => [sugAnim('으악'), sugSai('헐'), sugKkulAnim('으악 펄쩍'), sugKkul('으악')] },
   { re: /ㅋㅋ|ㅎㅎ|웃겨|웃김|빵\s?터|풉|낄낄|개웃|ㅋ큐/,         get: () => [sugSai('ㅋㅋㅋ'), sugKkul('ㅋㅋㅋ')] },
   { re: /뭐해|모해|뭐하|머해|뭐함|뭐하니|모하/,                 get: () => [sugSai('뭐해?')] },
   { re: /ㄴㄴ|아니야|아니(?![가-힣])|노노|싫어|절대\s?안|안돼|노우/, get: () => [sugSai('ㄴㄴ')] },
@@ -337,7 +341,10 @@ const KKUL_STICKERS: { word: string; image: string }[] = [
   { word: '응응',     image: '/emo/kkuldaeng/14-eungeung.webp' },
   { word: '괜찮아?',  image: '/emo/kkuldaeng/15-gwaenchanha.webp' },
   { word: '좋은아침', image: '/emo/kkuldaeng/16-joeunachim.webp' },
-  // 움짤 — sai-anim 경로에 둬서 서랍은 정지컷(-still.png), 채팅은 흔들기 없이 재생(기존 움짤 규칙 그대로)
+];
+// 꿀됑 움짤 탭(우댕 지시: 따로) — sai-anim 경로에 둬서 서랍은 정지컷(-still.png), 채팅은 흔들기 없이 재생(기존 움짤 규칙 그대로).
+//   만든 법·원본은 art/kkuldaeng/{euak,…} (Codex 키프레임 → Kling → 편집 → make_anim.py).
+const KKUL_ANIM: { word: string; image: string }[] = [
   { word: '으악 펄쩍', image: '/emo/sai-anim/kkul-euak.webp' },
 ];
 
@@ -401,7 +408,7 @@ const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
 // 이모티콘 서랍 탭 — 사이챗과 동일 구조(썸네일 + 이름). id/데이터는 꼼모닝 것.
 // 카톡식 탭 — 최근·자주(🕒) + 세트별 탭. 아이콘은 '실제 스티커 대표 그림'(썸네일)이라
 //   어떤 세트인지 한눈에 보인다(윈도우 이모지 X). 포차코는 한 탭에 몰지 않고 기본/우댕/꼼이/커플로 분리.
-type StickerMode = 'recent' | 'gif' | 'kkul' | 'maltipoo' | 'basic' | 'dang' | 'kkom' | 'couple' | 'mini';
+type StickerMode = 'recent' | 'gif' | 'kkul' | 'kkulgif' | 'maltipoo' | 'basic' | 'dang' | 'kkom' | 'couple' | 'mini';
 const STICKER_TABS: { id: StickerMode; name: string; thumb?: string; icon?: string }[] = [
   { id: 'recent',   name: '최근·자주', icon: '🕒' },
   { id: 'gif',      name: '움짤',      thumb: '/emo/sai-anim/love-still.png' },
@@ -412,6 +419,7 @@ const STICKER_TABS: { id: StickerMode; name: string; thumb?: string; icon?: stri
   { id: 'couple',   name: '커플',      thumb: '/pochacco_couple/love.png' },
   { id: 'mini',     name: '미니',      thumb: '/emo/saidami/love.webp' },
   { id: 'kkul',     name: '꿀됑',      thumb: '/emo/kkuldaeng/01-ggomsyun.webp' },   // 우댕 지시: 탭 맨 끝
+  { id: 'kkulgif',  name: '꿀됑 움짤', thumb: '/emo/sai-anim/kkul-euak-still.png' },  // 우댕 지시: 움짤은 탭 따로
 ];
 
 // 최근·자주 쓴 이모티콘(기기별 localStorage). pick 할 때마다 기록.
@@ -1192,7 +1200,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const stickerSections = (mode: StickerMode): { label?: string; items: SItem[] }[] => {
     switch (mode) {
       case 'gif': return [{ items: ANIM_STICKERS.map((s) => ({ key: s.word, image: s.image, thumb: s.still })) }];
-      case 'kkul': return [{ items: KKUL_STICKERS.map((s) => ({ key: s.word, image: s.image, thumb: drawerThumb(s.image) })) }];
+      case 'kkul': return [{ items: KKUL_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
+      case 'kkulgif': return [{ items: KKUL_ANIM.map((s) => ({ key: s.word, image: s.image, thumb: drawerThumb(s.image) })) }];
       case 'maltipoo': return [{ items: SAI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'mini': return [{ items: SAIDAMI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'basic': return [{ items: MOOD_OPTIONS.map((o) => ({ key: o.id, image: o.image })) }];
