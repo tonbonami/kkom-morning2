@@ -54,6 +54,9 @@ function getStoredUserName(raw: string): PraiseUser {
   return '꼼이';
 }
 
+// 주어 꼴 — '우댕가'가 아니라 '우댕이가'(앱 다른 곳 LivingKkom subjName과 같게). 꼼이는 그대로 '꼼이가'.
+const subjName = (n: string) => (n === '우댕' ? '우댕이' : n);
+
 function formatDate(date: Date): string {
   // KST 고정 — 디바이스 타임존 무관
   return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', timeZone: 'Asia/Seoul' });
@@ -154,9 +157,9 @@ function PraiseRow({
       <article className={cn('relative rounded-[18px] bg-[#FFF8D9] px-4 py-3 ring-1 ring-amber-100 shadow-md', tilt)}>
         <div className="tape -top-2 left-1/2 -translate-x-1/2 w-14 -rotate-3 rounded-sm" />
         <p className="text-[13px] font-black text-amber-600">
-          {formatDate(item.createdAt)} · 🥺 {item.from}가 칭찬을 졸랐어
+          {formatDate(item.createdAt)} · 🥺 {subjName(item.from)}가 칭찬을 졸랐어
         </p>
-        <p className="font-handwriting mt-1 text-[17px] leading-snug text-slate-800">
+        <p className="font-handwriting mt-1 text-[17px] leading-snug text-slate-800 break-words [overflow-wrap:anywhere]">
           {item.reason}
         </p>
         <button
@@ -179,7 +182,7 @@ function PraiseRow({
     return (
       <article className={cn('relative max-w-[80%] rounded-[16px] px-4 py-3 ring-1 shadow-[3px_5px_0px_rgba(0,0,0,0.06)]', bg, ring, tilt, index % 2 === 0 ? 'self-start mr-auto ml-2' : 'self-end ml-auto mr-2')}>
         <div className={cn('tape -top-2 left-1/2 -translate-x-1/2 w-12 rotate-3 rounded-sm', tapeColor)} />
-        <p className="font-handwriting text-[18px] leading-snug text-slate-800 whitespace-pre-wrap">
+        <p className="font-handwriting text-[18px] leading-snug text-slate-800 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
           {item.reason}
         </p>
         <p className="mt-2 text-[12px] font-black text-slate-400">
@@ -209,11 +212,11 @@ function PraiseRow({
     >
       <div className={cn('tape -top-2 w-14', tapeStyle, tapePos)} />
       <StickerWrap src={item.stickerImage} emoji={item.stickerEmoji} count={item.stickerCount} />
-      <p className="font-handwriting mt-3 text-[20px] leading-snug text-slate-800">
+      <p className="font-handwriting mt-3 text-[20px] leading-snug text-slate-800 break-words [overflow-wrap:anywhere]">
         {item.reason}
       </p>
       <p className="mt-2 text-[13px] font-bold text-slate-400">
-        {formatDate(item.createdAt)} · {isMine ? `${vocativeOf(item.to)} 보낸 칭찬` : `${item.from}가 보낸 칭찬`}
+        {formatDate(item.createdAt)} · {isMine ? `${item.to}에게 보낸 칭찬` : `${subjName(item.from)}가 보낸 칭찬`}
       </p>
 
       {/* Phase 3 인라인 답글 미리보기 (영감 자료 핵심) */}
@@ -559,7 +562,7 @@ export default function PraisePage() {
             aria-label="통계 보기"
           >
             <Crown size={14} />
-            <span className="text-[13px] font-black">{receivedTotal}</span>
+            <span className="text-[13px] font-black">{receivedTotal}장</span>
           </a>
         </header>
 
@@ -675,7 +678,7 @@ export default function PraisePage() {
         {/* KPI 푸터 (강등) — 헤더 마이크로 KPI에서 스크롤 anchor */}
         <section id="stats" className="scroll-mt-4 rounded-[26px] bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-5 shadow-[0_14px_36px_rgba(16,185,129,0.18)] relative overflow-hidden">
           <div className="absolute -right-7 -top-7 h-28 w-28 rounded-full bg-white/12" />
-          <p className="text-[13px] font-bold text-emerald-50">{me}가 받은 칭찬</p>
+          <p className="text-[13px] font-bold text-emerald-50">{subjName(me)}가 받은 칭찬</p>
           <div className="mt-1 flex items-end gap-2">
             <span className="text-3xl font-black leading-none">{receivedTotal}</span>
             <span className="pb-0.5 text-[14px] font-bold text-emerald-50">스티커</span>
