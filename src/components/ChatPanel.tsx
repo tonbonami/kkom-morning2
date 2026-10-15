@@ -15,6 +15,7 @@ import {
   toggleReaction, deleteMessage, editMessage, toggleStar, fetchRecentMessages,
 } from '@/lib/chat';
 import { MOOD_OPTIONS } from '@/lib/moods';
+import { normForMatch, toJamo, prepareAlias, matchTier, isConsonantsOnly } from '@/lib/hangulMatch';
 import ChatEffectLayer, { type ChatEffect } from '@/components/ChatEffectLayer';
 
 // 메시지 효과 키워드 → 이모지
@@ -295,15 +296,134 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
 function normalizeInput(t: string): string {
   return t.replace(/\s+/g, ' ').replace(/(.)\1{2,}/gu, '$1$1');
 }
-function computeSuggestions(draft: string): Suggestion[] {
-  const t = normalizeInput(draft.trim());
-  if (t.length === 0 || t.length > 60) return [];   // 빈 입력/너무 긴 문장은 추천 안 함
-  const out: Suggestion[] = []; const seen = new Set<string>();
-  for (const rule of SUGGEST_RULES) {
-    if (!rule.re.test(t)) continue;
-    for (const it of rule.get()) if (it && !seen.has(it.image)) { seen.add(it.image); out.push(it); }
+// ── 카톡식 추천 2단계: '뜻 묶음'(intent) 표 — 지금 치고 있는 단어로 찾는다(2026-10-15, 우댕 요청 + GPT 상의).
+//   우댕: "카톡은 ㄱ만 눌러도 가는중이 떠. ㅂ만 눌러도 배고파. 가는중이 출근중일 수도, 배고파가 꼬르륵일 수도 있잖아."
+//   · aliases = 커플이 실제로 칠 법한 말(구어·줄임·오타·초성). 이름 자체도 넣는다.
+//   · 마지막 단어의 '자모 앞부분'으로 맞추므로 조합 중(「살」「백」)에도 뜬다 — src/lib/hangulMatch.ts.
+//   · 자음 한 글자(ㄱ·ㅂ…)는 너무 모호해서 KEY_SHORTCUTS 표에 적은 것만, 최대 6개.
+//   · 아래 SUGGEST_RULES(문장 전체 정규식)는 '문맥 보조'로 낮은 점수만 준다(오래된 단어가 지금 치는 말을 밀어내지 않게).
+// pop = 둘이 실제로 많이 쓰는 말 가산점(우댕이 보낸 메시지 2,049개 집계: 부르기 394·ㅋㅋ 185·사랑 155·보고싶 97·배고파 93…).
+type Intent = { id: string; aliases: string[]; pop?: number; get: () => (Suggestion | undefined)[] };
+const INTENTS: Intent[] = [
+  { id: 'call',     pop: 6, aliases: ['꼼슌아', '꼼슌', '꼼슌이', '꼼슌띠', '꼼이', '꼼아', '자기야', '애기야', '여보', '내강아지', '강아지야', '겸둥아', '겸둥이', 'ㄲㅅ'], get: () => [sugKkul('꼼슌아')] },
+  { id: 'hello',    aliases: ['안녕', '안뇽', '안냥', '하이', '하잉', '헬로', '방가', '반가워', 'ㅎㅇ', 'hi', 'hello'], get: () => [sugAnim('안녕!')] },
+  { id: 'morning',  pop: 3, aliases: ['좋은아침', '굿모닝', '모닝', '잘잤어', '잘잤니', '일어났어', '기상', '아침이야', '조은아침', '굿몽', 'ㄱㅁ'], get: () => [sugKkul('좋은아침'), sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
+  { id: 'doki',     aliases: ['두근두근', '두근', '설레', '설렌다', '떨려', '콩닥콩닥', '심쿵', '긴장돼', 'ㄷㄱㄷㄱ'], get: () => [sugAnim('두근두근')] },
+  { id: 'love',     pop: 6, aliases: ['사랑해', '사랑', '사랑해요', '사랑한다', '좋아해', '조아해', '알러뷰', '러브', '러브유', '내사랑', '사룽해', 'ㅅㄹㅎ', 'ㅅㄹ', 'love', '❤', '❤️', '💕', '💗'], get: () => [sugKkul('사랑해'), sugAnim('사랑해'), sugMini('사랑해'), sugCouple('사랑해'), sugMini('하트')] },
+  { id: 'miss',     pop: 5, aliases: ['보고싶어', '보고싶다', '보고파', '그리워', '생각나', '생각나서', '보곺', '보고시퍼', '언제봐', '만나고싶어', 'ㅂㄱㅅㅇ', 'ㅂㄱㅍ'], get: () => [sugKkul('보고싶어'), sugAnim('보고싶어'), sugMini('보고파'), sugCouple('보고파')] },
+  { id: 'thanks',   pop: 3, aliases: ['고마워', '고맙다', '고마웡', '고마워요', '고맙', '감사해', '감사', '땡큐', '감솨', 'ㄱㅅ', 'ㄳ', 'thanks', 'thx'], get: () => [sugKkul('고마워'), sugAnim('고마워'), sugMini('고마워')] },
+  { id: 'sulk',     aliases: ['삐짐', '삐졌어', '삐질거야', '삐졌다', '서운해', '서운', '토라졌어', '시무룩', '흥칫뿡', 'ㅃㅈ'], get: () => [sugAnim('삐짐'), sugMini('삐졌어'), sugAnim('흥!'), sugDang('푸데데'), sugKkom('푸데데')] },
+  { id: 'hmph',     aliases: ['흥', '흥칫', '칫', '몰라', '흥이다', '에잇'], get: () => [sugAnim('흥!'), sugAnim('삐짐')] },
+  { id: 'sorry',    pop: 2, aliases: ['미안해', '미안', '미안해요', '미안하다', '죄송해', '죄송', '쏘리', '사과할게', '미얀', '먄', 'ㅈㅅ', 'sorry'], get: () => [sugAnim('미안해'), sugSai('미안'), sugMini('미안해')] },
+  { id: 'night',    pop: 2, aliases: ['잘자', '잘자요', '자야겠다', '잘게', '굿밤', '굿나잇', '취침', '꿈꿔', '자러갈게', '자자', 'ㅈㅈ'], get: () => [sugAnim('잘자'), sugSai('굿밤')] },
+  { id: 'bath',     aliases: ['씻고올게', '씻으러', '씻으러가', '샤워', '샤워할게', '샤워하고올게', '목욕', '씻는중', '세수', 'ㅆㄱㅇㄱ'], get: () => [sugAnim('씻고 올게')] },
+  { id: 'sick',     pop: 3, aliases: ['아파', '아프다', '아파요', '아픔', '감기', '몸살', '열나', '골골', '몸안좋아', '컨디션', '병원', '두통', '배아파'], get: () => [sugAnim('아파'), sugMini('아파'), sugKkul('괜찮아?')] },
+  { id: 'worried',  pop: 3, aliases: ['괜찮아', '괜찮니', '괜춘', '무슨일이야', '걱정돼', '걱정', '어디아파', '별일없지', 'ㄱㅊ'], get: () => [sugKkul('괜찮아?'), sugCouple('토닥토닥')] },
+  { id: 'yay',      aliases: ['좋아', '좋다', '조아', '오예', '굿', '찬성', '좋았어', '마음에들어', 'ㅈㅇ'], get: () => [sugAnim('좋아!'), sugMini('최고야')] },
+  { id: 'scream',   pop: 3, aliases: ['으악', '으아악', '으아', '악', '꺄', '깜짝이야', '깜짝', '놀랐어', '무서워', '펄쩍', '끼야'], get: () => [sugKkulAnim('으악 펄쩍'), sugKkul('으악'), sugAnim('으악'), sugSai('헐')] },
+  { id: 'congrats', aliases: ['축하해', '축하', '축하한다', '추카', '추카해', '생일축하', '생축', '생일', '기념일', 'ㅊㅋ', '🎉', '🎊'], get: () => [sugAnim('축하해!'), sugAnim('선물'), sugCouple('헹가래')] },
+  { id: 'gift',     aliases: ['선물', '선물이야', '선물줄게', '기프트', '기프티콘', '서프라이즈', '택배', '🎁'], get: () => [sugAnim('선물')] },
+  { id: 'shy',      aliases: ['부끄러워', '부끄', '수줍어', '쑥스러워', '민망해', '창피해', '헤헤', 'ㅂㄲ'], get: () => [sugAnim('부끄')] },
+  { id: 'hug',      pop: 3, aliases: ['안아줘', '안아줄게', '안고싶어', '꼬옥', '꼭안아', '포옹', '허그', '폭안겨', '안겨', 'ㅇㅇㅈ'], get: () => [sugKkul('꼬옥'), sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥')] },
+  { id: 'peek',     aliases: ['빼꼼', '까꿍', '슬쩍', '몰래봐', '살짝봐', '기웃기웃', 'ㅃㄲ'], get: () => [sugAnim('빼꼼')] },
+  { id: 'bed',      aliases: ['일어나기싫어', '못일어나', '이불밖은위험해', '더잘래', '늦잠', '이불', '눕고싶어', '월요일싫어'], get: () => [sugAnim('일어나기 싫어')] },
+  { id: 'rain',     aliases: ['비온다', '비와', '비오네', '비올듯', '장마', '우중충', '빗소리', '비내려', '우산', '☔'], get: () => [sugAnim('비온다')] },
+  { id: 'cheer',    pop: 2, aliases: ['힘내', '힘내자', '화이팅', '파이팅', '아자', '아자아자', '응원', '응원할게', '잘할수있어', '기운내', '힘들어', '지쳤어', '고생했어', '고생해', 'ㅎㄴ'], get: () => [sugAnim('힘내!'), sugMini('힘내'), sugCouple('헹가래')] },
+  { id: 'sleepy',   aliases: ['졸려', '졸립다', '졸림', '잠와', '잠온다', '하품', '나른해', '눈감겨', '꾸벅꾸벅', '피곤해', '피곤', 'ㅈㄹ'], get: () => [sugAnim('졸려'), sugSai('졸려'), sugMini('졸려')] },
+  { id: 'kiss',     pop: 2, aliases: ['뽀뽀', '뽀뽀해줘', '쪽', '쪽쪽', '키스', '입맞춤', '음마', 'ㅃㅃ', '😘', '💋'], get: () => [sugAnim('뽀뽀'), sugCouple('뽀뽀')] },
+  { id: 'cute',     pop: 4, aliases: ['귀여워', '귀엽다', '귀엽', '앙귀여워', '귀엽꼬미', '기여워', '커여워', '커엽다', '졸귀', '귀요미', '깨물고싶어', 'ㄱㅇㅇ'], get: () => [sugKkul('앙귀여워'), sugDang('귀엽꼬미'), sugDang('앙 귀여워')] },
+  { id: 'lol',      pop: 6, aliases: ['ㅋㅋ', 'ㅋㅋㅋ', 'ㅎㅎ', '웃겨', '개웃겨', '빵터짐', '빵터져', '웃김', '풉', '낄낄', '웃기다', 'ㅋ큐', 'lol'], get: () => [sugKkul('ㅋㅋㅋ'), sugSai('ㅋㅋㅋ')] },
+  { id: 'hungry',   pop: 5, aliases: ['배고파', '배고픔', '배곺', '꼬르륵', '출출해', '출출', '허기져', '허기', '밥줘', '뭐먹지', '먹고싶어', '야식', '간식', '굶었어', 'ㅂㄱㅍ'], get: () => [sugKkul('배고파'), sugSai('배고파'), sugSai('맛점')] },
+  { id: 'going',    pop: 4, aliases: ['가는중', '가고있어', '출발', '출발했어', '출발한다', '이동중', '오는중', '퇴근', '퇴근중', '퇴근길', '집가는중', '집에가', '곧가', '금방가', '버스탔어', '지하철', '버스', '지금가', 'ㄱㄴㅈ'], get: () => [sugKkul('가는중'), sugSai('가는중'), sugKkom('달려가는 중'), sugSai('출근중')] },
+  { id: 'commute',  aliases: ['출근', '출근중', '출근길', '회사가는중', '일하러가', '회사간다', '지각', '업무시작', 'ㅊㄱ'], get: () => [sugSai('출근중'), sugSai('가는중'), sugKkul('가는중'), sugSai('바빠')] },
+  { id: 'arrive',   pop: 3, aliases: ['도착', '도착했어', '도착함', '왔어', '다왔어', '집왔어', '거의왔어', '도착완료', '내렸어', 'ㄷㅊ'], get: () => [sugKkul('도착!'), sugSai('도착!')] },
+  { id: 'really',   pop: 4, aliases: ['진짜', '진짜야', '진짜아', '정말', '레알', '실화', '실화냐', '진심', 'ㄹㅇ', 'ㅈㅉ'], get: () => [sugKkul('진짜아?'), sugSai('헐')] },
+  { id: 'whitening', pop: 2, aliases: ['화이트닝', '화잇닝', '화트닝', 'ㅎㅇㅌㄴ'], get: () => [sugKkul('화이트닝')] },
+  { id: 'yes',      pop: 4, aliases: ['응', '응응', '웅', '웅웅', '어엉', '맞아', '맞아맞아', '알겠어', '알았어', '오케이', '오키', '그래', 'ㅇㅇ', 'ㅇㅋ', 'ok'], get: () => [sugKkul('응응')] },
+  { id: 'lunch',    aliases: ['맛점', '점심', '점심먹자', '밥먹자', '뭐먹을까', '식사', '런치', '점심시간', '밥먹었어', '밥', '맛있게먹어', 'ㅁㅈ'], get: () => [sugSai('맛점'), sugKkul('배고파')] },
+  { id: 'what',     aliases: ['뭐해', '모해', '머해', '뭐하니', '뭐함', '뭐하는중', '지금뭐해', '모하냐', 'ㅁㅎ'], get: () => [sugSai('뭐해?')] },
+  { id: 'full',     aliases: ['배불러', '배부르다', '배터져', '과식했어', '많이먹었어', '든든해', '잘먹었다', '잘먹었어', '배빵빵', 'ㅂㅂㄹ'], get: () => [sugSai('배불러')] },
+  { id: 'bored',    aliases: ['심심해', '심심하다', '할거없어', '노잼', '지루해', '놀아줘', '무료해', '재미없어', 'ㅅㅅㅎ'], get: () => [sugSai('심심해')] },
+  { id: 'omg',      pop: 3, aliases: ['헐', '헉', '대박', '뭐야', '충격', '미쳤다', '헐랭', '헉스', 'ㅎㄹ'], get: () => [sugSai('헐'), sugKkul('진짜아?'), sugAnim('으악')] },
+  { id: 'no',       aliases: ['ㄴㄴ', '아니', '아니야', '노노', '싫어', '안돼', '절대안돼', '노우', '패스'], get: () => [sugSai('ㄴㄴ')] },
+  { id: 'busy',     aliases: ['바빠', '바쁘다', '바쁨', '정신없어', '일하는중', '업무중', '회의중', '회의', '답장늦어', 'ㅂㅃ'], get: () => [sugSai('바빠')] },
+  { id: 'happy',    aliases: ['행복', '행복해', '기분좋아', '너무좋아', '즐거워', '행복하다', '햄볶아', 'ㅎㅂ'], get: () => [sugMini('행복'), sugAnim('좋아!')] },
+  { id: 'excited',  aliases: ['신나', '신난다', '들떴어', '룰루랄라', '개신남', '기대돼', '재밌겠다', '놀자', '야호', '우와', '와아', 'ㅅㄴ'], get: () => [sugMini('신나'), sugCouple('야호')] },
+  { id: 'calm',     aliases: ['평온', '편안해', '힐링', '여유', '느긋해', '고요해', '평화롭다'], get: () => [sugMini('평온')] },
+  { id: 'sad',      aliases: ['속상해', '속상', '슬퍼', '슬프다', '우울해', '서러워', '눈물나', '울고싶어', '마음아파', '훌쩍', 'ㅠㅠ', 'ㅜㅜ'], get: () => [sugMini('속상해'), sugCouple('토닥토닥')] },
+  { id: 'angry',    aliases: ['화났어', '화나', '화남', '짜증나', '짜증', '빡쳐', '열받아', '킹받아', '개빡침', '성질나'], get: () => [sugMini('화났어')] },
+  { id: 'sparkle',  aliases: ['반짝', '반짝반짝', '빛나', '영롱해', '눈부셔', '예뻐', '이뻐', '샤방샤방', '✨'], get: () => [sugMini('반짝')] },
+  { id: 'heart',    aliases: ['하트', '하투', '내마음', '마음', '심장'], get: () => [sugMini('하트'), sugCouple('하트')] },
+  { id: 'clap',     aliases: ['짝짝짝', '짝짝', '박수', '박수쳐', '굿잡', '브라보', '👏'], get: () => [sugMini('짝짝짝')] },
+  { id: 'welldone', aliases: ['잘했어', '잘했다', '대견해', '기특해', '수고했어', '장하다', 'ㅈㅎㅇ'], get: () => [sugMini('잘했어'), sugMini('짝짝짝')] },
+  { id: 'flower',   aliases: ['꽃다발', '꽃', '꽃선물', '플라워', '꽃줄게', '장미', '프로포즈', '🌹', '💐'], get: () => [sugMini('꽃다발'), sugCouple('장미')] },
+  { id: 'praiseme', aliases: ['칭찬해줘', '칭찬', '잘했지', '나잘했지', '인정해줘', '쓰담해줘'], get: () => [sugMini('칭찬해줘'), sugMini('잘했어')] },
+  { id: 'best',     aliases: ['최고야', '최고', '짱', '짱이야', '멋져', '완벽해', '쩐다', '리스펙', '👍'], get: () => [sugMini('최고야'), sugAnim('좋아!')] },
+  { id: 'brush',    aliases: ['치카치카', '치카', '양치', '이닦아', '이닦는중', '칫솔', '양치하고올게'], get: () => [sugDang('치카치카'), sugKkom('치카치카')] },
+  { id: 'run',      aliases: ['달려가는중', '달려가', '뛰어가', '급하게가', '헐레벌떡', '후다닥', '곧도착'], get: () => [sugKkom('달려가는 중'), sugKkul('가는중')] },
+  { id: 'makeup',   aliases: ['꾸미는중', '화장중', '화장', '메이크업', '단장중', '준비중', '옷입는중'], get: () => [sugKkom('꾸미는 중')] },
+  { id: 'yap',      aliases: ['얍', '얏', '받아라', '공격', '펀치', '얍얍'], get: () => [sugKkom('얍')] },
+  { id: 'party',    aliases: ['인싸', '파티', '놀러가', '모임', '약속', '친구만나', '핫플'], get: () => [sugKkom('인싸강아지')] },
+  { id: 'pat',      aliases: ['토닥토닥', '토닥', '다독다독', '위로', '울지마', '쓰담쓰담', '옆에있을게', 'ㅌㄷㅌㄷ'], get: () => [sugCouple('토닥토닥'), sugMini('안아줘')] },
+  { id: 'toss',     aliases: ['헹가래', '합격', '해냈다', '성공', '만세'], get: () => [sugCouple('헹가래'), sugAnim('축하해!')] },
+  { id: 'fly',      aliases: ['날아가자', '날아가', '훨훨', '떠나자', '여행가자', '여행', '어디론가'], get: () => [sugCouple('날아가자')] },
+];
+// 자음 한 글자 단축키 — 둘이 자주 쓰는 순(우댕이 보낸 메시지 2,049개 집계)으로 앞의 몇 개만.
+const KEY_SHORTCUTS: Record<string, string[]> = {
+  'ㄱ': ['going', 'thanks', 'cute', 'morning'], 'ㄲ': ['call', 'hug'], 'ㄴ': ['no'],
+  'ㄷ': ['arrive', 'doki'], 'ㅁ': ['sorry', 'lunch', 'what'], 'ㅂ': ['hungry', 'miss', 'full', 'busy'],
+  'ㅃ': ['kiss', 'peek'], 'ㅅ': ['love', 'bored', 'excited'], 'ㅆ': ['bath'], 'ㅇ': ['yes', 'scream', 'hello', 'sick'],
+  'ㅈ': ['night', 'sleepy', 'really', 'yay'], 'ㅊ': ['congrats', 'commute', 'best', 'brush'], 'ㅋ': ['lol'],
+  'ㅌ': ['pat'], 'ㅍ': [], 'ㅎ': ['omg', 'cheer', 'happy', 'whitening'],
+};
+const INTENT_BY_ID = new Map(INTENTS.map((it) => [it.id, it]));
+const PREPARED = INTENTS.map((it) => ({ it, aliases: it.aliases.map(prepareAlias) }));
+
+// 내 캐릭터 먼저 — 우댕은 꿀됑·우댕 포차코, 꼼이는 꼼이 움짤·꼼이 포차코·미니에 작은 가산점.
+const OWN_MODES: Record<string, StickerMode[]> = { '우댕': ['kkul', 'kkulgif', 'dang'], '꼼이': ['gif', 'kkom', 'mini'] };
+
+function computeSuggestions(
+  draft: string, me: string, freq: Record<string, { count: number }>, prevOrder: string[],
+): Suggestion[] {
+  if (!draft || draft.length > 80) return [];
+  const endsWithSpace = /\s$/.test(draft);
+  const parts = draft.split(/\s+/).filter(Boolean);
+  const token = endsWithSpace ? '' : normForMatch(parts[parts.length - 1] ?? '');
+  const tokenJamo = toJamo(token);
+  const clause = draft.split(/[.!?\n]/).pop() ?? '';
+  const scored = new Map<string, { s: Suggestion; score: number; order: number }>();
+  let order = 0;
+  const add = (items: (Suggestion | undefined)[], base: number) => {
+    items.forEach((s, i) => {
+      if (!s) return;
+      const f = freq[emoId(s)]?.count ?? 0;
+      const own = OWN_MODES[me]?.includes(s.mode) ? 3 : 0;
+      const score = base - i * 0.5 + Math.min(8, 2 * Math.log(1 + f)) + own;
+      const prev = scored.get(s.image);
+      if (!prev || prev.score < score) scored.set(s.image, { s, score, order: prev?.order ?? order++ });
+    });
+  };
+  const single = [...token].length === 1 && isConsonantsOnly(token);
+  if (single) {
+    (KEY_SHORTCUTS[token] ?? []).forEach((id, k) => { const it = INTENT_BY_ID.get(id); if (it) add(it.get(), 50 - k * 4); });
+  } else if (token) {
+    for (const { it, aliases } of PREPARED) {
+      let best = 0;
+      for (const a of aliases) { const t = matchTier(token, tokenJamo, a); if (t > best) best = t; if (best === 100) break; }
+      if (best) add(it.get(), best + (it.pop ?? 0));
+    }
   }
-  return out.slice(0, 8);
+  // 문맥 보조 — 문장 전체 정규식은 낮은 점수만(지금 치는 단어가 우선). 지금 절 30, 앞 절 12.
+  const normClause = normalizeInput(clause.trim());
+  const normAll = normalizeInput(draft.trim());
+  for (const rule of SUGGEST_RULES) {
+    if (normClause && rule.re.test(normClause)) add(rule.get(), 30);
+    else if (normAll && rule.re.test(normAll)) add(rule.get(), 12);
+  }
+  const prevIdx = new Map(prevOrder.map((k, i) => [k, i]));
+  const list = [...scored.values()].sort((a, b) =>
+    (b.score - a.score) || ((prevIdx.get(a.s.image) ?? 999) - (prevIdx.get(b.s.image) ?? 999)) || (a.order - b.order));
+  return list.slice(0, single ? 6 : 12).map((x) => x.s);
 }
 
 const DANG_STICKERS: { word: string; image: string }[] = [
@@ -753,9 +873,6 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     '--ct-tab-active': dk ? 'rgba(251,123,168,0.18)' : 'rgba(251,123,168,0.15)',
     '--ct-label': dk ? '#A397A0' : '#8B7D88',
   } as React.CSSProperties;
-  // 카톡식 추천 — 입력 텍스트 키워드로 관련 스티커. 입력할 때마다 갱신.
-  const suggestions = useMemo(() => computeSuggestions(draft), [draft]);
-  const sugKey = suggestions.map((s) => s.key).join(',');   // 키워드 바뀌면 크로스페이드 트리거
   const reduceMotion = useReducedMotion();
   const [stickerMode, setStickerMode] = useState<StickerMode>('recent');
   // 최근·자주 쓴 이모티콘(기기별). 첫 탭이 이걸 보여주고, pick 할 때마다 기록된다.
@@ -786,6 +903,15 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     });
   };
   const frequentList = Object.values(freqPicks).sort((a, b) => b.count - a.count).slice(0, 8);
+  // 카톡식 추천 — 입력할 때마다 갱신(freqPicks 선언 뒤에 둬야 한다: 위에 두면 TDZ로 렌더가 죽는다).
+  //   지금 치는 단어(자모 앞부분·초성·한 글자 단축키) + 문맥 + 내가 자주 쓴 것. 같은 점수면 직전 순서를 유지해 깜빡임을 줄인다.
+  const prevSugOrder = useRef<string[]>([]);
+  const suggestions = useMemo(() => {
+    const out = computeSuggestions(draft, me, freqPicks, prevSugOrder.current);
+    prevSugOrder.current = out.map((x) => x.image);
+    return out;
+  }, [draft, me, freqPicks]);
+  const sugKey = suggestions.map((s) => s.key).join(',');   // 키워드 바뀌면 크로스페이드 트리거
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
