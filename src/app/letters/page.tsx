@@ -8,8 +8,8 @@ import {
   toInboxLetter,
   nameFromCode,
   updateLetter,
-  isLocked,
   setLastReadLetterId,
+  subscribeLatestLetterTo,
   type Letter as FsLetter,
 } from '@/lib/letters';
 import {
@@ -62,11 +62,12 @@ function LettersPageInner() {
 
   // 편지함을 열면 '읽음' 처리 — 상대가 보낸 도착한 최신 편지(홈 카드가 새 편지로 세는 것)의
   // id 를 저장한다. 그러면 홈의 빨간 점이 꺼지고, 그보다 새 편지가 와야 다시 켜진다.
+  //   ⚠️ 목록(최근 20통)에서 찾으면, 내가 보낸 편지가 많을 땐 '받은 최신 편지'가 그 안에 없어 읽음이 안 남았다.
+  //   홈이 쓰는 것과 똑같은 기준(subscribeLatestLetterTo)으로 받은 최신 편지를 직접 구독해 읽음 처리한다.
   useEffect(() => {
-    if (!me || raw.length === 0) return;
-    const latestReceived = raw.find((l) => l.to === me && !isLocked(l) && l.sealed !== true);
-    if (latestReceived) setLastReadLetterId(me, latestReceived.id);
-  }, [me, raw]);
+    if (!me) return;
+    return subscribeLatestLetterTo(me, (latest) => { if (latest) setLastReadLetterId(me, latest.id); });
+  }, [me]);
 
   if (!me) return <div className="min-h-app bg-[#F7F9F9] max-w-md mx-auto" />;
 

@@ -20,7 +20,7 @@ type LocKey = keyof typeof LOCATIONS;
 import TodayTomorrowWeather from '@/components/TodayTomorrowWeather';
 import SkyArt from '@/components/SkyArt';
 import { getInitialData } from '@/lib/api';
-import { subscribeLatestLetterTo, nameFromCode, partnerOf, vocativeOf, getLastReadLetterId, type Voice } from '@/lib/letters';
+import { subscribeLatestLetterTo, nameFromCode, partnerOf, vocativeOf, getLastReadLetterId, subscribeLastReadLetterId, type Voice } from '@/lib/letters';
 import { getEmoticonsByIds } from '@/lib/emoticons';
 import { formatKstTime, formatKstMonthDay, kstDayKey } from '@/lib/kst';
 import { subscribeLatestMemory, fetchMemoryCount, type Memory } from '@/lib/memories';
@@ -203,7 +203,8 @@ export default function KkomMorningHome() {
   const [latestLetterId, setLatestLetterId] = useState<string | null>(null);
   const [latestLetterHasDoodle, setLatestLetterHasDoodle] = useState(false);
   const [latestLetterEmoticonIds, setLatestLetterEmoticonIds] = useState<string[]>([]);
-  const [lastReadLetterId, setLastReadLetterId] = useState<string | null>(null);
+  const [lastReadLetterId, setLastReadLetterId] = useState<string | null>(null);        // 이 기기(localStorage)
+  const [syncedReadLetterId, setSyncedReadLetterId] = useState<string | null>(null);    // 다른 기기 포함(Firestore)
   const [moods, setMoods] = useState<MoodMap>({});
   // 홈은 커버 1장 + 개수만 필요 (전체 배열 X — 코드리뷰 #8)
   const [latestMemory, setLatestMemory] = useState<Memory | null>(null);
@@ -272,6 +273,8 @@ export default function KkomMorningHome() {
       setLatestLetterHasDoodle(!!letter?.doodle);
       setLatestLetterEmoticonIds(Array.isArray(letter?.emoticonIds) ? letter.emoticonIds : []);
     });
+    // 폰에서 읽어도 데스크톱 점이 꺼지게 — 읽음 기록을 기기 사이에 실시간으로 맞춘다.
+    const unsubLetterRead = subscribeLastReadLetterId(me, setSyncedReadLetterId);
     const unsubMoods = subscribeTodayMoods(setMoods);
     // 최신 1장만 실시간, 개수는 getCountFromServer(문서 다운로드 없음). 새 사진 오면 개수 재조회.
     const unsubMemories = subscribeLatestMemory((m) => {
@@ -331,7 +334,7 @@ export default function KkomMorningHome() {
 
     return () => {
       if (hintTimer) clearTimeout(hintTimer);
-      unsubLetter(); unsubMoods(); unsubMemories(); unsubShares();
+      unsubLetter(); unsubLetterRead(); unsubMoods(); unsubMemories(); unsubShares();
       unsubWishes(); unsubAgains(); unsubRecipes(); unsubPoems(); unsubPraise();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -627,7 +630,8 @@ export default function KkomMorningHome() {
 
   // 편지 '새 편지' 점 — 상대가 보낸 도착한 최신 편지가 '마지막으로 읽은' 것보다 새로울 때만.
   // (편지함을 열면 lastReadLetterId 가 갱신되고, 홈은 remount 시 그 값을 다시 읽어 점이 꺼진다.)
-  const hasLetter = !!latestLetterId && latestLetterId !== lastReadLetterId;
+  //   어느 기기에서든 읽었으면(로컬 또는 동기화 기록) 끈다.
+  const hasLetter = !!latestLetterId && latestLetterId !== lastReadLetterId && latestLetterId !== syncedReadLetterId;
 
   // ── 모듈 카드 본문 — 틀만 사이담식, 안의 데이터·onClick·이모티콘 전부 그대로. 각 카드는 h-full로 격자칸을 채운다.
   const moduleNodes: Record<string, React.ReactNode> = {

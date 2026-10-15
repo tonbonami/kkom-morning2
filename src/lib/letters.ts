@@ -84,10 +84,13 @@ export function isLocked(letter: Letter): boolean {
   return ms(letter.openAt) > Date.now();
 }
 
-// ── 홈 편지 카드 '새 편지' 읽음 추적 (사람별 localStorage) ──────────────
+// ── 홈 편지 카드 '새 편지' 읽음 추적 ──────────────
 // 예전엔 '상대가 보낸 최신 편지가 존재하면' 무조건 빨간 점을 켰다 — 읽어도 안 꺼졌다.
 // 상대가 보낸 '도착한 최신 편지'의 id 를 편지함 열 때 저장해 두고, 홈은 그보다 새 id 일 때만
-// 점을 켠다. (사람별 키 — 우댕/꼼이 각자 자기 읽음 상태.)
+// 점을 켠다. (사람별 — 우댕/꼼이 각자 자기 읽음 상태.)
+// ⚠️ 예전엔 localStorage(기기별)에만 저장해서, 꼼이가 폰에서 읽어도 데스크톱엔 '안 읽음'으로 남아
+//    편지가 안 왔는데 빨간 점이 떠 자꾸 열어 보게 됐다(2026-10-15 꼼이 제보). → Firestore letterReads/{이름}
+//    에도 저장해 기기 사이에 맞춘다. localStorage 는 바로 꺼지게 하는 빠른 사본.
 const letterReadKey = (me: string) => `kkom-letter-read-${me}`;
 
 export function getLastReadLetterId(me: string): string | null {
@@ -98,6 +101,17 @@ export function getLastReadLetterId(me: string): string | null {
 export function setLastReadLetterId(me: string, id: string | null): void {
   if (typeof window === 'undefined' || !me || !id) return;
   try { localStorage.setItem(letterReadKey(me), id); } catch { /* 사파리 프라이빗 등 무시 */ }
+  setDoc(doc(db, 'letterReads', me), { id, at: serverTimestamp() }).catch(() => { /* 오프라인 등 — 로컬 사본으로 버틴다 */ });
+}
+
+// 다른 기기에서 읽은 것까지 — 내 읽음 기록 실시간 구독.
+export function subscribeLastReadLetterId(me: string, cb: (id: string | null) => void): () => void {
+  if (!me) { cb(null); return () => {}; }
+  return onSnapshot(
+    doc(db, 'letterReads', me),
+    (snap) => cb((snap.data() as { id?: string } | undefined)?.id ?? null),
+    () => cb(null),
+  );
 }
 
 // to == 나 이고 '이미 도착한' 최신 편지 1건을 실시간 구독.
