@@ -253,7 +253,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /짝짝|박수|굿잡|짝짝짝/,                               get: () => [sugMini('짝짝짝')] },
   { re: /힘내|화이팅|파이팅|아자|응원|힘들|지치/,               get: () => [sugAnim('힘내!'), sugMini('힘내'), sugCouple('헹가래')] },
   { re: /헹가래|헹\s?가래/,                                    get: () => [sugCouple('헹가래')] },
-  { re: /꽃다발|꽃\s?줄|플라워|장미|꽃선물/,                    get: () => [sugMini('꽃다발'), sugCouple('장미')] },
+  { re: /꽃다발|꽃\s?줄|플라워|장미|꽃선물/,                    get: () => [sugMini('꽃다발'), sugCouple('장미'), sugKkulAnim('꽃 줄게')] },
   { re: /최고|짱(?![가-힣])|짱이|굿(?![가-힣])|좋았|대박|멋져|쩐다|리스펙|👍/, get: () => [sugAnim('좋아!'), sugMini('최고야')] },
 
   // ── 놀람·리액션·웃음 ──
@@ -323,7 +323,7 @@ const INTENTS: Intent[] = [
   { id: 'yay',      aliases: ['좋아', '좋다', '조아', '오예', '굿', '찬성', '좋았어', '마음에들어', 'ㅈㅇ'], get: () => [sugAnim('좋아!'), sugMini('최고야')] },
   { id: 'scream',   pop: 3, aliases: ['으악', '으아악', '으아', '악', '꺄', '깜짝이야', '깜짝', '놀랐어', '무서워', '펄쩍', '끼야'], get: () => [sugKkulAnim('으악 펄쩍'), sugKkul('으악'), sugAnim('으악'), sugSai('헐')] },
   { id: 'congrats', aliases: ['축하해', '축하', '축하한다', '추카', '추카해', '생일축하', '생축', '생일', '기념일', 'ㅊㅋ', '🎉', '🎊'], get: () => [sugAnim('축하해!'), sugAnim('선물'), sugCouple('헹가래')] },
-  { id: 'gift',     aliases: ['선물', '선물이야', '선물줄게', '기프트', '기프티콘', '서프라이즈', '택배', '🎁'], get: () => [sugAnim('선물')] },
+  { id: 'gift',     aliases: ['선물', '선물이야', '선물줄게', '기프트', '기프티콘', '서프라이즈', '택배', '🎁'], get: () => [sugAnim('선물'), sugKkulAnim('꽃 줄게')] },
   { id: 'shy',      aliases: ['부끄러워', '부끄', '수줍어', '쑥스러워', '민망해', '창피해', '헤헤', 'ㅂㄲ'], get: () => [sugAnim('부끄')] },
   { id: 'hug',      pop: 3, aliases: ['안아줘', '안아줄게', '안고싶어', '꼬옥', '꼭안아', '포옹', '허그', '폭안겨', '안겨', 'ㅇㅇㅈ'], get: () => [sugKkul('꼬옥'), sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥')] },
   { id: 'peek',     aliases: ['빼꼼', '까꿍', '슬쩍', '몰래봐', '살짝봐', '기웃기웃', 'ㅃㄲ'], get: () => [sugAnim('빼꼼')] },
@@ -357,7 +357,7 @@ const INTENTS: Intent[] = [
   { id: 'heart',    aliases: ['하트', '하투', '내마음', '마음', '심장'], get: () => [sugMini('하트'), sugCouple('하트')] },
   { id: 'clap',     aliases: ['짝짝짝', '짝짝', '박수', '박수쳐', '굿잡', '브라보', '👏'], get: () => [sugMini('짝짝짝')] },
   { id: 'welldone', aliases: ['잘했어', '잘했다', '대견해', '기특해', '수고했어', '장하다', 'ㅈㅎㅇ'], get: () => [sugMini('잘했어'), sugMini('짝짝짝')] },
-  { id: 'flower',   aliases: ['꽃다발', '꽃', '꽃선물', '플라워', '꽃줄게', '장미', '프로포즈', '🌹', '💐'], get: () => [sugMini('꽃다발'), sugCouple('장미')] },
+  { id: 'flower',   aliases: ['꽃다발', '꽃', '꽃선물', '플라워', '꽃줄게', '꽃 줄게', '장미', '프로포즈', '🌹', '💐'], get: () => [sugKkulAnim('꽃 줄게'), sugMini('꽃다발'), sugCouple('장미')] },
   { id: 'praiseme', aliases: ['칭찬해줘', '칭찬', '잘했지', '나잘했지', '인정해줘', '쓰담해줘'], get: () => [sugMini('칭찬해줘'), sugMini('잘했어')] },
   { id: 'best',     aliases: ['최고야', '최고', '짱', '짱이야', '멋져', '완벽해', '쩐다', '리스펙', '👍'], get: () => [sugMini('최고야'), sugAnim('좋아!')] },
   { id: 'brush',    aliases: ['치카치카', '치카', '양치', '이닦아', '이닦는중', '칫솔', '양치하고올게'], get: () => [sugDang('치카치카'), sugKkom('치카치카')] },
@@ -468,6 +468,7 @@ const KKUL_STICKERS: { word: string; image: string }[] = [
 const KKUL_ANIM: { word: string; image: string }[] = [
   { word: '으악 펄쩍', image: '/emo/sai-anim/kkul-euak.webp' },
   { word: 'ㅋㅋㅋ 발라당', image: '/emo/sai-anim/kkul-kkk.webp' },   // art/kkuldaeng/kkk
+  { word: '꽃 줄게', image: '/emo/sai-anim/kkul-flower.webp' },   // art/kkuldaeng/flower
 ];
 
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
