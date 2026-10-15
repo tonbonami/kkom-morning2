@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useAnimationControls, useReducedMotion } from 'framer-motion';
 import { isTogetherNow, serverNow, type Presence } from '@/lib/presence';
 import { throwHeart } from '@/lib/liveHearts';
-import { giveGift, subscribeGifts, clearGifts, giftsFor, giftById, giftImg, GIFT_STORAGES, type Gift, type GiftCat } from '@/lib/gifts';
+import { giveGifts, giftSummary, subscribeGifts, clearGifts, giftsFor, giftById, giftImg, GIFT_STORAGES, MAX_GIFTS, type Gift, type GiftCat } from '@/lib/gifts';
 
 const V = 4;
 const emo = (name: string) => `/emo/sai-anim/${name}.webp?v=${V}`;
@@ -51,9 +51,16 @@ export default function LivingKkom({ presence, partner, me, tick }: {
   useEffect(() => (me ? subscribeGifts(me, setIncoming) : undefined), [me]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeStorage, setActiveStorage] = useState<GiftCat | null>(null);   // 어느 수납장(냉장고/서랍/쿠폰/보물상자)을 연 상태인지
-  const [picked, setPicked] = useState<string | null>(null);
-  const closeSheet = () => { setSheetOpen(false); setActiveStorage(null); setPicked(null); };
-  const [flying, setFlying] = useState<string | null>(null);
+  // 고른 소품 — 최대 3개, 같은 걸 여러 번 담을 수 있다(인형 3개). 수납장을 오가도 유지된다.
+  const [picks, setPicks] = useState<string[]>([]);
+  const [fullHint, setFullHint] = useState(false);
+  const addPick = (id: string) => {
+    if (picks.length >= MAX_GIFTS) { setFullHint(true); setTimeout(() => setFullHint(false), 1500); return; }
+    setPicks((p) => [...p, id]);
+  };
+  const removePickAt = (i: number) => setPicks((p) => p.filter((_, k) => k !== i));
+  const closeSheet = () => { setSheetOpen(false); setActiveStorage(null); setPicks([]); };
+  const [flying, setFlying] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   // 오버레이를 body로 portal(아래 이유). SSR 하이드레이션 후에만.
   const [mounted, setMounted] = useState(false);
@@ -115,23 +122,24 @@ export default function LivingKkom({ presence, partner, me, tick }: {
     try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
   };
 
-  // 선물 주기 — 날아가는 모션 + 토스트 + 상대 홈에 얹기 + (상대 오프라인이면) 알림.
+  // 선물 주기 — 고른 것 전부(최대 3) 한 번에. 날아가는 모션 + 토스트 + 상대 홈에 얹기 + (상대 오프라인이면) 알림 1번.
   const doGive = () => {
-    if (!picked || !me) return;
-    const g = giftById(picked);
+    if (!picks.length || !me) return;
+    const summary = giftSummary(picks);
+    const lastMsg = giftById(picks[picks.length - 1])?.msg ?? '';   // 받는 쪽 캡션도 '가장 최근(마지막)' 것
     setSheetOpen(false); setActiveStorage(null);
-    setFlying(giftImg(picked));
-    setTimeout(() => setFlying(null), 850);
-    setToast(`${g?.label ?? '선물'} 두고 왔어 🐾${g?.msg ? ` · ${g.msg}` : ''}`);
+    setFlying(picks.map(giftImg));
+    setTimeout(() => setFlying([]), 1000);
+    setToast(`${summary} 두고 왔어 🐾${lastMsg ? ` · ${lastMsg}` : ''}`);
     setTimeout(() => setToast(null), 2200);
-    void giveGift(me, picked);
+    void giveGifts(me, picks);
     if (!isTogetherNow(presence)) {
       fetch('/api/bump', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: me, to: partner, kind: 'gift', item: g?.label ?? '선물', note: g?.msg ?? '' }),
+        body: JSON.stringify({ from: me, to: partner, kind: 'gift', item: summary, note: lastMsg }),
       }).catch(() => {});
     }
-    setPicked(null);
+    setPicks([]);
   };
   const receive = () => { if (me) void clearGifts(me); setIncoming([]); };
 
@@ -243,10 +251,10 @@ export default function LivingKkom({ presence, partner, me, tick }: {
                         /* ① 수납장 고르기 */
                         <motion.div key="menu"
                           initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.22 }}
-                          className="h-full overflow-y-auto px-5 pb-8 pt-2">
+                          className={`h-full overflow-y-auto px-5 pt-2 ${picks.length ? 'pb-56' : 'pb-8'}`}>
                           <div className="mb-4 text-center">
                             <div className="text-[17px] font-extrabold" style={{ color: 'var(--sd-ink)' }}>선물함 🎁</div>
-                            <div className="mt-0.5 text-[12.5px]" style={{ color: 'var(--sd-muted)' }}>{subjName(partner)}에게 뭘 두고 갈까?</div>
+                            <div className="mt-0.5 text-[12.5px]" style={{ color: 'var(--sd-muted)' }}>{subjName(partner)}에게 뭘 두고 갈까? 한 번에 {MAX_GIFTS}개까지 · 같은 것도 여러 개</div>
                           </div>
                           <div className="flex flex-col gap-3">
                             {GIFT_STORAGES.map((s) => {
@@ -272,24 +280,25 @@ export default function LivingKkom({ presence, partner, me, tick }: {
                           initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.22 }}
                           className="relative flex h-full flex-col">
                           <div className="flex shrink-0 items-center gap-2 px-4 pb-2">
-                            <button onClick={() => { setActiveStorage(null); setPicked(null); }}
+                            <button onClick={() => setActiveStorage(null)} aria-label="수납장 목록으로"
                               className="grid h-9 w-9 place-items-center rounded-full bg-black/5 text-[15px] active:scale-90" style={{ color: 'var(--sd-ink)' }}>❮</button>
                             <div className="text-[16px] font-extrabold" style={{ color: 'var(--sd-ink)' }}>
                               {GIFT_STORAGES.find((s) => s.id === activeStorage)?.icon} {GIFT_STORAGES.find((s) => s.id === activeStorage)?.title}
                             </div>
                           </div>
-                          <div className="flex-1 overflow-y-auto px-5 pb-40 pt-4">
+                          <div className="flex-1 overflow-y-auto px-5 pb-56 pt-4">
                             <div className="grid grid-cols-3 gap-x-3 gap-y-9">
                               {items.filter((i) => i.cat === activeStorage).map((it) => {
-                                const sel = picked === it.id;
+                                const count = picks.filter((p) => p === it.id).length;
                                 return (
                                   <div key={it.id} className="relative flex flex-col items-center">
-                                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => setPicked(it.id)} aria-label={it.label}
-                                      className={`relative grid aspect-square w-full place-items-center rounded-[20px] transition ${sel ? 'bg-[#FB7BA8]/10 ring-2 ring-[#FB7BA8]' : 'border border-black/5 bg-white shadow-sm'}`}>
+                                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => addPick(it.id)}
+                                      aria-label={count ? `${it.label} ${count}개 담음 — 하나 더 담기` : `${it.label} 담기`}
+                                      className={`relative grid aspect-square w-full place-items-center rounded-[20px] transition ${count ? 'bg-[#FB7BA8]/10 ring-2 ring-[#FB7BA8]' : 'border border-black/5 bg-white shadow-sm'}`}>
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
                                       <img src={giftImg(it.id)} alt="" className="h-[84%] w-[84%] object-contain" />
-                                      {sel && (
-                                        <span className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-[#FB7BA8] text-[13px] text-white shadow-sm">✓</span>
+                                      {count > 0 && (
+                                        <span className="absolute -right-1.5 -top-1.5 grid h-6 min-w-6 place-items-center rounded-full bg-[#FB7BA8] px-1 text-[13px] font-extrabold text-white shadow-sm">{count}</span>
                                       )}
                                     </motion.button>
                                     <span className="mt-1.5 text-[11px] font-medium" style={{ color: 'var(--sd-muted)' }}>{it.label}</span>
@@ -300,25 +309,41 @@ export default function LivingKkom({ presence, partner, me, tick }: {
                               })}
                             </div>
                           </div>
-                          {/* 선택 시 — 짧은 말 + 두고 오기 (하단에서 스프링 팝업) */}
-                          <AnimatePresence>
-                            {picked && (
-                              <motion.div initial={{ y: 130 }} animate={{ y: 0 }} exit={{ y: 130 }} transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-                                className="absolute inset-x-0 bottom-0 border-t border-black/5 bg-white/95 px-5 pt-4 backdrop-blur-xl"
-                                style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-                                <div className="mb-3 text-center">
-                                  <span className="inline-block rounded-full bg-[#FB7BA8]/10 px-4 py-1.5 text-[13px] font-bold" style={{ color: '#E0568F' }}>
-                                    &ldquo;{giftById(picked)?.msg}&rdquo;
-                                  </span>
-                                </div>
-                                <button onClick={doGive}
-                                  className="h-14 w-full rounded-[20px] text-[16px] font-bold text-white transition active:scale-[0.98]"
-                                  style={{ background: '#FB7BA8', boxShadow: '0 8px 20px rgba(251,123,168,0.3)' }}>
-                                  {giftById(picked)?.label} 살짝 두고 오기
-                                </button>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* 바구니 — 담은 것(최대 3칸, 같은 것 여러 번 가능) + 두고 오기. 수납장 목록·선반 어디서든 보인다.
+                        칸을 누르면 하나씩 빠진다. */}
+                    <AnimatePresence>
+                      {picks.length > 0 && (
+                        <motion.div initial={{ y: 200 }} animate={{ y: 0 }} exit={{ y: 200 }} transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+                          className="absolute inset-x-0 bottom-0 z-10 border-t border-black/5 bg-white/95 px-5 pt-3 backdrop-blur-xl"
+                          style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+                          <div className="mb-2 flex items-center justify-center gap-2.5">
+                            {Array.from({ length: MAX_GIFTS }, (_, i) => {
+                              const id = picks[i];
+                              return id ? (
+                                <motion.button key={`${i}-${id}`} onClick={() => removePickAt(i)} aria-label={`${giftById(id)?.label ?? '선물'} 빼기`}
+                                  initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} whileTap={{ scale: 0.9 }}
+                                  className="relative grid h-14 w-14 place-items-center rounded-2xl bg-[#FB7BA8]/10 ring-1 ring-[#FB7BA8]/40">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={giftImg(id)} alt="" className="h-[82%] w-[82%] object-contain" />
+                                  <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-white text-[11px] font-bold shadow-sm" style={{ color: '#E0568F' }}>×</span>
+                                </motion.button>
+                              ) : (
+                                <div key={`empty-${i}`} className="h-14 w-14 rounded-2xl border-2 border-dashed border-black/10" />
+                              );
+                            })}
+                          </div>
+                          <div className="mb-3 text-center text-[12.5px] font-bold" style={{ color: fullHint ? '#E0568F' : 'var(--sd-muted)' }}>
+                            {fullHint ? `한 번에 ${MAX_GIFTS}개까지 담을 수 있어` : `“${giftById(picks[picks.length - 1])?.msg ?? ''}”`}
+                          </div>
+                          <button onClick={doGive}
+                            className="h-14 w-full rounded-[20px] text-[16px] font-bold text-white transition active:scale-[0.98]"
+                            style={{ background: '#FB7BA8', boxShadow: '0 8px 20px rgba(251,123,168,0.3)' }}>
+                            {giftSummary(picks)} 살짝 두고 오기
+                          </button>
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -328,16 +353,19 @@ export default function LivingKkom({ presence, partner, me, tick }: {
             )}
           </AnimatePresence>
 
-          {/* 보내는 순간 — 소품이 포물선 그리며 날아감 */}
+          {/* 보내는 순간 — 고른 소품들이 살짝 시차를 두고 포물선 그리며 날아감 */}
           <AnimatePresence>
-            {flying && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <motion.img src={flying} alt=""
-                className="pointer-events-none fixed left-1/2 top-1/2 z-[82] h-20 w-20 -translate-x-1/2 -translate-y-1/2 drop-shadow-xl"
-                initial={{ y: 0, scale: 0.5, opacity: 0 }}
-                animate={{ y: [0, -40, -120], scale: [0.5, 1.2, 0.8], opacity: [0, 1, 0], rotate: [0, -10, 15] }}
-                exit={{ opacity: 0 }} transition={{ duration: 0.8, ease: 'easeInOut', times: [0, 0.4, 1] }} />
-            )}
+            {flying.map((src, i) => {
+              const dx = (i - (flying.length - 1) / 2) * 64;
+              return (
+                // eslint-disable-next-line @next/next/no-img-element
+                <motion.img key={`fly-${i}`} src={src} alt=""
+                  className="pointer-events-none fixed left-1/2 top-1/2 z-[82] -ml-10 -mt-10 h-20 w-20 drop-shadow-xl"
+                  initial={{ x: dx, y: 0, scale: 0.5, opacity: 0 }}
+                  animate={{ x: dx, y: [0, -40, -120], scale: [0.5, 1.2, 0.8], opacity: [0, 1, 0], rotate: [0, -10, 15] }}
+                  exit={{ opacity: 0 }} transition={{ duration: 0.8, ease: 'easeInOut', times: [0, 0.4, 1], delay: i * 0.08 }} />
+              );
+            })}
           </AnimatePresence>
 
           {/* 토스트 */}

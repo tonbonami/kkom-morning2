@@ -87,18 +87,32 @@ function readItems(d: Record<string, unknown> | undefined): RawEntry[] {
 }
 
 // 두고 가기 — 상대 gifts/{받는이}.items 에 쌓는다(최대 MAX_GIFTS, 오래된 것부터 밀어냄).
+//   한 번에 여러 개(최대 3, 같은 것 여러 번 가능 — "인형 3개") 고른 걸 한 번에 쓴다(우댕 요청 2026-10-15).
 // ⚠️ Firestore는 배열 '원소 안'에 serverTimestamp() sentinel을 못 넣는다 → 클라 Timestamp.now() 사용.
-export async function giveGift(from: string, itemId: string): Promise<void> {
-  if (!from) return;
+export async function giveGifts(from: string, itemIds: string[]): Promise<void> {
+  if (!from || !itemIds.length) return;
   const to = partnerOf(from);
-  const nonce = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const entry: RawEntry = { from, item: itemId, at: Timestamp.now(), nonce };
+  const now = Date.now();
+  const entries: RawEntry[] = itemIds.slice(0, MAX_GIFTS).map((item, i) => ({
+    from, item, at: Timestamp.fromMillis(now + i),   // 순서 보존(같은 ms 방지)
+    nonce: `${now + i}_${Math.random().toString(36).slice(2, 8)}`,
+  }));
   const ref = doc(db, 'gifts', to);
   try {
     const snap = await getDoc(ref);
-    const items = [...readItems(snap.data()), entry].slice(-MAX_GIFTS);   // 최근 3개만 유지
+    const items = [...readItems(snap.data()), ...entries].slice(-MAX_GIFTS);   // 최근 3개만 유지
     await setDoc(ref, { items });
   } catch (e) { console.warn('두고 가기 실패:', e); }
+}
+export const giveGift = (from: string, itemId: string) => giveGifts(from, [itemId]);
+
+// 고른 것들 한 줄 요약 — 같은 거면 "꿀됑 인형 3개", 섞이면 "치킨·꽃·담요".
+export function giftSummary(itemIds: string[]): string {
+  const labels = itemIds.map((id) => giftById(id)?.label ?? '선물');
+  if (!labels.length) return '선물';
+  return labels.every((l) => l === labels[0])
+    ? (labels.length > 1 ? `${labels[0]} ${labels.length}개` : labels[0])
+    : labels.join('·');
 }
 
 // 내가 받은 소품 목록 구독(오래된→최신 순, 마지막이 가장 최근).
