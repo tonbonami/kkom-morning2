@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
-import { setMyMood, MOOD_OPTIONS } from '@/lib/moods';
+import { setMyMood, MOOD_OPTIONS, moodImage } from '@/lib/moods';
 import { nameFromCode } from '@/lib/letters';
 
 export default function QuickMoodPage() {
@@ -65,7 +65,7 @@ export default function QuickMoodPage() {
             className="sd-card aspect-square flex flex-col items-center justify-center gap-1 p-3"
           >
             <Image
-              src={opt.image}
+              src={moodImage(opt, me)}
               alt={opt.label}
               width={68}
               height={68}

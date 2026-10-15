@@ -27,6 +27,12 @@ export const MOOD_OPTIONS: MoodOption[] = [
   { id: 'sulky',   label: '삐짐',     image: '/pochacco/face_sulky.png',   emojiFallback: '😤', anim: 'sulk' },
 ];
 
+// 기분 얼굴 그림 — 우댕 기분은 꿀됑(우댕 캐릭터) 얼굴로, 꼼이는 포차코 그대로(우댕 지시 2026-10-15).
+//   파일: /emo/kkuldaeng/mood/{id}.png (320 투명, 원본 art/kkuldaeng/mood).
+export function moodImage(m: MoodOption, owner?: string | null): string {
+  return owner === '우댕' ? `/emo/kkuldaeng/mood/${m.id}.png` : m.image;
+}
+
 // key는 신규 'happy' 같은 id 또는 옛날 '😄' 같은 이모지 둘 다 받음
 export function moodFromKey(key: string | undefined | null): MoodOption | null {
   if (!key) return null;

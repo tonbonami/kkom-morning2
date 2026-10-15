@@ -39,7 +39,7 @@ import BirthdayHero from '@/components/BirthdayHero';
 import BirthdayPrep from '@/components/BirthdayPrep';
 import { subscribeTodayStats } from '@/lib/dailyStats';
 import LiveHeartLayer from '@/components/LiveHeartLayer';
-import { subscribeTodayMoods, moodFromKey, type MoodMap } from '@/lib/moods';
+import { subscribeTodayMoods, moodFromKey, moodImage, type MoodMap } from '@/lib/moods';
 import { touchPresence, subscribePresence, subscribeWatchPresence, formatPresenceRelative, isTogetherNow, type Presence } from '@/lib/presence';
 import { subscribeLive, liveKey, DEFAULT_BOARD, DEFAULT_BOOK, subscribeCurrentPage, subscribeStrokes, type BoardStroke } from '@/lib/canvasBoard';
 import DoodleThumb from '@/components/DoodleThumb';
@@ -534,12 +534,12 @@ export default function KkomMorningHome() {
 
   // 저장된 키(신규 id 또는 옛날 이모지) → 화면 표시. 애니메이션은 사이담과 동일한
   // CSS 클래스(mood-*). 홈엔 내/상대 각 1개뿐이라 시끄럽지 않고, 여섯 기분만 움직인다.
-  const renderMoodFace = (key: string | undefined, size = 64) => {
+  const renderMoodFace = (key: string | undefined, size = 64, owner?: string) => {
     const m = moodFromKey(key);
     if (!m) return <span className="text-4xl drop-shadow-sm">{key || '…'}</span>;
     return (
       <Image
-        src={m.image}
+        src={moodImage(m, owner)}
         alt={m.label}
         width={size}
         height={size}
@@ -856,7 +856,7 @@ export default function KkomMorningHome() {
             return (
               <div key={person} className="flex flex-col items-center gap-1">
                 <span className="grid h-16 w-16 place-items-center">
-                  {key ? renderMoodFace(key, 64) : (
+                  {key ? renderMoodFace(key, 64, person) : (
                     <span className="flex items-end gap-[6px]" aria-label="아직 기분을 안 골랐어요">
                       {[0, 1, 2].map((i) => (<span key={i} className="h-[7px] w-[7px] rounded-full" style={{ background: 'var(--sd-faint)', opacity: 0.55 }} />))}
                     </span>
