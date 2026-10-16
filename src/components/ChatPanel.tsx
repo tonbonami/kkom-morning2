@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard } from 'lucide-react';
+import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard, Search } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
 import { firstUrl, youTubeId } from '@/lib/links';
 import { igPost } from '@/lib/instagram';
@@ -16,7 +16,7 @@ import {
   toggleReaction, deleteMessage, editMessage, toggleStar, fetchRecentMessages,
 } from '@/lib/chat';
 import { MOOD_OPTIONS } from '@/lib/moods';
-import { normForMatch, toJamo, prepareAlias, matchTier, isConsonantsOnly } from '@/lib/hangulMatch';
+import { normForMatch, toJamo, prepareAlias, matchTier, isConsonantsOnly, type PreparedAlias } from '@/lib/hangulMatch';
 import StickerSuggestTray, { type SuggestItem } from './StickerSuggestTray';
 import ChatEffectLayer, { type ChatEffect } from '@/components/ChatEffectLayer';
 
@@ -385,7 +385,7 @@ const PREPARED = INTENTS.map((it) => ({ it, aliases: it.aliases.map(prepareAlias
 const OWN_MODES: Record<string, StickerMode[]> = { '우댕': ['kkul', 'kkulgif', 'dang'], '꼼이': ['gif', 'kkom', 'mini'] };
 
 function computeSuggestions(
-  draft: string, me: string, freq: Record<string, { count: number }>, prevOrder: string[],
+  draft: string, me: string, freq: Record<string, { count: number }>, prevOrder: string[], fav?: Set<string>,
 ): Suggestion[] {
   if (!draft || draft.length > 80) return [];
   const endsWithSpace = /\s$/.test(draft);
@@ -400,7 +400,8 @@ function computeSuggestions(
       if (!s) return;
       const f = freq[emoId(s)]?.count ?? 0;
       const own = OWN_MODES[me]?.includes(s.mode) ? 3 : 0;
-      const score = base - i * 0.5 + Math.min(8, 2 * Math.log(1 + f)) + own;
+      const star = fav?.has(emoId(s)) ? 4 : 0;   // ★ 즐겨찾기 살짝 앞
+      const score = base - i * 0.5 + Math.min(8, 2 * Math.log(1 + f)) + own + star;
       const prev = scored.get(s.image);
       if (!prev || prev.score < score) scored.set(s.image, { s, score, order: prev?.order ?? order++ });
     });
@@ -550,6 +551,50 @@ const STICKER_TABS: { id: StickerMode; name: string; thumb?: string; icon?: stri
 // 최근·자주 쓴 이모티콘(기기별 localStorage). pick 할 때마다 기록.
 type EmoPick = { mode: StickerMode; key: string; image: string };
 const emoId = (p: { mode: StickerMode; key: string }) => `${p.mode}:${p.key}`;
+
+// ── 서랍 검색 — 모든 탭의 이모티콘을 이름(단어)으로, 그리고 같은 뜻 말(추천 줄과 같은 엔진)으로 찾는다. (카톡 반응 키워드 검색 참고)
+//   「ㅂ」 한 글자 → 단축키 + 'ㅂ'으로 시작하는 이름 · 「가는」 → 이름 가운데 일치(달려가는 중)까지. 내 캐릭터·자주 쓴 것·★가 앞.
+type EmoHit = EmoPick & { thumb: string; video?: boolean };
+let ALL_DRAWER_ITEMS: (EmoHit & { alias: PreparedAlias })[] | null = null;
+function allDrawerItems() {
+  if (ALL_DRAWER_ITEMS) return ALL_DRAWER_ITEMS;
+  const out: (EmoHit & { alias: PreparedAlias })[] = [];
+  const put = (mode: StickerMode, key: string, image: string, thumb: string, name = key) =>
+    out.push({ mode, key, image, thumb, video: isVideoSrc(image), alias: prepareAlias(name) });
+  ANIM_STICKERS.forEach((s) => put('gif', s.word, s.image, s.still));
+  SAI_STICKERS.forEach((s) => put('maltipoo', s.word, s.image, s.image));
+  MOOD_OPTIONS.forEach((o) => put('basic', o.id, o.image, o.image, o.label));
+  DANG_STICKERS.forEach((s) => put('dang', s.word, s.image, s.image));
+  KKOM_STICKERS.forEach((s) => put('kkom', s.word, s.image, s.image));
+  POCKET_STICKERS.forEach((s) => put('couple', s.word, s.image, s.image));
+  SAIDAMI_STICKERS.forEach((s) => put('mini', s.word, s.image, s.image));
+  KKUL_STICKERS.forEach((s) => put('kkul', s.word, s.image, s.image));
+  KKUL_ANIM.forEach((s) => put('kkulgif', s.word, s.image, drawerThumb(s.image)));
+  return (ALL_DRAWER_ITEMS = out);
+}
+function searchStickers(q: string, me: string, freq: Record<string, { count: number }>, fav: Set<string>): EmoHit[] {
+  const token = normForMatch(q);
+  if (!token) return [];
+  const tokenJamo = toJamo(token);
+  const single = [...token].length === 1 && isConsonantsOnly(token);
+  const own = OWN_MODES[me] ?? [];
+  const best = new Map<string, { it: EmoHit; score: number }>();
+  const add = (it: EmoHit, base: number) => {
+    const id = emoId(it);
+    const score = base + Math.min(8, 2 * Math.log(1 + (freq[id]?.count ?? 0))) + (own.includes(it.mode) ? 3 : 0) + (fav.has(id) ? 4 : 0);
+    const prev = best.get(it.image);
+    if (!prev || prev.score < score) best.set(it.image, { it, score });
+  };
+  for (const it of allDrawerItems()) {
+    let t = matchTier(token, tokenJamo, it.alias);
+    if (!t && single && it.alias.cho.startsWith(token)) t = 45;
+    if (!t && !isConsonantsOnly(token) && [...token].length >= 2 && it.alias.norm.includes(token)) t = 50;
+    if (t) { const { alias: _a, ...hit } = it; void _a; add(hit, t); }
+  }
+  computeSuggestions(q, me, freq, [], fav).forEach((s, i) =>
+    add({ mode: s.mode, key: s.key, image: s.image, thumb: s.thumb, video: isVideoSrc(s.image) }, 80 - i));
+  return [...best.values()].sort((a, b) => b.score - a.score).slice(0, 48).map((x) => x.it);
+}
 
 // 답장 미리보기/푸시용 — 미니는 🐶, 텍스트 스티커는 괄호만 벗겨 단어로.
 function stripEmo(text: string): string {
@@ -883,15 +928,23 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   // 최근·자주 쓴 이모티콘(기기별). 첫 탭이 이걸 보여주고, pick 할 때마다 기록된다.
   const [recentPicks, setRecentPicks] = useState<EmoPick[]>([]);
   const [freqPicks, setFreqPicks] = useState<Record<string, EmoPick & { count: number }>>({});
+  // ★ 즐겨찾기(기기별) — 서랍에서 꾹(0.45초) 누르거나 우클릭하면 담기/빼기. 「최근·자주」 맨 위에 모인다. (라인 お気に入り 참고)
+  const [favPicks, setFavPicks] = useState<EmoPick[]>([]);
+  const favIds = useMemo(() => new Set(favPicks.map(emoId)), [favPicks]);
+  // 서랍 검색어 — 서랍을 닫으면 비운다.
+  const [emoQuery, setEmoQuery] = useState('');
+  useEffect(() => { if (!stickerOpen) setEmoQuery(''); }, [stickerOpen]);
   useEffect(() => {
     if (!me) return;
     try {
       const r = JSON.parse(localStorage.getItem(`kkom-emo-recent-${me}`) || '[]');
       const f = JSON.parse(localStorage.getItem(`kkom-emo-freq-${me}`) || '{}');
+      const v = JSON.parse(localStorage.getItem(`kkom-emo-fav-${me}`) || '[]');
       if (Array.isArray(r)) setRecentPicks(r);
       if (f && typeof f === 'object') setFreqPicks(f);
-      // 기록이 아예 없으면(첫 사용) 빈 '최근' 대신 포차코 탭으로 시작한다.
-      if ((!Array.isArray(r) || r.length === 0) && (!f || Object.keys(f).length === 0)) setStickerMode('basic');
+      if (Array.isArray(v)) setFavPicks(v);
+      // 기록이 아예 없으면(첫 사용) 빈 '최근' 대신 내 캐릭터 첫 탭으로 시작한다.
+      if ((!Array.isArray(r) || r.length === 0) && (!f || Object.keys(f).length === 0) && (!Array.isArray(v) || v.length === 0)) setStickerMode(OWN_MODES[me]?.[0] ?? 'basic');
     } catch { setStickerMode('basic'); }
   }, [me]);
   const recordPick = (p: EmoPick) => {
@@ -907,15 +960,31 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       return next;
     });
   };
+  const toggleFav = (p: EmoPick) => {
+    const id = emoId(p);
+    const had = favIds.has(id);
+    setFavPicks((prev) => {
+      const next = had ? prev.filter((x) => emoId(x) !== id) : [{ mode: p.mode, key: p.key, image: p.image }, ...prev].slice(0, 40);
+      try { localStorage.setItem(`kkom-emo-fav-${me}`, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    flashToast(had ? '즐겨찾기에서 뺐어' : '★ 즐겨찾기에 담았어');
+  };
+  // 내 캐릭터 탭 먼저 — 우댕은 꿀됑·꿀됑 움짤·우댕, 꼼이는 움짤·꼼이·미니(OWN_MODES). 「최근·자주」는 늘 맨 앞, 나머지는 원래 순서.
+  const stickerTabs = useMemo(() => {
+    const own = OWN_MODES[me] ?? [];
+    const rank = (id: StickerMode) => (id === 'recent' ? -1 : own.includes(id) ? own.indexOf(id) : 100 + STICKER_TABS.findIndex((t) => t.id === id));
+    return [...STICKER_TABS].sort((a, b) => rank(a.id) - rank(b.id));
+  }, [me]);
   const frequentList = Object.values(freqPicks).sort((a, b) => b.count - a.count).slice(0, 8);
   // 카톡식 추천 — 입력할 때마다 갱신(freqPicks 선언 뒤에 둬야 한다: 위에 두면 TDZ로 렌더가 죽는다).
   //   지금 치는 단어(자모 앞부분·초성·한 글자 단축키) + 문맥 + 내가 자주 쓴 것. 같은 점수면 직전 순서를 유지해 깜빡임을 줄인다.
   const prevSugOrder = useRef<string[]>([]);
   const suggestions = useMemo(() => {
-    const out = computeSuggestions(draft, me, freqPicks, prevSugOrder.current);
+    const out = computeSuggestions(draft, me, freqPicks, prevSugOrder.current, favIds);
     prevSugOrder.current = out.map((x) => x.image);
     return out;
-  }, [draft, me, freqPicks]);
+  }, [draft, me, freqPicks, favIds]);
   // ✕ 닫기 — 지금 치는 단어 동안만 숨긴다(GPT 권장). 공백 뒤 새 단어가 시작되거나, 다 지우거나, 보내면 다시 뜬다.
   //   기억하는 건 '닫을 때 마지막 단어가 시작된 위치까지의 앞부분' — 그 앞부분이 그대로이고 같은 단어를 치는 중이면 숨김.
   const [sugClosed, setSugClosed] = useState<{ prefix: string } | null>(null);
@@ -1340,6 +1409,33 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   // 이모티콘 서랍 — 현재 탭의 섹션 목록. 대부분 섹션 하나(label 없음)지만, '포차코'는 여러 섹션(sticky header)으로.
   //   서랍엔 정지컷(thumb 있으면), 전송·채팅엔 image(움짤 webp 포함). label 있으면 소제목이 걸린다.
   type SItem = { key: string; image: string; video?: boolean; thumb?: string };
+  const searchHits = useMemo(() => (emoQuery.trim() ? searchStickers(emoQuery, me, freqPicks, favIds) : []), [emoQuery, me, freqPicks, favIds]);
+  // 서랍 칸 하나 — 탭=전송, 꾹(0.45초)·우클릭=★ 담기/빼기. 꾹 누른 뒤 손 뗄 때 오는 click은 삼킨다.
+  //   이미지 길게 누르기의 아이폰 저장 메뉴(callout)·끌기는 막는다.
+  const lpRef = useRef<{ t: ReturnType<typeof setTimeout> | null; fired: boolean }>({ t: null, fired: false });
+  const clearLp = () => { if (lpRef.current.t) { clearTimeout(lpRef.current.t); lpRef.current.t = null; } };
+  const emoCell = (p: EmoPick & { thumb?: string; video?: boolean }, sizeCls: string) => {
+    const id = emoId(p);
+    const fav = favIds.has(id);
+    const video = p.video ?? isVideoSrc(p.image);
+    return (
+      <button key={id} type="button" aria-label={`${stickerName(p.key)}${fav ? ' (즐겨찾기)' : ''}`}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          lpRef.current.fired = false; clearLp();
+          lpRef.current.t = setTimeout(() => { lpRef.current.fired = true; lpRef.current.t = null; toggleFav(p); }, 450);
+        }}
+        onPointerUp={clearLp} onPointerLeave={clearLp} onPointerCancel={clearLp}
+        onContextMenu={(e) => { e.preventDefault(); clearLp(); if (!lpRef.current.fired) toggleFav(p); lpRef.current.fired = true; }}
+        onClick={() => { if (lpRef.current.fired) { lpRef.current.fired = false; return; } pickSticker(p.mode, p.key, p.image); }}
+        className={`relative grid place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-[var(--ct-cell-shadow)] active:scale-90 transition-transform select-none [-webkit-touch-callout:none] ${sizeCls}`}>
+        {video
+          ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="pointer-events-none w-[88%] h-[88%] object-contain" />
+          : /* eslint-disable-next-line @next/next/no-img-element */ <img src={p.thumb ?? drawerThumb(p.image)} alt="" draggable={false} className="pointer-events-none w-[88%] h-[88%] object-contain" />}
+        {fav && <span aria-hidden className="absolute right-1 top-0.5 text-[12px] leading-none text-[#FB7BA8]">★</span>}
+      </button>
+    );
+  };
   const stickerSections = (mode: StickerMode): { label?: string; items: SItem[] }[] => {
     switch (mode) {
       case 'gif': return [{ items: ANIM_STICKERS.map((s) => ({ key: s.word, image: s.image, thumb: s.still })) }];
@@ -1817,90 +1913,107 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           </div>
 
 
-          {/* 이모티콘 서랍 — 제미나이 2차: 아이콘만 탭 + 카톡식 '최근·자주' 첫 탭 */}
+          {/* 이모티콘 서랍 — 제미나이 2차: 아이콘만 탭 + 카톡식 '최근·자주' 첫 탭.
+              + 검색칸(모든 탭을 이름·같은 뜻 말로) · 내 캐릭터 탭 먼저 · 꾹 눌러 ★ 즐겨찾기(벤치마킹 1·2번, 우댕 선택 2026-10-16) */}
           {stickerOpen && (
             <div className="mx-3 mb-2 rounded-[28px] p-3 backdrop-blur-md border" style={{ background: 'var(--ct-sheet)', borderColor: 'var(--ct-sheet-border)', boxShadow: 'var(--sd-shadow-card)' }}>
-              {/* 탭 — 실제 스티커 대표 그림(썸네일) 정사각. 최근·자주만 🕒. 선택 시 로즈 배경. */}
-              <div className="flex gap-1 mb-1.5 overflow-x-auto pb-0.5">
-                {STICKER_TABS.map((st) => {
-                  const on = st.id === stickerMode;
-                  return (
-                    <button key={st.id} onClick={() => setStickerMode(st.id)} aria-pressed={on} aria-label={`${st.name} 이모티콘`}
-                      className={`shrink-0 grid h-11 w-11 place-items-center rounded-xl transition-colors ${on ? '' : 'active:bg-black/5'}`}
-                      style={on ? { background: 'var(--ct-tab-active)' } : undefined}>
-                      {st.thumb
-                        ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={st.thumb} alt="" className="h-7 w-7 object-contain" />
-                        : <span className="text-[20px]">{st.icon}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-              {/* 선택된 탭 이름만 작게(어느 탭인지 힌트) */}
-              <div className="mb-1.5 px-0.5 text-[12px] font-bold text-[color:var(--ct-label)]">{STICKER_TABS.find((t) => t.id === stickerMode)?.name}</div>
-
-              <div className="max-h-[40vh] overflow-y-auto">
-                {stickerMode === 'recent' ? (
-                  (recentPicks.length === 0 && frequentList.length === 0) ? (
-                    <div className="py-8 text-center text-[12.5px] leading-relaxed text-[#94A3B8]">아직 쓴 이모티콘이 없어요.<br />다른 탭에서 골라 써보면 여기 모여요 🐾</div>
-                  ) : (
-                    <div className="flex flex-col gap-3.5">
-                      {frequentList.length > 0 && (
-                        <div>
-                          <h3 className="mb-1.5 text-[11px] font-bold text-[#FB7BA8]">⭐ 자주 쓰는</h3>
-                          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
-                            {frequentList.map((p) => (
-                              <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={stickerName(p.key)}
-                                className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-[var(--ct-cell-shadow)] active:scale-90 transition-transform">
-                                {isVideoSrc(p.image)
-                                  ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
-                                  : /* eslint-disable-next-line @next/next/no-img-element */ <img src={drawerThumb(p.image)} alt="" className="w-[88%] h-[88%] object-contain" />}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {recentPicks.length > 0 && (
-                        <div>
-                          <h3 className="mb-1.5 text-[11px] font-bold text-[color:var(--ct-label)]">🕒 최근 사용</h3>
-                          <div className="grid grid-cols-4 gap-1.5">
-                            {recentPicks.map((p) => (
-                              <button key={emoId(p)} onClick={() => pickSticker(p.mode, p.key, p.image)} aria-label={stickerName(p.key)}
-                                className="grid aspect-square place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-[var(--ct-cell-shadow)] active:scale-90 transition-transform">
-                                {isVideoSrc(p.image)
-                                  ? <video src={p.image} poster={posterOf(p.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
-                                  : /* eslint-disable-next-line @next/next/no-img-element */ <img src={drawerThumb(p.image)} alt="" className="w-[88%] h-[88%] object-contain" />}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                ) : (
-                  stickerSections(stickerMode).map((sec, si) => (
-                    <div key={si} className={si > 0 ? 'mt-3' : ''}>
-                      {sec.label && (
-                        <div className="sticky top-0 z-10 mb-1.5 py-1 backdrop-blur-sm" style={{ background: 'var(--ct-sheet)' }}>
-                          <span className="inline-block px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>{sec.label}</span>
-                        </div>
-                      )}
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {sec.items.map((it) => (
-                          <button key={it.key} onClick={() => pickSticker(stickerMode, it.key, it.image)} aria-label={stickerName(it.key)}
-                            className="grid aspect-square place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-[var(--ct-cell-shadow)] active:scale-90 transition-transform">
-                            {it.video ? (
-                              <video src={it.image} poster={posterOf(it.image)} muted loop autoPlay playsInline className="w-[88%] h-[88%] object-contain" />
-                            ) : (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={it.thumb ?? it.image} alt="" className="w-[88%] h-[88%] object-contain" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))
+              {/* 검색 — 글씨 16px: 아이폰은 16px 미만 입력칸을 누르면 화면을 확대한다. */}
+              <div className="mb-2 flex h-10 items-center gap-2 rounded-2xl px-3" style={{ background: 'var(--ct-cell)', boxShadow: 'var(--ct-cell-shadow)' }}>
+                <Search size={16} className="shrink-0" style={{ color: 'var(--ct-label)' }} />
+                <input value={emoQuery} onChange={(e) => setEmoQuery(e.target.value)} type="search" enterKeyHint="search"
+                  placeholder="이모티콘 찾기 (ㅂ, 배고파, 잘자…)" aria-label="이모티콘 찾기"
+                  className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-[color:var(--ct-label)] [&::-webkit-search-cancel-button]:hidden"
+                  style={{ color: 'var(--ct-chip-text)' }} />
+                {emoQuery && (
+                  <button type="button" onClick={() => setEmoQuery('')} aria-label="찾기 지우기"
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full active:bg-black/5" style={{ color: 'var(--ct-label)' }}>
+                    <X size={16} />
+                  </button>
                 )}
               </div>
+
+              {emoQuery.trim() ? (
+                // 키보드가 떠 있으면 결과 칸을 줄여 입력줄·대화가 화면 밖으로 안 밀리게.
+                <div className="overflow-y-auto" style={{ maxHeight: kbInset ? '22vh' : '40vh' }}>
+                  {searchHits.length === 0 ? (
+                    <div className="py-6 text-center text-[12.5px] leading-relaxed" style={{ color: 'var(--ct-label)' }}>
+                      「{emoQuery.trim()}」로 찾은 이모티콘이 없어요.<br />다른 말로 쳐 보세요 (배고파, ㅂㄱ, 잘자…)
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-1.5 px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>찾은 이모티콘 {searchHits.length}개</div>
+                      <div className="grid grid-cols-4 gap-1.5">{searchHits.map((p) => emoCell(p, 'aspect-square'))}</div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* 탭 — 실제 스티커 대표 그림(썸네일) 정사각. 최근·자주만 🕒. 선택 시 로즈 배경. 내 캐릭터 탭이 앞(stickerTabs). */}
+                  <div className="flex gap-1 mb-1.5 overflow-x-auto pb-0.5">
+                    {stickerTabs.map((st) => {
+                      const on = st.id === stickerMode;
+                      return (
+                        <button key={st.id} onClick={() => setStickerMode(st.id)} aria-pressed={on} aria-label={`${st.name} 이모티콘`}
+                          className={`shrink-0 grid h-11 w-11 place-items-center rounded-xl transition-colors ${on ? '' : 'active:bg-black/5'}`}
+                          style={on ? { background: 'var(--ct-tab-active)' } : undefined}>
+                          {st.thumb
+                            ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={st.thumb} alt="" className="h-7 w-7 object-contain" />
+                            : <span className="text-[20px]">{st.icon}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* 선택된 탭 이름(어느 탭인지 힌트) + 오른쪽에 ★ 방법 */}
+                  <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5 text-[12px] font-bold text-[color:var(--ct-label)]">
+                    <span>{STICKER_TABS.find((t) => t.id === stickerMode)?.name}</span>
+                    <span className="font-medium opacity-80">꾹 누르면 ★ 즐겨찾기</span>
+                  </div>
+
+                  <div className="overflow-y-auto" style={{ maxHeight: kbInset ? '22vh' : '40vh' }}>
+                    {stickerMode === 'recent' ? (
+                      (recentPicks.length === 0 && frequentList.length === 0 && favPicks.length === 0) ? (
+                        <div className="py-8 text-center text-[12.5px] leading-relaxed text-[#94A3B8]">아직 쓴 이모티콘이 없어요.<br />다른 탭에서 골라 써보면 여기 모여요 🐾<br />꾹 누르면 ★ 즐겨찾기로 맨 위에 둘 수 있어요</div>
+                      ) : (
+                        <div className="flex flex-col gap-3.5">
+                          {favPicks.length > 0 && (
+                            <div>
+                              <h3 className="mb-1.5 text-[11px] font-bold text-[#FB7BA8]">★ 즐겨찾기</h3>
+                              <div className="grid grid-cols-4 gap-1.5">{favPicks.map((p) => emoCell(p, 'aspect-square'))}</div>
+                            </div>
+                          )}
+                          {frequentList.length > 0 && (
+                            <div>
+                              <h3 className="mb-1.5 text-[11px] font-bold text-[color:var(--ct-label)]">자주 쓰는</h3>
+                              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
+                                {frequentList.map((p) => emoCell(p, 'h-16 w-16 shrink-0'))}
+                              </div>
+                            </div>
+                          )}
+                          {recentPicks.length > 0 && (
+                            <div>
+                              <h3 className="mb-1.5 text-[11px] font-bold text-[color:var(--ct-label)]">🕒 최근 사용</h3>
+                              <div className="grid grid-cols-4 gap-1.5">{recentPicks.map((p) => emoCell(p, 'aspect-square'))}</div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    ) : (
+                      stickerSections(stickerMode).map((sec, si) => (
+                        <div key={si} className={si > 0 ? 'mt-3' : ''}>
+                          {sec.label && (
+                            <div className="sticky top-0 z-10 mb-1.5 py-1 backdrop-blur-sm" style={{ background: 'var(--ct-sheet)' }}>
+                              <span className="inline-block px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>{sec.label}</span>
+                            </div>
+                          )}
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {sec.items.map((it) => emoCell({ mode: stickerMode, key: it.key, image: it.image, thumb: it.thumb, video: it.video }, 'aspect-square'))}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
