@@ -8,6 +8,7 @@ import { firstUrl, youTubeId } from '@/lib/links';
 import { igPost } from '@/lib/instagram';
 import { addShare, deleteShare, subscribeShareList, type ShareItemView } from '@/lib/share';
 import { addWish } from '@/lib/wishlist';
+import { isPractice, practiceBlocked } from '@/lib/practice';
 import { isNaverPlaceUrl, looksNaver, storeNameFromText } from '@/lib/naverPlace';
 import {
   type ChatMessage, type ReplyRef,
@@ -972,14 +973,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
-  // 자동 높이 — 타이핑(onInput) 말고 setDraft로 프로그램적 변경(수정 모드 원문 채우기·미니 삽입)될 때도
-  //   칸 높이가 따라오게. (사이담 팁) onInput만으론 onChange 안 거치는 변경에서 한 줄로 남는다.
-  useLayoutEffect(() => {
-    const ta = taRef.current;
-    if (!ta) return;
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 132) + 'px';
-  }, [draft]);
+  // 자동 높이는 JS로 안 잰다 — 입력칸 아래 같은 글씨의 '그림자 글'(grid 겹치기)이 높이를 정한다(textarea 근처 주석).
+  //   ⚠️ 예전엔 글자마다 height='auto'→scrollHeight 를 두 번(onInput 120·layoutEffect 132) 했다. 'auto' 순간 칸이 한 줄로
+  //   접히며 속스크롤이 생겼다 풀리는데, 아이폰은 캐럿을 그 스크롤 위치에 남겨 '글 한 줄 위에 커서'가 떴다(우댕 사진, 추천 기능 무렵부터).
   const fileRef = useRef<HTMLInputElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPrepending = useRef(false);
@@ -1078,6 +1074,14 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   // (예전엔 localStorage에 남아서 새로고침해도 안 꺼졌다 — 남은 값은 지운다.)
   const pillRef = useRef<HTMLDivElement | null>(null);
   const [kbDebug, setKbDebug] = useState(false);
+  // 연습 모드(?practice=1) — 검수자가 마음껏 눌러 보게. 보내기·입력 중·읽음·접속이 전부 막히고, 막힐 때마다 토스트.
+  const [practice, setPractice] = useState(false);
+  useEffect(() => {
+    setPractice(isPractice());
+    const on = (e: Event) => { setToast(`🧪 연습 모드 — ${(e as CustomEvent<string>).detail} 안 보냈어요`); setTimeout(() => setToast(''), 2400); };
+    window.addEventListener('kk-practice', on);
+    return () => window.removeEventListener('kk-practice', on);
+  }, []);
   useEffect(() => { try { localStorage.removeItem('kkom-kbdebug'); } catch { /* noop */ } }, []);
   const nameTaps = useRef<number[]>([]);
   const onNameTap = () => {
@@ -1152,8 +1156,6 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const stopTyping = () => { setTyping(meKey, false); if (typingTimer.current) clearTimeout(typingTimer.current); };
   const onInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setDraft(e.target.value);
-    e.target.style.height = 'auto';
-    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
     setTyping(meKey, true);
     if (typingTimer.current) clearTimeout(typingTimer.current);
     typingTimer.current = setTimeout(() => setTyping(meKey, false), 2500);
@@ -1166,12 +1168,11 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     if (editing) {
       editMessage(editing.id, t);
       setEditing(null); setDraft(''); stopTyping();
-      if (taRef.current) taRef.current.style.height = 'auto';
       return;
     }
     onSend(t, undefined, undefined, replyTo ?? undefined);
     setDraft(''); setReplyTo(null); stopTyping();
-    if (taRef.current) { taRef.current.style.height = 'auto'; taRef.current.focus(); }  // 연속 전송 — 자판 유지
+    taRef.current?.focus();  // 연속 전송 — 자판 유지
     // 링크가 들어있으면 저장 물어보기 — 네이버 가게면 위시리스트, 아니면 이거봐봐.
     const url = firstUrl(t);
     if (url) void detectLinkPrompt(url, t);
@@ -1204,6 +1205,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     if (!placePrompt || placeSaving) return;
     const name = placePrompt.name.trim();
     if (!name) return;   // 이름 비면 담기 X — 「네이버지도」 같은 쓰레기 항목을 막는 마지막 문
+    if (isPractice()) { practiceBlocked('위시리스트 담기'); setPlacePrompt(null); return; }
     setPlaceSaving(true);
     try {
       await addWish({ category: placeCat, title: name, url: placePrompt.url, by: me as '우댕' | '꼼이' });
@@ -1293,6 +1295,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   useEffect(() => subscribeShareList(setLinks), []);
   const saveCurrentLink = async () => {
     if (!linkPrompt || linkSaving) return;
+    if (isPractice()) { practiceBlocked('링크 저장'); setLinkPrompt(null); return; }
     setLinkSaving(true);
     try { await addShare({ url: linkPrompt, by: me as '우댕' | '꼼이' }); flashToast('공유 리스트에 저장했어 🔖'); }
     catch { flashToast('저장 실패 — 다시 시도해줘'); }
@@ -1318,7 +1321,6 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     if (isNaN(when.getTime()) || when.getTime() <= Date.now()) { flashToast('미래 날짜를 골라줘 ⏳'); return; }
     onSendCapsule(draft.trim(), when);
     setDraft(''); setReplyTo(null); setCapsuleOpen(false); stopTyping();
-    if (taRef.current) taRef.current.style.height = 'auto';
     flashToast(`타임캡슐 예약됨 ⏳ ${when.getFullYear()}.${when.getMonth() + 1}.${when.getDate()} 도착`);
   };
 
@@ -1555,6 +1557,11 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               <button onClick={onClose} aria-label="닫기" title="채팅 닫기" className="p-1.5 text-slate-400 hover:text-slate-600"><X size={22} /></button>
             </div>
           </div>
+          {practice && (
+            <div className="mx-4 mb-1.5 rounded-xl bg-amber-100 px-3 py-1.5 text-center text-xs font-bold text-amber-800">
+              🧪 연습 모드 — 무엇을 눌러도 {partner}에게 안 가요
+            </div>
+          )}
 
           {/* 챗 테마 시트 — 제미나이 설계: 미니 챗 미리보기 카드 2단 그리드. 모드별 세트(라이트 5·다크 7), 기기별. */}
           <AnimatePresence>
@@ -2093,6 +2100,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     e.nativeEvent.isComposing — 한글 조합 중 Enter로 조합 확정할 때 오전송 방지. */}
                 {/* onFocus — 입력칸을 누르면 이모티콘 서랍을 닫고 키보드로(카톡 방식). 전엔 서랍이 열린 채로 남아
                     메시지 영역이 반 넘게 가려졌다(Aside 1부: 703→336px). */}
+                {/* 자동 높이 = grid 겹치기: 안 보이는 '그림자 글'(같은 글씨·여백)이 칸 높이를 정하고 textarea는 그 칸을 채운다.
+                    JS가 높이를 건드리지 않아 칸이 접혔다 펴지는 일이 없다 → 아이폰 캐럿이 엉뚱한 줄에 남지 않는다. 최대 132px 넘으면 속스크롤. */}
+                <div className="grid min-w-0 flex-1">
+                <div aria-hidden className="invisible col-start-1 row-start-1 max-h-[132px] overflow-hidden whitespace-pre-wrap break-words px-1.5 py-2.5 text-[15px] leading-snug">{draft + ' '}</div>
                 <textarea ref={taRef} value={draft} onChange={onInput} onBlur={stopTyping} onPaste={onPaste}
                   onFocus={() => setStickerOpen(false)}
                   onKeyDown={(e) => {
@@ -2101,7 +2112,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   }}
                   rows={1} placeholder={uploading ? '올리는 중…' : `${partner}에게 할 말…`}
                   style={{ background: 'transparent', color: 'var(--ct-chip-text)' }}
-                  className="min-w-0 flex-1 resize-none px-1.5 py-2.5 text-[15px] leading-snug outline-none max-h-[132px]" />
+                  className="col-start-1 row-start-1 h-full min-w-0 resize-none overflow-y-auto break-words px-1.5 py-2.5 text-[15px] leading-snug outline-none max-h-[132px]" />
+                </div>
                 {/* 오른쪽 — 이모티콘 + (글이 있으면) 보내기. 음성·타임캡슐은 ＋로 옮겼다. */}
                 <div className="flex shrink-0 items-center gap-0.5 self-end">
                   {/* 서랍이 열리면 ⌨로 바뀐다 — 누르면 서랍 닫고 바로 입력칸으로(카톡 방식).
@@ -2216,7 +2228,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                                   <span className="shrink-0">{lk.by}</span>
                                 </div>
                               </div>
-                              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteShare(lk.id); }}
+                              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (isPractice()) { practiceBlocked('링크 삭제'); return; } deleteShare(lk.id); }}
                                 aria-label="삭제" className="shrink-0 p-1.5 text-slate-300 active:text-slate-500"><Trash2 size={15} /></button>
                             </a>
                           ))}

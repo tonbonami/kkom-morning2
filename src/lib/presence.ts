@@ -1,5 +1,6 @@
 import { db } from './firebase';
 import { doc, setDoc, getDocFromServer, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { isPractice } from './practice';
 
 // presence/{name} 도큐먼트
 // - lastSeenAt: 마지막 활동 시각 (서버 시각)
@@ -32,7 +33,7 @@ async function calibrateClock(ref: ReturnType<typeof doc>): Promise<void> {
 }
 
 export async function touchPresence(name: string, active: boolean): Promise<void> {
-  if (!name) return;
+  if (!name || isPractice()) return; // 연습 모드 — 상대 화면에 '지금 함께'로 안 뜨게
   const ref = doc(db, 'presence', name);
   try {
     await setDoc(ref, { name, lastSeenAt: serverTimestamp(), active }, { merge: true });
