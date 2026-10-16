@@ -288,6 +288,10 @@
 }
 
 @layer utilities {
+  /* 가로 스크롤 칩 줄의 스크롤바 숨김 — 칭찬 다이어리 DiaryNav(제미나이)가 씀 */
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
   .shake {
     animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
   }

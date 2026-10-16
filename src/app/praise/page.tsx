@@ -27,6 +27,11 @@ import {
   type ReactionComment,
 } from '@/lib/reactions';
 import CommentSheet from '@/components/CommentSheet';
+// 제미나이 개선 3종(Aside 검수 결과, 2026-10-16) — 수정 0으로 이식, 여기선 데이터만 연결
+import PraiseMeta from '@/components/praise/PraiseMeta';
+import DiaryNav from '@/components/praise/DiaryNav';
+import ComposerHint from '@/components/praise/ComposerHint';
+import { kstParts } from '@/lib/kst';
 import { nameFromCode, partnerOf, vocativeOf } from '@/lib/letters';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/feedback';
@@ -139,11 +144,13 @@ function PraiseRow({
   me,
   index,
   onOpenReplies,
+  anchorId,
 }: {
   item: PraiseItemView;
   me: PraiseUser;
   index: number;
   onOpenReplies: (item: PraiseItemView) => void;
+  anchorId?: string;   // 그 달 첫 칭찬이면 'pm-YYYY-MM' — DiaryNav 달 이동이 여기로 스크롤
 }) {
   const isMine = item.from === me;
   const isRequest = item.kind === 'request';
@@ -154,7 +161,7 @@ function PraiseRow({
   if (isRequest) {
     const tilt = index % 2 === 0 ? '-rotate-1' : 'rotate-1';
     return (
-      <article className={cn('relative rounded-[18px] bg-[#FFF8D9] px-4 py-3 ring-1 ring-amber-100 shadow-md', tilt)}>
+      <article id={anchorId} className={cn('relative rounded-[18px] bg-[#FFF8D9] px-4 py-3 ring-1 ring-amber-100 shadow-md', tilt)}>
         <div className="tape -top-2 left-1/2 -translate-x-1/2 w-14 -rotate-3 rounded-sm" />
         <p className="text-[13px] font-black text-amber-600">
           {formatDate(item.createdAt)} · 🥺 {subjName(item.from)}가 칭찬을 졸랐어
@@ -180,7 +187,7 @@ function PraiseRow({
     const tapeColor = item.from === '꼼이' ? 'tape-mint' : 'tape-pink';
     // 메모는 다이어리에 자유롭게 떠다니는 분위기로 — 사이즈 작게, 살짝 그림자
     return (
-      <article className={cn('relative max-w-[80%] rounded-[16px] px-4 py-3 ring-1 shadow-[3px_5px_0px_rgba(0,0,0,0.06)]', bg, ring, tilt, index % 2 === 0 ? 'self-start mr-auto ml-2' : 'self-end ml-auto mr-2')}>
+      <article id={anchorId} className={cn('relative max-w-[80%] rounded-[16px] px-4 py-3 ring-1 shadow-[3px_5px_0px_rgba(0,0,0,0.06)]', bg, ring, tilt, index % 2 === 0 ? 'self-start mr-auto ml-2' : 'self-end ml-auto mr-2')}>
         <div className={cn('tape -top-2 left-1/2 -translate-x-1/2 w-12 rotate-3 rounded-sm', tapeColor)} />
         <p className="font-handwriting text-[18px] leading-snug text-slate-800 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
           {item.reason}
@@ -204,6 +211,7 @@ function PraiseRow({
 
   return (
     <article
+      id={anchorId}
       className={cn(
         'relative rounded-[20px] px-4 py-4 shadow-[0_4px_18px_rgba(15,23,42,0.07)] border border-slate-100',
         tint,
@@ -215,9 +223,12 @@ function PraiseRow({
       <p className="font-handwriting mt-3 text-[20px] leading-snug text-slate-800 break-words [overflow-wrap:anywhere]">
         {item.reason}
       </p>
-      <p className="mt-2 text-[13px] font-bold text-slate-400">
-        {formatDate(item.createdAt)} · {isMine ? `${item.to}에게 보낸 칭찬` : `${subjName(item.from)}가 보낸 칭찬`}
-      </p>
+      <PraiseMeta
+        dateText={formatDate(item.createdAt)}
+        whoText={isMine ? `${item.to}에게 보낸 칭찬` : `${subjName(item.from)}가 보낸 칭찬`}
+        stickerCount={item.stickerCount}
+        tone={item.from === '우댕' ? 'udaeng' : 'kkomi'}
+      />
 
       {/* Phase 3 인라인 답글 미리보기 (영감 자료 핵심) */}
       {item.latestReply && (
@@ -343,6 +354,7 @@ function Composer({
               📝 메모
             </button>
           </div>
+          <ComposerHint kind={kind} partner={partner} />
 
           {/* 본문 */}
           <textarea
@@ -523,6 +535,46 @@ export default function PraisePage() {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }, [feedItems, allItems, me, view, showMore]);
 
+  // 옛 칭찬 길찾기(DiaryNav) — 펼친 목록을 KST 달로 묶는다. 그 달 첫 줄에 앵커 id(pm-YYYY-MM).
+  const { navMonths, anchorByIndex } = useMemo(() => {
+    const nowY = kstParts(new Date()).year;
+    const months: { key: string; label: string; count: number }[] = [];
+    const anchors = new Map<number, string>();
+    diaryItems.forEach((it, i) => {
+      const p = kstParts(it.createdAt);
+      const key = `${p.year}-${String(p.month).padStart(2, '0')}`;
+      const last = months[months.length - 1];
+      if (!last || last.key !== key) {
+        months.push({ key, label: p.year === nowY ? `${p.month}월` : `${String(p.year).slice(2)}년 ${p.month}월`, count: 1 });
+        anchors.set(i, `pm-${key}`);
+      } else last.count++;
+    });
+    return { navMonths: months, anchorByIndex: anchors };
+  }, [diaryItems]);
+  const [activeMonth, setActiveMonth] = useState<string | null>(null);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  useEffect(() => {
+    if (!showMore) { setActiveMonth(null); setShowBackToTop(false); return; }
+    const onScroll = () => {
+      setShowBackToTop(window.scrollY > 600);
+      // 위에 붙은 달 칩 줄(약 52px) 바로 아래를 지난 마지막 앵커가 '지금 보는 달'
+      let cur: string | null = navMonths[0]?.key ?? null;
+      for (const m of navMonths) {
+        const el = document.getElementById(`pm-${m.key}`);
+        if (el && el.getBoundingClientRect().top <= 90) cur = m.key;
+      }
+      setActiveMonth(cur);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [showMore, navMonths]);
+  const jumpToMonth = (key: string) => {
+    const el = document.getElementById(`pm-${key}`);
+    if (!el) return;
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 72, behavior: 'smooth' });
+  };
+
   // 옛 칭찬이 더 있는지 (allItems가 feedItems보다 많을 때)
   const hasMore = useMemo(() => {
     if (!me) return false;
@@ -591,6 +643,17 @@ export default function PraisePage() {
         {/* 작성 폼 (접힘) */}
         <Composer me={me} partner={partner as PraiseUser} onSent={refreshTotals} />
 
+        {/* 옛 칭찬 길찾기 — 펼쳤을 때만(DiaryNav가 expanded=false면 안 그림): 위에 붙는 달 칩 + 오른쪽 아래 맨 위로·접기 */}
+        <DiaryNav
+          months={navMonths}
+          activeKey={activeMonth}
+          onJump={jumpToMonth}
+          showBackToTop={showBackToTop}
+          onBackToTop={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          expanded={showMore}
+          onCollapse={() => { setShowMore(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+        />
+
         {/* 다이어리 피드 — 카드 사이 간격 넓혀서 노트 줄이 잘 보이게 */}
         <section className="space-y-6 pt-2">
           {/* 왕칭찬 트로피 선반 (Gemini A안) — 도배되던 풀사이즈 카드 N개를 얇은 스트립 하나로 압축.
@@ -655,6 +718,7 @@ export default function PraisePage() {
                 me={me}
                 index={idx}
                 onOpenReplies={(it) => setCommentItem(it)}
+                anchorId={showMore ? anchorByIndex.get(idx) : undefined}
               />
             ))
           )}
