@@ -410,11 +410,15 @@ function computeSuggestions(
   if (single) {
     (KEY_SHORTCUTS[token] ?? []).forEach((id, k) => { const it = INTENT_BY_ID.get(id); if (it) add(it.get(), 50 - k * 4); });
   } else if (token) {
-    for (const { it, aliases } of PREPARED) {
+    // 어떤 뜻 묶음과 딱 맞으면(100) 앞부분만 걸친 다른 묶음은 뺀다 — 「잘자」가 '잘잤어'(아침)에,
+    //   「헐」이 '헐레벌떡'(달려가는 중)에 걸려 좋은아침·가는중이 같이 뜨던 것(Aside 2026-10-16).
+    const tiers = PREPARED.map(({ it, aliases }) => {
       let best = 0;
       for (const a of aliases) { const t = matchTier(token, tokenJamo, a); if (t > best) best = t; if (best === 100) break; }
-      if (best) add(it.get(), best + (it.pop ?? 0));
-    }
+      return { it, best };
+    });
+    const exact = tiers.some((x) => x.best === 100);
+    for (const { it, best } of tiers) if (best && (!exact || best === 100)) add(it.get(), best + (it.pop ?? 0));
   }
   // 문맥 보조 — 문장 전체 정규식은 낮은 점수만(지금 치는 단어가 우선). 지금 절 30, 앞 절 12.
   const normClause = normalizeInput(clause.trim());
@@ -1412,7 +1416,9 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const searchHits = useMemo(() => (emoQuery.trim() ? searchStickers(emoQuery, me, freqPicks, favIds) : []), [emoQuery, me, freqPicks, favIds]);
   // 서랍 칸 하나 — 탭=전송, 꾹(0.45초)·우클릭=★ 담기/빼기. 꾹 누른 뒤 손 뗄 때 오는 click은 삼킨다.
   //   이미지 길게 누르기의 아이폰 저장 메뉴(callout)·끌기는 막는다.
-  const lpRef = useRef<{ t: ReturnType<typeof setTimeout> | null; fired: boolean }>({ t: null, fired: false });
+  //   ⚠️ fired는 어느 버튼이든 누를 때마다 지운다 — 예전엔 오른쪽 버튼이면 지우기 전에 빠져나가, 우클릭 ★가 첫 번째만 되고
+  //   그다음 우클릭은 전부 무시됐다(Aside 2026-10-16). 타이머가 늦게 도는 환경(가려진 창)도 있어 손 뗄 때 누른 시간으로 한 번 더 판정.
+  const lpRef = useRef<{ t: ReturnType<typeof setTimeout> | null; fired: boolean; at: number }>({ t: null, fired: false, at: 0 });
   const clearLp = () => { if (lpRef.current.t) { clearTimeout(lpRef.current.t); lpRef.current.t = null; } };
   const emoCell = (p: EmoPick & { thumb?: string; video?: boolean }, sizeCls: string) => {
     const id = emoId(p);
@@ -1421,11 +1427,17 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     return (
       <button key={id} type="button" aria-label={`${stickerName(p.key)}${fav ? ' (즐겨찾기)' : ''}`}
         onPointerDown={(e) => {
-          if (e.button !== 0) return;
           lpRef.current.fired = false; clearLp();
+          if (e.button !== 0) return;
+          lpRef.current.at = Date.now();
           lpRef.current.t = setTimeout(() => { lpRef.current.fired = true; lpRef.current.t = null; toggleFav(p); }, 450);
         }}
-        onPointerUp={clearLp} onPointerLeave={clearLp} onPointerCancel={clearLp}
+        onPointerUp={() => {
+          const pending = !!lpRef.current.t;
+          clearLp();
+          if (pending && !lpRef.current.fired && Date.now() - lpRef.current.at >= 450) { lpRef.current.fired = true; toggleFav(p); }
+        }}
+        onPointerLeave={clearLp} onPointerCancel={clearLp}
         onContextMenu={(e) => { e.preventDefault(); clearLp(); if (!lpRef.current.fired) toggleFav(p); lpRef.current.fired = true; }}
         onClick={() => { if (lpRef.current.fired) { lpRef.current.fired = false; return; } pickSticker(p.mode, p.key, p.image); }}
         className={`relative grid place-items-center rounded-2xl bg-[var(--ct-cell)] shadow-[var(--ct-cell-shadow)] active:scale-90 transition-transform select-none [-webkit-touch-callout:none] ${sizeCls}`}>
