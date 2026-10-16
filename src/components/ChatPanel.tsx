@@ -576,6 +576,28 @@ function allDrawerItems() {
   KKUL_ANIM.forEach((s) => put('kkulgif', s.word, s.image, drawerThumb(s.image)));
   return (ALL_DRAWER_ITEMS = out);
 }
+// ── 짝 답장 — 받은 이모티콘과 같은 뜻의 '내 캐릭터' 이모티콘으로 답한다(카톡 '이모티콘 따라하기' + 우리 둘 짝 캐릭터).
+//   같은 뜻 = 그 그림이 들어 있는 뜻 묶음(INTENTS) + 이름이 같은 그림. 순서: 내 캐릭터 → 같은 그림(나도) → 나머지. 최대 8개.
+//   그림 주소 끝 ?v=… 는 배포마다 바뀌어서 떼고 비교한다(옛 메시지도 짝이 찾아지게).
+const bareSrc = (src: string) => src.split('?')[0];
+function pairCandidates(sticker: string, me: string): Suggestion[] {
+  const target = bareSrc(sticker);
+  const items = allDrawerItems();
+  const self = items.find((x) => bareSrc(x.image) === target);
+  const pool = new Map<string, Suggestion>();
+  const put = (s?: Suggestion) => { if (s && !pool.has(bareSrc(s.image))) pool.set(bareSrc(s.image), s); };
+  for (const it of INTENTS) {
+    const got = it.get().filter((x): x is Suggestion => !!x);
+    if (got.some((x) => bareSrc(x.image) === target)) got.forEach(put);
+  }
+  if (self) {
+    for (const x of items) if (x.alias.norm === self.alias.norm) put({ key: x.key, image: x.image, thumb: x.thumb, mode: x.mode });
+    put({ key: self.key, image: self.image, thumb: self.thumb, mode: self.mode });
+  }
+  const own = OWN_MODES[me] ?? [];
+  const rank = (x: Suggestion) => (own.includes(x.mode) ? own.indexOf(x.mode) : bareSrc(x.image) === target ? 50 : 100);
+  return [...pool.values()].sort((a, b) => rank(a) - rank(b)).slice(0, 8);
+}
 function searchStickers(q: string, me: string, freq: Record<string, { count: number }>, fav: Set<string>): EmoHit[] {
   const token = normForMatch(q);
   if (!token) return [];
@@ -1005,9 +1027,15 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);  // 내 메시지 수정 중
   // 추천 트레이(제미나이 C안, 수정 0)에 넘길 형태 — editing 선언 뒤여야 한다(TDZ). id=그림 경로(고유), 썸네일은 서랍과 같은 정지컷.
+  // 짝 답장 중이면 추천 줄 자리에 짝 후보를 띄운다(같은 제미나이 트레이). 글자를 치면 짝 답장은 접고 평소 추천으로.
+  const [pairFrom, setPairFrom] = useState<{ id: string; items: Suggestion[] } | null>(null);
+  useEffect(() => { setPairFrom(null); }, [draft]);
   const trayItems = useMemo<SuggestItem[]>(
-    () => (sugHidden || stickerOpen || editing ? [] : suggestions.map((it) => ({ id: it.image, thumb: drawerThumb(it.thumb), label: `${it.key} 추천 이모티콘` }))),
-    [suggestions, sugHidden, stickerOpen, editing],
+    () => (stickerOpen || editing ? []
+      : pairFrom ? pairFrom.items.map((it) => ({ id: it.image, thumb: drawerThumb(it.thumb), label: `${it.key} 짝 답장` }))
+      : sugHidden ? []
+      : suggestions.map((it) => ({ id: it.image, thumb: drawerThumb(it.thumb), label: `${it.key} 추천 이모티콘` }))),
+    [suggestions, sugHidden, stickerOpen, editing, pairFrom],
   );
   const [flashId, setFlashId] = useState<string | null>(null);  // 인용 탭 → 원본 잠깐 강조
 
@@ -1886,6 +1914,14 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                               ))}
                             </div>
                             <div className="flex items-start pt-1">
+                              {/* 짝 답장 — 상대 이모티콘에만. 누르면 입력줄 위에 같은 뜻의 내 캐릭터 이모티콘이 뜬다. */}
+                              {!mine && m.sticker && (() => {
+                                const pairs = pairCandidates(m.sticker, me);
+                                return pairs.length > 0 ? (
+                                  <MenuAction onClick={() => { setPairFrom({ id: m.id, items: pairs }); setActionMsg(null); setStickerOpen(false); }}
+                                    label="짝 답장" icon={<Sparkles size={16} className="text-[#FB7BA8]" />} />
+                                ) : null;
+                              })()}
                               <MenuAction onClick={doReply} label="답장" icon={<CornerDownRight size={17} />} />
                               <MenuAction onClick={doStar} label={actionMsg.starred ? '보관됨' : '보관'}
                                 icon={actionMsg.starred ? <BookmarkCheck size={17} className="text-[#FB7BA8]" /> : <Bookmark size={17} />} />
@@ -2062,10 +2098,10 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               items={trayItems}
               reduceMotion={!!reduceMotion}
               onPick={(t) => {
-                const it = suggestions.find((x) => x.image === t.id); if (!it) return;
-                recordPick(it); onSend('', undefined, it.image, replyTo ?? undefined); setReplyTo(null);
+                const it = (pairFrom ? pairFrom.items : suggestions).find((x) => x.image === t.id); if (!it) return;
+                recordPick(it); onSend('', undefined, it.image, replyTo ?? undefined); setReplyTo(null); setPairFrom(null);
               }}
-              onClose={() => setSugClosed({ prefix: draft.slice(0, tokenStart(draft)) })}
+              onClose={() => { if (pairFrom) setPairFrom(null); else setSugClosed({ prefix: draft.slice(0, tokenStart(draft)) }); }}
             />
             {/* 업로드 진행 — 동영상은 실제 % 바, 사진은 짧아서 간단한 진행 표시 */}
             <AnimatePresence>
