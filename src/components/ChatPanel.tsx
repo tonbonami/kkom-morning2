@@ -220,6 +220,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /굿모닝|좋은\s?아침|모닝(?!콜)|잘\s?잤|일어났|기상(?!청|캐스)/, get: () => [sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝'), sugKkul('좋은아침')] },
   { re: /안녕|하이|방가|ㅎㅇ|하잉|헬로|하이염/,                  get: () => [sugAnim('안녕!')] },
   { re: /잘\s?자|굿\s?밤|굿나잇|자자|자야|잘게|취침|나이트|굿밤/, get: () => [sugAnim('잘자'), sugSai('굿밤')] },
+  { re: /일어나|기상|깨워|깨어나|모닝\s?콜|늦잠|그만\s?자/,      get: () => [sugKkulAnim('일어나 붕붕'), sugKkul('좋은아침')] },
   { re: /졸려|졸립|하품|잠\s?와|잠온|눈\s?감|나른/,             get: () => [sugAnim('졸려'), sugSai('졸려'), sugMini('졸려')] },
   { re: /일어나기\s?싫|이불|늦잠|더\s?잘래|눕고|자고\s?싶/,      get: () => [sugAnim('일어나기 싫어')] },
 
@@ -317,6 +318,7 @@ const INTENTS: Intent[] = [
   { id: 'sulk',     aliases: ['삐짐', '삐졌어', '삐질거야', '삐졌다', '서운해', '서운', '토라졌어', '시무룩', '흥칫뿡', 'ㅃㅈ'], get: () => [sugAnim('삐짐'), sugMini('삐졌어'), sugAnim('흥!'), sugDang('푸데데'), sugKkom('푸데데')] },
   { id: 'hmph',     aliases: ['흥', '흥칫', '칫', '몰라', '흥이다', '에잇'], get: () => [sugAnim('흥!'), sugAnim('삐짐')] },
   { id: 'sorry',    pop: 2, aliases: ['미안해', '미안', '미안해요', '미안하다', '죄송해', '죄송', '쏘리', '사과할게', '미얀', '먄', 'ㅈㅅ', 'sorry'], get: () => [sugAnim('미안해'), sugSai('미안'), sugMini('미안해')] },
+  { id: 'wakeup',   pop: 3, aliases: ['일어나', '일어나라', '일어나자', '일어나세요', '일어날시간', '기상', '기상해', '기상기상', '깨워', '깨워줘', '깨어나', '모닝콜', '알람', '늦잠', '그만자', 'ㅇㅇㄴ'], get: () => [sugKkulAnim('일어나 붕붕'), sugKkul('좋은아침'), sugAnim('좋은 아침')] },
   { id: 'night',    pop: 2, aliases: ['잘자', '잘자요', '자야겠다', '잘게', '굿밤', '굿나잇', '취침', '꿈꿔', '자러갈게', '자자', 'ㅈㅈ'], get: () => [sugAnim('잘자'), sugSai('굿밤')] },
   { id: 'bath',     aliases: ['씻고올게', '씻으러', '씻으러가', '샤워', '샤워할게', '샤워하고올게', '목욕', '씻는중', '세수', 'ㅆㄱㅇㄱ'], get: () => [sugAnim('씻고 올게')] },
   { id: 'sick',     pop: 3, aliases: ['아파', '아프다', '아파요', '아픔', '감기', '몸살', '열나', '골골', '몸안좋아', '컨디션', '병원', '두통', '배아파'], get: () => [sugAnim('아파'), sugMini('아파'), sugKkul('괜찮아?')] },
@@ -476,6 +478,7 @@ const KKUL_ANIM: { word: string; image: string }[] = [
   { word: 'ㅋㅋㅋ 발라당', image: '/emo/sai-anim/kkul-kkk.webp' },   // art/kkuldaeng/kkk
   { word: '꽃 줄게', image: '/emo/sai-anim/kkul-flower.webp' },   // art/kkuldaeng/flower
   { word: '안아줘 꼬리하트', image: '/emo/sai-anim/kkul-hug.webp' },   // art/kkuldaeng/hug
+  { word: '일어나 붕붕', image: '/emo/sai-anim/kkul-wake.webp' },   // art/kkuldaeng/wake — 꼼이랑 둘이 나오는 첫 움짤(우댕 OK 2026-10-18)
 ];
 
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
