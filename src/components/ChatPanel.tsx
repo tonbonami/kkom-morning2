@@ -319,6 +319,10 @@ const INTENTS: Intent[] = [
   { id: 'hmph',     aliases: ['흥', '흥칫', '칫', '몰라', '흥이다', '에잇'], get: () => [sugAnim('흥!'), sugAnim('삐짐')] },
   { id: 'sorry',    pop: 2, aliases: ['미안해', '미안', '미안해요', '미안하다', '죄송해', '죄송', '쏘리', '사과할게', '미얀', '먄', 'ㅈㅅ', 'sorry'], get: () => [sugAnim('미안해'), sugSai('미안'), sugMini('미안해')] },
   { id: 'wakeup',   pop: 3, aliases: ['일어나', '일어나라', '일어나자', '일어나세요', '일어날시간', '기상', '기상해', '기상기상', '깨워', '깨워줘', '깨어나', '모닝콜', '알람', '늦잠', '그만자', 'ㅇㅇㄴ'], get: () => [sugKkulAnim('일어나 붕붕'), sugKkul('좋은아침'), sugAnim('좋은 아침')] },
+  { id: 'tteok1',   pop: 2, aliases: ['찰떡', '찰떡커플', '찰떡궁합', '우리는찰떡', '찰떡이야'], get: () => [sugKkulAnim('찰떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
+  { id: 'tteok2',   pop: 2, aliases: ['쑥떡'], get: () => [sugKkulAnim('쑥떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
+  { id: 'tteok3',   pop: 2, aliases: ['콩떡'], get: () => [sugKkulAnim('콩떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
+  { id: 'tteok4',   pop: 2, aliases: ['개떡'], get: () => [sugKkulAnim('개떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
   { id: 'night',    pop: 2, aliases: ['잘자', '잘자요', '자야겠다', '잘게', '굿밤', '굿나잇', '취침', '꿈꿔', '자러갈게', '자자', 'ㅈㅈ'], get: () => [sugAnim('잘자'), sugSai('굿밤')] },
   { id: 'bath',     aliases: ['씻고올게', '씻으러', '씻으러가', '샤워', '샤워할게', '샤워하고올게', '목욕', '씻는중', '세수', 'ㅆㄱㅇㄱ'], get: () => [sugAnim('씻고 올게')] },
   { id: 'sick',     pop: 3, aliases: ['아파', '아프다', '아파요', '아픔', '감기', '몸살', '열나', '골골', '몸안좋아', '컨디션', '병원', '두통', '배아파'], get: () => [sugAnim('아파'), sugMini('아파'), sugKkul('괜찮아?')] },
@@ -479,6 +483,13 @@ const KKUL_ANIM: { word: string; image: string }[] = [
   { word: '꽃 줄게', image: '/emo/sai-anim/kkul-flower.webp' },   // art/kkuldaeng/flower
   { word: '안아줘 꼬리하트', image: '/emo/sai-anim/kkul-hug.webp' },   // art/kkuldaeng/hug
   { word: '일어나 붕붕', image: '/emo/sai-anim/kkul-wake.webp' },   // art/kkuldaeng/wake — 꼼이랑 둘이 나오는 첫 움짤(우댕 OK 2026-10-18)
+  // 떡 말놀이(우댕 OK 2026-10-19) — 꼼이 「찰떡!」→ 우댕 「쑥떡!」→ 꼼이 「콩떡!」→ 우댕 「개떡!」. 짝 답장이 다음 떡을 먼저 띄운다(TTEOK_NEXT).
+  //   art/kkuldaeng/tteok — 낱장은 앞뒤 반복, 합친 판은 장면마다 배지가 바뀐다(make_combo.py).
+  { word: '찰떡!', image: '/emo/sai-anim/kkul-tteok-chal.webp' },
+  { word: '쑥떡!', image: '/emo/sai-anim/kkul-tteok-ssuk.webp' },
+  { word: '콩떡!', image: '/emo/sai-anim/kkul-tteok-kong.webp' },
+  { word: '개떡!', image: '/emo/sai-anim/kkul-tteok-gae.webp' },
+  { word: '찰떡 쑥떡 콩떡 개떡', image: '/emo/sai-anim/kkul-tteok-all.webp' },
 ];
 
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
@@ -583,7 +594,18 @@ function allDrawerItems() {
 //   같은 뜻 = 그 그림이 들어 있는 뜻 묶음(INTENTS) + 이름이 같은 그림. 순서: 내 캐릭터 → 같은 그림(나도) → 나머지. 최대 8개.
 //   그림 주소 끝 ?v=… 는 배포마다 바뀌어서 떼고 비교한다(옛 메시지도 짝이 찾아지게).
 const bareSrc = (src: string) => src.split('?')[0];
+// 떡 말놀이 — 받은 떡의 '다음 떡'을 짝 답장 맨 앞에(찰떡→쑥떡→콩떡→개떡→다시 찰떡).
+const TTEOK_NEXT: Record<string, string> = {
+  '/emo/sai-anim/kkul-tteok-chal.webp': '쑥떡!', '/emo/sai-anim/kkul-tteok-ssuk.webp': '콩떡!',
+  '/emo/sai-anim/kkul-tteok-kong.webp': '개떡!', '/emo/sai-anim/kkul-tteok-gae.webp': '찰떡!',
+};
 function pairCandidates(sticker: string, me: string): Suggestion[] {
+  const target = bareSrc(sticker);
+  const next = TTEOK_NEXT[target] ? sugKkulAnim(TTEOK_NEXT[target]) : undefined;
+  if (next) return [next, ...pairCandidatesBase(sticker, me).filter((x) => x.image !== next.image)].slice(0, 8);
+  return pairCandidatesBase(sticker, me);
+}
+function pairCandidatesBase(sticker: string, me: string): Suggestion[] {
   const target = bareSrc(sticker);
   const items = allDrawerItems();
   const self = items.find((x) => bareSrc(x.image) === target);
@@ -1621,6 +1643,22 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   };
   const doStar = () => { if (actionMsg) toggleStar(actionMsg.id); setActionMsg(null); };
 
+  // 말풍선 탭 — 한 번이면 0.26초 뒤 메뉴, 그 안에 한 번 더 누르면(두 번 톡) 바로 ❤️ 반응 + 하트 팝(인스타·아이메시지식).
+  //   반응이 메뉴 안에만 있어 두 달 반 동안 10번밖에 안 쓰였다(우댕 선택 2026-10-19). 이미 ❤️면 그대로 둔다(두 번 톡으로 지워지지 않게).
+  const tapRef = useRef<{ id: string; t: ReturnType<typeof setTimeout> } | null>(null);
+  const [heartPop, setHeartPop] = useState<string | null>(null);
+  const onBubbleTap = (m: ChatMessage) => {
+    const prev = tapRef.current;
+    if (prev && prev.id === m.id) {
+      clearTimeout(prev.t); tapRef.current = null;
+      setActionMsg(null);
+      if (m.reactions?.[meKey] !== '❤️') toggleReaction(m.id, meKey, '❤️');
+      setHeartPop(m.id); setTimeout(() => setHeartPop((h) => (h === m.id ? null : h)), 650);
+      return;
+    }
+    if (prev) clearTimeout(prev.t);
+    tapRef.current = { id: m.id, t: setTimeout(() => { tapRef.current = null; setActionMsg((cur) => (cur?.id === m.id ? null : m)); }, 260) };
+  };
   const doReact = (emoji: string) => { if (actionMsg) toggleReaction(actionMsg.id, meKey, emoji); setActionMsg(null); };
   const doReply = () => { if (actionMsg) setReplyTo({ id: actionMsg.id, from: actionMsg.from, text: preview(actionMsg) }); setActionMsg(null); taRef.current?.focus(); };
   const doCopy = () => { if (actionMsg?.text) navigator.clipboard?.writeText(actionMsg.text).catch(() => {}); setActionMsg(null); };
@@ -1764,6 +1802,22 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               </div>
             )}
             {withDays.map(({ m, showDay, day, showAvatar }) => {
+              // 꼼모닝이 넣는 안내 카드(달력 하루 전 등) — 누구 말풍선도 아니라 가운데 작은 카드. 눌러도 메뉴 없음.
+              if (m.kind === 'calendar') return (
+                <div key={m.id} id={`cmsg-${m.id}`}>
+                  {showDay && (
+                    <div className="flex justify-center my-6">
+                      <span className="rounded-full bg-black/5 dark:bg-white/10 px-4 py-1.5 text-xs font-bold text-[#64748B] dark:text-[#B4AA9A]">{day}</span>
+                    </div>
+                  )}
+                  <div className="my-3 flex justify-center">
+                    <div className="max-w-[86%] rounded-2xl px-4 py-2 text-center text-[13px] font-bold leading-snug shadow-sm ring-1 ring-black/[0.04] break-keep"
+                      style={{ background: 'var(--ct-partner-bg)', color: 'var(--ct-chip-text)' }}>
+                      {m.text}
+                    </div>
+                  </div>
+                </div>
+              );
               const mine = m.from === me;
               const pending = m.capsule === true && m.createdAt != null && m.createdAt.getTime() > Date.now();
               const unread = mine && !m.deleted && !pending && m.createdAt != null && (partnerLastRead == null || m.createdAt > partnerLastRead);
@@ -1789,11 +1843,12 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     )}
 
                     <div
+                      // 두 번 톡 확대(아이폰 더블탭 줌)를 막아야 ❤️가 된다
+                      style={{ alignItems: mine ? 'flex-end' : 'flex-start', touchAction: 'manipulation' }}
                       // 메뉴가 열린 말풍선엔 분홍 테두리 — 떠 있는 메뉴가 아래 말풍선을 덮어 '어느 메시지 메뉴인지' 안 보였다(Aside 3부 재확인).
                       className={`relative flex flex-col select-none ${m.sticker && FULL_STICKERS.has(m.sticker) ? 'max-w-[88%]' : 'max-w-[78%]'} ${reactionEmojis.length > 0 ? 'mb-3' : ''} ${actionMsg?.id === m.id ? 'rounded-[22px] outline outline-2 outline-offset-4 outline-[#FB7BA8]/60' : ''}`}
-                      style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}
                       // 사이담처럼 — 말풍선 한 번 탭하면 바로 반응/답장 줄 토글(꾹 누르기 아님). 삭제/예약은 제외.
-                      onClick={(e) => { e.stopPropagation(); setStickerOpen(false); if (!m.deleted && !pending) setActionMsg(actionMsg?.id === m.id ? null : m); }}
+                      onClick={(e) => { e.stopPropagation(); setStickerOpen(false); if (!m.deleted && !pending) onBubbleTap(m); }}
                       onContextMenu={(e) => { e.preventDefault(); if (!m.deleted) setActionMsg(m); }}
                     >
                       {/* 답장 인용 — 사이담 룩(왼쪽 세로줄 + 배경 없음, 한 줄 말줄임). 탭하면 원본으로 점프.
@@ -1894,6 +1949,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       })()}
 
                       {/* 반응 칩 — 말풍선 하단에 살짝 걸치게 (제미나이 원안) */}
+                      <AnimatePresence>
+                        {heartPop === m.id && (
+                          <motion.span key="pop" aria-hidden className="pointer-events-none absolute inset-0 z-10 grid place-items-center text-[44px] drop-shadow"
+                            initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1.15, opacity: 1 }} exit={{ scale: 1.5, opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 420, damping: 16 }}>❤️</motion.span>
+                        )}
+                      </AnimatePresence>
                       {reactionEmojis.length > 0 && (
                         <div className={`absolute -bottom-3 flex items-center gap-1 rounded-full border border-[#FBF8F2] dark:border-[#272522] bg-white dark:bg-[#332F2A] px-2 py-0.5 shadow-sm text-[12px] leading-none ${mine ? '-left-2' : '-right-2'}`}>
                           {reactionEmojis.join(' ')}

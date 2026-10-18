@@ -28,6 +28,7 @@ export interface ChatMessage {
   editedAt?: Date | null;  // 수정 시각(있으면 '수정됨' 표시)
   starred?: boolean;  // 추억 보관함(별표)
   capsule?: boolean;  // 타임캡슐 (createdAt = 미래 도착 시각)
+  kind?: 'calendar';  // 꼼모닝이 넣는 안내 카드(from '꼼모닝') — 달력 하루 전 알림 등. 가운데 작은 카드로 그린다
   createdAt: Date | null;
 }
 
@@ -213,7 +214,7 @@ export async function fetchRecentMessages(max = 300): Promise<ChatMessage[]> {
         videoUrl: data.videoUrl as string | undefined, videoDur: data.videoDur as number | undefined,
         replyTo: data.replyTo as ReplyRef | undefined, reactions: data.reactions as Record<string, string> | undefined,
         deleted: data.deleted as boolean | undefined, starred: data.starred as boolean | undefined,
-        capsule: data.capsule as boolean | undefined,
+        capsule: data.capsule as boolean | undefined, kind: data.kind as 'calendar' | undefined,
         createdAt: data.createdAt?.toDate?.() ?? null,
       } as ChatMessage;
     })
@@ -231,14 +232,14 @@ export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): 
           const data = d.data() as {
             from?: string; text?: string; imageUrl?: string; sticker?: string;
             audioUrl?: string; audioDur?: number; videoUrl?: string; videoDur?: number;
-            replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; starred?: boolean; capsule?: boolean; createdAt?: Timestamp; editedAt?: Timestamp;
+            replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; starred?: boolean; capsule?: boolean; kind?: 'calendar'; createdAt?: Timestamp; editedAt?: Timestamp;
           };
           return {
             id: d.id, from: data.from ?? '', text: data.text ?? '',
             imageUrl: data.imageUrl, sticker: data.sticker,
             audioUrl: data.audioUrl, audioDur: data.audioDur,
             videoUrl: data.videoUrl, videoDur: data.videoDur, replyTo: data.replyTo,
-            reactions: data.reactions, deleted: data.deleted, starred: data.starred, capsule: data.capsule,
+            reactions: data.reactions, deleted: data.deleted, starred: data.starred, capsule: data.capsule, kind: data.kind,
             createdAt: data.createdAt?.toDate?.() ?? null,
             editedAt: data.editedAt?.toDate?.() ?? null,
           };
