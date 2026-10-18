@@ -853,7 +853,7 @@ export default function KkomMorningHome() {
         <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
           <Smile size={16} /> 오늘의 기분
         </span>
-        <div className="mt-5 mb-auto flex w-full items-center justify-center gap-6">
+        <div className="mt-4 mb-auto flex w-full items-center justify-center gap-6">
           {[userName, partner].filter(Boolean).map((person) => {
             const isMe = person === userName;
             const key = moods[person]?.emoji;
@@ -866,6 +866,10 @@ export default function KkomMorningHome() {
                     </span>
                   )}
                 </span>
+                {/* 얼굴만으론 무슨 기분인지 헷갈릴 때가 있어(우댕 2026-10-19) 이름을 작게 한 줄 */}
+                {key && moodFromKey(key) && (
+                  <span className="text-[12.5px] font-bold leading-tight" style={{ color: 'var(--sd-ink)' }}>{moodFromKey(key)!.label}</span>
+                )}
                 <span className="text-[11px] font-bold" style={{ color: 'var(--sd-faint)' }}>
                   {isMe ? '나' : person}
                   {isMe && <span className="ml-1" style={{ opacity: 0.7 }}>· 바꾸기</span>}
