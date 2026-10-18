@@ -238,7 +238,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /평온|편안|힐링|여유|느긋/,                            get: () => [sugMini('평온')] },
   { re: /반짝|빛나|예뻐|이뻐|반짝반짝|영롱/,                    get: () => [sugMini('반짝')] },
   { re: /하트|❤️|💛|💙|💜|하투/,                              get: () => [sugMini('하트'), sugCouple('하트')] },
-  { re: /야호|이야|우와|와아|신난다/,                          get: () => [sugCouple('야호'), sugMini('신나')] },
+  { re: /야호|이야|우와|와아|신난다/,                          get: () => [sugKkul('야호!'), sugCouple('야호'), sugMini('신나')] },
 
   // ── 부정 감정 ──
   { re: /삐졌|삐짐|삐질|흥칫|서운|토라|시무룩/,                  get: () => [sugMini('삐졌어'), sugAnim('삐짐'), sugAnim('흥!')] },
@@ -357,7 +357,7 @@ const INTENTS: Intent[] = [
   { id: 'no',       aliases: ['ㄴㄴ', '아니', '아니야', '노노', '싫어', '안돼', '절대안돼', '노우', '패스'], get: () => [sugSai('ㄴㄴ')] },
   { id: 'busy',     aliases: ['바빠', '바쁘다', '바쁨', '정신없어', '일하는중', '업무중', '회의중', '회의', '답장늦어', 'ㅂㅃ'], get: () => [sugSai('바빠')] },
   { id: 'happy',    aliases: ['행복', '행복해', '기분좋아', '너무좋아', '즐거워', '행복하다', '햄볶아', 'ㅎㅂ'], get: () => [sugMini('행복'), sugAnim('좋아!')] },
-  { id: 'excited',  aliases: ['신나', '신난다', '들떴어', '룰루랄라', '개신남', '기대돼', '재밌겠다', '놀자', '야호', '우와', '와아', 'ㅅㄴ'], get: () => [sugMini('신나'), sugCouple('야호')] },
+  { id: 'excited',  aliases: ['신나', '신난다', '들떴어', '룰루랄라', '개신남', '기대돼', '재밌겠다', '놀자', '야호', '우와', '와아', 'ㅅㄴ'], get: () => [sugMini('신나'), sugKkul('야호!'), sugCouple('야호')] },
   { id: 'calm',     aliases: ['평온', '편안해', '힐링', '여유', '느긋해', '고요해', '평화롭다'], get: () => [sugMini('평온')] },
   { id: 'sad',      aliases: ['속상해', '속상', '슬퍼', '슬프다', '우울해', '서러워', '눈물나', '울고싶어', '마음아파', '훌쩍', 'ㅠㅠ', 'ㅜㅜ'], get: () => [sugMini('속상해'), sugCouple('토닥토닥')] },
   { id: 'angry',    aliases: ['화났어', '화나', '화남', '짜증나', '짜증', '빡쳐', '열받아', '킹받아', '개빡침', '성질나'], get: () => [sugMini('화났어')] },
@@ -475,6 +475,7 @@ const KKUL_STICKERS: { word: string; image: string }[] = [
   { word: '응응',     image: '/emo/kkuldaeng/14-eungeung.webp' },
   { word: '괜찮아?',  image: '/emo/kkuldaeng/15-gwaenchanha.webp' },
   { word: '좋은아침', image: '/emo/kkuldaeng/16-joeunachim.webp' },
+  { word: '야호!',    image: '/emo/kkuldaeng/17-yaho.webp' },   // 우댕 문장 끝 (야호) 340번 — 글 속은 TEXT_STICKER_BY_SENDER(우댕 OK 2026-10-19)
 ];
 // 꿀됑 움짤 탭(우댕 지시: 따로) — sai-anim 경로에 둬서 서랍은 정지컷(-still.png), 채팅은 흔들기 없이 재생(기존 움짤 규칙 그대로).
 //   만든 법·원본은 art/kkuldaeng/{euak,…} (Codex 키프레임 → Kling → 편집 → make_anim.py).
@@ -675,7 +676,12 @@ function linkify(text: string, keyBase: number): React.ReactNode[] {
   if (last < text.length) out.push(text.slice(last));
   return out;
 }
-function renderRich(text: string): React.ReactNode {
+// 보낸 사람 캐릭터로 바꿔 그리는 글 속 단어 — (야호)를 우댕이 치면 꿀됑 야호(우댕 문장 끝 인사, 340번).
+//   꼼이가 친 (야호)는 원래 포차코 그대로. 서랍 '커플' 탭의 큰 야호 스티커는 건드리지 않는다.
+const TEXT_STICKER_BY_SENDER: Record<string, Record<string, string>> = {
+  '우댕': { '야호': '/emo/kkuldaeng/mini/yaho.webp' },
+};
+function renderRich(text: string, from?: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let last = 0; let i = 0; let m: RegExpExecArray | null;
   RICH_RE.lastIndex = 0;
@@ -697,7 +703,7 @@ function renderRich(text: string): React.ReactNode {
         last = m.index + m[0].length;
         continue;
       }
-      const src = TEXT_STICKERS[m![2]];
+      const src = (from && TEXT_STICKER_BY_SENDER[from]?.[m![2]]) || TEXT_STICKERS[m![2]];
       if (isVideoSrc(src)) {
         // 진짜 동영상 스티커 (편지처럼 MP4 재생)
         parts.push(
@@ -1940,7 +1946,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                               <div
                                 className={`max-w-full px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap break-keep rounded-2xl ${mine ? 'rounded-tr-sm shadow-[0_2px_8px_rgba(0,0,0,0.12)]' : 'rounded-tl-sm shadow-[0_2px_12px_rgba(0,0,0,0.04)]'}`}
                                 style={{ background: mine ? 'var(--ct-my-bg)' : 'var(--ct-partner-bg)', color: mine ? 'var(--ct-my-text)' : 'var(--ct-partner-text)' }}>
-                                {renderRich(m.text)}
+                                {renderRich(m.text, m.from)}
                               </div>
                             )}
                             {m.editedAt && !onlyUrl && <span className="mt-0.5 px-1 text-[9px] text-slate-400">수정됨</span>}
@@ -2487,7 +2493,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                                 ) : m.audioUrl ? (
                                   <div className="text-[14px] text-slate-600 mt-0.5">🎤 음성 메시지</div>
                                 ) : (
-                                  <div className="text-[14px] text-slate-700 mt-0.5 break-keep">{renderRich(m.text)}</div>
+                                  <div className="text-[14px] text-slate-700 mt-0.5 break-keep">{renderRich(m.text, m.from)}</div>
                                 )}
                               </div>
                             </div>
