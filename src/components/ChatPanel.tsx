@@ -323,6 +323,7 @@ const INTENTS: Intent[] = [
   { id: 'tteok2',   pop: 2, aliases: ['쑥떡'], get: () => [sugKkulAnim('쑥떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
   { id: 'tteok3',   pop: 2, aliases: ['콩떡'], get: () => [sugKkulAnim('콩떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
   { id: 'tteok4',   pop: 2, aliases: ['개떡'], get: () => [sugKkulAnim('개떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
+  { id: 'hehe',     pop: 4, aliases: ['헤헤', '헤헤헤', '헤헷', '헿', '흐흐', '히히', '헤헤헤헤'], get: () => [sugSai('헤헤'), sugMini('헤헤')] },
   { id: 'night',    pop: 2, aliases: ['잘자', '잘자요', '자야겠다', '잘게', '굿밤', '굿나잇', '취침', '꿈꿔', '자러갈게', '자자', 'ㅈㅈ'], get: () => [sugAnim('잘자'), sugSai('굿밤')] },
   { id: 'bath',     aliases: ['씻고올게', '씻으러', '씻으러가', '샤워', '샤워할게', '샤워하고올게', '목욕', '씻는중', '세수', 'ㅆㄱㅇㄱ'], get: () => [sugAnim('씻고 올게')] },
   { id: 'sick',     pop: 3, aliases: ['아파', '아프다', '아파요', '아픔', '감기', '몸살', '열나', '골골', '몸안좋아', '컨디션', '병원', '두통', '배아파'], get: () => [sugAnim('아파'), sugMini('아파'), sugKkul('괜찮아?')] },
@@ -511,6 +512,7 @@ const SAI_STICKERS: { word: string; image: string }[] = [
   { word: '가는중', image: '/emo/sai/ontheway.webp' },
   { word: '굿밤', image: '/emo/sai/goodnight.webp' },
   { word: '바빠', image: '/emo/sai/busy.webp' },
+  { word: '헤헤', image: '/emo/sai/hehe.webp' },   // 꼼이 말버릇 헤헤(73번, 전부 꼼이) — A안: 두 앞발로 입 가리고 눈웃음(우댕 OK 2026-10-19)
 ];
 
 // 사이담이 탭 — 사이담 말티푸 표정·몸짓 21종. 사이담 EMOTICONS(setId=BASIC) 정의 순서 그대로.
@@ -537,6 +539,7 @@ const SAIDAMI_STICKERS: { word: string; image: string }[] = [
   { word: '힘내', image: '/emo/saidami/jump.webp' },
   { word: '최고야', image: '/emo/saidami/crown.webp' },
   { word: '안아줘', image: '/emo/saidami/hug.webp' },
+  { word: '헤헤', image: '/emo/saidami/hehe.webp' },   // 꼼이 말버릇(73번) — 글 속 (헤헤). 원본 art/kkom-hehe A안(우댕 OK 2026-10-19)
 ];
 
 // 꼼이미니 = 카톡식 (단어) 인라인 미니(32px). 라벨→이미지 룩업.
