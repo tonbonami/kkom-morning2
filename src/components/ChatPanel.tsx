@@ -163,6 +163,7 @@ const ANIM_RAW: { word: string; image: string; still: string }[] = [
   { word: '힘내!',      image: '/emo/sai-anim/himnae.webp',  still: '/emo/sai-anim/himnae-still.png' }, // 털 펑
   { word: '졸려',       image: '/emo/sai-anim/doze.webp',    still: '/emo/sai-anim/doze-still.png' },   // 콧방울 펑(반복 고리)
   { word: '뽀뽀',       image: '/emo/sai-anim/kiss.webp',    still: '/emo/sai-anim/kiss-still.png' },   // 귀로 하트(반복 고리) — art/kling/kiss
+  { word: '퇴근!',      image: '/emo/sai-anim/offwork.webp', still: '/emo/sai-anim/offwork-still.png' }, // 6시 땡 → 귀 날개로 날아 퇴근(꼼이 퇴근 23번, 거의 18시) — art/kling/offwork
 ];
 // ⚠️ sai-anim webp/still을 사이담이 같은 이름으로 재인코딩(알파 복구·재작업)할 때마다 EMO_V를 +1 → 기기 캐시 무효화(전역).
 //   2026-09-11 알파 복구(라이트에서 눈 회색) 14종 반영으로 3. (사이담 EMO_V와 별개, 값만 맞춰 올리면 됨)
@@ -274,7 +275,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /맛점|점심|점심\s?뭐|밥\s?먹었|런치|점심시간/,           get: () => [sugSai('맛점')] },
   { re: /배불|배\s?터|과식|든든|잘\s?먹었|배불러/,              get: () => [sugSai('배불러')] },
   { re: /출근|회사\s?간|일하러|지각|출근중|일\s?간다|출근길/,     get: () => [sugSai('출근중')] },
-  { re: /퇴근|집\s?간다|이제\s?집|퇴근각|칼퇴/,                 get: () => [sugSai('가는중'), sugSai('도착!'), sugKkul('가는중')] },
+  { re: /퇴근|집\s?간다|이제\s?집|퇴근각|칼퇴/,                 get: () => [sugAnim('퇴근!'), sugSai('가는중'), sugSai('도착!'), sugKkul('가는중')] },
   { re: /가는\s?중|가고\s?있|출발했|이동중|가는중|출발한다/,      get: () => [sugSai('가는중'), sugKkul('가는중')] },
   { re: /도착|왔어(?![가-힣])|집\s?왔|다\s?왔|도착함|도착!/,     get: () => [sugSai('도착!'), sugKkul('도착!')] },
   { re: /바빠|바쁨|정신없|바쁘|바빠서|바쁠/,                    get: () => [sugSai('바빠')] },
@@ -324,6 +325,7 @@ const INTENTS: Intent[] = [
   { id: 'tteok3',   pop: 2, aliases: ['콩떡'], get: () => [sugKkulAnim('콩떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
   { id: 'tteok4',   pop: 2, aliases: ['개떡'], get: () => [sugKkulAnim('개떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
   { id: 'hehe',     pop: 4, aliases: ['헤헤', '헤헤헤', '헤헷', '헿', '흐흐', '히히', '헤헤헤헤'], get: () => [sugSai('헤헤'), sugMini('헤헤')] },
+  { id: 'offwork',  pop: 5, aliases: ['퇴근', '퇴근해', '퇴근했어', '퇴근한다', '퇴근이다', '퇴근중', '퇴근각', '칼퇴', '집간다', '집에간다', 'ㅌㄱ'], get: () => [sugAnim('퇴근!'), sugKkul('가는중'), sugSai('가는중')] },
   { id: 'night',    pop: 2, aliases: ['잘자', '잘자요', '자야겠다', '잘게', '굿밤', '굿나잇', '취침', '꿈꿔', '자러갈게', '자자', 'ㅈㅈ'], get: () => [sugAnim('잘자'), sugSai('굿밤')] },
   { id: 'bath',     aliases: ['씻고올게', '씻으러', '씻으러가', '샤워', '샤워할게', '샤워하고올게', '목욕', '씻는중', '세수', 'ㅆㄱㅇㄱ'], get: () => [sugAnim('씻고 올게')] },
   { id: 'sick',     pop: 3, aliases: ['아파', '아프다', '아파요', '아픔', '감기', '몸살', '열나', '골골', '몸안좋아', '컨디션', '병원', '두통', '배아파'], get: () => [sugAnim('아파'), sugMini('아파'), sugKkul('괜찮아?')] },
