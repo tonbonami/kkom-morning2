@@ -1,11 +1,12 @@
 # 초록 배경 프레임 폴더 → 투명 애니 WebP + 한글 배지. 꿀댕이용(노랑 조끼라 사이담 despill 대신 G>max(R,B)만 뺀다).
-#   python make_anim.py <프레임폴더(s000.png…)> "<글자>" <출력.webp> [원본fps=24] [출력fps=12]
+#   python make_anim.py <프레임폴더(s000.png…)> "<글자>" <출력.webp> [원본fps=24] [출력fps=12] [화질=74]
+#   둘이 나오는 장면(일어나!)은 길고 넓어 1.2MB가 돼서 화질 62로 낮춤.
 import sys, glob, os, numpy as np
 from PIL import Image
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'set16'))
 from make_sticker import key, badge, W, H, BAND
 
-def main(folder, text, dst, src_fps=24, fps=12):
+def main(folder, text, dst, src_fps=24, fps=12, quality=74):
     fs = sorted(glob.glob(os.path.join(folder, 's*.png')))
     step = max(1, round(src_fps / fps))
     fs = fs[::step]
@@ -25,9 +26,9 @@ def main(folder, text, dst, src_fps=24, fps=12):
         cv = Image.new('RGBA', (W, H), (0, 0, 0, 0)); cv.alpha_composite(c, ((W - c.width) // 2, H - c.height - gap)); cv.alpha_composite(bd, (bx, by))
         out.append(cv)
     out[0].save(dst, save_all=True, append_images=out[1:], duration=int(1000 / fps), loop=0, format='WEBP',
-                lossless=False, quality=74, method=6, disposal=2)
+                lossless=False, quality=quality, method=6, disposal=2)
     print(len(out), 'frames', os.path.getsize(dst) // 1024, 'KB')
 
 if __name__ == '__main__':
     a = sys.argv
-    main(a[1], a[2], a[3], int(a[4]) if len(a) > 4 else 24, int(a[5]) if len(a) > 5 else 12)
+    main(a[1], a[2], a[3], int(a[4]) if len(a) > 4 else 24, int(a[5]) if len(a) > 5 else 12, int(a[6]) if len(a) > 6 else 74)
