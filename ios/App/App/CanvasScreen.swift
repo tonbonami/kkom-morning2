@@ -19,6 +19,7 @@ struct CanvasScreen: View {
     @State private var showClearConfirm = false
     @State private var showDeletePageConfirm = false
     @State private var showComments = false
+    @State private var showRemovePassageConfirm = false
     @State private var panDragBase: CGSize? = nil
     @State private var pinchBaseZoom: CGFloat? = nil
     // 대고 그리기 — 내 폰에만 까는 밑그림 사진. 상대에겐 안 보이고 어디에도 저장 안 됨.
@@ -90,6 +91,10 @@ struct CanvasScreen: View {
             Button("취소", role: .cancel) {}
             Button("삭제", role: .destructive) { controller.deleteCurrentPage() }
         } message: { Text("페이지와 그 안의 낙서가 영구히 사라져요. 되돌릴 수 없어요.") }
+        .alert("배경 사진을 뺄까?", isPresented: $showRemovePassageConfirm) {
+            Button("취소", role: .cancel) {}
+            Button("빼기", role: .destructive) { controller.clearPassage() }
+        } message: { Text("\(partnerName) 화면에서도 빠져요. 그린 선은 그대로 남아요.") }
         .sheet(isPresented: $showComments) { CommentSheet(controller: controller, myName: myName) }
         // 낙서장은 흰 종이·크림 배경의 라이트 디자인이라 다크모드를 강제로 끈다.
         // (안 그러면 다크모드에서 시스템 시트·머티리얼이 어두워져 잉크색 글씨가 안 보임 = 댓글 투명글씨 버그)
@@ -226,7 +231,7 @@ struct CanvasScreen: View {
                 VStack(spacing: 12) {
                     Spacer()
                     if tracePhoto != nil { if traceLocked { traceBar } else { traceAdjustPanel } }
-                    if passageImage != nil { opacitySlider }
+                    if passageImage != nil { passageBar }
                     CanvasToolbar(controller: controller, axis: .vertical, onClear: { showClearConfirm = true })
                     Spacer()
                 }.padding(.trailing, 16)
@@ -237,7 +242,7 @@ struct CanvasScreen: View {
                 // 하트·댓글(좌) + 손바닥 이동(우) — 툴바 '위'라 색상 안 가림
                 if traceAdjusting { traceAdjustPanel }
                 HStack { reactionBar; Spacer(); traceButton; panButton }.padding(.horizontal, 8)
-                if passageImage != nil { opacitySlider }
+                if passageImage != nil { passageBar }
                 if tracePhoto != nil && traceLocked { traceBar }
                 CanvasToolbar(controller: controller, axis: .horizontal, onClear: { showClearConfirm = true }).padding(.bottom, 18)
             }
@@ -307,19 +312,32 @@ struct CanvasScreen: View {
     private var traceBar: some View {
         HStack(spacing: 8) {
             TraceBar(opacity: $traceOpacity, onUnlock: { traceLocked = false; controller.panMode = false })
-            Button { removeTrace() } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "xmark")
-                    Text("사진 빼기")
-                }
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(.themeInk)
-                .padding(.horizontal, 14)
-                .frame(height: 44)
-                .background(.ultraThinMaterial)
-                .clipShape(Capsule())
-                .shadow(color: .themeShadow, radius: 10, x: 0, y: 6)
+            removePhotoChip { removeTrace() }
+        }
+    }
+
+    // 「✕ 사진 빼기」 알약 — 대고 그리기 사진·공유 지문 둘 다 같은 모양
+    private func removePhotoChip(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "xmark")
+                Text("사진 빼기")
             }
+            .font(.system(size: 14, weight: .bold))
+            .foregroundColor(.themeInk)
+            .padding(.horizontal, 14)
+            .frame(height: 44)
+            .background(.ultraThinMaterial)
+            .clipShape(Capsule())
+            .shadow(color: .themeShadow, radius: 10, x: 0, y: 6)
+        }
+    }
+
+    // 웹 「지문」(둘이 같이 보는 배경 사진) — 진하기 + 빼기 (앱엔 빼기가 없었음, 우댕)
+    private var passageBar: some View {
+        HStack(spacing: 8) {
+            opacitySlider
+            removePhotoChip { showRemovePassageConfirm = true }
         }
     }
 

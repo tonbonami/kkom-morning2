@@ -74,6 +74,7 @@ final class CanvasController: ObservableObject {
     func toggleLike(_ on: Bool) { sync?.toggleLike(on) }
     func addComment(_ text: String) { sync?.addComment(text) }
     func deleteComment(_ id: String) { sync?.deleteComment(id) }
+    func clearPassage() { sync?.setPassage(nil) }   // 공유 지문 빼기 (둘 다에게서, 획은 그대로)
 }
 
 // ── SwiftUI 래퍼 ──
