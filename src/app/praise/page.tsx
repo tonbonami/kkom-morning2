@@ -232,7 +232,8 @@ function PraiseRow({
 
       {/* Phase 3 인라인 답글 미리보기 (영감 자료 핵심) */}
       {item.latestReply && (
-        <p className="font-handwriting mt-2 ml-2 text-[15px] text-pink-500/90 leading-snug">
+        // 손글씨체는 글자가 작게 보여 15px에선 안 읽혔다(우댕 2026-10-20 "폰트 너무 작고") → 19px·진하게
+        <p className="font-handwriting mt-2 ml-2 text-[19px] text-pink-600 leading-snug break-words">
           → {item.latestReply}
         </p>
       )}

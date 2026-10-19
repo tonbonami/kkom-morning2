@@ -107,10 +107,10 @@ export default function CommentSheet({ open, title, me, comments, onClose, onAdd
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 mb-0.5">
-                          <span className="text-[13px] font-bold text-slate-700">{c.by}</span>
-                          <span className="text-[11px] font-medium text-slate-400">{relTime(c.createdAt)}</span>
+                          <span className="text-[14px] font-bold text-slate-700">{c.by}</span>
+                          <span className="text-[12px] font-medium text-slate-400">{relTime(c.createdAt)}</span>
                         </div>
-                        <p className="text-[14px] font-medium text-slate-600 break-words leading-snug whitespace-pre-wrap">
+                        <p className="text-[16px] font-medium text-slate-700 break-words leading-normal whitespace-pre-wrap">
                           {c.text}
                         </p>
                       </div>
@@ -137,7 +137,7 @@ export default function CommentSheet({ open, title, me, comments, onClose, onAdd
                   placeholder="댓글 달기..."
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  className="flex-1 bg-transparent text-[14px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none"
+                  className="flex-1 bg-transparent text-[16px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none"
                 />
                 <button
                   type="submit"
