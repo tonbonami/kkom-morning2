@@ -303,8 +303,24 @@ struct CanvasScreen: View {
     private var traceAdjustPanel: some View {
         TraceAdjustPanel(opacity: $traceOpacity, onCancel: removeTrace, onLock: { traceLocked = true })
     }
+    // 잠근 뒤엔 「사진 빼기」를 막대 옆에 바로 보이게 (사진 버튼 메뉴 안에만 있으면 못 찾음 — 우댕)
     private var traceBar: some View {
-        TraceBar(opacity: $traceOpacity, onUnlock: { traceLocked = false; controller.panMode = false })
+        HStack(spacing: 8) {
+            TraceBar(opacity: $traceOpacity, onUnlock: { traceLocked = false; controller.panMode = false })
+            Button { removeTrace() } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "xmark")
+                    Text("사진 빼기")
+                }
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.themeInk)
+                .padding(.horizontal, 14)
+                .frame(height: 44)
+                .background(.ultraThinMaterial)
+                .clipShape(Capsule())
+                .shadow(color: .themeShadow, radius: 10, x: 0, y: 6)
+            }
+        }
     }
 
     private func loadTracePhoto(_ item: PhotosPickerItem?) {
