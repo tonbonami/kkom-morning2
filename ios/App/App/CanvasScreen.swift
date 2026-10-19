@@ -263,7 +263,7 @@ struct CanvasScreen: View {
     // 사진 버튼: 없으면 앨범 열기, 있으면 메뉴(위치 다시 맞추기·다른 사진·빼기)
     @ViewBuilder private var traceButton: some View {
         if tracePhoto == nil {
-            Button { showTracePicker = true } label: { traceIcon(active: false) }
+            Button { showTracePicker = true } label: { TraceButtonLabel(active: false) }
         } else {
             Menu {
                 Button { traceLocked = false; controller.panMode = false } label: {
@@ -271,19 +271,8 @@ struct CanvasScreen: View {
                 }
                 Button { showTracePicker = true } label: { Label("다른 사진으로", systemImage: "photo.on.rectangle") }
                 Button(role: .destructive) { removeTrace() } label: { Label("사진 빼기", systemImage: "xmark.circle") }
-            } label: { traceIcon(active: true) }
+            } label: { TraceButtonLabel(active: true) }
         }
-    }
-
-    private func traceIcon(active: Bool) -> some View {
-        Image(systemName: active ? "photo.fill" : "photo")
-            .font(.system(size: 17, weight: .medium))
-            .foregroundStyle(active ? .white : inkColor)
-            .frame(width: 42, height: 42)
-            .background {
-                if active { Circle().fill(rose) } else { Circle().fill(.ultraThinMaterial) }
-            }
-            .shadow(color: warmShadow.opacity(0.14), radius: 8, y: 4)
     }
 
     // 위치 맞추는 중에만 깔리는 전체 화면 캐처 (툴바·상단바는 위에 있어 그대로 눌림)
@@ -310,50 +299,12 @@ struct CanvasScreen: View {
             )
     }
 
-    // 위치 맞추기 패널: 안내 + 진하기 + 취소/잠그고 그리기
+    // 위치 맞추기 패널 / 잠근 뒤 막대 — 겉모습은 CanvasUI.swift(제미나이 시안)
     private var traceAdjustPanel: some View {
-        VStack(spacing: 10) {
-            Text("사진을 밀어서 옮기고, 두 손가락으로 크기를 맞춰요")
-                .font(.system(size: 12, weight: .semibold)).foregroundStyle(inkColor.opacity(0.7))
-            traceOpacityRow
-            HStack(spacing: 10) {
-                Button { removeTrace() } label: {
-                    Text("취소").font(.system(size: 14, weight: .bold)).foregroundStyle(inkColor.opacity(0.6))
-                        .padding(.horizontal, 14).frame(height: 38)
-                }
-                Button { traceLocked = true } label: {
-                    Label("잠그고 그리기", systemImage: "lock.fill")
-                        .font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
-                        .padding(.horizontal, 18).frame(height: 38)
-                        .background(rose).clipShape(Capsule())
-                }
-            }
-        }
-        .padding(.horizontal, 16).padding(.vertical, 12)
-        .background(.ultraThinMaterial).clipShape(RoundedRectangle(cornerRadius: 22))
-        .shadow(color: warmShadow.opacity(0.14), radius: 10, y: 6)
+        TraceAdjustPanel(opacity: $traceOpacity, onCancel: removeTrace, onLock: { traceLocked = true })
     }
-
-    // 잠근 뒤 막대: 자물쇠(누르면 다시 위치 맞추기) + 진하기
     private var traceBar: some View {
-        HStack(spacing: 10) {
-            Button { traceLocked = false; controller.panMode = false } label: {
-                Image(systemName: "lock.fill").font(.system(size: 13, weight: .bold)).foregroundStyle(rose)
-                    .frame(width: 28, height: 28)
-            }
-            traceOpacityRow
-        }
-        .padding(.horizontal, 12).padding(.vertical, 6)
-        .background(.ultraThinMaterial).clipShape(Capsule())
-        .overlay(Capsule().stroke(Color.black.opacity(0.05), lineWidth: 1))
-    }
-
-    private var traceOpacityRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "photo").font(.system(size: 12)).foregroundStyle(.secondary)
-            Slider(value: $traceOpacity, in: 0.1 ... 0.9).frame(width: 150).tint(rose)
-            Image(systemName: "photo.fill").font(.system(size: 12)).foregroundStyle(.secondary)
-        }
+        TraceBar(opacity: $traceOpacity, onUnlock: { traceLocked = false; controller.panMode = false })
     }
 
     private func loadTracePhoto(_ item: PhotosPickerItem?) {
@@ -540,55 +491,20 @@ struct CanvasToolbar: View {
     }
 }
 
-// 댓글 시트
+// 댓글 시트 — 겉모습은 CanvasUI.swift의 CanvasCommentSheet(제미나이 시안), 여기선 데이터만 연결
 struct CommentSheet: View {
     @ObservedObject var controller: CanvasController
     let myName: String
     @Environment(\.dismiss) private var dismiss
-    @State private var draft = ""
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("댓글 \(controller.comments.count)").font(.system(size: 16, weight: .bold))
-                Spacer()
-                Button("닫기") { dismiss() }
-            }
-            .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 8)
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    if controller.comments.isEmpty {
-                        Text("첫 댓글을 남겨봐 💬").font(.system(size: 14)).foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity).padding(.top, 30)
-                    }
-                    ForEach(controller.comments) { c in
-                        HStack(alignment: .top, spacing: 6) {
-                            Text(c.by).font(.system(size: 12, weight: .heavy)).foregroundStyle(c.by == "꼼이" ? rose : blue)
-                            Text(c.text).font(.system(size: 14)).foregroundStyle(inkColor)
-                            Spacer(minLength: 0)
-                            if c.by == myName {
-                                Button { controller.deleteComment(c.id) } label: {
-                                    Image(systemName: "xmark").font(.system(size: 11)).foregroundStyle(.tertiary)
-                                }
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-
-            Divider()
-            HStack(spacing: 8) {
-                TextField("댓글 달기…", text: $draft, axis: .vertical).textFieldStyle(.roundedBorder).lineLimit(1 ... 3)
-                Button {
-                    let t = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !t.isEmpty { controller.addComment(t); draft = "" }
-                } label: { Image(systemName: "paperplane.fill").font(.system(size: 18)) }
-                .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            .padding(.horizontal, 16).padding(.vertical, 10)
-        }
+        CanvasCommentSheet(
+            comments: controller.comments,
+            myName: myName,
+            onSend: { controller.addComment($0) },
+            onDelete: { controller.deleteComment($0) },
+            onClose: { dismiss() }
+        )
         .presentationDetents([.medium, .large])
         // 시트는 프레젠터의 컬러스킴을 항상 물려받진 않으므로 여기서도 라이트로 못박는다.
         .preferredColorScheme(.light)

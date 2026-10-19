@@ -7,10 +7,7 @@ import UIKit
 
 struct InkPoint { var location: CGPoint; var width: CGFloat }
 struct RawPt { var loc: CGPoint; var p: Double }
-struct CanvasCommentItem: Identifiable {
-    let id: String; let by: String; let text: String
-    let at: Date?   // 작성 시각 (RTDB t, 없으면 nil)
-}
+// CanvasCommentItem(id, by, text, at)은 CanvasUI.swift(제미나이 시안)에 있음
 
 // ── 도구 상태 ──
 final class CanvasController: ObservableObject {

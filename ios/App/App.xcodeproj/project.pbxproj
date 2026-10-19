@@ -47,6 +47,7 @@
 		DFA8708F030D3DEBAF423710 /* PushBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1316832D8E0CDFB384EF5062 /* PushBridge.swift */; };
 		EA57C752D99C7B618F0898A2 /* CanvasScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E811AD988B947C59DE5916 /* CanvasScreen.swift */; };
 		F20E82AE748042443919FD8C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5B2E72E83E1B27DDF4150575 /* Assets.xcassets */; };
+		F39EEF465004D243B61403CC /* CanvasUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C80600F48DE4A56CAF7B33B /* CanvasUI.swift */; };
 		FD2B817BEC8FF35CB58B4E82 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E7132EF8F94C13984C0045 /* Foundation.framework */; };
 		FEEDFACE0000000000000101 /* WatchPush.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEDFACE0000000000000102 /* WatchPush.swift */; };
 /* End PBXBuildFile section */
@@ -134,6 +135,7 @@
 		12E811AD988B947C59DE5916 /* CanvasScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CanvasScreen.swift; sourceTree = "<group>"; };
 		1316832D8E0CDFB384EF5062 /* PushBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushBridge.swift; sourceTree = "<group>"; };
 		19745C55F7234D45630743AE /* KkomActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomActivityAttributes.swift; sourceTree = "<group>"; };
+		1C80600F48DE4A56CAF7B33B /* CanvasUI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CanvasUI.swift; sourceTree = "<group>"; };
 		209CBA05CA792EB15DBA5D82 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2DC21A45BB08DBC2306696A2 /* HapticBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticBridge.swift; sourceTree = "<group>"; };
 		2E9EF21D41F65473FE811E1A /* CanvasPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CanvasPlugin.swift; sourceTree = "<group>"; };
@@ -359,6 +361,7 @@
 				90633BA335ABAE160954A1DD /* LiveActivityBridge.swift */,
 				2DC21A45BB08DBC2306696A2 /* HapticBridge.swift */,
 				CDB55EB644281CF5DABEEFBA /* heartbeat.caf */,
+				1C80600F48DE4A56CAF7B33B /* CanvasUI.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -680,6 +683,7 @@
 				96F636B7A4A3F29803F4E4F9 /* KkomActivityAttributes.swift in Sources */,
 				2D88668530DA944420D8884D /* LiveActivityBridge.swift in Sources */,
 				9A3CF8066F8FD1E4BD7CE20D /* HapticBridge.swift in Sources */,
+				F39EEF465004D243B61403CC /* CanvasUI.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -774,7 +778,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = KkomWatchWidget/KkomWatchWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = KkomWatchWidget/Info.plist;
@@ -795,7 +799,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = KkomNotifyService/Info.plist;
@@ -818,7 +822,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = KkomNotifyService/Info.plist;
@@ -841,7 +845,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = KkomShare/Info.plist;
@@ -973,7 +977,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1002,7 +1006,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1031,7 +1035,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = KkomWatch/KkomWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -1055,7 +1059,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = KkomWatch/KkomWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -1077,7 +1081,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = KkomWatchWidget/KkomWatchWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = KkomWatchWidget/Info.plist;
@@ -1106,7 +1110,7 @@
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CODE_SIGN_ENTITLEMENTS = KkomWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -1150,7 +1154,7 @@
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CODE_SIGN_ENTITLEMENTS = KkomWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -1184,7 +1188,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				DEVELOPMENT_TEAM = JDDK6B2EKF;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = KkomShare/Info.plist;
