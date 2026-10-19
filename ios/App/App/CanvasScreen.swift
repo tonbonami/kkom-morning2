@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 // 네이티브 낙서장 화면. me는 꼼모닝 로그인에서 전달. 데이터·페이지·지문 전부 웹과 공유(RTDB).
 private let cream = Color(red: 1.0, green: 0.988, blue: 0.961)
@@ -20,6 +21,18 @@ struct CanvasScreen: View {
     @State private var showComments = false
     @State private var panDragBase: CGSize? = nil
     @State private var pinchBaseZoom: CGFloat? = nil
+    // 대고 그리기 — 내 폰에만 까는 밑그림 사진. 상대에겐 안 보이고 어디에도 저장 안 됨.
+    // 위치는 보드 좌표라 확대·이동해도 획과 같이 움직인다(잠그면 사진만 따로 안 움직임).
+    @State private var tracePhoto: UIImage?
+    @State private var traceOpacity: Double = 0.45
+    @State private var traceLocked = false
+    @State private var traceOffset: CGSize = .zero
+    @State private var traceScale: CGFloat = 1
+    @State private var showTracePicker = false
+    @State private var tracePickItem: PhotosPickerItem?
+    @State private var traceDragBase: CGSize? = nil
+    @State private var tracePinchBase: CGFloat? = nil
+    private var traceAdjusting: Bool { tracePhoto != nil && !traceLocked }
     private var myName: String { me == "udaeng" ? "우댕" : "꼼이" }
     private var iLiked: Bool { controller.likedBy.contains(myName) }
 
@@ -43,6 +56,8 @@ struct CanvasScreen: View {
 
                 // 손바닥(이동) 모드에서만 뜨는 투명 캐처 — 드래그=이동, 핀치=확대, 그리기 차단
                 if controller.panMode { panCatcher(width: bw, height: bh) }
+                // 대고 그리기 위치 맞추는 중 — 밀기=사진 이동, 핀치=사진 크기, 그리기 차단
+                if traceAdjusting { traceAdjustCatcher }
 
                 VStack {
                     // 상단: 닫기 + 페이지 넘기기 + presence + 나 배지
@@ -65,6 +80,8 @@ struct CanvasScreen: View {
         }
         .onChange(of: controller.passageUrl) { url in loadPassage(url) }
         .onAppear { loadPassage(controller.passageUrl) }
+        .photosPicker(isPresented: $showTracePicker, selection: $tracePickItem, matching: .images)
+        .onChange(of: tracePickItem) { item in loadTracePhoto(item) }
         .alert("이 페이지를 전부 지울까?", isPresented: $showClearConfirm) {
             Button("취소", role: .cancel) {}
             Button("지우기", role: .destructive) { controller.clear() }
@@ -146,6 +163,11 @@ struct CanvasScreen: View {
             if let img = passageImage {
                 Image(uiImage: img).resizable().scaledToFit().opacity(opacity).allowsHitTesting(false)
             }
+            if let tp = tracePhoto {
+                Image(uiImage: tp).resizable().scaledToFit()
+                    .scaleEffect(traceScale).offset(traceOffset)
+                    .opacity(traceOpacity).allowsHitTesting(false)
+            }
             InkCanvasRepresentable(controller: controller, me: me)
         }
         .frame(width: width, height: height)
@@ -199,10 +221,11 @@ struct CanvasScreen: View {
     @ViewBuilder private var toolbarLayer: some View {
         if isPad {
             HStack {
-                VStack { Spacer(); reactionBar; panButton }.padding(.leading, 16).padding(.bottom, 26)
+                VStack { Spacer(); reactionBar; traceButton; panButton }.padding(.leading, 16).padding(.bottom, 26)
                 Spacer()
                 VStack(spacing: 12) {
                     Spacer()
+                    if tracePhoto != nil { if traceLocked { traceBar } else { traceAdjustPanel } }
                     if passageImage != nil { opacitySlider }
                     CanvasToolbar(controller: controller, axis: .vertical, onClear: { showClearConfirm = true })
                     Spacer()
@@ -212,8 +235,10 @@ struct CanvasScreen: View {
             VStack(spacing: 10) {
                 Spacer()
                 // 하트·댓글(좌) + 손바닥 이동(우) — 툴바 '위'라 색상 안 가림
-                HStack { reactionBar; Spacer(); panButton }.padding(.horizontal, 8)
+                if traceAdjusting { traceAdjustPanel }
+                HStack { reactionBar; Spacer(); traceButton; panButton }.padding(.horizontal, 8)
                 if passageImage != nil { opacitySlider }
+                if tracePhoto != nil && traceLocked { traceBar }
                 CanvasToolbar(controller: controller, axis: .horizontal, onClear: { showClearConfirm = true }).padding(.bottom, 18)
             }
         }
@@ -234,6 +259,120 @@ struct CanvasScreen: View {
         }
     }
 
+    // ── 대고 그리기 ──
+    // 사진 버튼: 없으면 앨범 열기, 있으면 메뉴(위치 다시 맞추기·다른 사진·빼기)
+    @ViewBuilder private var traceButton: some View {
+        if tracePhoto == nil {
+            Button { showTracePicker = true } label: { traceIcon(active: false) }
+        } else {
+            Menu {
+                Button { traceLocked = false; controller.panMode = false } label: {
+                    Label("위치 다시 맞추기", systemImage: "arrow.up.and.down.and.arrow.left.and.right")
+                }
+                Button { showTracePicker = true } label: { Label("다른 사진으로", systemImage: "photo.on.rectangle") }
+                Button(role: .destructive) { removeTrace() } label: { Label("사진 빼기", systemImage: "xmark.circle") }
+            } label: { traceIcon(active: true) }
+        }
+    }
+
+    private func traceIcon(active: Bool) -> some View {
+        Image(systemName: active ? "photo.fill" : "photo")
+            .font(.system(size: 17, weight: .medium))
+            .foregroundStyle(active ? .white : inkColor)
+            .frame(width: 42, height: 42)
+            .background {
+                if active { Circle().fill(rose) } else { Circle().fill(.ultraThinMaterial) }
+            }
+            .shadow(color: warmShadow.opacity(0.14), radius: 8, y: 4)
+    }
+
+    // 위치 맞추는 중에만 깔리는 전체 화면 캐처 (툴바·상단바는 위에 있어 그대로 눌림)
+    private var traceAdjustCatcher: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .ignoresSafeArea()
+            .gesture(
+                DragGesture()
+                    .onChanged { v in
+                        if traceDragBase == nil { traceDragBase = traceOffset }
+                        let z = max(controller.zoom, 0.01), b = traceDragBase ?? .zero
+                        traceOffset = CGSize(width: b.width + v.translation.width / z, height: b.height + v.translation.height / z)
+                    }
+                    .onEnded { _ in traceDragBase = nil }
+            )
+            .simultaneousGesture(
+                MagnificationGesture()
+                    .onChanged { v in
+                        if tracePinchBase == nil { tracePinchBase = traceScale }
+                        traceScale = min(6, max(0.2, (tracePinchBase ?? 1) * v))
+                    }
+                    .onEnded { _ in tracePinchBase = nil }
+            )
+    }
+
+    // 위치 맞추기 패널: 안내 + 진하기 + 취소/잠그고 그리기
+    private var traceAdjustPanel: some View {
+        VStack(spacing: 10) {
+            Text("사진을 밀어서 옮기고, 두 손가락으로 크기를 맞춰요")
+                .font(.system(size: 12, weight: .semibold)).foregroundStyle(inkColor.opacity(0.7))
+            traceOpacityRow
+            HStack(spacing: 10) {
+                Button { removeTrace() } label: {
+                    Text("취소").font(.system(size: 14, weight: .bold)).foregroundStyle(inkColor.opacity(0.6))
+                        .padding(.horizontal, 14).frame(height: 38)
+                }
+                Button { traceLocked = true } label: {
+                    Label("잠그고 그리기", systemImage: "lock.fill")
+                        .font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 18).frame(height: 38)
+                        .background(rose).clipShape(Capsule())
+                }
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .background(.ultraThinMaterial).clipShape(RoundedRectangle(cornerRadius: 22))
+        .shadow(color: warmShadow.opacity(0.14), radius: 10, y: 6)
+    }
+
+    // 잠근 뒤 막대: 자물쇠(누르면 다시 위치 맞추기) + 진하기
+    private var traceBar: some View {
+        HStack(spacing: 10) {
+            Button { traceLocked = false; controller.panMode = false } label: {
+                Image(systemName: "lock.fill").font(.system(size: 13, weight: .bold)).foregroundStyle(rose)
+                    .frame(width: 28, height: 28)
+            }
+            traceOpacityRow
+        }
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        .background(.ultraThinMaterial).clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.black.opacity(0.05), lineWidth: 1))
+    }
+
+    private var traceOpacityRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "photo").font(.system(size: 12)).foregroundStyle(.secondary)
+            Slider(value: $traceOpacity, in: 0.1 ... 0.9).frame(width: 150).tint(rose)
+            Image(systemName: "photo.fill").font(.system(size: 12)).foregroundStyle(.secondary)
+        }
+    }
+
+    private func loadTracePhoto(_ item: PhotosPickerItem?) {
+        guard let item = item else { return }
+        item.loadTransferable(type: Data.self) { result in
+            guard case .success(let data?) = result, let img = UIImage(data: data) else { return }
+            let small = traceDownscaled(img)
+            DispatchQueue.main.async {
+                tracePhoto = small; traceOffset = .zero; traceScale = 1
+                traceLocked = false; controller.panMode = false
+                tracePickItem = nil
+            }
+        }
+    }
+
+    private func removeTrace() {
+        tracePhoto = nil; traceLocked = false; traceOffset = .zero; traceScale = 1
+    }
+
     private var opacitySlider: some View {
         HStack(spacing: 8) {
             Image(systemName: "sun.max").font(.system(size: 13)).foregroundStyle(.secondary)
@@ -252,6 +391,16 @@ struct CanvasScreen: View {
             DispatchQueue.main.async { self.passageImage = img }
         }.resume()
     }
+}
+
+// 큰 사진은 긴 변 2048px로 줄여서 메모리 아낌 (방향 정보는 draw가 반영)
+private func traceDownscaled(_ img: UIImage, maxSide: CGFloat = 2048) -> UIImage {
+    let side = max(img.size.width, img.size.height)
+    guard side > maxSide else { return img }
+    let r = maxSide / side
+    let size = CGSize(width: img.size.width * r, height: img.size.height * r)
+    let fmt = UIGraphicsImageRendererFormat.default(); fmt.scale = 1
+    return UIGraphicsImageRenderer(size: size, format: fmt).image { _ in img.draw(in: CGRect(origin: .zero, size: size)) }
 }
 
 struct CanvasDotGrid: View {

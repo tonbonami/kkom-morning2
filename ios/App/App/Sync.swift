@@ -28,7 +28,7 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
     var onCommitted: (([(String, NetStroke)]) -> Void)?   // 현재 페이지 확정 획 전체(양쪽), key="user/id"
     var onRemoteLive: ((NetStroke?) -> Void)?
     var onPassage: ((String?) -> Void)?
-    var onReact: (([String], [(String, String, String)]) -> Void)?  // likedBy(names), comments[(id,by,text)]
+    var onReact: (([String], [(String, String, String, Double)]) -> Void)?  // likedBy(names), comments[(id,by,text,t ms)]
 
     // 모든 상태 접근을 이 serial 큐로 직렬화(레이스 제거). 델리게이트 콜백도 이 큐에서 옴.
     private let q = DispatchQueue(label: "com.tonbonami.kkommorning.sync")
@@ -318,14 +318,10 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
         if (likesMap["udaeng"] as? Bool) == true { likedBy.append("우댕") }
         if (likesMap["kkomi"] as? Bool) == true { likedBy.append("꼼이") }
         let commentsMap = reactObj["comments"] as? [String: Any] ?? [:]
-        let comments: [(String, String, String)] = commentsMap.compactMap { (id, v) -> (String, String, String)? in
+        let comments: [(String, String, String, Double)] = commentsMap.compactMap { (id, v) -> (String, String, String, Double)? in
             guard let c = v as? [String: Any], let by = c["by"] as? String, let text = c["text"] as? String else { return nil }
-            return (id, by, text)
-        }.sorted { a, b in
-            let ta = (commentsMap[a.0] as? [String: Any])?["t"] as? NSNumber
-            let tb = (commentsMap[b.0] as? [String: Any])?["t"] as? NSNumber
-            return (ta?.doubleValue ?? 0) < (tb?.doubleValue ?? 0)
-        }
+            return (id, by, text, tOf(c))
+        }.sorted { a, b in a.3 < b.3 }
         DispatchQueue.main.async { self.onReact?(likedBy, comments) }
     }
 

@@ -7,7 +7,10 @@ import UIKit
 
 struct InkPoint { var location: CGPoint; var width: CGFloat }
 struct RawPt { var loc: CGPoint; var p: Double }
-struct CanvasCommentItem: Identifiable { let id: String; let by: String; let text: String }
+struct CanvasCommentItem: Identifiable {
+    let id: String; let by: String; let text: String
+    let at: Date?   // 작성 시각 (RTDB t, 없으면 nil)
+}
 
 // ── 도구 상태 ──
 final class CanvasController: ObservableObject {
@@ -95,7 +98,7 @@ struct InkCanvasRepresentable: UIViewRepresentable {
         sync.onPassage = { [weak controller] url in controller?.passageUrl = url }
         sync.onReact = { [weak controller] likedBy, comments in
             controller?.likedBy = likedBy
-            controller?.comments = comments.map { CanvasCommentItem(id: $0.0, by: $0.1, text: $0.2) }
+            controller?.comments = comments.map { CanvasCommentItem(id: $0.0, by: $0.1, text: $0.2, at: $0.3 > 0 ? Date(timeIntervalSince1970: $0.3 / 1000) : nil) }
         }
         sync.start()
         return v
