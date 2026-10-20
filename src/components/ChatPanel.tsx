@@ -287,7 +287,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /인싸|파티\s?가|놀러\s?가/,                            get: () => [sugKkom('인싸강아지')] },
   { re: /날아|훨훨|날아가|떠나자|여행\s?가|어디론가|날아오/,      get: () => [sugCouple('날아가자')] },
   { re: /귀여|커여|기여|졸귀|귀엽|커엽/,                        get: () => [sugDang('귀엽꼬미'), sugDang('앙 귀여워'), sugKkul('앙귀여워')] },
-  { re: /푸데데|시무룩\s?강|삐진\s?강/,                         get: () => [sugDang('푸데데')] },
+  { re: /푸데데|푸데뎅|꿀잠|낮잠|쿨쿨|새근새근|곤히\s?자/,        get: () => [sugKkul('푸데데'), sugDang('푸데데'), sugKkom('푸데데')] },  // 둘만의 말 = 꿀잠
 
   // ── 아픔·날씨 ──
   { re: /아파|아프|열나|감기|몸살|아픔|몸\s?안\s?좋|골골/,       get: () => [sugAnim('아파'), sugMini('아파'), sugKkul('괜찮아?')] },
@@ -316,7 +316,7 @@ const INTENTS: Intent[] = [
   { id: 'love',     pop: 6, aliases: ['사랑해', '사랑', '사랑해요', '사랑한다', '좋아해', '조아해', '알러뷰', '러브', '러브유', '내사랑', '사룽해', 'ㅅㄹㅎ', 'ㅅㄹ', 'love', '❤', '❤️', '💕', '💗'], get: () => [sugKkul('사랑해'), sugAnim('사랑해'), sugMini('사랑해'), sugCouple('사랑해'), sugMini('하트')] },
   { id: 'miss',     pop: 5, aliases: ['보고싶어', '보고싶다', '보고파', '그리워', '생각나', '생각나서', '보곺', '보고시퍼', '언제봐', '만나고싶어', 'ㅂㄱㅅㅇ', 'ㅂㄱㅍ'], get: () => [sugKkul('보고싶어'), sugAnim('보고싶어'), sugMini('보고파'), sugCouple('보고파')] },
   { id: 'thanks',   pop: 3, aliases: ['고마워', '고맙다', '고마웡', '고마워요', '고맙', '감사해', '감사', '땡큐', '감솨', 'ㄱㅅ', 'ㄳ', 'thanks', 'thx'], get: () => [sugKkul('고마워'), sugAnim('고마워'), sugMini('고마워')] },
-  { id: 'sulk',     aliases: ['삐짐', '삐졌어', '삐질거야', '삐졌다', '서운해', '서운', '토라졌어', '시무룩', '흥칫뿡', 'ㅃㅈ'], get: () => [sugAnim('삐짐'), sugMini('삐졌어'), sugAnim('흥!'), sugDang('푸데데'), sugKkom('푸데데')] },
+  { id: 'sulk',     aliases: ['삐짐', '삐졌어', '삐질거야', '삐졌다', '서운해', '서운', '토라졌어', '시무룩', '흥칫뿡', 'ㅃㅈ'], get: () => [sugAnim('삐짐'), sugMini('삐졌어'), sugAnim('흥!')] },
   { id: 'hmph',     aliases: ['흥', '흥칫', '칫', '몰라', '흥이다', '에잇'], get: () => [sugAnim('흥!'), sugAnim('삐짐')] },
   { id: 'sorry',    pop: 2, aliases: ['미안해', '미안', '미안해요', '미안하다', '죄송해', '죄송', '쏘리', '사과할게', '미얀', '먄', 'ㅈㅅ', 'sorry'], get: () => [sugAnim('미안해'), sugSai('미안'), sugMini('미안해')] },
   { id: 'wakeup',   pop: 3, aliases: ['일어나', '일어나라', '일어나자', '일어나세요', '일어날시간', '기상', '기상해', '기상기상', '깨워', '깨워줘', '깨어나', '모닝콜', '알람', '늦잠', '그만자', 'ㅇㅇㄴ'], get: () => [sugKkulAnim('일어나 붕붕'), sugKkul('좋은아침'), sugAnim('좋은 아침')] },
@@ -340,6 +340,7 @@ const INTENTS: Intent[] = [
   { id: 'bed',      aliases: ['일어나기싫어', '못일어나', '이불밖은위험해', '더잘래', '늦잠', '이불', '눕고싶어', '월요일싫어'], get: () => [sugAnim('일어나기 싫어')] },
   { id: 'rain',     aliases: ['비온다', '비와', '비오네', '비올듯', '장마', '우중충', '빗소리', '비내려', '우산', '☔'], get: () => [sugAnim('비온다')] },
   { id: 'cheer',    pop: 2, aliases: ['힘내', '힘내자', '화이팅', '파이팅', '아자', '아자아자', '응원', '응원할게', '잘할수있어', '기운내', '힘들어', '지쳤어', '고생했어', '고생해', 'ㅎㄴ'], get: () => [sugAnim('힘내!'), sugMini('힘내'), sugCouple('헹가래')] },
+  { id: 'pudede',   aliases: ['푸데데', '푸데뎅', '꿀잠', '낮잠', '쿨쿨', '새근새근', 'ㅍㄷㄷ'], get: () => [sugKkul('푸데데'), sugDang('푸데데'), sugKkom('푸데데')] },  // 둘만의 말 「푸데데」=꿀잠(삐짐 아님)
   { id: 'sleepy',   aliases: ['졸려', '졸립다', '졸림', '잠와', '잠온다', '하품', '나른해', '눈감겨', '꾸벅꾸벅', '피곤해', '피곤', 'ㅈㄹ'], get: () => [sugAnim('졸려'), sugSai('졸려'), sugMini('졸려')] },
   { id: 'kiss',     pop: 2, aliases: ['뽀뽀', '뽀뽀해줘', '쪽', '쪽쪽', '키스', '입맞춤', '음마', 'ㅃㅃ', '😘', '💋'], get: () => [sugAnim('뽀뽀'), sugCouple('뽀뽀')] },
   { id: 'cute',     pop: 4, aliases: ['귀여워', '귀엽다', '귀엽', '앙귀여워', '귀엽꼬미', '기여워', '커여워', '커엽다', '졸귀', '귀요미', '깨물고싶어', 'ㄱㅇㅇ'], get: () => [sugKkul('앙귀여워'), sugDang('귀엽꼬미'), sugDang('앙 귀여워')] },
@@ -478,6 +479,7 @@ const KKUL_STICKERS: { word: string; image: string }[] = [
   { word: '괜찮아?',  image: '/emo/kkuldaeng/15-gwaenchanha.webp' },
   { word: '좋은아침', image: '/emo/kkuldaeng/16-joeunachim.webp' },
   { word: '야호!',    image: '/emo/kkuldaeng/17-yaho.webp' },   // 우댕 문장 끝 (야호) 340번 — 글 속은 TEXT_STICKER_BY_SENDER(우댕 OK 2026-10-19)
+  { word: '푸데데',   image: '/emo/kkuldaeng/18-pudede.webp' }, // 둘만의 말 「푸데데」=꿀잠 — 꼼이 닮은 말티푸 인형 안고 (우댕 B안 OK 2026-10-20)
 ];
 // 꿀됑 움짤 탭(우댕 지시: 따로) — sai-anim 경로에 둬서 서랍은 정지컷(-still.png), 채팅은 흔들기 없이 재생(기존 움짤 규칙 그대로).
 //   만든 법·원본은 art/kkuldaeng/{euak,…} (Codex 키프레임 → Kling → 편집 → make_anim.py).
