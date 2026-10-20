@@ -1,12 +1,12 @@
 // 피부 일지 사진 — PIN 쿠키 필요(읽기 requireReader · 쓰기는 꼼이만 requireWriter). 사진은 Storage skin/kkomi/{날짜}/{id}.jpg (규칙상 클라 차단, Admin만).
 //   GET    ?date=YYYY-MM-DD            → { photos: [{ id, url, t }] }  (url = 15분짜리 서명 주소)
 //   POST   form-data { date, file }    → { photo } — 브라우저에서 긴 변 1600px JPEG로 줄여 보낸다(최대 4MB)
-//   DELETE ?date=…&id=…               → 파일 지우고 기록에서 빼기
+//   DELETE ?date=…&id=…               → 기록에서 빼고 파일은 휴지통으로(안 지움)
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { requireReader, requireWriter } from '@/lib/skinAuth';
 import { adminBucket, adminDb } from '@/lib/firebaseAdmin';
-import { DATE_RE, SKIN_OWNER, emptyLog, skinLogPath, type SkinLog, type SkinPhoto } from '@/lib/skinTypes';
+import { DATE_RE, SKIN_OWNER, SKIN_PHOTO_TRASH, SKIN_TRASH_DIR, emptyLog, skinLogPath, type SkinLog, type SkinPhoto } from '@/lib/skinTypes';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,7 +73,15 @@ export async function DELETE(req: NextRequest) {
   const log = (await ref.get()).data() as SkinLog | undefined;
   const target = log?.photos?.find((p) => p.id === id);
   if (!log || !target) return NextResponse.json({ error: 'not_found' }, { status: 404 });
-  if (target.path.startsWith(`skin/${SKIN_OWNER}/`)) await adminBucket()!.file(target.path).delete({ ignoreNotFound: true });
-  await ref.update({ photos: FieldValue.arrayRemove(target), updatedAt: new Date().toISOString() });
+  // 지운 사진도 파일은 휴지통(skin/_trash/kkomi/…)으로 옮기기만 한다 — 잘못 지워도 되살릴 수 있게(우댕: 기록이 절대 날아가면 안 됨)
+  const removedAt = new Date().toISOString();
+  if (target.path.startsWith(`skin/${SKIN_OWNER}/`)) {
+    const trashPath = `${SKIN_TRASH_DIR}/${date}/${id}.jpg`;
+    const moved = await adminBucket()!.file(target.path).move(trashPath).then(() => true).catch(() => false);
+    await adminDb()!.doc(SKIN_PHOTO_TRASH).set({
+      items: FieldValue.arrayUnion({ date, id, t: target.t ?? null, path: moved ? trashPath : target.path, from: target.path, removedAt }),
+    }, { merge: true });
+  }
+  await ref.update({ photos: FieldValue.arrayRemove(target), updatedAt: removedAt });
   return NextResponse.json({ ok: true });
 }

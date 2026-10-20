@@ -90,7 +90,11 @@ export async function PUT(req: NextRequest) {
     }
   }
   // 사진 목록은 /api/skin/photo 만 바꾼다(겹쳐 저장돼도 사진이 지워지지 않게 photos는 빼고 merge)
+  // 덮어쓰기 전 판은 logs/{날짜}/versions/{시각} 에 그대로 남긴다(실수로 지우고 저장해도 되돌릴 수 있게). 새 판과 한 번에 쓴다.
   const { photos, ...rest } = log;
-  await ref.set(rest, { merge: true });
+  const batch = db.batch();
+  if (prev) batch.set(ref.collection('versions').doc(now), { ...prev, replacedAt: now });
+  batch.set(ref, rest, { merge: true });
+  await batch.commit();
   return NextResponse.json({ log: { ...rest, photos: photos ?? [] } });
 }

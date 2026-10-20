@@ -5,7 +5,7 @@
 // 하루 60번 상한(skin/kkomi/chatUsage/{날짜}), 토큰 사용량도 같이 적어 둔다.
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
 import { requireReader, requireWriter } from '@/lib/skinAuth';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { SKIN_OWNER, type SkinLog } from '@/lib/skinTypes';
@@ -119,6 +119,18 @@ export async function GET() {
   return NextResponse.json({ messages: (snap.data()?.messages ?? []) as ChatMsg[] });
 }
 
+// 화면용 대화는 최근 KEEP말만 두고, 넘친 옛 말은 chatArchive/{YYYY-MM}에 옮겨 둔다(지우지 않음 — 백업 우선, 우댕 2026-10-21)
+async function saveThread(db: Firestore, threadRef: DocumentReference, all: ChatMsg[], at: string) {
+  const drop = all.slice(0, Math.max(0, all.length - KEEP));
+  const batch = db.batch();
+  for (const month of new Set(drop.map((m) => m.at.slice(0, 7)))) {
+    const msgs = drop.filter((m) => m.at.startsWith(month));
+    batch.set(db.doc(`skin/${SKIN_OWNER}/chatArchive/${month}`), { messages: FieldValue.arrayUnion(...msgs) }, { merge: true });
+  }
+  batch.set(threadRef, { messages: all.slice(-KEEP), updatedAt: at });
+  await batch.commit();
+}
+
 export async function POST(req: NextRequest) {
   const who = await requireWriter();
   if (who instanceof NextResponse) return who;
@@ -171,7 +183,7 @@ export async function POST(req: NextRequest) {
           push('\n(답이 길어서 여기서 끊겼어요. 「이어서」라고 보내 주세요.)');
         }
         const reply: ChatMsg = { id: newId(), role: 'assistant', text: full, at: new Date().toISOString() };
-        await threadRef.set({ messages: [...prev, userMsg, reply].slice(-KEEP), updatedAt: reply.at });
+        await saveThread(db, threadRef, [...prev, userMsg, reply], reply.at);
         const u = final.usage;
         await usageRef.set({
           count: FieldValue.increment(1),
@@ -184,7 +196,7 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         console.error('skin chat', e);
         push(full ? '\n(답을 받다가 끊겼어요. 다시 보내 주세요.)' : '지금 Claude와 연결이 안 돼요. 잠시 뒤에 다시 보내 주세요.');
-        await threadRef.set({ messages: [...prev, userMsg].slice(-KEEP), updatedAt: userMsg.at }).catch(() => {});
+        await saveThread(db, threadRef, [...prev, userMsg], userMsg.at).catch(() => {});
       } finally {
         controller.close();
       }

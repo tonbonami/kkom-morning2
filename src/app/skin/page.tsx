@@ -15,6 +15,20 @@ import {
   READ_ONLY_MSG, addDays, appUserName, deleteSkinPhoto, draftFrom, fetchSkinLogs, fetchSkinPhotos, kstToday, medOfDay,
   fetchSkinSettings, prefillCycle, saveSkinLog, saveSkinSettings, savedAtText, skinLogin, skinSession, uploadSkinPhoto, weekdayOf, type SkinPhotoView, type SkinRole,
 } from '@/lib/skinClient';
+import { isPractice } from '@/lib/practice';
+
+// 저장 전 기록을 폰에도 적어 둔다(앱이 꺼지거나 저장이 실패해도 다시 열면 되살림 — 우댕: 기록이 절대 날아가면 안 됨)
+const draftKey = (date: string) => `${isPractice() ? 'kk-skin-draft-demo' : 'kk-skin-draft'}:${date}`;
+function readLocalDraft(date: string, serverUpdatedAt?: string): SkinDraft | null {
+  try {
+    const raw = localStorage.getItem(draftKey(date));
+    if (!raw) return null;
+    const { draft, at } = JSON.parse(raw) as { draft: SkinDraft; at: number };
+    if (serverUpdatedAt && Date.parse(serverUpdatedAt) >= at) { localStorage.removeItem(draftKey(date)); return null; }
+    return draft?.date === date ? draft : null;
+  } catch { return null; }
+}
+const RESTORED_MSG = '저장 안 된 기록을 되살렸어요 — 저장을 눌러 주세요';
 
 type Gate = 'loading' | 'locked' | 'open';
 
@@ -78,6 +92,15 @@ export default function SkinJournalPage() {
     await deleteSkinPhoto(selected, id).catch(() => {});
   };
 
+  // 고른 날 폼 채우기 — 폰에 저장 안 된 기록이 서버 것보다 새로우면 그걸 되살린다
+  const openDay = (date: string, map: Record<string, SkinLog>) => {
+    const local = readLocalDraft(date, map[date]?.updatedAt);
+    if (local) { setDraft(local); setDirty(true); setSavedAt(RESTORED_MSG); return; }
+    setDraft(prefillCycle(draftFrom(date, map[date]), map[date], map[addDays(date, -1)]));
+    setSavedAt(map[date] ? savedAtText(map[date].updatedAt) : null);
+    setDirty(false);
+  };
+
   const load = useCallback(async () => {
     const list = await fetchSkinLogs(addDays(today, -6), today);
     if (list === null) { setGate('locked'); return; }
@@ -85,8 +108,7 @@ export default function SkinJournalPage() {
     setLogs(map);
     if (!loadedRef.current) {
       loadedRef.current = true;
-      setDraft(prefillCycle(draftFrom(today, map[today]), map[today], map[addDays(today, -1)]));
-      setSavedAt(map[today] ? savedAtText(map[today].updatedAt) : null);
+      openDay(today, map);
     }
     setGate('open');
   }, [today]);
@@ -110,9 +132,7 @@ export default function SkinJournalPage() {
       if (!ok) return; // 저장 실패면 그대로 머문다(저장 막대에 실패 문구)
     }
     setSelected(date);
-    setDraft(prefillCycle(draftFrom(date, logs[date]), logs[date], logs[addDays(date, -1)]));
-    setSavedAt(logs[date] ? savedAtText(logs[date].updatedAt) : null);
-    setDirty(false);
+    openDay(date, logs);
   };
 
   // 보기 전용(우댕 폰)은 값을 안 바꾼다 — 칸 펼치기·사진 보기는 그대로 되게 잠금 대신 여기서만 막는다(우댕: "볼 수 있게는 해줘야지")
@@ -137,6 +157,7 @@ export default function SkinJournalPage() {
       setLogs((m) => ({ ...m, [log.date]: log }));
       setSavedAt(savedAtText(log.updatedAt));
       setDirty(false);
+      try { localStorage.removeItem(draftKey(log.date)); } catch {}
       return true;
     } catch {
       setSavedAt('저장 못 했어요 — 다시 눌러 주세요');
@@ -144,6 +165,26 @@ export default function SkinJournalPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // 바꿀 때마다 폰에 적어 두기
+  useEffect(() => {
+    if (!dirty || readOnly) return;
+    try { localStorage.setItem(draftKey(draft.date), JSON.stringify({ draft, at: Date.now() })); } catch {}
+  }, [draft, dirty, readOnly]);
+
+  // 저장 안 누르고 앱을 내리거나 다른 화면으로 가도 저장(꼼이가 저장 버튼을 잊는 날 대비)
+  const autoSave = useRef<() => void>(() => {});
+  autoSave.current = () => { if (dirty && !readOnly && !saving) void onSave(); };
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') autoSave.current(); };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', onHide);
+    return () => { document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', onHide); };
+  }, []);
+  const leave = async (href: string) => {
+    if (dirty && !readOnly && !(await onSave())) return;
+    router.push(href);
   };
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => {
@@ -163,7 +204,7 @@ export default function SkinJournalPage() {
   return (
     <SkinScreen>
     <SkinJournalView
-      header={{ onBack: () => router.push('/'), onOpenInsights: () => router.push('/skin/insights') }}
+      header={{ onBack: () => { void leave('/'); }, onOpenInsights: () => { void leave('/skin/insights'); } }}
       week={
         <>
           <SkinWeekStrip days={days} selected={selected} onSelect={pick} />

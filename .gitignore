@@ -74,3 +74,6 @@ public/pochacco_kkom/kkomi_pudede.png
 public/pochacco_kkom/kkomi_yap.png
 public/pochacco_kkom/pochacco_default.png
 public/pochacco_kkom/pochacco_fly.png
+
+# 피부 일지 등 로컬 백업(건강 기록이라 저장소에 안 올림)
+backups/
