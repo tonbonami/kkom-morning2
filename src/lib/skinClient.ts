@@ -1,6 +1,8 @@
 // 피부 일지 — 브라우저 쪽 도우미. 서버(/api/skin/*)는 PIN 쿠키(httpOnly, path /api/skin)로만 열린다.
 import type { SkinLog } from './skinTypes';
 import { nameFromCode } from './letters';
+import { isPractice } from './practice';
+import { demo } from './skinDemo';
 import type { SkinDraft, MedStatus } from '@/components/skin/skinUi';
 
 export const DEFAULT_MED = '항히스타민';
@@ -23,12 +25,14 @@ export const weekdayOf = (date: string) => WEEKDAY[new Date(date + 'T00:00:00Z')
 export type SkinRole = 'kkomi' | 'viewer';
 
 export async function skinSession(): Promise<{ configured: boolean; authed: boolean; role: SkinRole | null }> {
+  if (isPractice()) return demo.session();
   const r = await fetch('/api/skin/session', { cache: 'no-store' });
   return r.ok ? r.json() : { configured: false, authed: false, role: null };
 }
 
 // as = 이 폰에 꼼모닝으로 로그인한 사람. 우댕 폰이면 서버가 보기 전용(viewer)으로 연다.
 export async function skinLogin(pin: string, as: string): Promise<'ok' | 'bad' | 'locked' | 'error'> {
+  if (isPractice()) return 'ok';
   const r = await fetch('/api/skin/session', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, as }),
   });
@@ -39,6 +43,7 @@ export async function skinLogin(pin: string, as: string): Promise<'ok' | 'bad' |
 }
 
 export async function fetchSkinLogs(from: string, to: string): Promise<SkinLog[] | null> {
+  if (isPractice()) return demo.logs(from, to);
   const r = await fetch(`/api/skin/log?from=${from}&to=${to}`, { cache: 'no-store' });
   if (r.status === 401) return null;
   if (!r.ok) throw new Error(`skin logs ${r.status}`);
@@ -48,6 +53,7 @@ export async function fetchSkinLogs(from: string, to: string): Promise<SkinLog[]
 export async function saveSkinLog(draft: SkinDraft): Promise<SkinLog> {
   // 약 줄 중 아무것도 안 고른 기본 줄(이름만 있는 빈 줄)은 '기록 없음'이라 빼고 보낸다.
   const meds = draft.meds.filter((m) => m.status || m.time || (m.name.trim() && m.name.trim() !== DEFAULT_MED));
+  if (isPractice()) return demo.save({ ...(draft as unknown as Partial<SkinLog>), date: draft.date, meds });
   const r = await fetch('/api/skin/log', {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...draft, meds }),
@@ -114,11 +120,13 @@ async function shrinkImage(file: File, maxSide = 1600): Promise<Blob> {
 export type SkinPhotoView = { id: string; url: string; t: string | null };
 
 export async function fetchSkinPhotos(date: string): Promise<SkinPhotoView[]> {
+  if (isPractice()) return demo.photos(date);
   const r = await fetch(`/api/skin/photo?date=${date}`, { cache: 'no-store' });
   return r.ok ? (await r.json()).photos : [];
 }
 
 export async function uploadSkinPhoto(date: string, file: File): Promise<SkinPhotoView> {
+  if (isPractice()) return demo.addPhoto(date, file);
   const fd = new FormData();
   fd.append('date', date);
   fd.append('file', await shrinkImage(file), 'photo.jpg');
@@ -128,23 +136,28 @@ export async function uploadSkinPhoto(date: string, file: File): Promise<SkinPho
 }
 
 export async function deleteSkinPhoto(date: string, id: string): Promise<void> {
+  if (isPractice()) { demo.deletePhoto(date, id); return; }
   await fetch(`/api/skin/photo?date=${date}&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 // ── 설정·설문 ──
 export async function fetchSkinSettings(): Promise<{ partnerAlert: boolean } | null> {
+  if (isPractice()) return demo.settings();
   const r = await fetch('/api/skin/settings', { cache: 'no-store' });
   return r.ok ? r.json() : null;
 }
 export async function saveSkinSettings(partnerAlert: boolean): Promise<boolean> {
+  if (isPractice()) { demo.setSettings(partnerAlert); return true; }
   const r = await fetch('/api/skin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ partnerAlert }) });
   return r.ok;
 }
 export async function fetchIntake(): Promise<Record<string, string | string[]> | null> {
+  if (isPractice()) return demo.intake();
   const r = await fetch('/api/skin/intake', { cache: 'no-store' });
   return r.ok ? (await r.json()).answers : null;
 }
 export async function saveIntakeAnswer(id: string, value: string | string[] | null): Promise<boolean> {
+  if (isPractice()) { demo.setIntake(id, value); return true; }
   const r = await fetch('/api/skin/intake', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, value }) });
   return r.ok;
 }
