@@ -4,7 +4,7 @@
 //     지난 메일 뒤로 바뀐 기록이나 상담이 있는 날만 — 일요일엔 바뀐 게 없어도 보낸다(백업이 살아 있다는 신호).
 //  ?force=1 이면 바뀐 게 없어도 메일까지. 호출은 CRON_SECRET 필요.
 import { NextRequest, NextResponse } from 'next/server';
-import { adminBucket, adminDb } from '@/lib/firebaseAdmin';
+import { adminBucket, adminDb, adminProjectId } from '@/lib/firebaseAdmin';
 import { mailConfigured, sendMail } from '@/lib/mail';
 import { dayLine, md, snapshotSkin, sumUsage, usageCost, weekdayKo, type ChatUsageDay } from '@/lib/skinBackup';
 import { SKIN_BACKUP_DIR, SKIN_BACKUP_META, type SkinLog } from '@/lib/skinTypes';
@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
   if (!db || !bucket) return NextResponse.json({ error: 'admin_not_configured' }, { status: 503 });
 
   const today = kstToday();
+  const project = adminProjectId();
   const force = req.nextUrl.searchParams.get('force') === '1';
   const metaRef = db.doc(SKIN_BACKUP_META);
   const meta = (await metaRef.get()).data() ?? {};
@@ -86,6 +87,10 @@ export async function GET(req: NextRequest) {
       monthSum.count > 0 &&
         `이번 달 토큰: 입력 ${num(monthSum.inTok)} · 출력 ${num(monthSum.outTok)} · 캐시 읽기 ${num(monthSum.cacheRead)} · 캐시 쓰기 ${num(monthSum.cacheWrite)}`,
       `※ 비용은 토큰 수로 어림한 값(1달러 ${num(USD_KRW)}원)이에요. 정확한 청구는 console.anthropic.com 기준.`,
+      '',
+      project === process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+        ? `저장 위치: Firebase ${project}`
+        : `⚠️ 저장 위치가 ${project}예요(꼼모닝은 ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}). 서버 키를 확인해 주세요.`,
     ].filter((s): s is string => s !== false);
     mailed = await sendMail({
       subject: `[꼼모닝] 피부 일지 백업 ${md(today)} · ${subjectBits.join(' · ')}`,
@@ -101,5 +106,5 @@ export async function GET(req: NextRequest) {
     ...(mailed ? { mailedAt: snap.exportedAt } : {}),
   }, { merge: true });
 
-  return NextResponse.json({ ok: true, file, bytes: json.length, logs: logs.length, changed: changed.length, mailed, mailConfigured: mailConfigured() });
+  return NextResponse.json({ ok: true, project, file, bytes: json.length, logs: logs.length, changed: changed.length, mailed, mailConfigured: mailConfigured() });
 }

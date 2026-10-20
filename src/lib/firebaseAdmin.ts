@@ -19,6 +19,10 @@ export function adminApp(): App | null {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_B64;
   if (!raw) return null;
   const sa = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+  // 2026-10-21 사고: 사이담(dandul-app) 키가 들어가 있어서 피부 기록이 사이담 Firestore에 쌓였다. 키 프로젝트가 앱과 다르면 크게 남긴다.
+  if (sa.project_id !== process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+    console.error(`[firebaseAdmin] 키 프로젝트(${sa.project_id})가 앱 프로젝트(${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID})와 달라요 — FIREBASE_SERVICE_ACCOUNT_B64 확인`);
+  }
   cached = initializeApp(
     {
       credential: cert(sa),
@@ -28,6 +32,12 @@ export function adminApp(): App | null {
     APP_NAME,
   );
   return cached;
+}
+
+// 실제로 읽고 쓰는 Firebase 프로젝트 id(백업 메일에 찍어 확인용)
+export function adminProjectId(): string | null {
+  const app = adminApp();
+  return app ? (app.options.projectId ?? null) : null;
 }
 
 export function adminDb(): Firestore | null {
