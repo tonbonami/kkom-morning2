@@ -7,9 +7,14 @@ const KEY = 'kk-practice';
 export function isPractice(): boolean {
   if (typeof window === 'undefined') return false;
   try {
-    const q = new URLSearchParams(window.location.search).get('practice');
+    const sp = new URLSearchParams(window.location.search);
+    const q = sp.get('practice');
     if (q === '1') sessionStorage.setItem(KEY, '1');
     if (q === '0') sessionStorage.removeItem(KEY);
+    // 피부 일지 연습 모드에서 보기 전용(우댕 폰) 흉내: &view=1 / 끄기 &view=0
+    const v = sp.get('view');
+    if (v === '1') sessionStorage.setItem(KEY + '-view', '1');
+    if (v === '0') sessionStorage.removeItem(KEY + '-view');
     return sessionStorage.getItem(KEY) === '1';
   } catch {
     return false;
@@ -20,4 +25,10 @@ export function isPractice(): boolean {
 export function practiceBlocked(what: string): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent<string>(KEY, { detail: what }));
+}
+
+// 피부 일지 연습 모드에서 보기 전용으로 흉내 낼지(isPractice가 주소의 view=1을 기억해 둔다)
+export function practiceAsViewer(): boolean {
+  if (typeof window === 'undefined') return false;
+  try { isPractice(); return sessionStorage.getItem(KEY + '-view') === '1'; } catch { return false; }
 }

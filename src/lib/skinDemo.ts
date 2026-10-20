@@ -2,6 +2,7 @@
 //   서버(/api/skin/*)에 아무것도 묻지도 쓰지도 않는다. 기록은 이 탭 메모리에만, 새로고침하면 처음으로.
 //   보이는 숫자·메모·사진은 전부 지어낸 예시다(꼼이 실제 기록 아님).
 import type { SkinLog } from './skinTypes';
+import { practiceAsViewer } from './practice';
 
 const kst = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 const add = (d: string, n: number) => new Date(Date.parse(d + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
@@ -40,7 +41,7 @@ const store = { logs: demoLogs(), photos: {} as Record<string, { id: string; url
 export const demo = {
   // ?practice=1&view=1 이면 보기 전용(우댕 폰)으로 흉내
   session() {
-    try { if (new URLSearchParams(window.location.search).get('view') === '1') store.role = 'viewer'; } catch { /* noop */ }
+    store.role = practiceAsViewer() ? 'viewer' : 'kkomi';
     return { configured: true, authed: true, role: store.role };
   },
   logs(from: string, to: string): SkinLog[] {

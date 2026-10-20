@@ -111,9 +111,18 @@ export default function SkinJournalPage() {
     setDirty(false);
   };
 
-  const onChange = (patch: Partial<SkinDraft>) => { setDraft((d) => ({ ...d, ...patch })); setDirty(true); };
+  // 보기 전용(우댕 폰)은 값을 안 바꾼다 — 칸 펼치기·사진 보기는 그대로 되게 잠금 대신 여기서만 막는다(우댕: "볼 수 있게는 해줘야지")
+  const roNoticed = useRef(false);
+  const onChange = (patch: Partial<SkinDraft>) => {
+    if (readOnly) {
+      if (!roNoticed.current) { roNoticed.current = true; window.alert(READ_ONLY_MSG); }
+      return;
+    }
+    setDraft((d) => ({ ...d, ...patch })); setDirty(true);
+  };
 
   const onSave = async () => {
+    if (readOnly) { window.alert(READ_ONLY_MSG); return; }
     setSaving(true);
     try {
       const log = await saveSkinLog(draft);
@@ -162,10 +171,8 @@ export default function SkinJournalPage() {
         </>
       }
       form={
-        // 우댕 폰(보기 전용)은 칸을 전부 잠근다 — 서버도 쓰기를 막는다(requireWriter)
-        <fieldset disabled={readOnly} style={{ display: 'contents' }}>
-          <SkinDayForm value={draft} onChange={onChange} onSave={onSave} saving={saving} savedAt={savedAt} isToday={selected === today} />
-        </fieldset>
+        // 우댕 폰(보기 전용): 칸은 펼쳐 볼 수 있고, 값 바꾸기·저장만 onChange/onSave에서 막는다. 서버도 requireWriter로 막음
+        <SkinDayForm value={draft} onChange={onChange} onSave={onSave} saving={saving} savedAt={savedAt} isToday={selected === today} />
       }
     />
     </SkinScreen>

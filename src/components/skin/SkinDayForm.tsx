@@ -1,5 +1,6 @@
 // 제미나이 시안 2판(2026-10-21, 우댕 전달, 빠진 6칸 채움) — 값 그대로.
 // 고친 것 딱 하나: 요약 문구 템플릿 안의 `\${` 두 곳(복사 중 생긴 역슬래시) → `${` (안 고치면 화면에 코드 글자가 찍힘).
+// 문구 하나: 「증상이 올라온 때」 → 「두드러기 올라온 시각·부위」(우댕: 무슨 뜻인지 모르겠다).
 // SkinDayForm.tsx
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -184,7 +185,7 @@ export default function SkinDayForm({
 
       {/* 3. 증상이 올라온 때 */}
       <CollapsibleSection
-        title="증상이 올라온 때"
+        title="두드러기 올라온 시각·부위"
         isExpanded={expanded['episodes']}
         onToggle={() => toggleSection('episodes')}
         summary={episodeSummary}
