@@ -1,8 +1,18 @@
 // 피부 일지 — 브라우저 쪽 도우미. 서버(/api/skin/*)는 PIN 쿠키(httpOnly, path /api/skin)로만 열린다.
 import type { SkinLog } from './skinTypes';
+import { nameFromCode } from './letters';
 import type { SkinDraft, MedStatus } from '@/components/skin/skinUi';
 
 export const DEFAULT_MED = '항히스타민';
+export const READ_ONLY_MSG = '보기 전용이에요 — 기록은 꼼이만 써요';
+
+// 이 폰에 꼼모닝으로 로그인한 사람 이름(로그인코드 → 이름)
+export function appUserName(): string {
+  try {
+    const code = JSON.parse(localStorage.getItem('kkom-user') || '{}').로그인코드;
+    return code ? nameFromCode(code) : '';
+  } catch { return ''; }
+}
 
 export const kstToday = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 export const addDays = (date: string, n: number) =>
@@ -10,14 +20,17 @@ export const addDays = (date: string, n: number) =>
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
 export const weekdayOf = (date: string) => WEEKDAY[new Date(date + 'T00:00:00Z').getUTCDay()];
 
-export async function skinSession(): Promise<{ configured: boolean; authed: boolean }> {
+export type SkinRole = 'kkomi' | 'viewer';
+
+export async function skinSession(): Promise<{ configured: boolean; authed: boolean; role: SkinRole | null }> {
   const r = await fetch('/api/skin/session', { cache: 'no-store' });
-  return r.ok ? r.json() : { configured: false, authed: false };
+  return r.ok ? r.json() : { configured: false, authed: false, role: null };
 }
 
-export async function skinLogin(pin: string): Promise<'ok' | 'bad' | 'locked' | 'error'> {
+// as = 이 폰에 꼼모닝으로 로그인한 사람. 우댕 폰이면 서버가 보기 전용(viewer)으로 연다.
+export async function skinLogin(pin: string, as: string): Promise<'ok' | 'bad' | 'locked' | 'error'> {
   const r = await fetch('/api/skin/session', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }),
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, as }),
   });
   if (r.ok) return 'ok';
   if (r.status === 401) return 'bad';

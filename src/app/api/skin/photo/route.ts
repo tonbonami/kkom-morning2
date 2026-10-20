@@ -1,10 +1,10 @@
-// 피부 일지 사진 — PIN 쿠키 필요(requireOwner). 사진은 Storage skin/kkomi/{날짜}/{id}.jpg (규칙상 클라 차단, Admin만).
+// 피부 일지 사진 — PIN 쿠키 필요(읽기 requireReader · 쓰기는 꼼이만 requireWriter). 사진은 Storage skin/kkomi/{날짜}/{id}.jpg (규칙상 클라 차단, Admin만).
 //   GET    ?date=YYYY-MM-DD            → { photos: [{ id, url, t }] }  (url = 15분짜리 서명 주소)
 //   POST   form-data { date, file }    → { photo } — 브라우저에서 긴 변 1600px JPEG로 줄여 보낸다(최대 4MB)
 //   DELETE ?date=…&id=…               → 파일 지우고 기록에서 빼기
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
-import { requireOwner } from '@/lib/skinAuth';
+import { requireReader, requireWriter } from '@/lib/skinAuth';
 import { adminBucket, adminDb } from '@/lib/firebaseAdmin';
 import { DATE_RE, SKIN_OWNER, emptyLog, skinLogPath, type SkinLog, type SkinPhoto } from '@/lib/skinTypes';
 
@@ -21,7 +21,7 @@ async function signed(path: string): Promise<string> {
 }
 
 export async function GET(req: NextRequest) {
-  const who = await requireOwner();
+  const who = await requireReader();
   if (who instanceof NextResponse) return who;
   const date = req.nextUrl.searchParams.get('date') ?? '';
   if (!DATE_RE.test(date)) return NextResponse.json({ error: 'bad_date' }, { status: 400 });
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const who = await requireOwner();
+  const who = await requireWriter();
   if (who instanceof NextResponse) return who;
   const form = await req.formData().catch(() => null);
   const date = String(form?.get('date') ?? '');
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const who = await requireOwner();
+  const who = await requireWriter();
   if (who instanceof NextResponse) return who;
   const date = req.nextUrl.searchParams.get('date') ?? '';
   const id = req.nextUrl.searchParams.get('id') ?? '';

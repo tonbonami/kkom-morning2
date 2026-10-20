@@ -7,11 +7,12 @@ import SkinJournalView from '@/components/skin/SkinJournalView';
 import SkinWeekStrip from '@/components/skin/SkinWeekStrip';
 import SkinDayForm from '@/components/skin/SkinDayForm';
 import SkinPhotoStrip from '@/components/skin/SkinPhotoStrip';
+import SkinScreen from '@/components/skin/SkinScreen';
 import type { SkinDraft } from '@/components/skin/skinUi';
 import type { SkinLog } from '@/lib/skinTypes';
 import {
-  addDays, deleteSkinPhoto, draftFrom, fetchSkinLogs, fetchSkinPhotos, kstToday, medOfDay, saveSkinLog, savedAtText,
-  skinLogin, skinSession, uploadSkinPhoto, weekdayOf, type SkinPhotoView,
+  READ_ONLY_MSG, addDays, appUserName, deleteSkinPhoto, draftFrom, fetchSkinLogs, fetchSkinPhotos, kstToday, medOfDay,
+  saveSkinLog, savedAtText, skinLogin, skinSession, uploadSkinPhoto, weekdayOf, type SkinPhotoView, type SkinRole,
 } from '@/lib/skinClient';
 
 type Gate = 'loading' | 'locked' | 'open';
@@ -20,6 +21,8 @@ export default function SkinJournalPage() {
   const router = useRouter();
   const today = useMemo(() => kstToday(), []);
   const [gate, setGate] = useState<Gate>('loading');
+  const [role, setRole] = useState<SkinRole | null>(null);
+  const readOnly = role !== 'kkomi';
   const [pinStatus, setPinStatus] = useState<'idle' | 'checking' | 'bad' | 'locked'>('idle');
   const [logs, setLogs] = useState<Record<string, SkinLog>>({});
   const [selected, setSelected] = useState(today);
@@ -41,6 +44,7 @@ export default function SkinJournalPage() {
   }, [gate, selected]);
 
   const onAddPhotos = async (files: FileList) => {
+    if (readOnly) { window.alert(READ_ONLY_MSG); return; }
     const list = Array.from(files);
     setUploading(true);
     try {
@@ -56,6 +60,7 @@ export default function SkinJournalPage() {
   };
 
   const onDeletePhoto = async (id: string) => {
+    if (readOnly) { window.alert(READ_ONLY_MSG); return; }
     setPhotos((cur) => cur.filter((p) => p.id !== id));
     await deleteSkinPhoto(selected, id).catch(() => {});
   };
@@ -74,13 +79,13 @@ export default function SkinJournalPage() {
   }, [today]);
 
   useEffect(() => {
-    skinSession().then((s) => (s.authed ? load() : setGate('locked'))).catch(() => setGate('locked'));
+    skinSession().then((s) => { setRole(s.role); return s.authed ? load() : setGate('locked'); }).catch(() => setGate('locked'));
   }, [load]);
 
   const onPin = async (pin: string) => {
     setPinStatus('checking');
-    const r = await skinLogin(pin);
-    if (r === 'ok') { setPinStatus('idle'); await load(); }
+    const r = await skinLogin(pin, appUserName());
+    if (r === 'ok') { setPinStatus('idle'); setRole((await skinSession()).role); await load(); }
     else setPinStatus(r === 'locked' ? 'locked' : 'bad');
   };
 
@@ -124,6 +129,7 @@ export default function SkinJournalPage() {
     );
   }
   return (
+    <SkinScreen>
     <SkinJournalView
       header={{ onBack: () => router.push('/'), onOpenInsights: () => router.push('/skin/insights') }}
       week={
@@ -136,11 +142,18 @@ export default function SkinJournalPage() {
             onAdd={onAddPhotos}
             onDelete={onDeletePhoto}
           />
+          {readOnly && (
+            <p className="text-center text-[13px] mt-3" style={{ color: 'var(--sd-muted)' }}>{READ_ONLY_MSG}</p>
+          )}
         </>
       }
       form={
-        <SkinDayForm value={draft} onChange={onChange} onSave={onSave} saving={saving} savedAt={savedAt} isToday={selected === today} />
+        // 우댕 폰(보기 전용)은 칸을 전부 잠근다 — 서버도 쓰기를 막는다(requireWriter)
+        <fieldset disabled={readOnly} style={{ display: 'contents' }}>
+          <SkinDayForm value={draft} onChange={onChange} onSave={onSave} saving={saving} savedAt={savedAt} isToday={selected === today} />
+        </fieldset>
       }
     />
+    </SkinScreen>
   );
 }

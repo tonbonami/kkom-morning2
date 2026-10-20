@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SkinInsightsView from '@/components/skin/SkinInsightsView';
+import SkinScreen from '@/components/skin/SkinScreen';
 import type { SkinLog } from '@/lib/skinTypes';
 import { skinStats } from '@/lib/skinStats';
 import { addDays, fetchSkinLogs, kstToday } from '@/lib/skinClient';
@@ -27,6 +28,7 @@ export default function SkinInsightsPage() {
   const thinking = logs === null;
 
   return (
+    <SkinScreen>
     <SkinInsightsView
       doctorSrc={thinking ? DOCTOR_THINK : DOCTOR_WALK}
       thinking={thinking}
@@ -37,5 +39,6 @@ export default function SkinInsightsPage() {
       triggers={stats.triggers}
       areas={stats.areas}
     />
+    </SkinScreen>
   );
 }

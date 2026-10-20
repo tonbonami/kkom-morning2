@@ -1,4 +1,4 @@
-// 꼼이 피부 일지 — Claude 상담. PIN 쿠키 필요(requireOwner).
+// 꼼이 피부 일지 — Claude 상담. PIN 쿠키 필요(읽기 requireReader · 쓰기는 꼼이만 requireWriter).
 //   GET  → { messages }  (skin/kkomi/chat/main, 최근 200개)
 //   POST { text } → 글자를 흘려보내는 text/plain 스트림. 끝나면 대화에 저장.
 // 모델: Claude Opus 5.5(우댕 결정 2026-10-21) — env SKIN_CHAT_MODEL로 바꿀 수 있음.
@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { FieldValue } from 'firebase-admin/firestore';
-import { requireOwner } from '@/lib/skinAuth';
+import { requireReader, requireWriter } from '@/lib/skinAuth';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { SKIN_OWNER, type SkinLog } from '@/lib/skinTypes';
 import { skinStats, medOf } from '@/lib/skinStats';
@@ -113,14 +113,14 @@ async function buildContext(db: FirebaseFirestore.Firestore, today: string): Pro
 }
 
 export async function GET() {
-  const who = await requireOwner();
+  const who = await requireReader();
   if (who instanceof NextResponse) return who;
   const snap = await adminDb()!.doc(THREAD).get();
   return NextResponse.json({ messages: (snap.data()?.messages ?? []) as ChatMsg[] });
 }
 
 export async function POST(req: NextRequest) {
-  const who = await requireOwner();
+  const who = await requireWriter();
   if (who instanceof NextResponse) return who;
   if (!process.env.ANTHROPIC_API_KEY) return NextResponse.json({ error: 'no_api_key' }, { status: 503 });
   const body = await req.json().catch(() => null);

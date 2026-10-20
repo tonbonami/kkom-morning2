@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SkinChat from '@/components/skin/SkinChat';
+import SkinScreen from '@/components/skin/SkinScreen';
+import { skinSession } from '@/lib/skinClient';
 
 type Msg = { id: string; role: 'user' | 'assistant'; text: string; at: string };
 
@@ -22,6 +24,8 @@ export default function SkinChatPage() {
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const busy = useRef(false);
+  const [readOnly, setReadOnly] = useState(true);
+  useEffect(() => { skinSession().then((s) => setReadOnly(s.role !== 'kkomi')).catch(() => {}); }, []);
 
   useEffect(() => {
     fetch('/api/skin/chat', { cache: 'no-store' })
@@ -34,6 +38,7 @@ export default function SkinChatPage() {
   }, [router]);
 
   const onSend = async (text: string) => {
+    if (readOnly) { window.alert('보기 전용이에요 — 상담은 꼼이만 할 수 있어요'); return; }
     if (busy.current) return;
     busy.current = true;
     setSending(true);
@@ -69,13 +74,15 @@ export default function SkinChatPage() {
   };
 
   return (
+    <SkinScreen>
     <SkinChat
       messages={messages.map((m) => ({ ...m, at: timeText(m.at) }))}
       streamingText={streamingText}
       onSend={onSend}
       sending={sending}
       onBack={() => router.push('/skin/insights')}
-      suggestions={SUGGESTIONS}
+      suggestions={readOnly ? [] : SUGGESTIONS}
     />
+    </SkinScreen>
   );
 }

@@ -1,9 +1,9 @@
-// 피부 일지 하루 기록 — 꼼이 세션 쿠키 필요(requireOwner).
+// 피부 일지 하루 기록 — 꼼이 세션 쿠키 필요(읽기 requireReader · 쓰기는 꼼이만 requireWriter).
 //   GET ?date=YYYY-MM-DD           → { log | null }
 //   GET ?from=YYYY-MM-DD&to=…      → { logs: [...] } (최대 120일)
 //   PUT { date, ...바꿀 필드 }       → 합쳐서 저장, uas 다시 계산. 오늘 기록이면 날씨·습도·미세먼지를 한 번 붙인다.
 import { NextRequest, NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/skinAuth';
+import { requireReader, requireWriter } from '@/lib/skinAuth';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { DATE_RE, emptyLog, sanitizeLogPatch, skinLogPath, uasOf, SKIN_OWNER, type SkinEnv, type SkinLog } from '@/lib/skinTypes';
 
@@ -27,7 +27,7 @@ async function envSnapshot(origin: string): Promise<SkinEnv | null> {
 }
 
 export async function GET(req: NextRequest) {
-  const who = await requireOwner();
+  const who = await requireReader();
   if (who instanceof NextResponse) return who;
   const db = adminDb()!;
   const p = req.nextUrl.searchParams;
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const who = await requireOwner();
+  const who = await requireWriter();
   if (who instanceof NextResponse) return who;
   const body = await req.json().catch(() => null);
   const date = body?.date;
