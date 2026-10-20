@@ -81,7 +81,7 @@ const MODULES: ModuleDef[] = [
   { id: 'chat',     name: '꼼톡' },
   { id: 'air',      name: '미세먼지' },
   { id: 'weather',  name: '오늘 밖' },
-  { id: 'skin',     name: '피부 일지' },   // 꼼이에게만 보임(PIN 잠금 /skin)
+  { id: 'skin',     name: '피부 일지' },   // 꼼이 피부 일지 — 둘 다 보임, 안은 PIN 잠금(/skin)
   { id: 'mood',     name: '오늘의 기분' },
   { id: 'dday',     name: '함께한 지' },
   { id: 'calendar', name: '달력' },
@@ -178,7 +178,7 @@ export default function KkomMorningHome() {
   const [draftEnabled, setDraftEnabled] = useState<Set<string>>(new Set());
   const [savingLayout, setSavingLayout] = useState(false);
   useEffect(() => {
-    if (editing) { setDraftOrder(ordered.filter((m) => m.id !== 'skin' || userName === '꼼이')); setDraftSizes(sizes); setDraftEnabled(new Set(enabledSet)); }
+    if (editing) { setDraftOrder(ordered); setDraftSizes(sizes); setDraftEnabled(new Set(enabledSet)); }
   }, [editing]); // eslint-disable-line react-hooks/exhaustive-deps
   const finishEditing = async () => {
     setSavingLayout(true);
@@ -235,10 +235,10 @@ export default function KkomMorningHome() {
   const [recipes, setRecipes] = useState<RecipeItemView[]>([]);
   // 시집 — 카드 총편수 배지 + 안읽은 새 시 숫자 배지
   const [poems, setPoems] = useState<PoemItemView[]>([]);
-  // 피부 일지 카드 한 줄(꼼이만) — PIN 쿠키가 있으면 오늘 기록 요약, 없으면 빈칸 안내
+  // 피부 일지 카드 한 줄 — PIN 쿠키가 있으면 오늘 기록 요약, 없으면 빈칸 안내
   const [skinToday, setSkinToday] = useState('');
   useEffect(() => {
-    if (userName !== '꼼이') return;
+    if (userName !== '꼼이' && userName !== '우댕') return;
     let alive = true;
     fetch(`/api/skin/log?date=${skinKstToday()}`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
@@ -1165,7 +1165,7 @@ export default function KkomMorningHome() {
               <TodayDigest me={userName as '우댕' | '꼼이'} />
             )}
             <div className="grid grid-cols-2 gap-4 auto-rows-min">
-              {shownModules.filter((m) => m.id !== 'skin' || userName === '꼼이').flatMap((m) => {
+              {shownModules.flatMap((m) => {
                 const cell = (
                   <div key={m.id} className={SIZE_CLASS[sizes[m.id] ?? DEFAULT_SIZE[m.id] ?? '1x1']}>
                     {moduleNodes[m.id]}
