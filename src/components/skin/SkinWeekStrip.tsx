@@ -1,4 +1,5 @@
 // 제미나이 시안(2026-10-21, 우댕 전달) — 값 그대로.
+// Aside 검수 고침(2026-10-21): 390px에서 7칸이 카드 밖으로 9px 넘침 → 바깥·칸 가로 여백만 줄임.
 // SkinWeekStrip.tsx
 import React from 'react';
 import { motion } from 'framer-motion';
@@ -15,7 +16,7 @@ export default function SkinWeekStrip({
   onSelect: (date: string) => void;
 }) {
   return (
-    <div className="flex justify-between items-center px-4 py-3 sd-card mb-4">
+    <div className="flex justify-between items-center px-2 py-3 sd-card mb-4">
       {days.map((day) => {
         const isSelected = day.date === selected;
         const uasLevel = day.uas !== null ? Math.min(day.uas / 6, 1) : 0;
@@ -25,7 +26,7 @@ export default function SkinWeekStrip({
             key={day.date}
             whileTap={{ scale: 0.9 }}
             onClick={() => onSelect(day.date)}
-            className={`flex flex-col items-center p-2 rounded-xl transition-colors ${
+            className={`flex flex-col items-center px-1 py-2 rounded-xl transition-colors ${
               isSelected ? 'bg-[var(--sd-surface-2)]' : ''
             }`}
           >

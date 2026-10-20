@@ -1,4 +1,5 @@
 // 제미나이 시안(2026-10-21, 우댕 전달) — 값 그대로.
+// Aside 검수 고침(2026-10-21): 119 띠 배경이 글자색과 같아 글자가 안 보였다(bg-opacity가 CSS 변수 색엔 안 먹음) → color-mix로 옅게, 글자 12px.
 // SkinChat.tsx
 import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -49,7 +50,7 @@ export default function SkinChat({
       </div>
 
       {/* 경고 띠 */}
-      <div className="bg-[var(--sd-crit)] bg-opacity-10 text-[var(--sd-crit)] text-[11px] py-2 px-4 text-center font-medium">
+      <div className="bg-[color-mix(in_srgb,var(--sd-crit)_12%,transparent)] text-[var(--sd-crit)] text-[12px] py-2 px-4 text-center font-medium">
         진단이 아니라 기록을 같이 보는 대화예요 · 입술·혀·목이 붓거나 숨이 차면 119
       </div>
 

@@ -57,7 +57,7 @@ export default function SkinJournalPage() {
   }, [gate, selected]);
 
   const onAddPhotos = async (files: FileList) => {
-    if (readOnly) { window.alert(READ_ONLY_MSG); return; }
+    if (readOnly) { showReadOnly(); return; }
     const list = Array.from(files);
     setUploading(true);
     try {
@@ -73,7 +73,7 @@ export default function SkinJournalPage() {
   };
 
   const onDeletePhoto = async (id: string) => {
-    if (readOnly) { window.alert(READ_ONLY_MSG); return; }
+    if (readOnly) { showReadOnly(); return; }
     setPhotos((cur) => cur.filter((p) => p.id !== id));
     await deleteSkinPhoto(selected, id).catch(() => {});
   };
@@ -102,9 +102,13 @@ export default function SkinJournalPage() {
     else setPinStatus(r === 'locked' ? 'locked' : 'bad');
   };
 
-  const pick = (date: string) => {
+  // 날을 바꿀 때 저장 안 한 변경이 있으면 먼저 저장하고 넘어간다(Aside 검수: 경고 없이 사라짐 — confirm은 앱에서 그냥 넘어가기도 함)
+  const pick = async (date: string) => {
     if (date === selected) return;
-    if (dirty && !window.confirm('저장하지 않은 기록이 있어요. 다른 날로 넘어갈까요?')) return;
+    if (dirty && !readOnly) {
+      const ok = await onSave();
+      if (!ok) return; // 저장 실패면 그대로 머문다(저장 막대에 실패 문구)
+    }
     setSelected(date);
     setDraft(prefillCycle(draftFrom(date, logs[date]), logs[date], logs[addDays(date, -1)]));
     setSavedAt(logs[date] ? savedAtText(logs[date].updatedAt) : null);
@@ -112,25 +116,31 @@ export default function SkinJournalPage() {
   };
 
   // 보기 전용(우댕 폰)은 값을 안 바꾼다 — 칸 펼치기·사진 보기는 그대로 되게 잠금 대신 여기서만 막는다(우댕: "볼 수 있게는 해줘야지")
-  const roNoticed = useRef(false);
+  // 막힐 때마다 아래에 짧은 안내(누를 때마다 반응이 있게 — Aside 검수: 한 번 뒤엔 눌러도 반응 없음)
+  const [roToast, setRoToast] = useState(false);
+  const roTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showReadOnly = () => {
+    setRoToast(true);
+    if (roTimer.current) clearTimeout(roTimer.current);
+    roTimer.current = setTimeout(() => setRoToast(false), 1600);
+  };
   const onChange = (patch: Partial<SkinDraft>) => {
-    if (readOnly) {
-      if (!roNoticed.current) { roNoticed.current = true; window.alert(READ_ONLY_MSG); }
-      return;
-    }
+    if (readOnly) { showReadOnly(); return; }
     setDraft((d) => ({ ...d, ...patch })); setDirty(true);
   };
 
-  const onSave = async () => {
-    if (readOnly) { window.alert(READ_ONLY_MSG); return; }
+  const onSave = async (): Promise<boolean> => {
+    if (readOnly) { showReadOnly(); return false; }
     setSaving(true);
     try {
       const log = await saveSkinLog(draft);
       setLogs((m) => ({ ...m, [log.date]: log }));
       setSavedAt(savedAtText(log.updatedAt));
       setDirty(false);
+      return true;
     } catch {
       setSavedAt('저장 못 했어요 — 다시 눌러 주세요');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -172,9 +182,14 @@ export default function SkinJournalPage() {
       }
       form={
         // 우댕 폰(보기 전용): 칸은 펼쳐 볼 수 있고, 값 바꾸기·저장만 onChange/onSave에서 막는다. 서버도 requireWriter로 막음
-        <SkinDayForm value={draft} onChange={onChange} onSave={onSave} saving={saving} savedAt={savedAt} isToday={selected === today} />
+        <SkinDayForm value={draft} onChange={onChange} onSave={() => { void onSave(); }} saving={saving} savedAt={savedAt} isToday={selected === today} />
       }
     />
+    {roToast && (
+      <div role="status" className="fixed inset-x-0 z-50 flex justify-center pointer-events-none" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 170px)' }}>
+        <span className="px-4 py-2 rounded-full text-[13px] font-bold shadow-lg" style={{ background: 'var(--sd-ink)', color: 'var(--sd-card-solid)' }}>{READ_ONLY_MSG}</span>
+      </div>
+    )}
     </SkinScreen>
   );
 }

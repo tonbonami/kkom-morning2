@@ -1,4 +1,5 @@
 // 제미나이 시안 2판(2026-10-21, 우댕 전달, 빠진 6칸 채움) — 값 그대로.
+// Aside 검수 고침(2026-10-21): 목·혀 경고 글자 안 보임(같은 색) → color-mix 배경 · 「UAS n / 6」 → 「n / 6」 · 붓기 요약 빈 괄호 「있음 ()」.
 // 고친 것 딱 하나: 요약 문구 템플릿 안의 `\${` 두 곳(복사 중 생긴 역슬래시) → `${` (안 고치면 화면에 코드 글자가 찍힘).
 // 문구 하나: 「증상이 올라온 때」 → 「두드러기 올라온 시각·부위」(우댕: 무슨 뜻인지 모르겠다).
 // SkinDayForm.tsx
@@ -64,7 +65,7 @@ export default function SkinDayForm({
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-bold text-[var(--sd-ink)]">오늘 점수</h2>
           <span className="text-xl font-bold text-[var(--sd-rel)]">
-            {isUasEmpty ? '-' : `UAS ${uasScore} / 6`}
+            {isUasEmpty ? '-' : `${uasScore} / 6`}
           </span>
         </div>
 
@@ -293,7 +294,7 @@ export default function SkinDayForm({
         title="붓기 (입술·눈·목)"
         isExpanded={expanded['angioedema']}
         onToggle={() => toggleSection('angioedema')}
-        summary={value.angioedema?.present ? `있음 (${value.angioedema.areas.join(', ')})` : (value.angioedema?.present === false ? '없음' : undefined)}
+        summary={value.angioedema?.present ? `있음${value.angioedema.areas.length ? ` (${value.angioedema.areas.join(', ')})` : ''}` : (value.angioedema?.present === false ? '없음' : undefined)}
       >
         <div className="flex gap-2 mb-4">
           <motion.button
@@ -332,7 +333,7 @@ export default function SkinDayForm({
           </div>
         )}
         {value.angioedema?.areas.includes('목·혀') && (
-          <div className="mt-3 p-3 bg-[var(--sd-crit)] bg-opacity-10 rounded-xl flex items-center gap-2 text-[var(--sd-crit)] text-sm font-bold">
+          <div className="mt-3 p-3 bg-[color-mix(in_srgb,var(--sd-crit)_12%,transparent)] rounded-xl flex items-center gap-2 text-[var(--sd-crit)] text-sm font-bold">
             <AlertCircle size={18} />
             목·혀가 붓거나 숨이 차면 지금 바로 119
           </div>

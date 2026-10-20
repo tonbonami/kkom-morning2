@@ -1,5 +1,6 @@
 'use client';
 // 제미나이 시안(2026-10-21, 우댕 전달) — 피부 일지 사진 칸. 값 그대로.
+// Aside 검수 고침(2026-10-21): 빈 상태 안내가 nowrap이라 잘림 → 줄바꿈 허용.
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -259,7 +260,7 @@ export default function SkinPhotoStrip(props: SkinPhotoStripProps) {
         {/* 사진이 1장도 없을 때 안내 문구 */}
         {props.photos.length === 0 && !props.uploading && (
           <span
-            className="text-[14px] whitespace-nowrap ml-1 flex-1"
+            className="text-[14px] ml-1 flex-1 min-w-[150px] leading-snug"
             style={{ color: 'var(--sd-faint)' }}
           >
             같은 자리를 같은 구도로 찍어 두면 비교하기 좋아요

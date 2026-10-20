@@ -1,4 +1,5 @@
 // 제미나이 시안(2026-10-21, 우댕 전달) — 값 그대로.
+// Aside 검수 고침(2026-10-21): 낯선 말만 풀어 씀 — UAS7 → 「최근 7일 점수 합 · 0~42」, ▼n → 「지난주보다 n」, 평균에 (0~6), 「등장」→「적음」.
 // SkinInsightsView.tsx
 import React from 'react';
 import { motion } from 'framer-motion';
@@ -55,14 +56,14 @@ export default function SkinInsightsView({
 
         {/* UAS7 요약 카드 */}
         <div className="sd-card p-6 bg-white">
-          <p className="text-xs font-semibold tracking-wider text-[var(--sd-muted)] mb-2 uppercase">최근 7일 UAS7</p>
+          <p className="text-xs font-semibold tracking-wider text-[var(--sd-muted)] mb-2 uppercase">최근 7일 점수 합 · 0~42</p>
           <div className="flex items-end gap-3">
             <span className="text-4xl font-bold tabular-nums tracking-tighter">
               {summary.uas7 !== null ? summary.uas7 : '-'}
             </span>
             {summary.uas7Prev !== null && summary.uas7 !== null && (
               <span className={`text-sm mb-1 font-medium ${summary.uas7 > summary.uas7Prev ? 'text-[var(--sd-crit)]' : 'text-[var(--sd-rel)]'}`}>
-                {summary.uas7 > summary.uas7Prev ? '▲' : '▼'} {Math.abs(summary.uas7 - summary.uas7Prev)}
+                {summary.uas7 === summary.uas7Prev ? '지난주와 같아요' : `${summary.uas7 > summary.uas7Prev ? '▲' : '▼'} 지난주보다 ${Math.abs(summary.uas7 - summary.uas7Prev)}`}
               </span>
             )}
           </div>
@@ -93,11 +94,11 @@ export default function SkinInsightsView({
         {/* 약 복용 비교 */}
         <div className="grid grid-cols-2 gap-4">
           <div className="sd-card p-4 bg-white text-center">
-            <p className="text-[10px] font-bold text-[var(--sd-muted)] mb-1">약 거른 다음날 평균</p>
+            <p className="text-[10px] font-bold text-[var(--sd-muted)] mb-1">약 거른 다음날 점수 평균 (0~6)</p>
             <p className="text-2xl font-bold text-[var(--sd-crit)] tabular-nums">{summary.afterMissedAvg?.toFixed(1) || '-'}</p>
           </div>
           <div className="sd-card p-4 bg-white text-center">
-            <p className="text-[10px] font-bold text-[var(--sd-muted)] mb-1">약 먹은 다음날 평균</p>
+            <p className="text-[10px] font-bold text-[var(--sd-muted)] mb-1">약 먹은 다음날 점수 평균 (0~6)</p>
             <p className="text-2xl font-bold text-[var(--sd-ink)] tabular-nums">{summary.afterTakenAvg?.toFixed(1) || '-'}</p>
           </div>
         </div>
@@ -111,8 +112,8 @@ export default function SkinInsightsView({
                 <div key={t.name} className="flex justify-between items-center border-b border-[var(--sd-line)] pb-2 last:border-0 last:pb-0">
                   <span className="text-sm font-medium">{t.name}</span>
                   <div className="text-right">
-                    <span className="text-xs text-[var(--sd-muted)] mr-3">{t.days}일 등장</span>
-                    <span className="text-sm font-bold tabular-nums">평균 {t.avgUas.toFixed(1)}</span>
+                    <span className="text-xs text-[var(--sd-muted)] mr-3">{t.days}일 적음</span>
+                    <span className="text-sm font-bold tabular-nums">그날 평균 {t.avgUas.toFixed(1)}</span>
                   </div>
                 </div>
               ))}
