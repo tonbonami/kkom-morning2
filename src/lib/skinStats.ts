@@ -31,6 +31,7 @@ export interface SkinSummary {
   daysLogged: number; daysTotal: number;
   medMissedDays: number;
   afterMissedAvg: number | null; afterTakenAvg: number | null;
+  afterMissedN: number; afterTakenN: number;   // 평균을 낸 날 수(표본)
 }
 
 export function skinStats(logs: SkinLog[], today: string, days = 30) {
@@ -87,6 +88,8 @@ export function skinStats(logs: SkinLog[], today: string, days = 30) {
     medMissedDays: window.filter((d) => medOf(byDate.get(d)) === 'missed').length,
     afterMissedAvg: avg(afterMissed),
     afterTakenAvg: avg(afterTaken),
+    afterMissedN: afterMissed.length,
+    afterTakenN: afterTaken.length,
   };
   return { summary, series, triggers, areas };
 }
