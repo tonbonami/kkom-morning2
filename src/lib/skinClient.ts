@@ -4,6 +4,7 @@ import { nameFromCode } from './letters';
 import { isPractice } from './practice';
 import { demo } from './skinDemo';
 import type { SkinDraft, MedStatus } from '@/components/skin/skinUi';
+import type { ReportDay } from '@/components/skin/SkinDayReport';
 
 export const DEFAULT_MED = '항히스타민';
 export const READ_ONLY_MSG = '보기 전용이에요 — 기록은 꼼이만 써요';
@@ -160,4 +161,61 @@ export async function saveIntakeAnswer(id: string, value: string | string[] | nu
   if (isPractice()) { demo.setIntake(id, value); return true; }
   const r = await fetch('/api/skin/intake', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, value }) });
   return r.ok;
+}
+
+// ── 모아보기·달력(우댕 2026-10-21: 한 달 넘게 쌓이면 7일 띠로는 못 본다)
+export const SKIN_START = '2026-05-01'; // 꼼이 증상 시작(5월) — 「전체」의 시작
+export const monthOf = (date: string) => date.slice(0, 7);
+export const addMonths = (ym: string, n: number) => {
+  const d = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1 + n, 1));
+  return d.toISOString().slice(0, 7);
+};
+export const monthDays = (ym: string) => {
+  const last = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate();
+  return Array.from({ length: last }, (_, i) => `${ym}-${String(i + 1).padStart(2, '0')}`);
+};
+export const daysFromTo = (from: string, to: string) => {
+  const out: string[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
+  return out;
+};
+
+// 서버는 한 번에 120일까지 — 길면 나눠서 받는다
+export async function fetchSkinLogsLong(from: string, to: string): Promise<SkinLog[] | null> {
+  const out: SkinLog[] = [];
+  for (let a = from; a <= to; a = addDays(a, 120)) {
+    const b = addDays(a, 119) < to ? addDays(a, 119) : to;
+    const part = await fetchSkinLogs(a, b);
+    if (part === null) return null;
+    out.push(...part);
+  }
+  return out;
+}
+
+export function toReportDay(date: string, l?: SkinLog | null): ReportDay {
+  return {
+    date, logged: !!l,
+    wheals: l?.wheals ?? null, itch: l?.itch ?? null, uas: l?.uas ?? null,
+    meds: l?.meds ?? [], episodes: l?.episodes ?? [], angioedema: l?.angioedema ?? null, trace: l?.trace ?? null,
+    triggers: l?.triggers ?? [], foods: l?.foods ?? [],
+    sleepH: l?.sleepH ?? null, wakeItch: l?.wakeItch ?? null, waterMl: l?.waterMl ?? null, stress: l?.stress ?? null,
+    period: l?.period ?? null, cycleDay: l?.cycleDay ?? null, newProducts: l?.newProducts ?? [], note: l?.note ?? '',
+    photoCount: l?.photos?.length ?? 0,
+    env: l?.env ? { temp: l.env.temp, humidity: l.env.humidity, pm10: l.env.pm10, pm25: l.env.pm25 } : null,
+  };
+}
+
+export function reportSummary(days: ReportDay[]) {
+  const logged = days.filter((d) => d.logged);
+  const scored = logged.filter((d) => d.uas != null);
+  const count = new Map<string, number>();
+  for (const d of logged) for (const t of new Set(d.triggers)) count.set(t, (count.get(t) ?? 0) + 1);
+  return {
+    daysLogged: logged.length, daysTotal: days.length,
+    avgUas: scored.length ? Math.round((scored.reduce((s, d) => s + (d.uas ?? 0), 0) / scored.length) * 10) / 10 : null,
+    hardDays: scored.filter((d) => (d.uas ?? 0) >= 4).length,
+    medMissedDays: logged.filter((d) => d.meds.some((m) => m.status === 'missed')).length,
+    angioedemaDays: logged.filter((d) => d.angioedema?.present).length,
+    topTriggers: [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, n]) => ({ name, days: n })),
+  };
 }

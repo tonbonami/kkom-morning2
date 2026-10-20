@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SkinPinGate from '@/components/skin/SkinPinGate';
 import SkinJournalView from '@/components/skin/SkinJournalView';
-import SkinWeekStrip from '@/components/skin/SkinWeekStrip';
+import SkinCalendar, { type CalDay } from '@/components/skin/SkinCalendar';
+import SkinDayReport from '@/components/skin/SkinDayReport';
 import SkinDayForm from '@/components/skin/SkinDayForm';
 import SkinPhotoStrip from '@/components/skin/SkinPhotoStrip';
 import SkinScreen from '@/components/skin/SkinScreen';
@@ -12,8 +13,8 @@ import SkinPartnerAlert from '@/components/skin/SkinPartnerAlert';
 import type { SkinDraft } from '@/components/skin/skinUi';
 import type { SkinLog } from '@/lib/skinTypes';
 import {
-  READ_ONLY_MSG, addDays, appUserName, deleteSkinPhoto, draftFrom, fetchSkinLogs, fetchSkinPhotos, kstToday, medOfDay,
-  fetchSkinSettings, prefillCycle, saveSkinLog, saveSkinSettings, savedAtText, skinLogin, skinSession, uploadSkinPhoto, weekdayOf, type SkinPhotoView, type SkinRole,
+  READ_ONLY_MSG, addDays, addMonths, appUserName, monthDays, monthOf, toReportDay, deleteSkinPhoto, draftFrom, fetchSkinLogs, fetchSkinPhotos, kstToday, medOfDay,
+  fetchSkinSettings, prefillCycle, saveSkinLog, saveSkinSettings, savedAtText, skinLogin, skinSession, uploadSkinPhoto, type SkinPhotoView, type SkinRole,
 } from '@/lib/skinClient';
 import { isPractice } from '@/lib/practice';
 
@@ -46,6 +47,11 @@ export default function SkinJournalPage() {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const loadedRef = useRef(false);
+  // 달력(주 ↔ 달). 달마다 한 번씩만 받아 logs에 합친다
+  const [calMode, setCalMode] = useState<'week' | 'month'>('week');
+  const [calYm, setCalYm] = useState(() => monthOf(today));
+  const [monthLoading, setMonthLoading] = useState(false);
+  const loadedMonths = useRef(new Set<string>());
   const [photos, setPhotos] = useState<SkinPhotoView[]>([]);
   const [partnerAlert, setPartnerAlert] = useState<boolean | null>(null);
   const [alertBusy, setAlertBusy] = useState(false);
@@ -102,16 +108,45 @@ export default function SkinJournalPage() {
   };
 
   const load = useCallback(async () => {
-    const list = await fetchSkinLogs(addDays(today, -6), today);
+    // 모아보기에서 「이날 고치기」로 오면 ?date=YYYY-MM-DD
+    const asked = new URLSearchParams(window.location.search).get('date');
+    const start = asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked <= today ? asked : today;
+    const from = `${addMonths(monthOf(today), -1)}-01`; // 지난달 1일 ~ 오늘(60일 안팎) — 서버는 한 번에 120일까지
+    const list = await fetchSkinLogs(from, today);
     if (list === null) { setGate('locked'); return; }
-    const map = Object.fromEntries(list.map((l) => [l.date, l]));
+    const map: Record<string, SkinLog> = Object.fromEntries(list.map((l) => [l.date, l]));
+    loadedMonths.current.add(monthOf(from)).add(monthOf(today));
+    // 그보다 옛날 날로 들어왔으면 그 날이 걸친 달도 받는다
+    for (const ym of new Set([monthOf(addDays(start, -6)), monthOf(start)])) {
+      if (loadedMonths.current.has(ym)) continue;
+      const last = monthDays(ym).slice(-1)[0];
+      const more = await fetchSkinLogs(`${ym}-01`, last);
+      if (more) { more.forEach((l) => { map[l.date] = l; }); loadedMonths.current.add(ym); }
+    }
     setLogs(map);
     if (!loadedRef.current) {
       loadedRef.current = true;
-      openDay(today, map);
+      setSelected(start);
+      setCalYm(monthOf(start));
+      openDay(start, map);
     }
     setGate('open');
   }, [today]);
+
+  const ensureMonth = async (ym: string) => {
+    if (loadedMonths.current.has(ym) || ym > monthOf(today)) return;
+    loadedMonths.current.add(ym);
+    setMonthLoading(true);
+    try {
+      const last = monthDays(ym).slice(-1)[0];
+      const list = await fetchSkinLogs(`${ym}-01`, last < today ? last : today);
+      if (list) setLogs((m) => ({ ...m, ...Object.fromEntries(list.map((l) => [l.date, l])) }));
+    } catch {
+      loadedMonths.current.delete(ym);
+    } finally {
+      setMonthLoading(false);
+    }
+  };
 
   useEffect(() => {
     skinSession().then((s) => { setRole(s.role); return s.authed ? load() : setGate('locked'); }).catch(() => setGate('locked'));
@@ -133,6 +168,9 @@ export default function SkinJournalPage() {
     }
     setSelected(date);
     openDay(date, logs);
+    setCalMode('week');
+    setCalYm(monthOf(date));
+    void ensureMonth(monthOf(addDays(date, -6)));
   };
 
   // 보기 전용(우댕 폰)은 값을 안 바꾼다 — 칸 펼치기·사진 보기는 그대로 되게 잠금 대신 여기서만 막는다(우댕: "볼 수 있게는 해줘야지")
@@ -187,11 +225,16 @@ export default function SkinJournalPage() {
     router.push(href);
   };
 
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => {
-    const date = addDays(today, i - 6);
+  const calDay = useCallback((date: string): CalDay => {
     const l = logs[date];
-    return { date, label: weekdayOf(date), uas: l?.uas ?? null, med: medOfDay(l), hasLog: !!l };
-  }), [logs, today]);
+    return { date, uas: l?.uas ?? null, med: medOfDay(l), hasLog: !!l, photo: (l?.photos?.length ?? 0) > 0 };
+  }, [logs]);
+  // 주 띠: 고른 날이 최근 7일 안이면 오늘까지, 아니면 고른 날을 가운데쯤(오늘은 안 넘김)
+  const week = useMemo(() => {
+    const end = selected >= addDays(today, -6) ? today : (addDays(selected, 3) < today ? addDays(selected, 3) : today);
+    return Array.from({ length: 7 }, (_, i) => calDay(addDays(end, i - 6)));
+  }, [calDay, selected, today]);
+  const month = useMemo(() => ({ ym: calYm, days: monthDays(calYm).map(calDay) }), [calDay, calYm]);
 
   if (gate === 'loading') return <div className="sd-app min-h-screen" />;
   if (gate === 'locked') {
@@ -205,9 +248,22 @@ export default function SkinJournalPage() {
     <SkinScreen>
     <SkinJournalView
       header={{ onBack: () => { void leave('/'); }, onOpenInsights: () => { void leave('/skin/insights'); } }}
+      formTitle={readOnly ? '꼼이가 적은 기록' : undefined}
       week={
         <>
-          <SkinWeekStrip days={days} selected={selected} onSelect={pick} />
+          <SkinCalendar
+            mode={calMode}
+            onMode={(m) => { setCalMode(m); if (m === 'month') { setCalYm(monthOf(selected)); void ensureMonth(monthOf(selected)); } }}
+            week={week}
+            month={month}
+            today={today}
+            selected={selected}
+            onSelect={(d) => { void pick(d); }}
+            onMonth={(delta) => { const ym = addMonths(calYm, delta); setCalYm(ym); void ensureMonth(ym); }}
+            canNextMonth={calYm < monthOf(today)}
+            loading={monthLoading}
+            onOpenReport={() => { void leave('/skin/report'); }}
+          />
           <SkinPhotoStrip
             dateLabel={`${Number(selected.slice(5, 7))}월 ${Number(selected.slice(8, 10))}일`}
             photos={photos}
@@ -222,8 +278,11 @@ export default function SkinJournalPage() {
         </>
       }
       form={
-        // 우댕 폰(보기 전용): 칸은 펼쳐 볼 수 있고, 값 바꾸기·저장만 onChange/onSave에서 막는다. 서버도 requireWriter로 막음
-        <SkinDayForm value={draft} onChange={onChange} onSave={() => { void onSave(); }} saving={saving} savedAt={savedAt} isToday={selected === today} />
+        // 우댕 폰(보기 전용)은 입력 폼 대신 읽기 카드 — 칸을 하나하나 열 필요 없이 적힌 게 다 보이게(우댕 2026-10-21, GPT 상담).
+        // 사진은 위 사진 칸에 이미 있으니 카드에선 뺀다. 서버도 requireWriter로 쓰기를 막음
+        readOnly
+          ? <SkinDayReport day={{ ...toReportDay(selected, logs[selected]), photoCount: 0 }} />
+          : <SkinDayForm value={draft} onChange={onChange} onSave={() => { void onSave(); }} saving={saving} savedAt={savedAt} isToday={selected === today} />
       }
     />
     {roToast && (

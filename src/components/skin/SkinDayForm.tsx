@@ -1,9 +1,9 @@
-// 제미나이 시안 2판(2026-10-21, 우댕 전달, 빠진 6칸 채움) — 값 그대로.
-// Aside 검수 고침(2026-10-21): 목·혀 경고 글자 안 보임(같은 색) → color-mix 배경 · 「UAS n / 6」 → 「n / 6」 · 붓기 요약 빈 괄호 「있음 ()」.
-// 고친 것 딱 하나: 요약 문구 템플릿 안의 `\${` 두 곳(복사 중 생긴 역슬래시) → `${` (안 고치면 화면에 코드 글자가 찍힘).
-// 문구 하나: 「증상이 올라온 때」 → 「두드러기 올라온 시각·부위」(우댕: 무슨 뜻인지 모르겠다).
+'use client';
+// 제미나이 시안 3판(2026-10-21, gemini-3-flash CLI로 받음) — 적힌 칸만 자동 펼침 + 모두 펼치기/접기, 점수·약 첫 화면, 잠 칩, 스트레스 「안 적음」. 값 그대로.
+// (GPT 상담: 사람마다 다르게 — 꼼이는 적힌 칸만 펼침, 우댕 폰은 이 폼 대신 읽기 카드 SkinDayReport)
 // SkinDayForm.tsx
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SkinDraft, AREAS, TRIGGERS, SkinMed, SkinEpisode, SkinFood } from './skinUi';
 import { ChevronDown, ChevronUp, Plus, AlertCircle, Check, Trash2 } from 'lucide-react';
@@ -24,14 +24,40 @@ export default function SkinDayForm({
   isToday: boolean;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
-  // 직접 입력칸용 로컬 상태
   const [customTrigger, setCustomTrigger] = useState('');
   const [newProduct, setNewProduct] = useState('');
 
-  const toggleSection = (key: string) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  const sectionKeys = ['episodes', 'angioedema', 'trace', 'triggers', 'foods', 'life', 'period', 'newProducts'];
 
-  // --- 요약 문구 생성기 ---
+  // 날짜 바뀔 때 적힌 것 있는 칸만 펼치기
+  useEffect(() => {
+    const hasData = (key: string) => {
+      if (key === 'episodes') return value.episodes.length > 0;
+      if (key === 'angioedema') return value.angioedema !== null;
+      if (key === 'trace') return value.trace !== null;
+      if (key === 'triggers') return value.triggers.length > 0;
+      if (key === 'foods') return value.foods.length > 0;
+      if (key === 'life') return value.sleepH !== null || value.waterMl !== null || value.stress !== null || value.wakeItch !== null;
+      if (key === 'period') return value.period !== null;
+      if (key === 'newProducts') return value.newProducts.length > 0;
+      return false;
+    };
+
+    const next: Record<string, boolean> = {};
+    sectionKeys.forEach(k => { next[k] = hasData(k); });
+    setExpanded(next);
+  }, [value.date]);
+
+  const toggleSection = (key: string) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  
+  const someCollapsed = sectionKeys.some(k => !expanded[k]);
+  const toggleAll = () => {
+    const target = someCollapsed;
+    const next: Record<string, boolean> = {};
+    sectionKeys.forEach(k => { next[k] = target; });
+    setExpanded(next);
+  };
+
   const uasScore = (value.wheals ?? 0) + (value.itch ?? 0);
   const isUasEmpty = value.wheals === null && value.itch === null;
 
@@ -59,29 +85,29 @@ export default function SkinDayForm({
   const newProductsSummary = value.newProducts.length > 0 ? `${value.newProducts.length}개 기록됨` : undefined;
 
   return (
-    <div className="pb-32 space-y-4">
-      {/* 1. 오늘 점수 (UAS) */}
-      <div className="sd-card p-5">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-[var(--sd-ink)]">오늘 점수</h2>
-          <span className="text-xl font-bold text-[var(--sd-rel)]">
+    <div className="pb-32 space-y-3">
+      {/* 1. 오늘 점수 (컴팩트하게 조정) */}
+      <div className="sd-card p-4">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-base font-bold text-[var(--sd-ink)]">오늘 점수</h2>
+          <span className="text-lg font-bold text-[var(--sd-rel)]">
             {isUasEmpty ? '-' : `${uasScore} / 6`}
           </span>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
-            <p className="text-sm text-[var(--sd-muted)] mb-2">팽진 (부푼 자국)</p>
-            <div className="flex gap-2">
+            <p className="text-xs text-[var(--sd-muted)] mb-1.5">팽진 (부푼 자국)</p>
+            <div className="flex gap-1.5">
               {[0, 1, 2, 3].map((score) => (
                 <motion.button
                   key={`wheal-${score}`}
                   whileTap={{ scale: 0.96 }}
                   onClick={() => onChange({ wheals: score })}
-                  className={`flex-1 py-2 text-sm rounded-xl border ${
+                  className={`flex-1 py-1.5 text-xs rounded-xl border ${
                     value.wheals === score
-                      ? 'bg-[var(--sd-rel)] text-white border-[var(--sd-rel)]'
-                      : 'bg-white text-[var(--sd-ink)] border-[var(--sd-line)]'
+                      ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]'
+                      : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'
                   }`}
                 >
                   {score === 0 ? '없음' : score === 1 ? '약간' : score === 2 ? '보통' : '심함'}
@@ -90,17 +116,17 @@ export default function SkinDayForm({
             </div>
           </div>
           <div>
-            <p className="text-sm text-[var(--sd-muted)] mb-2">가려움</p>
-            <div className="flex gap-2">
+            <p className="text-xs text-[var(--sd-muted)] mb-1.5">가려움</p>
+            <div className="flex gap-1.5">
               {[0, 1, 2, 3].map((score) => (
                 <motion.button
                   key={`itch-${score}`}
                   whileTap={{ scale: 0.96 }}
                   onClick={() => onChange({ itch: score })}
-                  className={`flex-1 py-2 text-sm rounded-xl border ${
+                  className={`flex-1 py-1.5 text-xs rounded-xl border ${
                     value.itch === score
-                      ? 'bg-[var(--sd-rel)] text-white border-[var(--sd-rel)]'
-                      : 'bg-white text-[var(--sd-ink)] border-[var(--sd-line)]'
+                      ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]'
+                      : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'
                   }`}
                 >
                   {score === 0 ? '없음' : score === 1 ? '약간' : score === 2 ? '보통' : '심함'}
@@ -111,19 +137,19 @@ export default function SkinDayForm({
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => onChange({ wheals: 0, itch: 0 })}
-            className="w-full py-3 mt-2 rounded-xl bg-[var(--sd-surface-2)] text-[var(--sd-ink)] text-sm font-medium"
+            className="w-full py-2.5 rounded-xl bg-[var(--sd-surface-2)] text-[var(--sd-ink)] text-xs font-medium"
           >
             오늘은 증상 없음
           </motion.button>
         </div>
       </div>
 
-      {/* 2. 약 */}
-      <div className="sd-card p-5">
-        <h2 className="text-lg font-bold text-[var(--sd-ink)] mb-4">약</h2>
-        <div className="space-y-3">
+      {/* 2. 약 (컴팩트하게 조정) */}
+      <div className="sd-card p-4">
+        <h2 className="text-base font-bold text-[var(--sd-ink)] mb-3">약</h2>
+        <div className="space-y-2">
           {value.meds.map((med, idx) => (
-            <div key={idx} className="flex flex-col gap-2 p-3 bg-[var(--sd-surface-2)] rounded-xl border border-[var(--sd-line)]">
+            <div key={idx} className="flex flex-col gap-1.5 p-3 bg-[var(--sd-surface-2)] rounded-xl border border-[var(--sd-line)]">
               <div className="flex items-center justify-between">
                 <input
                   type="text"
@@ -139,10 +165,10 @@ export default function SkinDayForm({
                   onClick={() => onChange({ meds: value.meds.filter((_, i) => i !== idx) })}
                   className="p-1 text-[var(--sd-muted)] hover:text-[var(--sd-crit)]"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={14} />
                 </button>
               </div>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2">
                 <input
                   type="time"
                   value={med.time || ''}
@@ -150,7 +176,7 @@ export default function SkinDayForm({
                     const next = value.meds.map((m, i) => i === idx ? { ...m, time: e.target.value } : m);
                     onChange({ meds: next });
                   }}
-                  className="bg-white rounded-lg px-2 py-1 text-sm border border-[var(--sd-line)] text-[var(--sd-ink)]"
+                  className="bg-[var(--sd-card-solid)] rounded-lg px-2 py-1 text-xs border border-[var(--sd-line)] text-[var(--sd-ink)]"
                 />
                 <div className="flex flex-1 gap-1">
                   {(['taken', 'late', 'missed'] as const).map((status) => (
@@ -161,10 +187,10 @@ export default function SkinDayForm({
                         const next = value.meds.map((m, i) => i === idx ? { ...m, status } : m);
                         onChange({ meds: next });
                       }}
-                      className={`flex-1 py-1 text-xs rounded-lg border ${
+                      className={`flex-1 py-1 text-[10px] rounded-lg border ${
                         med.status === status
-                          ? status === 'missed' ? 'bg-[var(--sd-crit)] text-white border-[var(--sd-crit)]' : 'bg-[var(--sd-rel)] text-white border-[var(--sd-rel)]'
-                          : 'bg-white text-[var(--sd-muted)] border-[var(--sd-line)]'
+                          ? status === 'missed' ? 'bg-[var(--sd-crit)] text-[var(--sd-card-solid)] border-[var(--sd-crit)]' : 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]'
+                          : 'bg-[var(--sd-card-solid)] text-[var(--sd-muted)] border-[var(--sd-line)]'
                       }`}
                     >
                       {status === 'taken' ? '먹음' : status === 'late' ? '늦게' : '거름'}
@@ -177,14 +203,21 @@ export default function SkinDayForm({
           <motion.button
             whileTap={{ scale: 0.96 }}
             onClick={() => onChange({ meds: [...value.meds, { name: '', status: null }] })}
-            className="flex items-center justify-center w-full py-3 rounded-xl border border-dashed border-[var(--sd-line)] text-[var(--sd-muted)] text-sm"
+            className="flex items-center justify-center w-full py-2.5 rounded-xl border border-dashed border-[var(--sd-line)] text-[var(--sd-muted)] text-xs"
           >
-            <Plus size={16} className="mr-1" /> 약 추가
+            <Plus size={14} className="mr-1" /> 약 추가
           </motion.button>
         </div>
       </div>
 
-      {/* 3. 증상이 올라온 때 */}
+      {/* 펼침/접힘 제어 버튼 */}
+      <div className="flex justify-end px-1">
+        <button onClick={toggleAll} className="text-xs text-[var(--sd-muted)] px-2 py-1">
+          {someCollapsed ? '모두 펼치기' : '모두 접기'}
+        </button>
+      </div>
+
+      {/* 3. 두드러기 올라온 시각·부위 */}
       <CollapsibleSection
         title="두드러기 올라온 시각·부위"
         isExpanded={expanded['episodes']}
@@ -209,9 +242,9 @@ export default function SkinDayForm({
                     const next = value.episodes.map((item, i) => i === idx ? { ...item, start: e.target.value } : item);
                     onChange({ episodes: next });
                   }}
-                  className="bg-white rounded-lg px-2 py-1.5 text-sm border border-[var(--sd-line)] text-[var(--sd-ink)] flex-1"
+                  className="bg-[var(--sd-card-solid)] rounded-lg px-2 py-1.5 text-sm border border-[var(--sd-line)] text-[var(--sd-ink)] flex-1"
                 />
-                <div className="flex items-center gap-1 bg-white border border-[var(--sd-line)] rounded-lg px-2 py-1.5 flex-1">
+                <div className="flex items-center gap-1 bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-lg px-2 py-1.5 flex-1">
                   <input
                     type="number"
                     placeholder="지속"
@@ -242,7 +275,7 @@ export default function SkinDayForm({
                         onChange({ episodes: next });
                       }}
                       className={`px-2.5 py-1 text-xs rounded-full border ${
-                        ep.areas.includes(area) ? 'bg-[var(--sd-ink)] text-white border-[var(--sd-ink)]' : 'bg-white text-[var(--sd-ink)] border-[var(--sd-line)]'
+                        ep.areas.includes(area) ? 'bg-[var(--sd-ink)] text-[var(--sd-card-solid)] border-[var(--sd-ink)]' : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'
                       }`}
                     >
                       {area}
@@ -300,14 +333,14 @@ export default function SkinDayForm({
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => onChange({ angioedema: { present: false, areas: [] } })}
-            className={`flex-1 py-2 text-sm rounded-xl border ${value.angioedema?.present === false ? 'bg-[var(--sd-rel)] text-white border-[var(--sd-rel)]' : 'bg-white border-[var(--sd-line)]'}`}
+            className={`flex-1 py-2 text-sm rounded-xl border ${value.angioedema?.present === false ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]' : 'bg-[var(--sd-card-solid)] border-[var(--sd-line)]'}`}
           >
             없음
           </motion.button>
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => onChange({ angioedema: { present: true, areas: value.angioedema?.areas || [] } })}
-            className={`flex-1 py-2 text-sm rounded-xl border ${value.angioedema?.present === true ? 'bg-[var(--sd-crit)] text-white border-[var(--sd-crit)]' : 'bg-white border-[var(--sd-line)]'}`}
+            className={`flex-1 py-2 text-sm rounded-xl border ${value.angioedema?.present === true ? 'bg-[var(--sd-crit)] text-[var(--sd-card-solid)] border-[var(--sd-crit)]' : 'bg-[var(--sd-card-solid)] border-[var(--sd-line)]'}`}
           >
             있음
           </motion.button>
@@ -324,7 +357,7 @@ export default function SkinDayForm({
                   onChange({ angioedema: { present: true, areas: next } });
                 }}
                 className={`px-3 py-1.5 text-sm rounded-full border ${
-                  value.angioedema?.areas.includes(area) ? 'bg-[var(--sd-ink)] text-white' : 'bg-white text-[var(--sd-ink)]'
+                  value.angioedema?.areas.includes(area) ? 'bg-[var(--sd-ink)] text-[var(--sd-card-solid)]' : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)]'
                 }`}
               >
                 {area}
@@ -355,8 +388,8 @@ export default function SkinDayForm({
               onClick={() => onChange({ trace: value.trace === t ? null : t })}
               className={`flex-1 py-2 text-sm rounded-xl border ${
                 value.trace === t
-                  ? 'bg-[var(--sd-rel)] text-white border-[var(--sd-rel)]'
-                  : 'bg-white text-[var(--sd-ink)] border-[var(--sd-line)]'
+                  ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]'
+                  : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'
               }`}
             >
               {t}
@@ -367,7 +400,7 @@ export default function SkinDayForm({
 
       {/* 6. 의심 가는 것 */}
       <CollapsibleSection
-        title="의심 가는 것 (트리거)"
+        title="의심 가는 것"
         isExpanded={expanded['triggers']}
         onToggle={() => toggleSection('triggers')}
         summary={value.triggers.length > 0 ? `${value.triggers.length}개 선택됨` : undefined}
@@ -384,26 +417,24 @@ export default function SkinDayForm({
                 onChange({ triggers: next });
               }}
               className={`px-3 py-1.5 text-sm rounded-full border ${
-                value.triggers.includes(trigger) ? 'bg-[var(--sd-rel)] text-white border-[var(--sd-rel)]' : 'bg-white text-[var(--sd-ink)] border-[var(--sd-line)]'
+                value.triggers.includes(trigger) ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]' : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'
               }`}
             >
               {trigger}
             </motion.button>
           ))}
-          {/* 목록 밖 추가된 칩 */}
           {value.triggers.filter(t => !TRIGGERS.includes(t)).map((custom) => (
             <motion.button
               key={custom}
               whileTap={{ scale: 0.9 }}
               onClick={() => onChange({ triggers: value.triggers.filter(t => t !== custom) })}
-              className="px-3 py-1.5 text-sm rounded-full border bg-[var(--sd-rel)] text-white border-[var(--sd-rel)] flex items-center gap-1"
+              className="px-3 py-1.5 text-sm rounded-full border bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)] flex items-center gap-1"
             >
               {custom}
             </motion.button>
           ))}
         </div>
 
-        {/* 직접 쓰기 입력칸 */}
         <div className="flex gap-2">
           <input
             type="text"
@@ -430,7 +461,7 @@ export default function SkinDayForm({
               setCustomTrigger('');
             }}
             disabled={!customTrigger.trim()}
-            className="px-4 py-2 bg-white border border-[var(--sd-line)] rounded-xl text-sm font-medium disabled:opacity-50"
+            className="px-4 py-2 bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-xl text-sm font-medium disabled:opacity-50"
           >
             추가
           </motion.button>
@@ -454,7 +485,7 @@ export default function SkinDayForm({
                   const next = value.foods.map((f, i) => i === idx ? { ...f, t: e.target.value } : f);
                   onChange({ foods: next });
                 }}
-                className="bg-white rounded-lg px-2 py-2 text-sm border border-[var(--sd-line)] text-[var(--sd-ink)] w-24"
+                className="bg-[var(--sd-card-solid)] rounded-lg px-2 py-2 text-sm border border-[var(--sd-line)] text-[var(--sd-ink)] w-24"
               />
               <input
                 type="text"
@@ -491,21 +522,35 @@ export default function SkinDayForm({
         onToggle={() => toggleSection('life')}
         summary={lifeSummary}
       >
-        <div className="space-y-5">
+        <div className="space-y-6">
           {/* 잠 */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-[var(--sd-ink)]">잠 (시간)</span>
-            <div className="flex items-center gap-3">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-[var(--sd-ink)]">잠 (시간)</span>
+              <span className="font-bold text-[var(--sd-rel)]">{value.sleepH !== null ? `${value.sleepH}시간` : '안 적음'}</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {[4, 5, 6, 7, 8, 9].map(h => (
+                <button
+                  key={h}
+                  onClick={() => onChange({ sleepH: h })}
+                  className={`flex-1 py-2 text-xs rounded-lg border ${value.sleepH === h ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]' : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'}`}
+                >
+                  {h}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-center gap-6">
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => onChange({ sleepH: Math.max(0, (value.sleepH || 0) - 0.5) })}
-                className="w-8 h-8 flex items-center justify-center bg-[var(--sd-surface-2)] rounded-full text-[var(--sd-ink)] font-bold"
+                className="w-10 h-10 flex items-center justify-center bg-[var(--sd-surface-2)] rounded-full text-[var(--sd-ink)] text-xl font-bold"
               >-</motion.button>
-              <span className="w-10 text-center font-bold text-lg tabular-nums">{value.sleepH !== null ? value.sleepH : '-'}</span>
+              <span className="text-sm text-[var(--sd-muted)]">0.5 단위 조정</span>
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => onChange({ sleepH: (value.sleepH || 0) + 0.5 })}
-                className="w-8 h-8 flex items-center justify-center bg-[var(--sd-surface-2)] rounded-full text-[var(--sd-ink)] font-bold"
+                className="w-10 h-10 flex items-center justify-center bg-[var(--sd-surface-2)] rounded-full text-[var(--sd-ink)] text-xl font-bold"
               >+</motion.button>
             </div>
           </div>
@@ -517,14 +562,14 @@ export default function SkinDayForm({
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onChange({ wakeItch: true })}
-                className={`px-4 py-1.5 text-sm rounded-lg border ${value.wakeItch === true ? 'bg-[var(--sd-rel)] text-white border-[var(--sd-rel)]' : 'bg-white border-[var(--sd-line)]'}`}
+                className={`px-4 py-1.5 text-sm rounded-lg border ${value.wakeItch === true ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]' : 'bg-[var(--sd-card-solid)] border-[var(--sd-line)]'}`}
               >
                 예
               </motion.button>
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onChange({ wakeItch: false })}
-                className={`px-4 py-1.5 text-sm rounded-lg border ${value.wakeItch === false ? 'bg-[var(--sd-ink)] text-white border-[var(--sd-ink)]' : 'bg-white border-[var(--sd-line)]'}`}
+                className={`px-4 py-1.5 text-sm rounded-lg border ${value.wakeItch === false ? 'bg-[var(--sd-ink)] text-[var(--sd-card-solid)] border-[var(--sd-ink)]' : 'bg-[var(--sd-card-solid)] border-[var(--sd-line)]'}`}
               >
                 아니오
               </motion.button>
@@ -539,7 +584,7 @@ export default function SkinDayForm({
                 type="number"
                 value={value.waterMl !== null ? value.waterMl : ''}
                 onChange={(e) => onChange({ waterMl: e.target.value ? Number(e.target.value) : null })}
-                className="w-20 bg-white border border-[var(--sd-line)] rounded-lg px-2 py-1.5 text-sm text-center outline-none"
+                className="w-20 bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-lg px-2 py-1.5 text-sm text-center outline-none"
                 placeholder="0"
               />
               <motion.button
@@ -554,19 +599,22 @@ export default function SkinDayForm({
 
           {/* 스트레스 */}
           <div>
-            <div className="flex justify-between text-sm font-medium text-[var(--sd-ink)] mb-2">
+            <div className="flex justify-between text-sm font-medium text-[var(--sd-ink)] mb-3">
               <span>스트레스</span>
-              <span className="text-[var(--sd-rel)] font-bold">{value.stress !== null ? value.stress : '-'}</span>
+              <span className="text-[var(--sd-rel)] font-bold">{value.stress !== null ? value.stress : '안 적음'}</span>
             </div>
-            <input
-              type="range"
-              min="0"
-              max="10"
-              value={value.stress !== null ? value.stress : 5}
-              onChange={(e) => onChange({ stress: Number(e.target.value) })}
-              className="w-full accent-[var(--sd-rel)]"
-            />
-            <div className="flex justify-between text-xs text-[var(--sd-muted)] mt-1">
+            <div className="flex flex-wrap gap-1 justify-between mb-2">
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(s => (
+                <button
+                  key={s}
+                  onClick={() => onChange({ stress: s })}
+                  className={`w-7 h-7 text-[10px] rounded-full border flex items-center justify-center ${value.stress === s ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]' : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-between text-[10px] text-[var(--sd-muted)] px-1">
               <span>0 (평온)</span>
               <span>10 (최고)</span>
             </div>
@@ -586,14 +634,14 @@ export default function SkinDayForm({
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => onChange({ period: true })}
-              className={`flex-1 py-2 text-sm rounded-xl border ${value.period === true ? 'bg-[var(--sd-rel)] text-white border-[var(--sd-rel)]' : 'bg-white border-[var(--sd-line)]'}`}
+              className={`flex-1 py-2 text-sm rounded-xl border ${value.period === true ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]' : 'bg-[var(--sd-card-solid)] border-[var(--sd-line)]'}`}
             >
               생리 중
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => onChange({ period: false, cycleDay: null })}
-              className={`flex-1 py-2 text-sm rounded-xl border ${value.period === false ? 'bg-[var(--sd-ink)] text-white border-[var(--sd-ink)]' : 'bg-white border-[var(--sd-line)]'}`}
+              className={`flex-1 py-2 text-sm rounded-xl border ${value.period === false ? 'bg-[var(--sd-ink)] text-[var(--sd-card-solid)] border-[var(--sd-ink)]' : 'bg-[var(--sd-card-solid)] border-[var(--sd-line)]'}`}
             >
               아님
             </motion.button>
@@ -613,7 +661,7 @@ export default function SkinDayForm({
                     type="number"
                     value={value.cycleDay || ''}
                     onChange={(e) => onChange({ cycleDay: e.target.value ? Number(e.target.value) : null })}
-                    className="w-16 bg-white border border-[var(--sd-line)] rounded-lg px-2 py-1.5 text-sm text-center outline-none"
+                    className="w-16 bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-lg px-2 py-1.5 text-sm text-center outline-none"
                     placeholder="1"
                   />
                   <span className="text-sm">일째</span>
@@ -669,7 +717,7 @@ export default function SkinDayForm({
               setNewProduct('');
             }}
             disabled={!newProduct.trim()}
-            className="px-4 py-2 bg-white border border-[var(--sd-line)] rounded-xl text-sm font-medium disabled:opacity-50"
+            className="px-4 py-2 bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-xl text-sm font-medium disabled:opacity-50"
           >
             추가
           </motion.button>
@@ -678,7 +726,7 @@ export default function SkinDayForm({
 
       {/* 11. 메모 */}
       <div className="sd-card p-5 mb-6">
-        <h2 className="text-lg font-bold text-[var(--sd-ink)] mb-4">메모</h2>
+        <h2 className="text-base font-bold text-[var(--sd-ink)] mb-3">메모</h2>
         <textarea
           value={value.note}
           onChange={(e) => onChange({ note: e.target.value })}
@@ -688,26 +736,27 @@ export default function SkinDayForm({
       </div>
 
       {/* 하단 고정 저장 바 */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-gradient-to-t from-white via-white/90 to-transparent pb-8">
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={onSave}
-          disabled={saving}
-          className="w-full py-4 rounded-2xl bg-[var(--sd-ink)] text-white font-bold text-lg flex justify-center items-center gap-2 shadow-lg"
-        >
-          {saving ? '저장 중...' : '저장'}
-        </motion.button>
-        {savedAt && (
-          <p className="text-center text-xs text-[var(--sd-muted)] mt-2 flex items-center justify-center gap-1">
-            <Check size={12} /> {savedAt}
-          </p>
-        )}
+      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-gradient-to-t from-[var(--sd-surface-2)] via-[var(--sd-surface-2)]/90 to-transparent pb-8 pointer-events-none">
+        <div className="pointer-events-auto">
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={onSave}
+            disabled={saving}
+            className="w-full py-4 rounded-2xl bg-[var(--sd-ink)] text-[var(--sd-card-solid)] font-bold text-lg flex justify-center items-center gap-2 shadow-lg"
+          >
+            {saving ? '저장 중...' : '저장'}
+          </motion.button>
+          {savedAt && (
+            <p className="text-center text-[10px] text-[var(--sd-muted)] mt-2 flex items-center justify-center gap-1">
+              <Check size={10} /> {savedAt}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// 접이식 섹션 헬퍼 컴포넌트
 function CollapsibleSection({
   title, isExpanded, onToggle, summary, children
 }: {
@@ -715,20 +764,20 @@ function CollapsibleSection({
 }) {
   return (
     <div className="sd-card sd-card--quiet overflow-hidden">
-      <button onClick={onToggle} className="w-full p-5 flex justify-between items-center text-left">
+      <button onClick={onToggle} className="w-full p-4 flex justify-between items-center text-left">
         <div>
-          <h3 className="font-bold text-[var(--sd-ink)]">{title}</h3>
-          {!isExpanded && summary && <p className="text-sm text-[var(--sd-rel)] mt-1">{summary}</p>}
+          <h3 className="text-sm font-bold text-[var(--sd-ink)]">{title}</h3>
+          {!isExpanded && summary && <p className="text-xs text-[var(--sd-rel)] mt-1">{summary}</p>}
         </div>
-        {isExpanded ? <ChevronUp size={20} color="var(--sd-muted)" /> : <ChevronDown size={20} color="var(--sd-muted)" />}
+        {isExpanded ? <ChevronUp size={18} color="var(--sd-muted)" /> : <ChevronDown size={18} color="var(--sd-muted)" />}
       </button>
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {isExpanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="px-5 pb-5 pt-0"
+            className="px-4 pb-4 pt-0"
           >
             {children}
           </motion.div>
