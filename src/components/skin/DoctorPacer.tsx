@@ -1,6 +1,8 @@
-// 제미나이 시안(2026-10-21, 우댕 전달) — 값 그대로.
+// 제미나이 시안(2026-10-21, 우댕 전달) — 모양은 값 그대로.
+// 고친 것: 이동 거리. 시안은 '0%' ↔ 'calc(100vw - 96px)'처럼 단위가 달라 오른쪽으로 갈 때 순간이동했다 →
+//   띠의 실제 너비를 재서 숫자(px)로 움직인다(가운데 정지도 같은 기준).
 // DoctorPacer.tsx
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 
 export default function DoctorPacer({
@@ -10,16 +12,27 @@ export default function DoctorPacer({
   src: string;
   thinking?: boolean;
 }) {
+  const bandRef = useRef<HTMLDivElement>(null);
+  const [travel, setTravel] = useState(0);
+  useEffect(() => {
+    const el = bandRef.current;
+    if (!el) return;
+    const measure = () => setTravel(Math.max(0, el.clientWidth - 96));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
-    <div className="relative w-full h-[120px] overflow-hidden border-b border-[var(--sd-line)] bg-white/50">
+    <div ref={bandRef} className="relative w-full h-[120px] overflow-hidden border-b border-[var(--sd-line)] bg-white/50">
       <motion.div
         className="absolute bottom-2"
         initial={{ x: 0 }}
         animate={
           thinking
-            ? { x: "50%", scaleX: 1, y: 0 } // 고민 중일 때 가운데 정지
+            ? { x: travel / 2, scaleX: 1, y: 0 } // 고민 중일 때 가운데 정지
             : {
-                x: ["0%", "calc(100vw - 96px)", "calc(100vw - 96px)", "0%", "0%"],
+                x: [0, travel, travel, 0, 0],
                 scaleX: [1, 1, -1, -1, 1],
                 y: [0, -4, 0, -4, 0] // 걷는 듯한 통통 애니메이션
               }
