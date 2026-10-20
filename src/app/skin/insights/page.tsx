@@ -7,8 +7,8 @@ import type { SkinLog } from '@/lib/skinTypes';
 import { skinStats } from '@/lib/skinStats';
 import { addDays, fetchSkinLogs, kstToday } from '@/lib/skinClient';
 
-// 의사 꿀됑(우댕 A·B OK 2026-10-21): 걸을 땐 B(뒷짐), 분석 중 멈추면 A(턱 괴고 고민). 걷기 움짤이 오면 WALK만 바꾼다.
-const DOCTOR_WALK = '/emo/kkuldaeng/doctor/walk-still.webp';
+// 의사 꿀됑(우댕 A·B OK 2026-10-21): 걸을 땐 B(뒷짐) 제자리 걷기 움짤(Kling 18, 우댕 OK), 분석 중 멈추면 A(턱 괴고 고민).
+const DOCTOR_WALK = '/emo/kkuldaeng/doctor/walk.webp';
 const DOCTOR_THINK = '/emo/kkuldaeng/doctor/think.webp';
 
 export default function SkinInsightsPage() {
