@@ -229,7 +229,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /사랑|러브|❤|💕|💗|좋아해|조아해|사랑해|알러뷰/,        get: () => [sugAnim('사랑해'), sugMini('사랑해'), sugCouple('사랑해'), sugAnim('두근두근'), sugKkul('사랑해')] },
   { re: /보고\s?싶|보고파|그리워|보곺|생각나|보고시퍼/,          get: () => [sugAnim('보고싶어'), sugMini('보고파'), sugCouple('보고파'), sugKkul('보고싶어')] },
   { re: /두근|설레|떨려|콩닥|심쿵/,                            get: () => [sugAnim('두근두근')] },
-  { re: /뽀뽀|쪽쪽|쪽!|😘|💋|키스|입맞/,                       get: () => [sugAnim('뽀뽀'), sugKkul('뽀뽀'), sugCouple('뽀뽀')] },
+  { re: /뽀뽀|쪽쪽|쪽!|😘|💋|키스|입맞/,                       get: () => [sugAnim('뽀뽀'), sugKkulAnim('기습 뽀뽀'), sugKkul('뽀뽀'), sugCouple('뽀뽀')] },
   { re: /안아(?!파|프)|포옹|꼬옥|폭\s?안|안겨|허그|안아줘|꼭\s?안/, get: () => [sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥'), sugKkul('꼬옥'), sugKkulAnim('안아줘 꼬리하트')] },
   { re: /토닥|다독|위로|괜찮아|다\s?잘\s?될/,                   get: () => [sugCouple('토닥토닥'), sugMini('평온'), sugKkul('괜찮아?')] },
 
@@ -342,7 +342,7 @@ const INTENTS: Intent[] = [
   { id: 'cheer',    pop: 2, aliases: ['힘내', '힘내자', '화이팅', '파이팅', '아자', '아자아자', '응원', '응원할게', '잘할수있어', '기운내', '힘들어', '지쳤어', '고생했어', '고생해', 'ㅎㄴ'], get: () => [sugAnim('힘내!'), sugMini('힘내'), sugCouple('헹가래')] },
   { id: 'pudede',   aliases: ['푸데데', '푸데뎅', '꿀잠', '낮잠', '쿨쿨', '새근새근', 'ㅍㄷㄷ'], get: () => [sugKkul('푸데데'), sugDang('푸데데'), sugKkom('푸데데')] },  // 둘만의 말 「푸데데」=꿀잠(삐짐 아님)
   { id: 'sleepy',   aliases: ['졸려', '졸립다', '졸림', '잠와', '잠온다', '하품', '나른해', '눈감겨', '꾸벅꾸벅', '피곤해', '피곤', 'ㅈㄹ'], get: () => [sugAnim('졸려'), sugSai('졸려'), sugMini('졸려')] },
-  { id: 'kiss',     pop: 2, aliases: ['뽀뽀', '뽀뽀해줘', '쪽', '쪽쪽', '키스', '입맞춤', '음마', 'ㅃㅃ', '😘', '💋'], get: () => [sugAnim('뽀뽀'), sugKkul('뽀뽀'), sugCouple('뽀뽀')] },
+  { id: 'kiss',     pop: 2, aliases: ['뽀뽀', '뽀뽀해줘', '쪽', '쪽쪽', '키스', '입맞춤', '음마', 'ㅃㅃ', '😘', '💋'], get: () => [sugAnim('뽀뽀'), sugKkulAnim('기습 뽀뽀'), sugKkul('뽀뽀'), sugCouple('뽀뽀')] },
   { id: 'cute',     pop: 4, aliases: ['귀여워', '귀엽다', '귀엽', '앙귀여워', '귀엽꼬미', '기여워', '커여워', '커엽다', '졸귀', '귀요미', '깨물고싶어', 'ㄱㅇㅇ'], get: () => [sugKkul('앙귀여워'), sugDang('귀엽꼬미'), sugDang('앙 귀여워')] },
   { id: 'lol',      pop: 6, aliases: ['ㅋㅋ', 'ㅋㅋㅋ', 'ㅎㅎ', '웃겨', '개웃겨', '빵터짐', '빵터져', '웃김', '풉', '낄낄', '웃기다', 'ㅋ큐', 'lol'], get: () => [sugKkulAnim('ㅋㅋㅋ 발라당'), sugKkul('ㅋㅋㅋ'), sugSai('ㅋㅋㅋ')] },
   { id: 'hungry',   pop: 5, aliases: ['배고파', '배고픔', '배곺', '꼬르륵', '출출해', '출출', '허기져', '허기', '밥줘', '뭐먹지', '먹고싶어', '야식', '간식', '굶었어', 'ㅂㄱㅍ'], get: () => [sugKkul('배고파'), sugSai('배고파'), sugSai('맛점')] },
@@ -497,6 +497,7 @@ const KKUL_ANIM: { word: string; image: string }[] = [
   { word: '콩떡!', image: '/emo/sai-anim/kkul-tteok-kong.webp' },
   { word: '개떡!', image: '/emo/sai-anim/kkul-tteok-gae.webp' },
   { word: '찰떡 쑥떡 콩떡 개떡', image: '/emo/sai-anim/kkul-tteok-all.webp' },
+  { word: '기습 뽀뽀', image: '/emo/sai-anim/kkul-kiss.webp' },   // art/kkuldaeng/kiss — 꼼이가 볼에 쪽 → 꿀됑 더듬이 하트·빨개져 붕 뜸 (Kling 17, 우댕 "그냥 클링으로" 2026-10-20)
 ];
 
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
