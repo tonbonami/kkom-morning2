@@ -1,0 +1,12 @@
+rules_version = '2';
+// 꼼모닝 Storage 규칙 — 배포: firebase deploy --only storage
+// 기존 폴더(chat/·chat-video/·chat-audio/·voices/·poems/·recipes/·wishlist/·canvas/ …)는 예전처럼 연다.
+// 꼼이 피부 사진(skin/**)만 클라 접근을 막는다 — 서버가 Admin으로 올리고, 짧은 서명 URL로만 보여 준다
+// (Admin으로 올린 파일엔 다운로드 토큰이 안 붙어서 토큰 URL로도 못 연다).
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{top}/{rest=**} {
+      allow read, write: if top != 'skin';
+    }
+  }
+}

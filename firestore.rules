@@ -1,0 +1,12 @@
+rules_version = '2';
+// 꼼모닝 Firestore 규칙 — 배포: firebase deploy --only firestore:rules
+// 꼼모닝은 Firebase Auth가 없고 서버 알림 라우트도 클라 SDK로 읽어서, 기존 컬렉션은 예전처럼 연다.
+// 꼼이 피부 일지(skin/**)만 클라 접근을 막는다 — /api/skin/* 가 firebase-admin(규칙 우회)으로만 다룬다.
+// ⚠️ 규칙은 OR라서 `match /{document=**} allow if true`를 남기면 skin도 열린다. 그래서 컬렉션 이름으로 거른다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{collection}/{document=**} {
+      allow read, write: if collection != 'skin';
+    }
+  }
+}
