@@ -248,7 +248,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /흥!|칫(?![가-힣])|삐룽/,                              get: () => [sugAnim('흥!')] },
 
   // ── 미안·고마·축하·칭찬·응원 ──
-  { re: /미안|죄송|쏘리|sorry|ㅈㅅ|사과할|미얀/,                get: () => [sugAnim('미안해'), sugSai('미안'), sugMini('미안해')] },
+  { re: /미안|죄송|쏘리|sorry|ㅈㅅ|사과할|미얀/,                get: () => [sugAnim('미안해'), sugKkul('미안해'), sugSai('미안'), sugMini('미안해')] },
   { re: /고마|감사|땡큐|thanks|ㄱㅅ|고맙|감솨/,                 get: () => [sugAnim('고마워'), sugMini('고마워'), sugKkul('고마워')] },
   { re: /축하|생일|생축|축하해|🎉|🎊|추카/,                     get: () => [sugAnim('축하해!'), sugAnim('선물')] },
   { re: /선물|기프트|present|기프티콘/,                         get: () => [sugAnim('선물')] },
@@ -318,7 +318,7 @@ const INTENTS: Intent[] = [
   { id: 'thanks',   pop: 3, aliases: ['고마워', '고맙다', '고마웡', '고마워요', '고맙', '감사해', '감사', '땡큐', '감솨', 'ㄱㅅ', 'ㄳ', 'thanks', 'thx'], get: () => [sugKkul('고마워'), sugAnim('고마워'), sugMini('고마워')] },
   { id: 'sulk',     aliases: ['삐짐', '삐졌어', '삐질거야', '삐졌다', '서운해', '서운', '토라졌어', '시무룩', '흥칫뿡', 'ㅃㅈ'], get: () => [sugAnim('삐짐'), sugMini('삐졌어'), sugAnim('흥!')] },
   { id: 'hmph',     aliases: ['흥', '흥칫', '칫', '몰라', '흥이다', '에잇'], get: () => [sugAnim('흥!'), sugAnim('삐짐')] },
-  { id: 'sorry',    pop: 2, aliases: ['미안해', '미안', '미안해요', '미안하다', '죄송해', '죄송', '쏘리', '사과할게', '미얀', '먄', 'ㅈㅅ', 'sorry'], get: () => [sugAnim('미안해'), sugSai('미안'), sugMini('미안해')] },
+  { id: 'sorry',    pop: 2, aliases: ['미안해', '미안', '미안해요', '미안하다', '죄송해', '죄송', '쏘리', '사과할게', '미얀', '먄', 'ㅈㅅ', 'sorry'], get: () => [sugAnim('미안해'), sugKkul('미안해'), sugSai('미안'), sugMini('미안해')] },
   { id: 'wakeup',   pop: 3, aliases: ['일어나', '일어나라', '일어나자', '일어나세요', '일어날시간', '기상', '기상해', '기상기상', '깨워', '깨워줘', '깨어나', '모닝콜', '알람', '늦잠', '그만자', 'ㅇㅇㄴ'], get: () => [sugKkulAnim('일어나 붕붕'), sugKkul('좋은아침'), sugAnim('좋은 아침')] },
   { id: 'tteok1',   pop: 2, aliases: ['찰떡', '찰떡커플', '찰떡궁합', '우리는찰떡', '찰떡이야'], get: () => [sugKkulAnim('찰떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
   { id: 'tteok2',   pop: 2, aliases: ['쑥떡'], get: () => [sugKkulAnim('쑥떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
@@ -480,7 +480,8 @@ const KKUL_STICKERS: { word: string; image: string }[] = [
   { word: '좋은아침', image: '/emo/kkuldaeng/16-joeunachim.webp' },
   { word: '야호!',    image: '/emo/kkuldaeng/17-yaho.webp' },   // 우댕 문장 끝 (야호) 340번 — 글 속은 TEXT_STICKER_BY_SENDER(우댕 OK 2026-10-19)
   { word: '푸데데',   image: '/emo/kkuldaeng/18-pudede.webp' }, // 둘만의 말 「푸데데」=꿀잠 — 꼼이 닮은 말티푸 인형 안고 (우댕 B안 OK 2026-10-20)
-  { word: '뽀뽀',     image: '/emo/kkuldaeng/19-ppoppo.webp' }, // 꼼이가 꿀됑 볼에 기습 뽀뽀, 꿀됑 더듬이가 하트로 (우댕 "1,2 둘다" 2026-10-20)
+  { word: '뽀뽀',     image: '/emo/kkuldaeng/19-ppoppo.webp' },
+  { word: '미안해',   image: '/emo/kkuldaeng/20-mianhae.webp' }, // 꿀단지 내밀며 울먹 — Aside 검수 "꿀됑에 미안해 없음" (우댕 A안 OK 2026-10-21) // 꼼이가 꿀됑 볼에 기습 뽀뽀, 꿀됑 더듬이가 하트로 (우댕 "1,2 둘다" 2026-10-20)
 ];
 // 꿀됑 움짤 탭(우댕 지시: 따로) — sai-anim 경로에 둬서 서랍은 정지컷(-still.png), 채팅은 흔들기 없이 재생(기존 움짤 규칙 그대로).
 //   만든 법·원본은 art/kkuldaeng/{euak,…} (Codex 키프레임 → Kling → 편집 → make_anim.py).
