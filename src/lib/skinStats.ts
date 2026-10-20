@@ -59,10 +59,24 @@ export function skinStats(logs: SkinLog[], today: string, days = 30) {
     const areas = new Set((l.episodes ?? []).flatMap((e) => e.areas ?? []));
     for (const a of areas) areaDays.set(a, (areaDays.get(a) ?? 0) + 1);
   }
-  const triggers = [...trig.entries()]
+  // 생리 주기(우댕 고름): 「생리 중」인 날과 「생리 전 1주」(다음 시작일 1~7일 전)를 의심 요인 표에 같이 놓는다.
+  //   시작일 = 생리 중인데 전날은 생리 중이 아닌 날(일지에서 바로 계산).
+  const starts = [...byDate.values()].filter((l) => l.period === true && byDate.get(addDays(l.date, -1))?.period !== true).map((l) => l.date);
+  for (const date of window) {
+    const l = byDate.get(date);
+    if (!l || l.uas == null) continue;
+    if (l.period === true) trig.set('생리 중', [...(trig.get('생리 중') ?? []), l.uas]);
+    else if (starts.some((s0) => { const d = (Date.parse(s0) - Date.parse(date)) / 86400000; return d >= 1 && d <= 7; })) {
+      trig.set('생리 전 1주', [...(trig.get('생리 전 1주') ?? []), l.uas]);
+    }
+  }
+
+  const PERIOD = new Set(['생리 중', '생리 전 1주']);
+  const rows = [...trig.entries()]
     .map(([name, us]) => ({ name, days: us.length, avgUas: avg(us.filter((u) => !Number.isNaN(u))) ?? 0 }))
-    .sort((a, b) => b.days - a.days || b.avgUas - a.avgUas)
-    .slice(0, 6);
+    .sort((a, b) => b.days - a.days || b.avgUas - a.avgUas);
+  // 적어 넣은 의심 요인 상위 6개 + 생리 두 줄은 항상(있으면) 뒤에 붙인다
+  const triggers = [...rows.filter((r) => !PERIOD.has(r.name)).slice(0, 6), ...rows.filter((r) => PERIOD.has(r.name))];
   const areas = [...areaDays.entries()].map(([name, d]) => ({ name, days: d })).sort((a, b) => b.days - a.days);
 
   const summary: SkinSummary = {

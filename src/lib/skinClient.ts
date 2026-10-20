@@ -71,6 +71,14 @@ export function draftFrom(date: string, log?: SkinLog | null): SkinDraft {
   };
 }
 
+// 생리 주기 자동: 새 날 초안을 만들 때 어제가 「생리 중」(7일째까지)이면 오늘도 생리 중·n+1일째로 미리 채워 둔다(저장해야 확정).
+export function prefillCycle(draft: SkinDraft, today?: SkinLog | null, yesterday?: SkinLog | null): SkinDraft {
+  if (today || yesterday?.period !== true) return draft;
+  const n = yesterday.cycleDay ?? null;
+  if (n != null && n >= 7) return draft;
+  return { ...draft, period: true, cycleDay: n != null ? n + 1 : null };
+}
+
 // 하루 약 상태 한 줄 요약: 하나라도 거름 > 늦게 > 먹음 > 기록 없음
 export function medOfDay(log?: SkinLog | null): MedStatus | null {
   const s = (log?.meds ?? []).map((m) => m.status);
@@ -121,4 +129,22 @@ export async function uploadSkinPhoto(date: string, file: File): Promise<SkinPho
 
 export async function deleteSkinPhoto(date: string, id: string): Promise<void> {
   await fetch(`/api/skin/photo?date=${date}&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+// ── 설정·설문 ──
+export async function fetchSkinSettings(): Promise<{ partnerAlert: boolean } | null> {
+  const r = await fetch('/api/skin/settings', { cache: 'no-store' });
+  return r.ok ? r.json() : null;
+}
+export async function saveSkinSettings(partnerAlert: boolean): Promise<boolean> {
+  const r = await fetch('/api/skin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ partnerAlert }) });
+  return r.ok;
+}
+export async function fetchIntake(): Promise<Record<string, string | string[]> | null> {
+  const r = await fetch('/api/skin/intake', { cache: 'no-store' });
+  return r.ok ? (await r.json()).answers : null;
+}
+export async function saveIntakeAnswer(id: string, value: string | string[] | null): Promise<boolean> {
+  const r = await fetch('/api/skin/intake', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, value }) });
+  return r.ok;
 }

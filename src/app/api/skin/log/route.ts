@@ -5,7 +5,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireReader, requireWriter } from '@/lib/skinAuth';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { DATE_RE, emptyLog, sanitizeLogPatch, skinLogPath, uasOf, SKIN_OWNER, type SkinEnv, type SkinLog } from '@/lib/skinTypes';
+import { FieldValue } from 'firebase-admin/firestore';
+import { sendApns } from '@/lib/apns';
+import {
+  DATE_RE, emptyLog, sanitizeLogPatch, skinLogPath, uasOf, SKIN_OWNER, SKIN_CYCLE_PATH, SKIN_SETTINGS_PATH, daysBetween,
+  type SkinEnv, type SkinLog,
+} from '@/lib/skinTypes';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +64,31 @@ export async function PUT(req: NextRequest) {
   const log: SkinLog = { ...(prev ?? emptyLog(date, now)), ...sanitizeLogPatch(body), date, updatedAt: now };
   log.uas = uasOf(log.wheals, log.itch);
   if (date === kstToday() && !log.env) log.env = await envSnapshot(req.nextUrl.origin);
+
+  // 생리 주기 자동(우댕 고름 2026-10-21): 「생리 중」으로 저장하면 n일째를 채우고, 새로 시작한 날이면 시작일로 남긴다.
+  //   마지막 시작일에서 10일 안이면 같은 생리, 아니면 새 시작. 꼼이가 n일째를 직접 적으면 그 숫자로 시작일을 거꾸로 맞춘다.
+  if (log.period === true) {
+    const cycleRef = db.doc(SKIN_CYCLE_PATH);
+    const starts = (((await cycleRef.get()).data()?.starts as string[]) ?? []).filter((s) => s <= date).sort();
+    const last = starts[starts.length - 1];
+    if (log.cycleDay == null && last && daysBetween(last, date) <= 10) {
+      log.cycleDay = daysBetween(last, date) + 1;
+    } else if (!last || daysBetween(last, date) > 10 || log.cycleDay != null) {
+      const day = log.cycleDay ?? 1;
+      const start = new Date(Date.parse(date + 'T00:00:00Z') - (day - 1) * 86400000).toISOString().slice(0, 10);
+      log.cycleDay = day;
+      await cycleRef.set({ starts: FieldValue.arrayUnion(start) }, { merge: true });
+    }
+  }
+
+  // 힘든 날 우댕 알림(꼼이가 켰을 때만, 오늘 기록이 UAS 4 이상이 된 첫 저장에 한 번). 붓기·숨참 같은 응급은 화면의 119 안내가 먼저.
+  if (date === kstToday() && (log.uas ?? 0) >= 4 && !log.alertedAt) {
+    const settings = (await db.doc(SKIN_SETTINGS_PATH).get()).data();
+    if (settings?.partnerAlert === true) {
+      const ok = await sendApns('udaeng', '꼼이 피부 일지', '오늘 꼼이 피부가 힘든 날이에요. 한 번 꼭 안아 주세요.', { threadId: 'skin' }).catch(() => false);
+      if (ok) log.alertedAt = now;
+    }
+  }
   // 사진 목록은 /api/skin/photo 만 바꾼다(겹쳐 저장돼도 사진이 지워지지 않게 photos는 빼고 merge)
   const { photos, ...rest } = log;
   await ref.set(rest, { merge: true });

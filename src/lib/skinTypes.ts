@@ -8,6 +8,12 @@
 
 export const SKIN_OWNER = 'kkomi' as const;
 export const skinLogPath = (date: string) => `skin/${SKIN_OWNER}/logs/${date}`;
+export const SKIN_SETTINGS_PATH = `skin/${SKIN_OWNER}/meta/settings`; // { partnerAlert: boolean } — 꼼이가 켜고 끔
+export const SKIN_CYCLE_PATH = `skin/${SKIN_OWNER}/meta/cycle`;       // { starts: ['YYYY-MM-DD', …] } 생리 시작일
+export const SKIN_INTAKE_PATH = `skin/${SKIN_OWNER}/survey/intake`;   // { answers: { '4.1': … } }
+export const addDaysIso = (date: string, n: number) =>
+  new Date(Date.parse(date + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+export const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
 export type MedStatus = 'taken' | 'missed' | 'late';
 export interface SkinMed { name: string; dose?: string | null; time?: string | null; status: MedStatus | null }
@@ -51,6 +57,7 @@ export interface SkinLog {
   createdAt: string;
   updatedAt: string;
   legacy?: Record<string, unknown>; // 옛 아티팩트 원본 그대로
+  alertedAt?: string;               // 힘든 날 우댕 알림을 보낸 시각(하루 한 번)
 }
 
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

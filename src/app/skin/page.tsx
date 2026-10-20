@@ -8,11 +8,12 @@ import SkinWeekStrip from '@/components/skin/SkinWeekStrip';
 import SkinDayForm from '@/components/skin/SkinDayForm';
 import SkinPhotoStrip from '@/components/skin/SkinPhotoStrip';
 import SkinScreen from '@/components/skin/SkinScreen';
+import SkinPartnerAlert from '@/components/skin/SkinPartnerAlert';
 import type { SkinDraft } from '@/components/skin/skinUi';
 import type { SkinLog } from '@/lib/skinTypes';
 import {
   READ_ONLY_MSG, addDays, appUserName, deleteSkinPhoto, draftFrom, fetchSkinLogs, fetchSkinPhotos, kstToday, medOfDay,
-  saveSkinLog, savedAtText, skinLogin, skinSession, uploadSkinPhoto, weekdayOf, type SkinPhotoView, type SkinRole,
+  fetchSkinSettings, prefillCycle, saveSkinLog, saveSkinSettings, savedAtText, skinLogin, skinSession, uploadSkinPhoto, weekdayOf, type SkinPhotoView, type SkinRole,
 } from '@/lib/skinClient';
 
 type Gate = 'loading' | 'locked' | 'open';
@@ -32,6 +33,18 @@ export default function SkinJournalPage() {
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const loadedRef = useRef(false);
   const [photos, setPhotos] = useState<SkinPhotoView[]>([]);
+  const [partnerAlert, setPartnerAlert] = useState<boolean | null>(null);
+  const [alertBusy, setAlertBusy] = useState(false);
+  useEffect(() => {
+    if (gate !== 'open') return;
+    fetchSkinSettings().then((s) => setPartnerAlert(s ? s.partnerAlert : null)).catch(() => {});
+  }, [gate]);
+  const toggleAlert = async (next: boolean) => {
+    setAlertBusy(true);
+    const ok = await saveSkinSettings(next).catch(() => false);
+    if (ok) setPartnerAlert(next); else window.alert('바꾸지 못했어요. 다시 해 주세요.');
+    setAlertBusy(false);
+  };
   const [uploading, setUploading] = useState(false);
 
   // 고른 날의 사진(15분짜리 주소라 날을 바꿀 때마다 새로 받는다)
@@ -72,7 +85,7 @@ export default function SkinJournalPage() {
     setLogs(map);
     if (!loadedRef.current) {
       loadedRef.current = true;
-      setDraft(draftFrom(today, map[today]));
+      setDraft(prefillCycle(draftFrom(today, map[today]), map[today], map[addDays(today, -1)]));
       setSavedAt(map[today] ? savedAtText(map[today].updatedAt) : null);
     }
     setGate('open');
@@ -93,7 +106,7 @@ export default function SkinJournalPage() {
     if (date === selected) return;
     if (dirty && !window.confirm('저장하지 않은 기록이 있어요. 다른 날로 넘어갈까요?')) return;
     setSelected(date);
-    setDraft(draftFrom(date, logs[date]));
+    setDraft(prefillCycle(draftFrom(date, logs[date]), logs[date], logs[addDays(date, -1)]));
     setSavedAt(logs[date] ? savedAtText(logs[date].updatedAt) : null);
     setDirty(false);
   };
@@ -142,6 +155,7 @@ export default function SkinJournalPage() {
             onAdd={onAddPhotos}
             onDelete={onDeletePhoto}
           />
+          <SkinPartnerAlert on={partnerAlert} readOnly={readOnly} busy={alertBusy} onToggle={toggleAlert} />
           {readOnly && (
             <p className="text-center text-[13px] mt-3" style={{ color: 'var(--sd-muted)' }}>{READ_ONLY_MSG}</p>
           )}
