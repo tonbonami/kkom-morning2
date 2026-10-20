@@ -59,6 +59,8 @@ export async function PUT(req: NextRequest) {
   const log: SkinLog = { ...(prev ?? emptyLog(date, now)), ...sanitizeLogPatch(body), date, updatedAt: now };
   log.uas = uasOf(log.wheals, log.itch);
   if (date === kstToday() && !log.env) log.env = await envSnapshot(req.nextUrl.origin);
-  await ref.set(log);
-  return NextResponse.json({ log });
+  // 사진 목록은 /api/skin/photo 만 바꾼다(겹쳐 저장돼도 사진이 지워지지 않게 photos는 빼고 merge)
+  const { photos, ...rest } = log;
+  await ref.set(rest, { merge: true });
+  return NextResponse.json({ log: { ...rest, photos: photos ?? [] } });
 }
