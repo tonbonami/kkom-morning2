@@ -41,7 +41,9 @@ export async function GET(req: NextRequest) {
   const snap = await snapshotSkin(db);
   const json = JSON.stringify(snap, null, 1);
   const file = `${SKIN_BACKUP_DIR}/${today}.json`;
-  await bucket.file(file).save(json, { contentType: 'application/json; charset=utf-8', resumable: false });
+  // 파일 저장이 막혀도(권한 등) 메일 백업은 그대로 간다 — 실패는 메일·meta에 남김
+  const saveError = await bucket.file(file).save(json, { contentType: 'application/json; charset=utf-8', resumable: false })
+    .then(() => null).catch((e: Error) => { console.error('skin backup save', e); return String(e?.message ?? e).slice(0, 200); });
 
   // 2) 메일 내용
   const logs = (Object.values(snap.collections.logs ?? {}) as SkinLog[]).sort((a, b) => a.date.localeCompare(b.date));
@@ -76,7 +78,7 @@ export async function GET(req: NextRequest) {
       changed.length > 14 && `  …앞의 ${changed.length - 14}일은 붙임 파일에 있어요`,
       '',
       `모든 기록 ${logs.length}일${logs.length ? ` (${md(logs[0].date)} ~ ${md(logs[logs.length - 1].date)})` : ''} · 사진 ${photoCount}장${trashCount ? ` · 지운 사진 ${trashCount}장은 휴지통에 보관 중` : ''}`,
-      `붙임 파일: skin-${today}.json (${kb(json.length)}) — 기록·병력·설문·상담 대화 전부. 같은 파일이 서버 저장소에도 날짜별로 남아요.`,
+      `붙임 파일: skin-${today}.json (${kb(json.length)}) — 기록·병력·설문·상담 대화 전부. ${saveError ? '⚠️ 서버 저장소에 파일 남기기는 실패했어요(이 메일 붙임이 오늘 백업).' : '같은 파일이 서버 저장소에도 날짜별로 남아요.'}`,
       '',
       '■ 꼼이 Claude 상담',
       todayUse?.count
@@ -101,10 +103,10 @@ export async function GET(req: NextRequest) {
 
   const now = new Date().toISOString();
   await metaRef.set({
-    lastAt: now, lastFile: file, bytes: json.length, logs: logs.length, photos: photoCount,
+    lastAt: now, lastFile: saveError ? null : file, saveError, bytes: json.length, logs: logs.length, photos: photoCount,
     mailConfigured: mailConfigured(), lastMailTried: shouldMail, lastMailOk: shouldMail ? mailed : null,
     ...(mailed ? { mailedAt: snap.exportedAt } : {}),
   }, { merge: true });
 
-  return NextResponse.json({ ok: true, project, file, bytes: json.length, logs: logs.length, changed: changed.length, mailed, mailConfigured: mailConfigured() });
+  return NextResponse.json({ ok: !saveError || mailed, project, file, saveError, bytes: json.length, logs: logs.length, changed: changed.length, mailed, mailConfigured: mailConfigured() });
 }
