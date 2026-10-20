@@ -1014,7 +1014,8 @@ export default function KkomMorningHome() {
     }),
     skin: renderListCard({
       Icon: Stethoscope, name: '피부 일지', onClick: () => router.push('/skin'),
-      bg: 'var(--sd-card)', ac: 'var(--sd-rel)',
+      // 청진기 든 의사 꿀됑 선화(우댕 A안 OK 2026-10-21, potrace SVG)를 오른쪽에 연하게
+      bg: "url('/emo/kkuldaeng/doctor/lineart.svg') right 14px bottom -10px / auto 104% no-repeat, var(--sd-card)", ac: 'var(--sd-rel)',
       recent: skinToday, empty: '오늘 피부 점수 · 약 30초 기록',
       count: 0, unit: '',
     }),
