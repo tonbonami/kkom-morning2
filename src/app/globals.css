@@ -405,3 +405,7 @@
    AppViewportHeight 가 --app-vh 에 documentElement.clientHeight 를 넣는다.
    폴백은 100dvh 라 var 가 없어도(브라우저/최초 렌더) 지금 동작 그대로 — 회귀 안전. */
 .min-h-app { min-height: 100dvh; min-height: var(--app-vh, 100dvh); }
+
+/* 가로 스크롤 막대 숨기기 — 제미나이 사진 칸(SkinPhotoStrip)이 쓰는 유틸 */
+.scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
