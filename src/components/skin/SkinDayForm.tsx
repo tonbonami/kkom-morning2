@@ -1,10 +1,10 @@
-// 제미나이 시안(2026-10-21, 우댕 전달) — 값 그대로.
-// ⚠️ 시안엔 섹션 1·2·4·6·11만 있음(증상 시각·흔적·먹은 것·생활·생리·새 제품은 빠짐) → 제미나이에 추가 요청 중.
+// 제미나이 시안 2판(2026-10-21, 우댕 전달, 빠진 6칸 채움) — 값 그대로.
+// 고친 것 딱 하나: 요약 문구 템플릿 안의 `\${` 두 곳(복사 중 생긴 역슬래시) → `${` (안 고치면 화면에 코드 글자가 찍힘).
 // SkinDayForm.tsx
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SkinDraft, AREAS, TRIGGERS, SkinMed } from './skinUi';
-import { ChevronDown, ChevronUp, Plus, AlertCircle, Check } from 'lucide-react';
+import { SkinDraft, AREAS, TRIGGERS, SkinMed, SkinEpisode, SkinFood } from './skinUi';
+import { ChevronDown, ChevronUp, Plus, AlertCircle, Check, Trash2 } from 'lucide-react';
 
 export default function SkinDayForm({
   value,
@@ -23,10 +23,38 @@ export default function SkinDayForm({
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
+  // 직접 입력칸용 로컬 상태
+  const [customTrigger, setCustomTrigger] = useState('');
+  const [newProduct, setNewProduct] = useState('');
+
   const toggleSection = (key: string) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
+  // --- 요약 문구 생성기 ---
   const uasScore = (value.wheals ?? 0) + (value.itch ?? 0);
   const isUasEmpty = value.wheals === null && value.itch === null;
+
+  const episodeSummary = value.episodes.length > 0
+    ? `${value.episodes.length}번 · ${
+        value.episodes[0].areas.length > 0
+          ? (value.episodes[0].areas.length > 1 ? `${value.episodes[0].areas[0]} 외 ${value.episodes[0].areas.length - 1}곳` : value.episodes[0].areas[0])
+          : '부위 미지정'
+      }${value.episodes[0].durMin ? ` · ${value.episodes[0].durMin}분` : ''}`
+    : undefined;
+
+  const foodSummary = value.foods.length > 0 ? `${value.foods.length}개 기록됨` : undefined;
+
+  const lifeSummaryParts = [];
+  if (value.sleepH !== null) lifeSummaryParts.push(`잠 ${value.sleepH}시간`);
+  if (value.waterMl !== null) lifeSummaryParts.push(`물 ${value.waterMl}ml`);
+  if (value.stress !== null) lifeSummaryParts.push(`스트레스 ${value.stress}`);
+  if (value.wakeItch !== null) lifeSummaryParts.push(value.wakeItch ? '가려워 깸' : '안 깸');
+  const lifeSummary = lifeSummaryParts.length > 0 ? lifeSummaryParts.join(' · ') : undefined;
+
+  const periodSummary = value.period !== null
+    ? (value.period ? `생리 중${value.cycleDay ? ` (${value.cycleDay}일째)` : ''}` : '아님')
+    : undefined;
+
+  const newProductsSummary = value.newProducts.length > 0 ? `${value.newProducts.length}개 기록됨` : undefined;
 
   return (
     <div className="pb-32 space-y-4">
@@ -94,25 +122,31 @@ export default function SkinDayForm({
         <div className="space-y-3">
           {value.meds.map((med, idx) => (
             <div key={idx} className="flex flex-col gap-2 p-3 bg-[var(--sd-surface-2)] rounded-xl border border-[var(--sd-line)]">
-              <input
-                type="text"
-                placeholder="약 이름 (예: 항히스타민제)"
-                value={med.name}
-                onChange={(e) => {
-                  const newMeds = [...value.meds];
-                  newMeds[idx].name = e.target.value;
-                  onChange({ meds: newMeds });
-                }}
-                className="bg-transparent border-none text-sm outline-none text-[var(--sd-ink)] w-full font-medium"
-              />
+              <div className="flex items-center justify-between">
+                <input
+                  type="text"
+                  placeholder="약 이름 (예: 항히스타민제)"
+                  value={med.name}
+                  onChange={(e) => {
+                    const next = value.meds.map((m, i) => i === idx ? { ...m, name: e.target.value } : m);
+                    onChange({ meds: next });
+                  }}
+                  className="bg-transparent border-none text-sm outline-none text-[var(--sd-ink)] flex-1 font-medium min-w-0"
+                />
+                <button
+                  onClick={() => onChange({ meds: value.meds.filter((_, i) => i !== idx) })}
+                  className="p-1 text-[var(--sd-muted)] hover:text-[var(--sd-crit)]"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
               <div className="flex items-center gap-2 mt-1">
                 <input
                   type="time"
                   value={med.time || ''}
                   onChange={(e) => {
-                    const newMeds = [...value.meds];
-                    newMeds[idx].time = e.target.value;
-                    onChange({ meds: newMeds });
+                    const next = value.meds.map((m, i) => i === idx ? { ...m, time: e.target.value } : m);
+                    onChange({ meds: next });
                   }}
                   className="bg-white rounded-lg px-2 py-1 text-sm border border-[var(--sd-line)] text-[var(--sd-ink)]"
                 />
@@ -122,9 +156,8 @@ export default function SkinDayForm({
                       key={status}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => {
-                        const newMeds = [...value.meds];
-                        newMeds[idx].status = status;
-                        onChange({ meds: newMeds });
+                        const next = value.meds.map((m, i) => i === idx ? { ...m, status } : m);
+                        onChange({ meds: next });
                       }}
                       className={`flex-1 py-1 text-xs rounded-lg border ${
                         med.status === status
@@ -149,25 +182,130 @@ export default function SkinDayForm({
         </div>
       </div>
 
-      {/* 4. 붓기 (Angioedema) - 위험 요소라 3번 위로 배치해 강조 */}
+      {/* 3. 증상이 올라온 때 */}
+      <CollapsibleSection
+        title="증상이 올라온 때"
+        isExpanded={expanded['episodes']}
+        onToggle={() => toggleSection('episodes')}
+        summary={episodeSummary}
+      >
+        <div className="space-y-4">
+          {value.episodes.map((ep, idx) => (
+            <div key={idx} className="p-4 bg-[var(--sd-surface-2)] rounded-xl border border-[var(--sd-line)] relative">
+              <button
+                onClick={() => onChange({ episodes: value.episodes.filter((_, i) => i !== idx) })}
+                className="absolute top-3 right-3 text-[var(--sd-muted)] hover:text-[var(--sd-crit)]"
+              >
+                <Trash2 size={16} />
+              </button>
+
+              <div className="flex gap-2 items-center mb-4 pr-6">
+                <input
+                  type="time"
+                  value={ep.start || ''}
+                  onChange={(e) => {
+                    const next = value.episodes.map((item, i) => i === idx ? { ...item, start: e.target.value } : item);
+                    onChange({ episodes: next });
+                  }}
+                  className="bg-white rounded-lg px-2 py-1.5 text-sm border border-[var(--sd-line)] text-[var(--sd-ink)] flex-1"
+                />
+                <div className="flex items-center gap-1 bg-white border border-[var(--sd-line)] rounded-lg px-2 py-1.5 flex-1">
+                  <input
+                    type="number"
+                    placeholder="지속"
+                    value={ep.durMin || ''}
+                    onChange={(e) => {
+                      const next = value.episodes.map((item, i) => i === idx ? { ...item, durMin: e.target.value ? Number(e.target.value) : null } : item);
+                      onChange({ episodes: next });
+                    }}
+                    className="w-full bg-transparent outline-none text-sm text-[var(--sd-ink)] text-right"
+                  />
+                  <span className="text-sm text-[var(--sd-muted)]">분</span>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-xs text-[var(--sd-muted)] mb-2 font-medium">부위</p>
+                <div className="flex flex-wrap gap-2">
+                  {AREAS.map(area => (
+                    <motion.button
+                      key={area}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => {
+                        const next = value.episodes.map((item, i) => {
+                          if (i !== idx) return item;
+                          const nextAreas = item.areas.includes(area) ? item.areas.filter(a => a !== area) : [...item.areas, area];
+                          return { ...item, areas: nextAreas };
+                        });
+                        onChange({ episodes: next });
+                      }}
+                      className={`px-2.5 py-1 text-xs rounded-full border ${
+                        ep.areas.includes(area) ? 'bg-[var(--sd-ink)] text-white border-[var(--sd-ink)]' : 'bg-white text-[var(--sd-ink)] border-[var(--sd-line)]'
+                      }`}
+                    >
+                      {area}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!ep.over24h}
+                    onChange={(e) => {
+                      const next = value.episodes.map((item, i) => i === idx ? { ...item, over24h: e.target.checked } : item);
+                      onChange({ episodes: next });
+                    }}
+                    className="w-4 h-4 accent-[var(--sd-rel)]"
+                  />
+                  <span className="text-sm text-[var(--sd-ink)]">한 자국이 24시간 넘게 갔어요</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!ep.bruiseLike}
+                    onChange={(e) => {
+                      const next = value.episodes.map((item, i) => i === idx ? { ...item, bruiseLike: e.target.checked } : item);
+                      onChange({ episodes: next });
+                    }}
+                    className="w-4 h-4 accent-[var(--sd-rel)]"
+                  />
+                  <span className="text-sm text-[var(--sd-ink)]">멍처럼 남았어요</span>
+                </label>
+              </div>
+            </div>
+          ))}
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => onChange({ episodes: [...value.episodes, { start: null, durMin: null, areas: [], over24h: false, bruiseLike: false }] })}
+            className="flex items-center justify-center w-full py-3 rounded-xl border border-dashed border-[var(--sd-line)] text-[var(--sd-muted)] text-sm"
+          >
+            <Plus size={16} className="mr-1" /> 증상 추가
+          </motion.button>
+        </div>
+      </CollapsibleSection>
+
+      {/* 4. 붓기 (Angioedema) */}
       <CollapsibleSection
         title="붓기 (입술·눈·목)"
         isExpanded={expanded['angioedema']}
         onToggle={() => toggleSection('angioedema')}
-        summary={value.angioedema?.present ? `있음 (${value.angioedema.areas.join(', ')})` : (value.angioedema?.present === false ? '없음' : '기록 안함')}
+        summary={value.angioedema?.present ? `있음 (${value.angioedema.areas.join(', ')})` : (value.angioedema?.present === false ? '없음' : undefined)}
       >
         <div className="flex gap-2 mb-4">
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => onChange({ angioedema: { present: false, areas: [] } })}
-            className={`flex-1 py-2 text-sm rounded-xl border ${value.angioedema?.present === false ? 'bg-[var(--sd-rel)] text-white' : 'bg-white'}`}
+            className={`flex-1 py-2 text-sm rounded-xl border ${value.angioedema?.present === false ? 'bg-[var(--sd-rel)] text-white border-[var(--sd-rel)]' : 'bg-white border-[var(--sd-line)]'}`}
           >
             없음
           </motion.button>
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => onChange({ angioedema: { present: true, areas: value.angioedema?.areas || [] } })}
-            className={`flex-1 py-2 text-sm rounded-xl border ${value.angioedema?.present === true ? 'bg-[var(--sd-crit)] text-white' : 'bg-white'}`}
+            className={`flex-1 py-2 text-sm rounded-xl border ${value.angioedema?.present === true ? 'bg-[var(--sd-crit)] text-white border-[var(--sd-crit)]' : 'bg-white border-[var(--sd-line)]'}`}
           >
             있음
           </motion.button>
@@ -200,6 +338,31 @@ export default function SkinDayForm({
         )}
       </CollapsibleSection>
 
+      {/* 5. 흔적 */}
+      <CollapsibleSection
+        title="흔적"
+        isExpanded={expanded['trace']}
+        onToggle={() => toggleSection('trace')}
+        summary={value.trace || undefined}
+      >
+        <div className="flex gap-2">
+          {['흔적 없음', '색소 남음', '긁은 상처'].map((t) => (
+            <motion.button
+              key={t}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => onChange({ trace: value.trace === t ? null : t })}
+              className={`flex-1 py-2 text-sm rounded-xl border ${
+                value.trace === t
+                  ? 'bg-[var(--sd-rel)] text-white border-[var(--sd-rel)]'
+                  : 'bg-white text-[var(--sd-ink)] border-[var(--sd-line)]'
+              }`}
+            >
+              {t}
+            </motion.button>
+          ))}
+        </div>
+      </CollapsibleSection>
+
       {/* 6. 의심 가는 것 */}
       <CollapsibleSection
         title="의심 가는 것 (트리거)"
@@ -207,14 +370,15 @@ export default function SkinDayForm({
         onToggle={() => toggleSection('triggers')}
         summary={value.triggers.length > 0 ? `${value.triggers.length}개 선택됨` : undefined}
       >
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 mb-4">
           {TRIGGERS.map((trigger) => (
             <motion.button
               key={trigger}
               whileTap={{ scale: 0.9 }}
               onClick={() => {
-                const curr = value.triggers;
-                const next = curr.includes(trigger) ? curr.filter(t => t !== trigger) : [...curr, trigger];
+                const next = value.triggers.includes(trigger)
+                  ? value.triggers.filter(t => t !== trigger)
+                  : [...value.triggers, trigger];
                 onChange({ triggers: next });
               }}
               className={`px-3 py-1.5 text-sm rounded-full border ${
@@ -224,11 +388,294 @@ export default function SkinDayForm({
               {trigger}
             </motion.button>
           ))}
+          {/* 목록 밖 추가된 칩 */}
+          {value.triggers.filter(t => !TRIGGERS.includes(t)).map((custom) => (
+            <motion.button
+              key={custom}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => onChange({ triggers: value.triggers.filter(t => t !== custom) })}
+              className="px-3 py-1.5 text-sm rounded-full border bg-[var(--sd-rel)] text-white border-[var(--sd-rel)] flex items-center gap-1"
+            >
+              {custom}
+            </motion.button>
+          ))}
+        </div>
+
+        {/* 직접 쓰기 입력칸 */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={customTrigger}
+            onChange={(e) => setCustomTrigger(e.target.value)}
+            placeholder="목록에 없는 것 직접 쓰기"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && customTrigger.trim()) {
+                e.preventDefault();
+                if (!value.triggers.includes(customTrigger.trim())) {
+                  onChange({ triggers: [...value.triggers, customTrigger.trim()] });
+                }
+                setCustomTrigger('');
+              }
+            }}
+            className="flex-1 bg-[var(--sd-surface-2)] border border-[var(--sd-line)] rounded-xl px-3 py-2 text-sm text-[var(--sd-ink)] outline-none"
+          />
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              if (customTrigger.trim() && !value.triggers.includes(customTrigger.trim())) {
+                onChange({ triggers: [...value.triggers, customTrigger.trim()] });
+              }
+              setCustomTrigger('');
+            }}
+            disabled={!customTrigger.trim()}
+            className="px-4 py-2 bg-white border border-[var(--sd-line)] rounded-xl text-sm font-medium disabled:opacity-50"
+          >
+            추가
+          </motion.button>
+        </div>
+      </CollapsibleSection>
+
+      {/* 7. 먹은 것 */}
+      <CollapsibleSection
+        title="먹은 것"
+        isExpanded={expanded['foods']}
+        onToggle={() => toggleSection('foods')}
+        summary={foodSummary}
+      >
+        <div className="space-y-3">
+          {value.foods.map((food, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <input
+                type="time"
+                value={food.t || ''}
+                onChange={(e) => {
+                  const next = value.foods.map((f, i) => i === idx ? { ...f, t: e.target.value } : f);
+                  onChange({ foods: next });
+                }}
+                className="bg-white rounded-lg px-2 py-2 text-sm border border-[var(--sd-line)] text-[var(--sd-ink)] w-24"
+              />
+              <input
+                type="text"
+                placeholder="음식 내용"
+                value={food.text}
+                onChange={(e) => {
+                  const next = value.foods.map((f, i) => i === idx ? { ...f, text: e.target.value } : f);
+                  onChange({ foods: next });
+                }}
+                className="flex-1 bg-[var(--sd-surface-2)] border border-[var(--sd-line)] rounded-lg px-3 py-2 text-sm outline-none text-[var(--sd-ink)]"
+              />
+              <button
+                onClick={() => onChange({ foods: value.foods.filter((_, i) => i !== idx) })}
+                className="p-2 text-[var(--sd-muted)] hover:text-[var(--sd-crit)]"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => onChange({ foods: [...value.foods, { t: null, text: '' }] })}
+            className="flex items-center justify-center w-full py-3 rounded-xl border border-dashed border-[var(--sd-line)] text-[var(--sd-muted)] text-sm"
+          >
+            <Plus size={16} className="mr-1" /> 식사/간식 추가
+          </motion.button>
+        </div>
+      </CollapsibleSection>
+
+      {/* 8. 생활 */}
+      <CollapsibleSection
+        title="생활 (수면·물·스트레스)"
+        isExpanded={expanded['life']}
+        onToggle={() => toggleSection('life')}
+        summary={lifeSummary}
+      >
+        <div className="space-y-5">
+          {/* 잠 */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-[var(--sd-ink)]">잠 (시간)</span>
+            <div className="flex items-center gap-3">
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => onChange({ sleepH: Math.max(0, (value.sleepH || 0) - 0.5) })}
+                className="w-8 h-8 flex items-center justify-center bg-[var(--sd-surface-2)] rounded-full text-[var(--sd-ink)] font-bold"
+              >-</motion.button>
+              <span className="w-10 text-center font-bold text-lg tabular-nums">{value.sleepH !== null ? value.sleepH : '-'}</span>
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => onChange({ sleepH: (value.sleepH || 0) + 0.5 })}
+                className="w-8 h-8 flex items-center justify-center bg-[var(--sd-surface-2)] rounded-full text-[var(--sd-ink)] font-bold"
+              >+</motion.button>
+            </div>
+          </div>
+
+          {/* 가려워서 깼어요 */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-[var(--sd-ink)]">가려워서 깼어요</span>
+            <div className="flex gap-2">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onChange({ wakeItch: true })}
+                className={`px-4 py-1.5 text-sm rounded-lg border ${value.wakeItch === true ? 'bg-[var(--sd-rel)] text-white border-[var(--sd-rel)]' : 'bg-white border-[var(--sd-line)]'}`}
+              >
+                예
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onChange({ wakeItch: false })}
+                className={`px-4 py-1.5 text-sm rounded-lg border ${value.wakeItch === false ? 'bg-[var(--sd-ink)] text-white border-[var(--sd-ink)]' : 'bg-white border-[var(--sd-line)]'}`}
+              >
+                아니오
+              </motion.button>
+            </div>
+          </div>
+
+          {/* 물 */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-[var(--sd-ink)]">마신 물 (ml)</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={value.waterMl !== null ? value.waterMl : ''}
+                onChange={(e) => onChange({ waterMl: e.target.value ? Number(e.target.value) : null })}
+                className="w-20 bg-white border border-[var(--sd-line)] rounded-lg px-2 py-1.5 text-sm text-center outline-none"
+                placeholder="0"
+              />
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onChange({ waterMl: (value.waterMl || 0) + 250 })}
+                className="px-3 py-1.5 text-xs bg-[var(--sd-surface-2)] rounded-lg font-medium"
+              >
+                +250
+              </motion.button>
+            </div>
+          </div>
+
+          {/* 스트레스 */}
+          <div>
+            <div className="flex justify-between text-sm font-medium text-[var(--sd-ink)] mb-2">
+              <span>스트레스</span>
+              <span className="text-[var(--sd-rel)] font-bold">{value.stress !== null ? value.stress : '-'}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="10"
+              value={value.stress !== null ? value.stress : 5}
+              onChange={(e) => onChange({ stress: Number(e.target.value) })}
+              className="w-full accent-[var(--sd-rel)]"
+            />
+            <div className="flex justify-between text-xs text-[var(--sd-muted)] mt-1">
+              <span>0 (평온)</span>
+              <span>10 (최고)</span>
+            </div>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* 9. 생리 */}
+      <CollapsibleSection
+        title="생리"
+        isExpanded={expanded['period']}
+        onToggle={() => toggleSection('period')}
+        summary={periodSummary}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex gap-2">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => onChange({ period: true })}
+              className={`flex-1 py-2 text-sm rounded-xl border ${value.period === true ? 'bg-[var(--sd-rel)] text-white border-[var(--sd-rel)]' : 'bg-white border-[var(--sd-line)]'}`}
+            >
+              생리 중
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => onChange({ period: false, cycleDay: null })}
+              className={`flex-1 py-2 text-sm rounded-xl border ${value.period === false ? 'bg-[var(--sd-ink)] text-white border-[var(--sd-ink)]' : 'bg-white border-[var(--sd-line)]'}`}
+            >
+              아님
+            </motion.button>
+          </div>
+
+          <AnimatePresence>
+            {value.period && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex items-center gap-3 bg-[var(--sd-surface-2)] p-3 rounded-xl"
+              >
+                <span className="text-sm font-medium">주기</span>
+                <div className="flex items-center gap-1 flex-1">
+                  <input
+                    type="number"
+                    value={value.cycleDay || ''}
+                    onChange={(e) => onChange({ cycleDay: e.target.value ? Number(e.target.value) : null })}
+                    className="w-16 bg-white border border-[var(--sd-line)] rounded-lg px-2 py-1.5 text-sm text-center outline-none"
+                    placeholder="1"
+                  />
+                  <span className="text-sm">일째</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </CollapsibleSection>
+
+      {/* 10. 새로 쓴 제품 */}
+      <CollapsibleSection
+        title="새로 쓴 제품"
+        isExpanded={expanded['newProducts']}
+        onToggle={() => toggleSection('newProducts')}
+        summary={newProductsSummary}
+      >
+        <div className="flex flex-wrap gap-2 mb-3">
+          {value.newProducts.map((prod) => (
+            <motion.button
+              key={prod}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => onChange({ newProducts: value.newProducts.filter(p => p !== prod) })}
+              className="px-3 py-1.5 text-sm rounded-full border bg-[var(--sd-surface-2)] border-[var(--sd-line)] flex items-center gap-1 text-[var(--sd-ink)]"
+            >
+              {prod}
+            </motion.button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newProduct}
+            onChange={(e) => setNewProduct(e.target.value)}
+            placeholder="화장품, 세제, 영양제 등"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newProduct.trim()) {
+                e.preventDefault();
+                if (!value.newProducts.includes(newProduct.trim())) {
+                  onChange({ newProducts: [...value.newProducts, newProduct.trim()] });
+                }
+                setNewProduct('');
+              }
+            }}
+            className="flex-1 bg-[var(--sd-surface-2)] border border-[var(--sd-line)] rounded-xl px-3 py-2 text-sm text-[var(--sd-ink)] outline-none"
+          />
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              if (newProduct.trim() && !value.newProducts.includes(newProduct.trim())) {
+                onChange({ newProducts: [...value.newProducts, newProduct.trim()] });
+              }
+              setNewProduct('');
+            }}
+            disabled={!newProduct.trim()}
+            className="px-4 py-2 bg-white border border-[var(--sd-line)] rounded-xl text-sm font-medium disabled:opacity-50"
+          >
+            추가
+          </motion.button>
         </div>
       </CollapsibleSection>
 
       {/* 11. 메모 */}
-      <div className="sd-card p-5">
+      <div className="sd-card p-5 mb-6">
         <h2 className="text-lg font-bold text-[var(--sd-ink)] mb-4">메모</h2>
         <textarea
           value={value.note}
