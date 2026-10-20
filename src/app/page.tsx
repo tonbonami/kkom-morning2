@@ -7,7 +7,7 @@ import { motion, AnimatePresence, useAnimation, Reorder, useDragControls } from 
 import {
   Wind, Heart, PenLine, BookOpen, ChefHat, BookText,
   RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award, CalendarDays,
-  Library, ExternalLink, Link2, MapPin, CloudSun, Mail, LayoutGrid, GripVertical, Check, LoaderCircle,
+  Library, ExternalLink, Link2, MapPin, CloudSun, Mail, LayoutGrid, GripVertical, Check, LoaderCircle, Stethoscope,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -38,6 +38,7 @@ import LivingKkom from '@/components/LivingKkom';
 import BirthdayHero from '@/components/BirthdayHero';
 import BirthdayPrep from '@/components/BirthdayPrep';
 import { subscribeTodayStats } from '@/lib/dailyStats';
+import { kstToday as skinKstToday, medOfDay } from '@/lib/skinClient';
 import LiveHeartLayer from '@/components/LiveHeartLayer';
 import { subscribeTodayMoods, moodFromKey, moodImage, type MoodMap } from '@/lib/moods';
 import { touchPresence, subscribePresence, subscribeWatchPresence, formatPresenceRelative, isTogetherNow, type Presence } from '@/lib/presence';
@@ -80,6 +81,7 @@ const MODULES: ModuleDef[] = [
   { id: 'chat',     name: '꼼톡' },
   { id: 'air',      name: '미세먼지' },
   { id: 'weather',  name: '오늘 밖' },
+  { id: 'skin',     name: '피부 일지' },   // 꼼이에게만 보임(PIN 잠금 /skin)
   { id: 'mood',     name: '오늘의 기분' },
   { id: 'dday',     name: '함께한 지' },
   { id: 'calendar', name: '달력' },
@@ -94,7 +96,7 @@ const MODULES: ModuleDef[] = [
 ];
 // ⚠️ 2x1 이 1x1 보다 높다(핵심). 풀폭 카드 = 2x1, 짝지은 1칸 = 1x1.
 const DEFAULT_SIZE: Record<string, CardSize> = {
-  doodle: '2x1', chat: '2x1', air: '2x1', weather: '2x1', memories: '2x1',
+  doodle: '2x1', chat: '2x1', air: '2x1', weather: '2x1', memories: '2x1', skin: '2x1',
   mood: '1x1', dday: '1x1', calendar: '1x1', letter: '1x1',
   praise: '1x1', share: '1x1', wishlist: '1x1', again: '1x1', recipes: '1x1', poems: '1x1',
 };
@@ -108,7 +110,7 @@ const SIZE_CYCLE: CardSize[] = ['1x1', '2x1', '2x2'];
 const WHITE_CARDS = new Set(['chat', 'weather', 'mood', 'air', 'letter']);
 // enabledModules 저장 뒤 '나중에' 추가할 모듈 id를 여기 넣으면 기존 사용자도 기본 켬(사이담 함정 대응).
 // 지금은 첫 배포라 저장된 배치가 없음(=전부 켬) → 비워둠. 향후 카드 추가 시 그 id를 넣을 것.
-const ADDED_LATER: string[] = [];
+const ADDED_LATER: string[] = ['skin'];
 // 저장된 순서를 적용하되 그 뒤 추가된 모듈은 기본 순서상 '제자리'에 끼운다(맨 밑 밀림 방지).
 function applyModuleOrder(order: string[] | undefined): ModuleDef[] {
   if (!order?.length) return MODULES;
@@ -176,7 +178,7 @@ export default function KkomMorningHome() {
   const [draftEnabled, setDraftEnabled] = useState<Set<string>>(new Set());
   const [savingLayout, setSavingLayout] = useState(false);
   useEffect(() => {
-    if (editing) { setDraftOrder(ordered); setDraftSizes(sizes); setDraftEnabled(new Set(enabledSet)); }
+    if (editing) { setDraftOrder(ordered.filter((m) => m.id !== 'skin' || userName === '꼼이')); setDraftSizes(sizes); setDraftEnabled(new Set(enabledSet)); }
   }, [editing]); // eslint-disable-line react-hooks/exhaustive-deps
   const finishEditing = async () => {
     setSavingLayout(true);
@@ -233,6 +235,23 @@ export default function KkomMorningHome() {
   const [recipes, setRecipes] = useState<RecipeItemView[]>([]);
   // 시집 — 카드 총편수 배지 + 안읽은 새 시 숫자 배지
   const [poems, setPoems] = useState<PoemItemView[]>([]);
+  // 피부 일지 카드 한 줄(꼼이만) — PIN 쿠키가 있으면 오늘 기록 요약, 없으면 빈칸 안내
+  const [skinToday, setSkinToday] = useState('');
+  useEffect(() => {
+    if (userName !== '꼼이') return;
+    let alive = true;
+    fetch(`/api/skin/log?date=${skinKstToday()}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !j) return;
+        const l = j.log;
+        const medText: Record<string, string> = { taken: '약 먹음', late: '약 늦게', missed: '약 거름' };
+        const med = medText[medOfDay(l) ?? ''] ?? '약 기록 전';
+        setSkinToday(l ? `오늘 UAS ${l.uas ?? '-'} · ${med}` : '오늘 기록 전');
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [userName]);
   const [poemsLastSeen, setPoemsLastSeen] = useState(0);
   // 칭찬 다이어리 카드 — 오늘 partner가 칭찬 보냈는지 (스마일 배지용)
   const [praiseCount, setPraiseCount] = useState(0);   // 오늘 partner가 준 칭찬(스티커+졸랐어) 실시간 카운트
@@ -601,6 +620,7 @@ export default function KkomMorningHome() {
   const newPoemN = countNewPoems(poems, poemsLastSeen);
   const newRecipe = (() => { const now = Date.now(); const DAY = 864e5; return recipes.some((r) => r.by !== userName && (now - r.createdAt.getTime() < DAY)); })();
   const praiseUnread = praiseCount - praiseSeen;
+
 
   // 리스트 카드 한 장(사이담식): 라벨 → 최근 제목(굵게) → 개수(새 글이면 강조색). 코너 숫자뱃지 제거.
   const renderListCard = (o: {
@@ -992,6 +1012,12 @@ export default function KkomMorningHome() {
       count: recipes.length, unit: '개',
       newText: newRecipe ? '새 글' : undefined,
     }),
+    skin: renderListCard({
+      Icon: Stethoscope, name: '피부 일지', onClick: () => router.push('/skin'),
+      bg: 'var(--sd-card)', ac: 'var(--sd-rel)',
+      recent: skinToday, empty: '오늘 피부 점수 · 약 30초 기록',
+      count: 0, unit: '',
+    }),
     poems: renderListCard({
       Icon: BookText, name: '시집', onClick: () => router.push('/poems'),
       bg: 'var(--m-poems)', ac: 'var(--m-poems-ac)',
@@ -1139,7 +1165,7 @@ export default function KkomMorningHome() {
               <TodayDigest me={userName as '우댕' | '꼼이'} />
             )}
             <div className="grid grid-cols-2 gap-4 auto-rows-min">
-              {shownModules.flatMap((m) => {
+              {shownModules.filter((m) => m.id !== 'skin' || userName === '꼼이').flatMap((m) => {
                 const cell = (
                   <div key={m.id} className={SIZE_CLASS[sizes[m.id] ?? DEFAULT_SIZE[m.id] ?? '1x1']}>
                     {moduleNodes[m.id]}
