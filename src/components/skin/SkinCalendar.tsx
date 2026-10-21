@@ -1,7 +1,10 @@
 'use client';
+// 제미나이 5차(gemini-3-flash CLI): 범례를 390px 한 줄로(「늦게」·「안 적음」). 값 그대로.
+// 제미나이 4차(Aside 2차 반영, gemini-3-flash CLI): 「오늘」 버튼 · 범례 12px·「진할수록 심한 날」 · startDate 이전 날 흐리게·막음. 값 그대로.
+// 고친 것: disabled에 '' 이 들어갈 수 있어 타입 오류 → !!startDate.
 // 제미나이 시안(2026-10-21, gemini-3-flash CLI로 받음) — 7일 띠 → 주·달 달력. 값 그대로.
 // Aside 2차 고침: 루트 max-w-[390px] 때문에 컴퓨터 폭에서 달력 카드만 다른 카드보다 좁음 → 뺌.
-// SkinCalendar.tsx
+// SkinCalendar.tsx (3차 고침: 오늘 버튼 추가, 범례 개선, 시작일 이전 비활성화)
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,6 +26,7 @@ interface SkinCalendarProps {
   month: { ym: string; days: CalDay[] };
   today: string;
   selected: string;
+  startDate?: string;
   onSelect: (date: string) => void;
   onMonth: (delta: -1 | 1) => void;
   canNextMonth: boolean;
@@ -39,6 +43,7 @@ export default function SkinCalendar({
   month,
   today,
   selected,
+  startDate,
   onSelect,
   onMonth,
   canNextMonth,
@@ -49,10 +54,21 @@ export default function SkinCalendar({
   const displayTitle = `${year}년 ${parseInt(mth)}월`;
 
   const renderDayCircle = (day: CalDay, isSelected: boolean, isSmall: boolean = false) => {
+    const isBeforeStart = startDate && day.date < startDate;
     const isToday = day.date === today;
     const isAfterToday = day.date > today;
     const uasLevel = day.uas !== null ? Math.min(day.uas / 6, 1) : 0;
     const circleSize = isSmall ? 'w-8 h-8' : 'w-9 h-9';
+
+    if (isBeforeStart) {
+      return (
+        <div className={`${circleSize} flex items-center justify-center opacity-10`}>
+          <span className="text-sm text-[var(--sd-ink)]">
+            {day.date.slice(-2)}
+          </span>
+        </div>
+      );
+    }
 
     return (
       <div 
@@ -107,13 +123,23 @@ export default function SkinCalendar({
             {mode === 'week' ? <ChevronDown size={20} className="text-[var(--sd-muted)]" /> : <ChevronUp size={20} className="text-[var(--sd-muted)]" />}
           </button>
           
-          <button 
-            onClick={onOpenReport}
-            className="flex items-center gap-1 h-9 px-3 rounded-full bg-[var(--sd-surface-2)] text-[var(--sd-ink)] text-sm font-medium active:opacity-70"
-          >
-            <FileText size={16} />
-            <span>모아보기</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {selected !== today && (
+              <button 
+                onClick={() => onSelect(today)}
+                className="h-9 px-3 rounded-full bg-[var(--sd-surface-2)] text-[var(--sd-ink)] text-sm font-medium active:opacity-70"
+              >
+                오늘
+              </button>
+            )}
+            <button 
+              onClick={onOpenReport}
+              className="flex items-center gap-1 h-9 px-3 rounded-full bg-[var(--sd-surface-2)] text-[var(--sd-ink)] text-sm font-medium active:opacity-70"
+            >
+              <FileText size={16} />
+              <span>모아보기</span>
+            </button>
+          </div>
         </div>
 
         <motion.div
@@ -127,10 +153,11 @@ export default function SkinCalendar({
               {week.map((day) => {
                 const dayIdx = new Date(day.date).getDay();
                 const isSelected = day.date === selected;
+                const isDisabled = day.date > today || (!!startDate && day.date < startDate);
                 return (
                   <button
                     key={day.date}
-                    disabled={day.date > today}
+                    disabled={isDisabled}
                     onClick={() => onSelect(day.date)}
                     className="flex flex-col items-center gap-2 py-2 min-w-[44px] rounded-xl transition-colors active:scale-95"
                   >
@@ -177,10 +204,11 @@ export default function SkinCalendar({
                 {padding.map((_, i) => <div key={`p-${i}`} />)}
                 {month.days.map((day) => {
                   const isSelected = day.date === selected;
+                  const isDisabled = day.date > today || (!!startDate && day.date < startDate);
                   return (
                     <button
                       key={day.date}
-                      disabled={day.date > today}
+                      disabled={isDisabled}
                       onClick={() => onSelect(day.date)}
                       className="flex flex-col items-center gap-1 relative py-1 active:scale-90"
                     >
@@ -199,26 +227,26 @@ export default function SkinCalendar({
       </div>
 
       {/* 범례 */}
-      <div className="px-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[var(--sd-muted)] leading-tight">
+      <div className="px-2 flex flex-wrap gap-x-2 gap-y-1 text-[12px] text-[var(--sd-muted)] leading-tight">
         <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-[var(--sd-rel)] opacity-80" />
-          <span>진할수록 점수 높음</span>
+          <div className="w-2.5 h-2.5 rounded-full bg-[var(--sd-rel)] opacity-80" />
+          <span>진할수록 심한 날</span>
         </div>
         <div className="flex items-center gap-1">
-          <Check size={10} />
+          <Check size={12} />
           <span>약 먹음</span>
         </div>
         <div className="flex items-center gap-1 text-[var(--sd-crit)]">
-          <X size={10} />
+          <X size={12} />
           <span>거름</span>
         </div>
         <div className="flex items-center gap-1">
-          <Clock size={10} />
-          <span>늦게 먹음</span>
+          <Clock size={12} />
+          <span>늦게</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full border border-dashed border-[var(--sd-line)]" />
-          <span>기록 안 함</span>
+          <div className="w-3 h-3 rounded-full border-2 border-dashed border-[var(--sd-line)]" />
+          <span>안 적음</span>
         </div>
       </div>
     </div>

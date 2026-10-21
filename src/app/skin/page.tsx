@@ -265,6 +265,7 @@ export default function SkinJournalPage() {
             canNextMonth={calYm < monthOf(today)}
             loading={monthLoading}
             onOpenReport={() => { void leave('/skin/report'); }}
+            startDate={Object.keys(logs).sort()[0]}
           />
         </>
       }

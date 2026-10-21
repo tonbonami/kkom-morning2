@@ -1,4 +1,5 @@
 'use client';
+// 제미나이 4차(Aside 2차 반영, gemini-3-flash CLI): 「7일 중 n일 기록 · 빈 날은 평균으로 채운 값」 · 기록 없는 날 빈 동그라미 · 표본 2~4번이면 「아직 n번뿐」. 값 그대로.
 // 제미나이 시안 2판(2026-10-21, gemini-3-flash CLI로 받음) — 검수 반영(구간 표시·범례·n번 비교·요인 표 머리). 값 그대로.
 // 고친 것(버그만): ① 30일 기록 수로 7일 합을 보여 줄지 정해서 7일 합이 없을 때 빈 숫자·NaN 위치 → uas7이 있을 때만
 //   ② 기록 없는 날·0점 막대 높이(시안이 계산만 하고 안 씀) → 막대 값으로 씀.
@@ -36,6 +37,7 @@ export default function SkinInsightsView({
     afterMissedN: number;
     afterTakenAvg: number | null;
     afterTakenN: number;
+    uas7Days: number;
   };
   series: { date: string; uas: number | null; med: MedStatus | null }[];
   triggers: { name: string; days: number; avgUas: number }[];
@@ -104,6 +106,11 @@ export default function SkinInsightsView({
                   </span>
                 )}
               </div>
+              {summary.uas7Days < 7 && (
+                <p className="text-[10px] text-[var(--sd-muted)] -mt-4 mb-5">
+                  7일 중 {summary.uas7Days}일 기록 · 빈 날은 평균으로 채운 값
+                </p>
+              )}
               
               <div className="relative h-2.5 mt-8">
                 {/* 배경 구간 막대 */}
@@ -145,6 +152,10 @@ export default function SkinInsightsView({
                 <div className="w-2 h-2 rounded-sm bg-[color-mix(in_srgb,var(--sd-crit)_60%,transparent)]" />
                 <span className="text-[10px] text-[var(--sd-muted)]">약 거른 날</span>
               </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full border border-[var(--sd-muted)]" />
+                <span className="text-[10px] text-[var(--sd-muted)]">○ 기록 없음</span>
+              </div>
             </div>
           </div>
           
@@ -183,19 +194,18 @@ export default function SkinInsightsView({
                     return null;
                   }}
                 />
-                <Bar dataKey="bar" radius={[2, 2, 0, 0]}>
+                <Bar dataKey="bar" radius={[2, 2, 2, 2]}>
                   {series.map((entry, index) => {
-                    // 기록 없는 날(null)은 아주 작은 점, 0점은 얇은 막대
+                    // 기록 없는 날(null)은 빈 동그라미, 0점은 얇고 진한 막대
                     const isNull = entry.uas === null;
-                    const displayUas = isNull ? 0.15 : Math.max(entry.uas!, 0.15);
+                    const isZero = entry.uas === 0;
                     return (
                       <Cell 
                         key={`cell-${index}`} 
-                        fill={entry.med === 'missed' ? 'var(--sd-crit)' : 'var(--sd-ink)'} 
-                        opacity={isNull ? 0.1 : (entry.med === 'missed' ? 0.6 : 0.2)}
+                        fill={isNull ? 'transparent' : (entry.med === 'missed' ? 'var(--sd-crit)' : 'var(--sd-ink)')} 
+                        opacity={isNull ? 1 : (isZero ? 0.4 : (entry.med === 'missed' ? 0.6 : 0.2))}
                         stroke={isNull ? 'var(--sd-muted)' : 'none'}
                         strokeWidth={isNull ? 1 : 0}
-                        strokeDasharray={isNull ? "1 1" : "0"}
                       />
                     );
                   })}
@@ -214,8 +224,12 @@ export default function SkinInsightsView({
                 <p className="text-xs font-medium text-[var(--sd-faint)] my-2">더 모이면 보여요</p>
               ) : (
                 <>
-                  <p className="text-3xl font-bold text-[var(--sd-ink)] tabular-nums">{summary.afterMissedAvg?.toFixed(1)}</p>
-                  <p className="text-[9px] text-[var(--sd-muted)] mt-1">{summary.afterMissedN}번 비교</p>
+                  <p className={`${summary.afterMissedN < 5 ? 'text-2xl' : 'text-3xl'} font-bold text-[var(--sd-ink)] tabular-nums`}>{summary.afterMissedAvg?.toFixed(1)}</p>
+                  {summary.afterMissedN < 5 ? (
+                    <p className="text-[9px] text-[var(--sd-muted)] mt-1">아직 {summary.afterMissedN}번뿐 — 더 모이면 정확해져요</p>
+                  ) : (
+                    <p className="text-[9px] text-[var(--sd-muted)] mt-1">{summary.afterMissedN}번 비교</p>
+                  )}
                 </>
               )}
             </div>
@@ -225,8 +239,12 @@ export default function SkinInsightsView({
                 <p className="text-xs font-medium text-[var(--sd-faint)] my-2">더 모이면 보여요</p>
               ) : (
                 <>
-                  <p className="text-3xl font-bold text-[var(--sd-ink)] tabular-nums">{summary.afterTakenAvg?.toFixed(1)}</p>
-                  <p className="text-[9px] text-[var(--sd-muted)] mt-1">{summary.afterTakenN}번 비교</p>
+                  <p className={`${summary.afterTakenN < 5 ? 'text-2xl' : 'text-3xl'} font-bold text-[var(--sd-ink)] tabular-nums`}>{summary.afterTakenAvg?.toFixed(1)}</p>
+                  {summary.afterTakenN < 5 ? (
+                    <p className="text-[9px] text-[var(--sd-muted)] mt-1">아직 {summary.afterTakenN}번뿐 — 더 모이면 정확해져요</p>
+                  ) : (
+                    <p className="text-[9px] text-[var(--sd-muted)] mt-1">{summary.afterTakenN}번 비교</p>
+                  )}
                 </>
               )}
             </div>

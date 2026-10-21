@@ -1,8 +1,11 @@
 'use client';
+// 제미나이 5차(gemini-3-flash CLI): 약 한 줄을 두 줄로(이름·시각 / 먹음·늦게·거름) + 점수 카드 여백 — 아이폰 첫 화면에서 약 버튼이 저장 막대에 가리던 것. 값 그대로.
+// 고친 것: 약 이름 자리표시가 「약 이름」으로 줄어 있어 원래 「약 이름 (예: 항히스타민제)」로.
+// 제미나이 4차(Aside 2차 반영, gemini-3-flash CLI): 「오늘은 증상 없음」 선택 표시 · 스트레스 11칸 한 줄 · 약 버튼 42px. 값 그대로.
 // 제미나이 시안 3판(2026-10-21, gemini-3-flash CLI로 받음) — 적힌 칸만 자동 펼침 + 모두 펼치기/접기, 점수·약 첫 화면, 잠 칩, 스트레스 「안 적음」. 값 그대로.
 // (GPT 상담: 사람마다 다르게 — 꼼이는 적힌 칸만 펼침, 우댕 폰은 이 폼 대신 읽기 카드 SkinDayReport)
 // Aside 2차 고침: 지난 날을 열어도 제목이 「오늘 점수」 → isToday(이미 받는 prop)로 「그날 점수」.
-// SkinDayForm.tsx
+// 고쳐진 점: 「오늘은 증상 없음」 강조 표시, 스트레스 11칸 그리드(390px 대응), 약 버튼 높이 40px 이상 및 줄 바꿈.
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -87,9 +90,9 @@ export default function SkinDayForm({
 
   return (
     <div className="pb-32 space-y-3">
-      {/* 1. 오늘 점수 (컴팩트하게 조정) */}
-      <div className="sd-card p-4">
-        <div className="flex justify-between items-center mb-3">
+      {/* 1. 오늘 점수 (위아래 여백 축소) */}
+      <div className="sd-card px-4 py-3">
+        <div className="flex justify-between items-center mb-2.5">
           <h2 className="text-base font-bold text-[var(--sd-ink)]">{isToday ? '오늘 점수' : '그날 점수'}</h2>
           <span className="text-lg font-bold text-[var(--sd-rel)]">
             {isUasEmpty ? '-' : `${uasScore} / 6`}
@@ -105,7 +108,7 @@ export default function SkinDayForm({
                   key={`wheal-${score}`}
                   whileTap={{ scale: 0.96 }}
                   onClick={() => onChange({ wheals: score })}
-                  className={`flex-1 py-1.5 text-xs rounded-xl border ${
+                  className={`flex-1 py-1.5 text-xs rounded-xl border transition-colors ${
                     value.wheals === score
                       ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]'
                       : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'
@@ -124,7 +127,7 @@ export default function SkinDayForm({
                   key={`itch-${score}`}
                   whileTap={{ scale: 0.96 }}
                   onClick={() => onChange({ itch: score })}
-                  className={`flex-1 py-1.5 text-xs rounded-xl border ${
+                  className={`flex-1 py-1.5 text-xs rounded-xl border transition-colors ${
                     value.itch === score
                       ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]'
                       : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'
@@ -138,20 +141,26 @@ export default function SkinDayForm({
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => onChange({ wheals: 0, itch: 0 })}
-            className="w-full py-2.5 rounded-xl bg-[var(--sd-surface-2)] text-[var(--sd-ink)] text-xs font-medium"
+            className={`w-full py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
+              value.wheals === 0 && value.itch === 0
+                ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)]'
+                : 'bg-[var(--sd-surface-2)] text-[var(--sd-ink)]'
+            }`}
           >
+            {value.wheals === 0 && value.itch === 0 && <Check size={14} />}
             오늘은 증상 없음
           </motion.button>
         </div>
       </div>
 
-      {/* 2. 약 (컴팩트하게 조정) */}
+      {/* 2. 약 (2줄 구조로 변경하여 저장 바 간섭 해결) */}
       <div className="sd-card p-4">
         <h2 className="text-base font-bold text-[var(--sd-ink)] mb-3">약</h2>
         <div className="space-y-2">
           {value.meds.map((med, idx) => (
-            <div key={idx} className="flex flex-col gap-1.5 p-3 bg-[var(--sd-surface-2)] rounded-xl border border-[var(--sd-line)]">
-              <div className="flex items-center justify-between">
+            <div key={idx} className="flex flex-col gap-2.5 p-3 bg-[var(--sd-surface-2)] rounded-xl border border-[var(--sd-line)]">
+              {/* 윗줄: 이름(왼쪽) + 시각(오른쪽) + 삭제 */}
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   placeholder="약 이름 (예: 항히스타민제)"
@@ -162,14 +171,6 @@ export default function SkinDayForm({
                   }}
                   className="bg-transparent border-none text-sm outline-none text-[var(--sd-ink)] flex-1 font-medium min-w-0"
                 />
-                <button
-                  onClick={() => onChange({ meds: value.meds.filter((_, i) => i !== idx) })}
-                  className="p-1 text-[var(--sd-muted)] hover:text-[var(--sd-crit)]"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
                 <input
                   type="time"
                   value={med.time || ''}
@@ -177,27 +178,34 @@ export default function SkinDayForm({
                     const next = value.meds.map((m, i) => i === idx ? { ...m, time: e.target.value } : m);
                     onChange({ meds: next });
                   }}
-                  className="bg-[var(--sd-card-solid)] rounded-lg px-2 py-1 text-xs border border-[var(--sd-line)] text-[var(--sd-ink)]"
+                  className="bg-[var(--sd-card-solid)] rounded-lg px-2 py-1 text-[11px] border border-[var(--sd-line)] text-[var(--sd-ink)] w-[78px]"
                 />
-                <div className="flex flex-1 gap-1">
-                  {(['taken', 'late', 'missed'] as const).map((status) => (
-                    <motion.button
-                      key={status}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        const next = value.meds.map((m, i) => i === idx ? { ...m, status } : m);
-                        onChange({ meds: next });
-                      }}
-                      className={`flex-1 py-1 text-[10px] rounded-lg border ${
-                        med.status === status
-                          ? status === 'missed' ? 'bg-[var(--sd-crit)] text-[var(--sd-card-solid)] border-[var(--sd-crit)]' : 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]'
-                          : 'bg-[var(--sd-card-solid)] text-[var(--sd-muted)] border-[var(--sd-line)]'
-                      }`}
-                    >
-                      {status === 'taken' ? '먹음' : status === 'late' ? '늦게' : '거름'}
-                    </motion.button>
-                  ))}
-                </div>
+                <button
+                  onClick={() => onChange({ meds: value.meds.filter((_, i) => i !== idx) })}
+                  className="p-1 text-[var(--sd-muted)] hover:text-[var(--sd-crit)]"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              {/* 아랫줄: 상태 버튼 3개 */}
+              <div className="flex gap-1.5">
+                {(['taken', 'late', 'missed'] as const).map((status) => (
+                  <motion.button
+                    key={status}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      const next = value.meds.map((m, i) => i === idx ? { ...m, status } : m);
+                      onChange({ meds: next });
+                    }}
+                    className={`flex-1 h-[40px] text-[13px] rounded-xl border font-medium transition-colors ${
+                      med.status === status
+                        ? status === 'missed' ? 'bg-[var(--sd-crit)] text-[var(--sd-card-solid)] border-[var(--sd-crit)]' : 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]'
+                        : 'bg-[var(--sd-card-solid)] text-[var(--sd-muted)] border-[var(--sd-line)]'
+                    }`}
+                  >
+                    {status === 'taken' ? '먹음' : status === 'late' ? '늦게' : '거름'}
+                  </motion.button>
+                ))}
               </div>
             </div>
           ))}
@@ -496,7 +504,7 @@ export default function SkinDayForm({
                   const next = value.foods.map((f, i) => i === idx ? { ...f, text: e.target.value } : f);
                   onChange({ foods: next });
                 }}
-                className="flex-1 bg-[var(--sd-surface-2)] border border-[var(--sd-line)] rounded-lg px-3 py-2 text-sm outline-none text-[var(--sd-ink)]"
+                className="flex-1 bg-[var(--sd-surface-2)] border border border-[var(--sd-line)] rounded-lg px-3 py-2 text-sm outline-none text-[var(--sd-ink)]"
               />
               <button
                 onClick={() => onChange({ foods: value.foods.filter((_, i) => i !== idx) })}
@@ -604,12 +612,12 @@ export default function SkinDayForm({
               <span>스트레스</span>
               <span className="text-[var(--sd-rel)] font-bold">{value.stress !== null ? value.stress : '안 적음'}</span>
             </div>
-            <div className="flex flex-wrap gap-1 justify-between mb-2">
+            <div className="grid grid-cols-11 gap-1 mb-2">
               {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(s => (
                 <button
                   key={s}
                   onClick={() => onChange({ stress: s })}
-                  className={`w-7 h-7 text-[10px] rounded-full border flex items-center justify-center ${value.stress === s ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]' : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'}`}
+                  className={`aspect-square text-[10px] rounded-full border flex items-center justify-center transition-colors ${value.stress === s ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]' : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'}`}
                 >
                   {s}
                 </button>
