@@ -55,7 +55,7 @@ function rules(date: string): string {
 일지 반영 후보 proposals — 아주 엄격하게
 - 꼼이가 직접 말한 「있었던 사실」만. Claude의 제안·일반 설명·가정은 절대 후보가 아니다. 예: Claude가 「3알 드셔 보세요」→ 후보 아님. 꼼이가 「오늘 밤 3알 먹었어」→ 후보.
 - 날짜: 「오늘」= ${date}, 「어제」= ${addDaysIso(date, -1)}, 날짜를 말했으면 그날. 애매하면 null.
-- 아래 「이미 일지에 적힌 것」과 같은 값이면 빼라.
+- 아래 「이미 일지에 적힌 것」(최근 7일)에 이미 들어 있는 내용이면 빼라 — 메모에 같은 뜻으로 적혀 있어도 뺀다(꼼이가 상담 뒤 손으로 먼저 적어 두는 날이 있다).
 - field별 값 슬롯(나머지 슬롯은 null, list는 빈 배열):
   wheals·itch(0~3 정수: 0 없음 1 약간 2 보통 3 심함), sleepH(시간), waterMl(ml), stress(0~10), cycleDay(생리 며칠째) → num
   wakeItch(가려워서 깸), period(생리 중) → bool
@@ -106,10 +106,13 @@ export async function POST(req: NextRequest) {
   const db = adminDb()!;
   const msgs = await dayMessages(db, date);
   if (!msgs.length) return NextResponse.json({ error: 'no_messages' }, { status: 400 });
-  const [today, yesterday, mem] = await Promise.all([
-    db.doc(skinLogPath(date)).get(), db.doc(skinLogPath(addDaysIso(date, -1))).get(), db.doc(`skin/${SKIN_OWNER}/chat/memory`).get(),
+  // 이미 일지에 적힌 것: 그날 포함 7일 — 상담에서 며칠 전 일(「그저께 두통으로 약 안 먹음」)도 말하고,
+  // 꼼이가 상담 뒤 손으로 먼저 적어 둔 경우가 있어서(2026-10-21) 같은 내용을 다시 후보로 내지 않게
+  const [weekLogs, mem] = await Promise.all([
+    Promise.all(Array.from({ length: 7 }, (_, i) => db.doc(skinLogPath(addDaysIso(date, i - 6))).get())),
+    db.doc(`skin/${SKIN_OWNER}/chat/memory`).get(),
   ]);
-  const logs = [yesterday, today].filter((s) => s.exists).map((s) => s.data() as SkinLog);
+  const logs = weekLogs.filter((s) => s.exists).map((s) => s.data() as SkinLog);
   const memory = (mem.data()?.items ?? []) as MemoryItem[];
 
   const input = [

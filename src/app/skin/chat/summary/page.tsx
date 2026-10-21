@@ -114,7 +114,7 @@ export default function SkinChatSummaryPage() {
       if (!s.authed) { router.replace('/skin'); return; }
       const ro = s.role !== 'kkomi';
       setReadOnly(ro);
-      const [got, list] = await Promise.all([fetchChatSummary(d), fetchSkinLogs(addDays(d, -2), d)]);
+      const [got, list] = await Promise.all([fetchChatSummary(d), fetchSkinLogs(addDays(d, -6), d)]);
       setLogs(Object.fromEntries((list ?? []).map((l) => [l.date, l])));
       // 반영한 뒤에 상담을 더 했으면 새로 정리(일지에 이미 들어간 값은 Claude가 빼고 뽑는다)
       const stale = got?.summary?.status === 'applied' && (got.msgCount ?? 0) > got.summary.msgCount;
