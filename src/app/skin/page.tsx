@@ -249,7 +249,7 @@ export default function SkinJournalPage() {
   return (
     <SkinScreen>
     <SkinJournalView
-      header={{ onBack: () => { void leave('/'); }, onOpenInsights: () => { void leave('/skin/insights'); } }}
+      header={{ onBack: () => { void leave('/'); }, onOpenInsights: () => { void leave('/skin/insights'); }, onOpenChat: () => { void leave('/skin/chat'); } }}
       formTitle={readOnly ? '꼼이가 적은 기록' : undefined}
       week={
         <>

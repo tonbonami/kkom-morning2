@@ -11,6 +11,7 @@ export const skinLogPath = (date: string) => `skin/${SKIN_OWNER}/logs/${date}`;
 export const SKIN_SETTINGS_PATH = `skin/${SKIN_OWNER}/meta/settings`; // { partnerAlert: boolean } — 꼼이가 켜고 끔
 export const SKIN_CYCLE_PATH = `skin/${SKIN_OWNER}/meta/cycle`;       // { starts: ['YYYY-MM-DD', …] } 생리 시작일
 export const SKIN_INTAKE_PATH = `skin/${SKIN_OWNER}/survey/intake`;   // { answers: { '4.1': … } }
+export const SKIN_START = '2026-05-01'; // 꼼이 증상 시작(5월) — 「전체」 기간과 상담 맥락의 시작
 // 백업(우댕 2026-10-21 "기록이 절대 날아가면 안 된다")
 export const SKIN_BACKUP_META = `skin/${SKIN_OWNER}/meta/backup`;      // 매일 백업 결과 { lastAt, lastFile, mailedAt, … }
 export const SKIN_PHOTO_TRASH = `skin/${SKIN_OWNER}/meta/photoTrash`;  // 지운 사진 { items: [{ date, id, path, t, removedAt }] } — 파일은 휴지통으로 옮길 뿐 안 지운다

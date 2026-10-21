@@ -8,7 +8,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { FieldValue, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
 import { requireReader, requireWriter } from '@/lib/skinAuth';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { SKIN_OWNER, type SkinLog } from '@/lib/skinTypes';
+import { SKIN_OWNER, SKIN_START, type SkinLog } from '@/lib/skinTypes';
+import { INTAKE_SECTIONS } from '@/lib/skinIntake';
 import { skinStats, medOf } from '@/lib/skinStats';
 
 export const dynamic = 'force-dynamic';
@@ -33,6 +34,7 @@ const RULES = `너는 Anthropic이 만든 AI인 Claude다. 꼼모닝(커플 앱)
 
 하는 일
 - 아래 「꼼이 기록」을 근거로 날짜를 짚어 가며 패턴을 같이 살핀다(예: 약을 거른 다음날, 특정 음식·더위·운동 뒤).
+- 「꼼이 기록」에는 첫 기록부터 오늘까지 꼼이가 적은 일지가 전부 붙어 있다(달마다 요약 + 날짜별 전체). 「지금까지」「처음부터」를 물으면 전체 기간을, 따로 말이 없으면 최근을 중심으로 본다.
 - 생활에서 해 볼 수 있는 것, 다음에 더 적어 두면 좋을 것, 병원에 가져갈 질문을 정리해 준다.
 - 기록이 적거나 비어 있으면 그렇다고 말한다. 기록에 있는 사실과 너의 추측을 구분해서 말한다. 숫자는 기록에 있는 것만 쓴다.
 
@@ -73,16 +75,41 @@ function dayLine(l: SkinLog): string {
   return parts.join(' | ');
 }
 
+// 설문 답을 「섹션 / 문항: 답」으로(문항 id만 보내면 Claude가 무슨 질문인지 모름)
+function intakeText(data: Record<string, unknown> | undefined): string {
+  const answers = (data?.answers ?? {}) as Record<string, unknown>;
+  const lines: string[] = [];
+  for (const sec of INTAKE_SECTIONS) {
+    for (const q of sec.qs) {
+      const a = answers[q.id];
+      if (a == null || a === '' || (Array.isArray(a) && !a.length)) continue;
+      lines.push(`- [${sec.title}] ${q.q}: ${Array.isArray(a) ? a.join(', ') : String(a)}`);
+    }
+  }
+  return lines.length ? lines.join('\n') : '아직 답 없음';
+}
+
+// 달마다 요약 — 몇 달 치를 한눈에(날짜별 전체는 아래에)
+function monthLines(logs: SkinLog[]): string[] {
+  const by = new Map<string, SkinLog[]>();
+  for (const l of logs) by.set(l.date.slice(0, 7), [...(by.get(l.date.slice(0, 7)) ?? []), l]);
+  return [...by.entries()].map(([m, ls]) => {
+    const scored = ls.filter((l) => l.uas != null);
+    const avg = scored.length ? (scored.reduce((a, l) => a + (l.uas ?? 0), 0) / scored.length).toFixed(1) : '모름';
+    return `- ${m}: 적은 날 ${ls.length}일, 평균 UAS ${avg}, 4점 이상 ${scored.filter((l) => (l.uas ?? 0) >= 4).length}일, 약 거른 날 ${ls.filter((l) => medOf(l) === 'missed').length}일, 붓기 ${ls.filter((l) => l.angioedema?.present).length}일`;
+  });
+}
+
+// 우댕 2026-10-21: "여태까지 피부 상태 입력한 걸 첨부해서" → 최근 30일이 아니라 첫 기록부터 전부(맥락 블록은 캐시라 다시 읽을 땐 싸다)
 async function buildContext(db: FirebaseFirestore.Firestore, today: string): Promise<string> {
   const [qs, onset, supp, intake] = await Promise.all([
-    db.collection(`skin/${SKIN_OWNER}/logs`).where('date', '>=', addDays(today, -36)).where('date', '<=', today).orderBy('date').get(),
+    db.collection(`skin/${SKIN_OWNER}/logs`).where('date', '>=', SKIN_START).where('date', '<=', today).orderBy('date').get(),
     db.doc(`skin/${SKIN_OWNER}/history/onset`).get(),
     db.doc(`skin/${SKIN_OWNER}/history/supplements`).get(),
     db.doc(`skin/${SKIN_OWNER}/survey/intake`).get(),
   ]);
   const logs = qs.docs.map((d) => d.data() as SkinLog);
   const { summary, triggers } = skinStats(logs, today);
-  const recent = logs.filter((l) => l.date >= addDays(today, -29));
   const strip = (o: Record<string, unknown> | undefined) => {
     if (!o) return '없음';
     const { updatedAt, importedAt, ...rest } = o as Record<string, unknown>;
@@ -92,14 +119,19 @@ async function buildContext(db: FirebaseFirestore.Firestore, today: string): Pro
   return [
     `# 꼼이 기록 (오늘 ${today}, 한국 시간)`,
     '',
-    '## 요약 (최근 30일, 앱이 계산)',
+    `## 전체 기간: ${logs[0]?.date ?? '없음'} ~ ${logs[logs.length - 1]?.date ?? '없음'}, 적은 날 ${logs.length}일`,
+    '',
+    '## 달마다 요약',
+    logs.length ? monthLines(logs).join('\n') : '아직 없음',
+    '',
+    '## 최근 30일 요약 (앱이 계산)',
     `- 점수 적은 날 ${summary.daysLogged}/30일, 약 거른 날 ${summary.medMissedDays}일`,
-    `- 최근 7일 UAS7 ${summary.uas7 ?? '모름(4일 미만 기록)'}, 그 전 7일 ${summary.uas7Prev ?? '모름'}`,
-    `- 약 거른 다음날 평균 UAS ${summary.afterMissedAvg?.toFixed(1) ?? '모름'}, 먹은 다음날 ${summary.afterTakenAvg?.toFixed(1) ?? '모름'}`,
+    `- 최근 7일 UAS7 ${summary.uas7 ?? '모름(4일 미만 기록)'}${summary.uas7 != null && summary.uas7Days < 7 ? ` (7일 중 ${summary.uas7Days}일 기록, 빈 날은 평균으로 채운 값)` : ''}, 그 전 7일 ${summary.uas7Prev ?? '모름'}`,
+    `- 약 거른 다음날 평균 UAS ${summary.afterMissedAvg?.toFixed(1) ?? '모름'}(${summary.afterMissedN}번), 먹은 다음날 ${summary.afterTakenAvg?.toFixed(1) ?? '모름'}(${summary.afterTakenN}번)`,
     `- 자주 적은 의심 요인: ${triggers.map((t) => `${t.name}(${t.days}일, 그날 평균 UAS ${t.avgUas.toFixed(1)})`).join(', ') || '없음'}`,
     '',
-    '## 날짜별 일지 (오래된 날 → 최근)',
-    recent.length ? recent.map(dayLine).join('\n') : '아직 없음',
+    '## 날짜별 일지 전체 (처음 → 오늘)',
+    logs.length ? logs.map(dayLine).join('\n') : '아직 없음',
     '',
     '## 발병 경과',
     strip(onset.data()),
@@ -107,8 +139,8 @@ async function buildContext(db: FirebaseFirestore.Firestore, today: string): Pro
     '## 영양제',
     strip(supp.data()),
     '',
-    '## 초진 설문 답 (문항 번호: 답 — 문항 문구는 아직 없음)',
-    strip(intake.data()),
+    '## 초진 설문 답',
+    intakeText(intake.data()),
   ].join('\n');
 }
 

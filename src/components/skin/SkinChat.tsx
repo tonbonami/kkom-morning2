@@ -1,9 +1,10 @@
-// 제미나이 시안(2026-10-21, 우댕 전달) — 값 그대로.
-// Aside 검수 고침(2026-10-21): 119 띠 배경이 글자색과 같아 글자가 안 보였다(bg-opacity가 CSS 변수 색엔 안 먹음) → color-mix로 옅게, 글자 12px.
-// SkinChat.tsx
-import React, { useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Send } from 'lucide-react';
+'use client';
+// 제미나이 6차(gemini-3-flash CLI): 우댕 폰(readOnly) — 입력 막대 대신 「보기 전용」 한 줄 + Claude 사용량 카드(오늘·이번 달·지금까지, 접기). 꼼이 폰은 그대로. 값 그대로.
+// 고친 것: 원 금액에 천 단위 쉼표(₩1650 → ₩1,650).
+
+import React, { useRef, useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Send, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function SkinChat({
   messages,
@@ -12,6 +13,8 @@ export default function SkinChat({
   sending,
   onBack,
   suggestions,
+  readOnly = false,
+  usage = null,
 }: {
   messages: { id: string; role: 'user' | 'assistant'; text: string; at: string }[];
   streamingText: string | null;
@@ -19,8 +22,16 @@ export default function SkinChat({
   sending: boolean;
   onBack: () => void;
   suggestions: string[];
+  readOnly?: boolean;
+  usage?: {
+    today: { count: number; won: number };
+    month: { count: number; won: number };
+    total: { count: number; won: number };
+    limit: number;
+  } | null;
 }) {
-  const [input, setInput] = React.useState('');
+  const [input, setInput] = useState('');
+  const [isUsageExpanded, setIsUsageExpanded] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,16 +39,20 @@ export default function SkinChat({
   }, [messages, streamingText]);
 
   const handleSend = () => {
-    if (!input.trim() || sending) return;
+    if (!input.trim() || sending || readOnly) return;
     onSend(input.trim());
     setInput('');
   };
 
+  const LoadingPulse = () => (
+    <span className="inline-block w-8 h-3 bg-[var(--sd-line)] animate-pulse rounded-sm align-middle" />
+  );
+
   return (
     <div className="min-h-screen bg-[var(--sd-surface-2)] flex flex-col max-w-md mx-auto text-[var(--sd-ink)] relative">
       {/* 헤더 */}
-      <div className="flex items-center justify-between p-4 bg-white border-b border-[var(--sd-line)] z-10 sticky top-0">
-        <button onClick={onBack} className="p-2 -ml-2">
+      <div className="flex items-center justify-between p-4 bg-[var(--sd-card-solid)] border-b border-[var(--sd-line)] z-10 sticky top-0">
+        <button onClick={onBack} className="p-2 -ml-2" aria-label="뒤로 가기">
           <ArrowLeft size={24} />
         </button>
         <div className="flex flex-col items-center">
@@ -54,42 +69,123 @@ export default function SkinChat({
         진단이 아니라 기록을 같이 보는 대화예요 · 입술·혀·목이 붓거나 숨이 차면 119
       </div>
 
-      {/* 대화 영역 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-24">
-        {messages.length === 0 && !streamingText && (
-          <div className="flex flex-col items-center justify-center h-full space-y-3 mt-10">
-            <p className="text-sm text-[var(--sd-muted)] mb-4">어떤 것이 궁금한가요?</p>
-            {suggestions.map((sug, i) => (
-              <motion.button
-                key={i}
-                whileTap={{ scale: 0.96 }}
-                onClick={() => onSend(sug)}
-                className="bg-white border border-[var(--sd-line)] px-4 py-2 rounded-full text-sm shadow-sm"
+      {/* Claude 사용량 카드 (우댕 폰 / readOnly일 때만) */}
+      {readOnly && (
+        <div className="px-4 pt-3 pb-1">
+          <div className="sd-card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-bold text-[var(--sd-muted)]">Claude 사용량</span>
+              <button 
+                onClick={() => setIsUsageExpanded(!isUsageExpanded)}
+                className="text-[10px] text-[var(--sd-rel)] flex items-center gap-0.5"
               >
-                {sug}
-              </motion.button>
-            ))}
+                {isUsageExpanded ? (
+                  <>접기 <ChevronUp size={12} /></>
+                ) : (
+                  <>자세히 <ChevronDown size={12} /></>
+                )}
+              </button>
+            </div>
+
+            <AnimatePresence initial={false}>
+              {isUsageExpanded ? (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-center">
+                      <div className="text-[16px] font-bold mb-0.5">
+                        {usage ? `${usage.today.count}번` : <LoadingPulse />}
+                      </div>
+                      <div className="text-[10px] text-[var(--sd-muted)]">오늘</div>
+                      <div className="text-[10px] text-[var(--sd-faint)]">
+                        {usage ? `약 ₩${usage.today.won.toLocaleString('ko-KR')}` : <LoadingPulse />}
+                      </div>
+                    </div>
+                    <div className="text-center border-x border-[var(--sd-line)]">
+                      <div className="text-[16px] font-bold mb-0.5">
+                        {usage ? `${usage.month.count}번` : <LoadingPulse />}
+                      </div>
+                      <div className="text-[10px] text-[var(--sd-muted)]">이번 달</div>
+                      <div className="text-[10px] text-[var(--sd-faint)]">
+                        {usage ? `약 ₩${usage.month.won.toLocaleString('ko-KR')}` : <LoadingPulse />}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-[16px] font-bold mb-0.5">
+                        {usage ? `${usage.total.count}번` : <LoadingPulse />}
+                      </div>
+                      <div className="text-[10px] text-[var(--sd-muted)]">지금까지</div>
+                      <div className="text-[10px] text-[var(--sd-faint)]">
+                        {usage ? `약 ₩${usage.total.won.toLocaleString('ko-KR')}` : <LoadingPulse />}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[9px] text-[var(--sd-faint)] text-center mt-4">
+                    토큰 수로 어림한 값이에요 · 하루 상한 {usage?.limit ?? 60}번
+                  </p>
+                </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center py-1"
+                >
+                  <p className="text-[13px] font-medium text-[var(--sd-ink)]">
+                    이번 달 {usage ? `${usage.month.count}번` : '...'} · 약 {usage ? `₩${usage.month.won.toLocaleString('ko-KR')}` : '...'}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
+
+      {/* 대화 영역 */}
+      <div className={`flex-1 overflow-y-auto p-4 space-y-6 ${readOnly ? 'pb-20' : 'pb-24'}`}>
+        {messages.length === 0 && !streamingText && (
+          <div className="flex flex-col items-center justify-center min-h-[300px] space-y-4">
+            {readOnly ? (
+              <p className="text-[14px] text-[var(--sd-muted)]">아직 꼼이가 상담한 내용이 없어요</p>
+            ) : (
+              <>
+                <p className="text-sm text-[var(--sd-muted)] mb-2">어떤 것이 궁금한가요?</p>
+                {suggestions.map((sug, i) => (
+                  <motion.button
+                    key={i}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => onSend(sug)}
+                    className="bg-[var(--sd-card-solid)] border border-[var(--sd-line)] px-5 py-2.5 rounded-full text-[14px] shadow-sm"
+                  >
+                    {sug}
+                  </motion.button>
+                ))}
+              </>
+            )}
           </div>
         )}
 
         {messages.map((msg) => (
           <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
             <div
-              className={`max-w-[85%] p-4 rounded-2xl whitespace-pre-wrap text-[15px] leading-relaxed ${
+              className={`max-w-[85%] p-4 rounded-2xl whitespace-pre-wrap text-[15px] leading-relaxed shadow-sm ${
                 msg.role === 'user'
                   ? 'bg-[var(--sd-rel-soft)] text-[var(--sd-ink)] rounded-tr-sm'
-                  : 'bg-white border border-[var(--sd-line)] rounded-tl-sm'
+                  : 'bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-tl-sm'
               }`}
             >
               {msg.text}
             </div>
-            <span className="text-[10px] text-[var(--sd-muted)] mt-1 px-1">{msg.at}</span>
+            <span className="text-[10px] text-[var(--sd-muted)] mt-1.5 px-1">{msg.at}</span>
           </div>
         ))}
 
         {streamingText && (
           <div className="flex flex-col items-start">
-            <div className="max-w-[85%] p-4 rounded-2xl bg-white border border-[var(--sd-line)] rounded-tl-sm whitespace-pre-wrap text-[15px] leading-relaxed">
+            <div className="max-w-[85%] p-4 rounded-2xl bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-tl-sm shadow-sm whitespace-pre-wrap text-[15px] leading-relaxed">
               {streamingText}
               <span className="inline-block w-1.5 h-4 ml-1 bg-[var(--sd-muted)] animate-pulse align-middle" />
             </div>
@@ -98,28 +194,34 @@ export default function SkinChat({
         <div ref={endRef} />
       </div>
 
-      {/* 입력 영역 */}
-      <div className="p-3 bg-white border-t border-[var(--sd-line)] fixed bottom-0 left-0 right-0 max-w-md mx-auto">
-        <div className="flex items-end bg-[var(--sd-surface-2)] rounded-[24px] p-2 pl-4">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="증상이나 궁금한 점을 물어보세요"
-            className="flex-1 bg-transparent border-none outline-none resize-none max-h-24 py-2 text-[15px]"
-            rows={input.split('\n').length > 4 ? 4 : input.split('\n').length || 1}
-          />
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={handleSend}
-            disabled={!input.trim() || sending}
-            className={`p-2.5 rounded-full ml-2 flex-shrink-0 ${
-              input.trim() && !sending ? 'bg-[var(--sd-rel)] text-white' : 'bg-[var(--sd-line)] text-[var(--sd-muted)]'
-            }`}
-          >
-            <Send size={18} className="ml-0.5" />
-          </motion.button>
+      {/* 하단 입력바 또는 안내문 */}
+      {readOnly ? (
+        <div className="bg-[var(--sd-surface-2)] border-t border-[var(--sd-line)] fixed bottom-0 left-0 right-0 max-w-md mx-auto py-4 px-4 text-center z-10">
+          <p className="text-[12px] text-[var(--sd-faint)] font-medium">보기 전용이에요 — 상담은 꼼이만 해요</p>
         </div>
-      </div>
+      ) : (
+        <div className="p-3 bg-[var(--sd-card-solid)] border-t border-[var(--sd-line)] fixed bottom-0 left-0 right-0 max-w-md mx-auto z-10">
+          <div className="flex items-end bg-[var(--sd-surface-2)] rounded-[24px] p-2 pl-4">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="증상이나 궁금한 점을 물어보세요"
+              className="flex-1 bg-transparent border-none outline-none resize-none max-h-24 py-2 text-[15px]"
+              rows={input.split('\n').length > 4 ? 4 : input.split('\n').length || 1}
+            />
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={handleSend}
+              disabled={!input.trim() || sending}
+              className={`p-2.5 rounded-full ml-2 flex-shrink-0 transition-colors ${
+                input.trim() && !sending ? 'bg-[var(--sd-rel)] text-white' : 'bg-[var(--sd-line)] text-[var(--sd-muted)]'
+              }`}
+            >
+              <Send size={18} className="ml-0.5" />
+            </motion.button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

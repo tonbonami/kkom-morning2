@@ -1,8 +1,8 @@
-// 제미나이 시안(2026-10-21, 우댕 전달) — 값 그대로.
-// 배선 하나: 폼 위 제목을 바꿀 수 있게 formTitle(기본 「기록하기」) — 우댕 폰은 읽기 카드라 「꼼이가 적은 기록」.
-// SkinJournalView.tsx
+'use client';
+// 제미나이 6차(gemini-3-flash CLI): 머리 줄 「분석」 옆 「상담」 버튼(header.onOpenChat) — 상담이 분석 맨 아래에만 있어 세 번 눌러야 갔다. 값 그대로.
+
 import React from 'react';
-import { ArrowLeft, LineChart } from 'lucide-react';
+import { ArrowLeft, LineChart, MessageCircle } from 'lucide-react';
 
 export default function SkinJournalView({
   header,
@@ -10,7 +10,11 @@ export default function SkinJournalView({
   form,
   formTitle = '기록하기',
 }: {
-  header: { onBack: () => void; onOpenInsights: () => void };
+  header: { 
+    onBack: () => void; 
+    onOpenInsights: () => void; 
+    onOpenChat: () => void;
+  };
   week: React.ReactNode;
   form: React.ReactNode;
   formTitle?: string;
@@ -19,14 +23,20 @@ export default function SkinJournalView({
     <div className="min-h-screen bg-[var(--sd-surface-2)] text-[var(--sd-ink)] max-w-md mx-auto relative flex flex-col">
       {/* 헤더 */}
       <div className="flex items-center justify-between p-4 sticky top-0 bg-white/80 backdrop-blur-md z-20">
-        <button onClick={header.onBack} className="p-2 -ml-2 text-[var(--sd-ink)]">
+        <button onClick={header.onBack} className="p-2 -ml-2 text-[var(--sd-ink)]" aria-label="뒤로 가기">
           <ArrowLeft size={24} />
         </button>
-        <h1 className="text-lg font-bold">꼼이 피부 일지</h1>
-        <button onClick={header.onOpenInsights} className="p-2 -mr-2 text-[var(--sd-rel)] flex items-center gap-1">
-          <LineChart size={20} />
-          <span className="text-sm font-bold">분석</span>
-        </button>
+        <h1 className="text-lg font-bold truncate">꼼이 피부 일지</h1>
+        <div className="flex items-center -mr-2">
+          <button onClick={header.onOpenInsights} className="p-2 text-[var(--sd-rel)] flex items-center gap-1">
+            <LineChart size={20} />
+            <span className="text-sm font-bold">분석</span>
+          </button>
+          <button onClick={header.onOpenChat} className="p-2 text-[var(--sd-rel)] flex items-center gap-1">
+            <MessageCircle size={20} />
+            <span className="text-sm font-bold">상담</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pt-2">

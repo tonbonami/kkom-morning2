@@ -164,7 +164,7 @@ export async function saveIntakeAnswer(id: string, value: string | string[] | nu
 }
 
 // ── 모아보기·달력(우댕 2026-10-21: 한 달 넘게 쌓이면 7일 띠로는 못 본다)
-export const SKIN_START = '2026-05-01'; // 꼼이 증상 시작(5월) — 「전체」의 시작
+export { SKIN_START } from './skinTypes';
 export const monthOf = (date: string) => date.slice(0, 7);
 export const addMonths = (ym: string, n: number) => {
   const d = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1 + n, 1));
@@ -218,4 +218,14 @@ export function reportSummary(days: ReportDay[]) {
     angioedemaDays: logged.filter((d) => d.angioedema?.present).length,
     topTriggers: [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, n]) => ({ name, days: n })),
   };
+}
+
+// ── Claude 상담 사용량(우댕 폰 상담 화면에서 봄)
+export type SkinUsage = {
+  today: { count: number; won: number }; month: { count: number; won: number }; total: { count: number; won: number }; limit: number;
+};
+export async function fetchSkinUsage(): Promise<SkinUsage | null> {
+  if (isPractice()) return { today: { count: 3, won: 120 }, month: { count: 41, won: 1650 }, total: { count: 41, won: 1650 }, limit: 60 }; // 연습 모드 예시
+  const r = await fetch('/api/skin/usage', { cache: 'no-store' });
+  return r.ok ? ((await r.json()) as SkinUsage) : null;
 }

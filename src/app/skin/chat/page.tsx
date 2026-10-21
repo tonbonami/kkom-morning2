@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SkinChat from '@/components/skin/SkinChat';
 import SkinScreen from '@/components/skin/SkinScreen';
-import { skinSession } from '@/lib/skinClient';
+import { fetchSkinUsage, skinSession, type SkinUsage } from '@/lib/skinClient';
 import { isPractice } from '@/lib/practice';
 import { demo } from '@/lib/skinDemo';
 
 type Msg = { id: string; role: 'user' | 'assistant'; text: string; at: string };
 
 const SUGGESTIONS = [
+  '지금까지 기록 전체를 보고 정리해 줘',
   '요즘 기록 보면 뭐가 의심돼?',
   '약 거른 다음날 왜 더 심해질까?',
   '병원 갈 때 뭘 물어보면 좋을까?',
@@ -27,7 +28,15 @@ export default function SkinChatPage() {
   const [sending, setSending] = useState(false);
   const busy = useRef(false);
   const [readOnly, setReadOnly] = useState(true);
-  useEffect(() => { skinSession().then((s) => setReadOnly(s.role !== 'kkomi')).catch(() => {}); }, []);
+  // 우댕 폰(보기 전용)은 꼼이 상담을 읽기만 하고, 위에 Claude 사용량(비용) 카드
+  const [usage, setUsage] = useState<SkinUsage | null>(null);
+  useEffect(() => {
+    skinSession().then((s) => {
+      const ro = s.role !== 'kkomi';
+      setReadOnly(ro);
+      if (ro) fetchSkinUsage().then(setUsage).catch(() => {});
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (isPractice()) return; // 연습 모드: 저장된 대화 안 불러옴
@@ -88,8 +97,10 @@ export default function SkinChatPage() {
       streamingText={streamingText}
       onSend={onSend}
       sending={sending}
-      onBack={() => router.push('/skin/insights')}
+      onBack={() => (window.history.length > 1 ? router.back() : router.push('/skin'))} // 기록 화면·분석 어디서 왔든 돌아가기
       suggestions={readOnly ? [] : SUGGESTIONS}
+      readOnly={readOnly}
+      usage={usage}
     />
     </SkinScreen>
   );
