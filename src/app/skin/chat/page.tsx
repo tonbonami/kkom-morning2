@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SkinChat from '@/components/skin/SkinChat';
 import SkinScreen from '@/components/skin/SkinScreen';
-import { fetchChatSummary, fetchSkinUsage, kstToday, skinSession, type SkinUsage } from '@/lib/skinClient';
+import { addDays, fetchChatSummary, fetchSkinUsage, kstToday, skinSession, type SkinUsage } from '@/lib/skinClient';
 import { isPractice } from '@/lib/practice';
 import { demo } from '@/lib/skinDemo';
 
@@ -49,16 +49,23 @@ export default function SkinChatPage() {
       .catch(() => {});
   }, [router]);
 
-  // 「오늘 상담 정리하기」 버튼 상태 — 오늘 상담이 있으면 보임. 반영한 뒤 상담을 더 했으면 다시 「정리하기」
-  const [sumState, setSumState] = useState<'none' | 'draft' | 'applied' | null>(null);
-  const refreshSummary = useCallback(() => {
-    fetchChatSummary(kstToday()).then((r) => {
-      if (!r || r.msgCount === 0) { setSumState(null); return; }
+  // 「오늘 상담 정리하기」 버튼 상태 — 오늘 상담이 있으면 오늘, 없으면 최근 7일 중 정리 안 한 가장 최근 날(「어제 상담 정리하기」).
+  // 반영한 뒤 상담을 더 했으면 다시 「정리하기」. (우댕 2026-10-22: 어제 28말 상담이 정리 없이 끝남)
+  const [sum, setSum] = useState<{ state: 'none' | 'draft' | 'applied'; date: string } | null>(null);
+  const refreshSummary = useCallback(async () => {
+    const today = kstToday();
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(today, -i);
+      const r = await fetchChatSummary(d).catch(() => null);
+      if (!r || r.msgCount === 0) continue;
       const s = r.summary;
-      setSumState(!s ? 'none' : s.status === 'applied' && r.msgCount > s.msgCount ? 'none' : s.status);
-    }).catch(() => {});
+      const state = !s ? 'none' : s.status === 'applied' && r.msgCount > s.msgCount ? 'none' : s.status;
+      if (i === 0 || state !== 'applied') { setSum({ state, date: d }); return; }
+      if (state === 'applied') break; // 지난날은 다 정리했으면 버튼 없음
+    }
+    setSum(null);
   }, []);
-  useEffect(() => { refreshSummary(); }, [refreshSummary]);
+  useEffect(() => { void refreshSummary(); }, [refreshSummary]);
 
   const onSend = async (text: string) => {
     if (readOnly) { window.alert('보기 전용이에요 — 상담은 꼼이만 할 수 있어요'); return; }
@@ -98,7 +105,7 @@ export default function SkinChatPage() {
       if (full) setMessages((m) => [...m, { id: `local-a-${Date.now()}`, role: 'assistant', text: full, at: new Date().toISOString() }]);
       setSending(false);
       busy.current = false;
-      refreshSummary(); // 답을 받으면 「오늘 상담 정리하기」 버튼이 나타나거나 다시 「정리하기」로
+      void refreshSummary(); // 답을 받으면 「오늘 상담 정리하기」 버튼이 나타나거나 다시 「정리하기」로
     }
   };
 
@@ -113,7 +120,11 @@ export default function SkinChatPage() {
       suggestions={readOnly ? [] : SUGGESTIONS}
       readOnly={readOnly}
       usage={usage}
-      summary={sumState ? { state: sumState, onOpen: () => router.push(`/skin/chat/summary?date=${kstToday()}`) } : null}
+      summary={sum ? {
+        state: sum.state,
+        dayWord: sum.date === kstToday() ? '오늘' : sum.date === addDays(kstToday(), -1) ? '어제' : `${Number(sum.date.slice(5, 7))}/${Number(sum.date.slice(8, 10))}`,
+        onOpen: () => router.push(`/skin/chat/summary?date=${sum.date}`),
+      } : null}
     />
     </SkinScreen>
   );

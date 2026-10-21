@@ -1,4 +1,5 @@
 'use client';
+// 배선: summary.dayWord(기본 「오늘」) — 오늘 상담이 없고 어제 정리 안 한 상담이 있으면 「어제 상담 정리하기」(우댕 2026-10-22).
 // 제미나이 7차(gemini-3-flash CLI): 입력 막대 바로 위 「✨ 오늘 상담 정리하기」 알약 버튼(summary prop), 우댕 폰은 정리가 있을 때만 「오늘 상담 정리 보기」. 값 그대로.
 // 제미나이 7차: 「오늘 상담 정리하기」 버튼 추가 (입력바 위 알약 모양, 상태별 문구 변화). 꼼이 입력 중일 땐 흐리게. 여백 조정.
 
@@ -30,7 +31,7 @@ export default function SkinChat({
     total: { count: number; won: number };
     limit: number;
   } | null;
-  summary?: { state: 'none' | 'draft' | 'applied'; onOpen: () => void } | null;
+  summary?: { state: 'none' | 'draft' | 'applied'; onOpen: () => void; dayWord?: string } | null;
 }) {
   const [input, setInput] = useState('');
   const [isUsageExpanded, setIsUsageExpanded] = useState(true);
@@ -54,13 +55,14 @@ export default function SkinChat({
     if (!summary) return null;
     if (readOnly && summary.state === 'none') return null;
 
+    const day = summary.dayWord ?? '오늘';
     let label = '';
     if (readOnly) {
-      label = '오늘 상담 정리 보기';
+      label = `${day} 상담 정리 보기`;
     } else {
-      if (summary.state === 'none') label = '✨ 오늘 상담 정리하기';
+      if (summary.state === 'none') label = `✨ ${day} 상담 정리하기`;
       else if (summary.state === 'draft') label = '정리 이어서 보기 · 아직 반영 전';
-      else if (summary.state === 'applied') label = '오늘 정리 다시 보기 ✓';
+      else if (summary.state === 'applied') label = `${day} 정리 다시 보기 ✓`;
     }
 
     return (
