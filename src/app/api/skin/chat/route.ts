@@ -11,13 +11,15 @@ import { adminDb } from '@/lib/firebaseAdmin';
 import { SKIN_OWNER, SKIN_START, type SkinLog } from '@/lib/skinTypes';
 import { INTAKE_SECTIONS } from '@/lib/skinIntake';
 import { skinStats, medOf } from '@/lib/skinStats';
+import { dayLine } from '@/lib/skinContext';
+import type { ChatSummary, MemoryItem } from '@/lib/skinChatSummary';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 const MODEL = process.env.SKIN_CHAT_MODEL || 'claude-opus-5-5';
 const DAILY_LIMIT = 60;
-const HISTORY_TURNS = 30;   // 모델에 다시 보내는 최근 말 개수
+const HISTORY_TURNS = 60;   // 모델에 다시 보내는 최근 말 개수(더 옛 대화는 아래 「상담 기억」·「지난 상담 정리」로 이어진다)
 const KEEP = 200;           // 저장해 두는 최근 말 개수
 const THREAD = `skin/${SKIN_OWNER}/chat/main`;
 
@@ -53,28 +55,6 @@ const RULES = `너는 Anthropic이 만든 AI인 Claude다. 꼼모닝(커플 앱)
 - 휴대폰 말풍선에 보인다. 보통 3~8줄로 짧게. 마크다운 제목·표·굵게 기호(#, |, **)는 쓰지 않는다. 목록이 필요하면 「- 」나 「1.」 정도만.
 - 따뜻하지만 차분한 존댓말(~요).`;
 
-function dayLine(l: SkinLog): string {
-  const parts: string[] = [l.date];
-  parts.push(l.uas != null ? `팽진${l.wheals} 가려움${l.itch} UAS${l.uas}` : '점수 기록 없음');
-  const med = medOf(l);
-  parts.push(`약 ${med === 'taken' ? '먹음' : med === 'late' ? '늦게 먹음' : med === 'missed' ? '거름' : '기록 없음'}${(l.meds ?? []).filter((m) => m.time).map((m) => ` ${m.name} ${m.time}`).join('')}`);
-  for (const e of l.episodes ?? []) {
-    parts.push(`증상 ${e.start ?? '시각?'}${e.durMin ? ` ${e.durMin}분` : ''} ${(e.areas ?? []).join('·')}${e.over24h ? ' (24시간 넘게)' : ''}${e.bruiseLike ? ' (멍처럼)' : ''}`);
-  }
-  if (l.angioedema?.present) parts.push(`붓기 ${(l.angioedema.areas ?? []).join('·')}`);
-  if (l.trace) parts.push(`흔적 ${l.trace}`);
-  if (l.triggers?.length) parts.push(`의심 ${l.triggers.join(', ')}`);
-  if (l.foods?.length) parts.push(`먹은 것 ${l.foods.map((f) => `${f.t ? f.t + ' ' : ''}${f.text}`).join(' / ')}`);
-  const life = [l.sleepH != null && `잠 ${l.sleepH}시간`, l.wakeItch != null && (l.wakeItch ? '가려워서 깸' : '안 깸'),
-    l.waterMl != null && `물 ${l.waterMl}ml`, l.stress != null && `스트레스 ${l.stress}/10`].filter(Boolean);
-  if (life.length) parts.push(life.join(', '));
-  if (l.period != null) parts.push(l.period ? `생리 중${l.cycleDay ? ` ${l.cycleDay}일째` : ''}` : '생리 아님');
-  if (l.newProducts?.length) parts.push(`새 제품 ${l.newProducts.join(', ')}`);
-  if (l.env) parts.push(`날씨 ${l.env.temp ?? '?'}°C 습도${l.env.humidity ?? '?'}% PM10 ${l.env.pm10 ?? '?'} PM2.5 ${l.env.pm25 ?? '?'}`);
-  if (l.note) parts.push(`메모: ${l.note.replace(/\s*\n\s*/g, ' / ')}`);
-  return parts.join(' | ');
-}
-
 // 설문 답을 「섹션 / 문항: 답」으로(문항 id만 보내면 Claude가 무슨 질문인지 모름)
 function intakeText(data: Record<string, unknown> | undefined): string {
   const answers = (data?.answers ?? {}) as Record<string, unknown>;
@@ -102,14 +82,18 @@ function monthLines(logs: SkinLog[]): string[] {
 
 // 우댕 2026-10-21: "여태까지 피부 상태 입력한 걸 첨부해서" → 최근 30일이 아니라 첫 기록부터 전부(맥락 블록은 캐시라 다시 읽을 땐 싸다)
 async function buildContext(db: FirebaseFirestore.Firestore, today: string): Promise<string> {
-  const [qs, onset, supp, intake] = await Promise.all([
+  const [qs, onset, supp, intake, mem, sums] = await Promise.all([
     db.collection(`skin/${SKIN_OWNER}/logs`).where('date', '>=', SKIN_START).where('date', '<=', today).orderBy('date').get(),
     db.doc(`skin/${SKIN_OWNER}/history/onset`).get(),
     db.doc(`skin/${SKIN_OWNER}/history/supplements`).get(),
     db.doc(`skin/${SKIN_OWNER}/survey/intake`).get(),
+    db.doc(`skin/${SKIN_OWNER}/chat/memory`).get(),
+    db.collection(`skin/${SKIN_OWNER}/chatSummaries`).orderBy('date').get(),
   ]);
   const logs = qs.docs.map((d) => d.data() as SkinLog);
   const { summary, triggers } = skinStats(logs, today);
+  const memory = ((mem.data()?.items ?? []) as MemoryItem[]);
+  const summaries = sums.docs.map((d) => d.data() as ChatSummary);
   const strip = (o: Record<string, unknown> | undefined) => {
     if (!o) return '없음';
     const { updatedAt, importedAt, ...rest } = o as Record<string, unknown>;
@@ -118,6 +102,14 @@ async function buildContext(db: FirebaseFirestore.Firestore, today: string): Pro
   };
   return [
     `# 꼼이 기록 (오늘 ${today}, 한국 시간)`,
+    '',
+    '## 상담 기억 (꼼이가 「오늘 상담 정리」에서 확인해 남긴 것 — 오래된 대화도 이걸로 이어서 기억한다)',
+    memory.length ? memory.map((m) => `- ${m.date} [${m.kind}] ${m.text}`).join('\n') : '아직 없음',
+    '',
+    '## 지난 상담 정리 (날짜별)',
+    summaries.length
+      ? summaries.map((c) => `- ${c.date}${c.status === 'applied' ? '' : ' (꼼이 확인 전)'}: ${[...c.key, ...c.plans.map((x) => `해 보기로: ${x}`), ...c.worries.map((x) => `걱정: ${x}`)].join(' / ')}`).join('\n')
+      : '아직 없음',
     '',
     `## 전체 기간: ${logs[0]?.date ?? '없음'} ~ ${logs[logs.length - 1]?.date ?? '없음'}, 적은 날 ${logs.length}일`,
     '',

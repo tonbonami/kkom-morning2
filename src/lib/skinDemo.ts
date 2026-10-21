@@ -3,6 +3,7 @@
 //   보이는 숫자·메모·사진은 전부 지어낸 예시다(꼼이 실제 기록 아님).
 import type { SkinLog } from './skinTypes';
 import { practiceAsViewer } from './practice';
+import { patchFromProposals, type ApplyItem, type ChatSummary, type Proposal } from './skinChatSummary';
 
 const kst = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 const add = (d: string, n: number) => new Date(Date.parse(d + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
@@ -36,7 +37,32 @@ function demoLogs(): Record<string, SkinLog> {
 }
 
 const store = { logs: demoLogs(), photos: {} as Record<string, { id: string; url: string; t: string | null }[]>, partnerAlert: false,
-  intake: { '1.1': '30대', '2.4': '6' } as Record<string, string | string[]>, role: 'kkomi' as 'kkomi' | 'viewer' };
+  intake: { '1.1': '30대', '2.4': '6' } as Record<string, string | string[]>, role: 'kkomi' as 'kkomi' | 'viewer',
+  summaries: {} as Record<string, ChatSummary> };
+
+// 연습 모드 상담 정리 예시(지어낸 것) — 약 용량 고치기·일지와 다를 때·날짜 고르기·짐작을 다 보여 주게
+const P = (p: Partial<Proposal> & Pick<Proposal, 'field' | 'label' | 'evidence'>): Proposal => ({
+  date: null, num: null, bool: null, text: null, list: [], med: null, episode: null, food: null, angio: null, certain: true, ...p,
+});
+function sampleSummary(date: string): ChatSummary {
+  return {
+    date, status: 'draft', createdAt: new Date().toISOString(), msgCount: 6,
+    key: ['예시 — 어젯밤 항히스타민을 늦게 먹고 오늘 아침 손바닥이 가려웠다는 이야기', '술 마신 다음날 더 올라오는지 같이 살펴봄'],
+    facts: ['어젯밤 항히스타민 3알을 밤 11시에 먹음', '저녁에 맥주 한 캔', '잠은 5시간 반쯤'],
+    worries: ['약을 늦게 먹으면 다음날 더 심해지는지'],
+    plans: ['일주일 동안 술 마신 날을 「의심 가는 것」에 꼭 적어 보기', '다음 진료 때 약 먹는 시간 물어보기'],
+    claudeNotes: ['약 먹는 시간·양은 의사와 상의하라고 안내함'],
+    proposals: [
+      P({ field: 'meds', date, label: '약 — 항히스타민(예시) 3알 · 23:00 · 늦게', evidence: '어젯밤 11시에 3알 먹었어', med: { name: '항히스타민(예시)', dose: '3알', time: '23:00', status: 'late' } }),
+      P({ field: 'triggers', date, label: '의심 가는 것 — 술', evidence: '저녁에 맥주 한 캔 마셨어', list: ['술'] }),
+      P({ field: 'sleepH', date: null, label: '잠 — 5.5시간', evidence: '다섯 시간 반쯤 잔 것 같아', num: 5.5, certain: false }),
+    ],
+    memory: [
+      { kind: 'plan', text: '일주일 동안 술 마신 날을 적어서 다음날 점수와 비교해 보기로 함' },
+      { kind: 'todo', text: '다음 진료 때 약 먹는 시간을 물어보기로 함' },
+    ],
+  };
+}
 
 export const demo = {
   // ?practice=1&view=1 이면 보기 전용(우댕 폰)으로 흉내
@@ -66,5 +92,17 @@ export const demo = {
   setSettings(v: boolean) { store.partnerAlert = v; },
   intake() { return { ...store.intake }; },
   setIntake(id: string, value: string | string[] | null) { if (value === null) delete store.intake[id]; else store.intake[id] = value; },
+  chatSummary(date: string): ChatSummary | null { return store.summaries[date] ?? null; },
+  makeChatSummary(date: string) {
+    store.summaries[date] = sampleSummary(date);
+    return { summary: store.summaries[date], logs: [store.logs[date]].filter(Boolean) };
+  },
+  applyChatSummary(date: string, items: ApplyItem[]) {
+    for (const d of new Set(items.map((i) => i.proposal.date!))) {
+      const prev = store.logs[d] ?? ({ date: d, meds: [], episodes: [], triggers: [], foods: [], newProducts: [], photos: [], note: '' } as unknown as SkinLog);
+      demo.save({ ...(patchFromProposals(prev, items.filter((i) => i.proposal.date === d)) as Partial<SkinLog>), date: d });
+    }
+    if (store.summaries[date]) store.summaries[date] = { ...store.summaries[date], status: 'applied', appliedAt: new Date().toISOString() };
+  },
   chatReply: '연습 모드라 실제 Claude에게는 보내지 않았어요.\n\n실제로는 여기서 Anthropic이 만든 AI Claude가 꼼이 기록 30일치(점수·약·생리·의심 요인·메모)를 보고, 날짜를 짚어 가며 답해요. 진단이나 약 변경은 하지 않고, 입술·혀가 붓거나 숨이 차면 119부터 안내해요.',
 };

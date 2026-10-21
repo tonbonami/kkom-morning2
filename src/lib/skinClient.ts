@@ -5,6 +5,7 @@ import { isPractice } from './practice';
 import { demo } from './skinDemo';
 import type { SkinDraft, MedStatus } from '@/components/skin/skinUi';
 import type { ReportDay } from '@/components/skin/SkinDayReport';
+import type { ApplyItem, ChatSummary, MemoryCandidate } from './skinChatSummary';
 
 export const DEFAULT_MED = '항히스타민';
 export const READ_ONLY_MSG = '보기 전용이에요 — 기록은 꼼이만 써요';
@@ -228,4 +229,22 @@ export async function fetchSkinUsage(): Promise<SkinUsage | null> {
   if (isPractice()) return { today: { count: 3, won: 120 }, month: { count: 41, won: 1650 }, total: { count: 41, won: 1650 }, limit: 60 }; // 연습 모드 예시
   const r = await fetch('/api/skin/usage', { cache: 'no-store' });
   return r.ok ? ((await r.json()) as SkinUsage) : null;
+}
+
+// ── 오늘 상담 정리(우댕 2026-10-21) — 정리 받기·불러오기·일지 반영
+export async function fetchChatSummary(date: string): Promise<{ summary: ChatSummary | null; msgCount: number } | null> {
+  if (isPractice()) return { summary: demo.chatSummary(date), msgCount: 2 };
+  const r = await fetch(`/api/skin/chat/summary?date=${date}`, { cache: 'no-store' });
+  return r.ok ? r.json() : null;
+}
+export async function makeChatSummary(date: string): Promise<{ summary: ChatSummary; logs: SkinLog[] }> {
+  if (isPractice()) { await new Promise((r) => setTimeout(r, 1500)); return demo.makeChatSummary(date); }
+  const r = await fetch('/api/skin/chat/summary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date }) });
+  if (!r.ok) throw new Error((await r.json().catch(() => null))?.error ?? `summary ${r.status}`);
+  return r.json();
+}
+export async function applyChatSummary(date: string, items: ApplyItem[], memory: MemoryCandidate[]): Promise<boolean> {
+  if (isPractice()) { demo.applyChatSummary(date, items); return true; }
+  const r = await fetch('/api/skin/chat/summary/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, items, memory }) });
+  return r.ok;
 }

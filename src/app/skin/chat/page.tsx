@@ -1,10 +1,10 @@
 'use client';
 // 꼼이 피부 일지 — Claude 상담. 겉모습은 SkinChat(제미나이 시안, 값 그대로), 여기선 대화 불러오기·보내기·흘려 받기만.
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SkinChat from '@/components/skin/SkinChat';
 import SkinScreen from '@/components/skin/SkinScreen';
-import { fetchSkinUsage, skinSession, type SkinUsage } from '@/lib/skinClient';
+import { fetchChatSummary, fetchSkinUsage, kstToday, skinSession, type SkinUsage } from '@/lib/skinClient';
 import { isPractice } from '@/lib/practice';
 import { demo } from '@/lib/skinDemo';
 
@@ -49,6 +49,17 @@ export default function SkinChatPage() {
       .catch(() => {});
   }, [router]);
 
+  // 「오늘 상담 정리하기」 버튼 상태 — 오늘 상담이 있으면 보임. 반영한 뒤 상담을 더 했으면 다시 「정리하기」
+  const [sumState, setSumState] = useState<'none' | 'draft' | 'applied' | null>(null);
+  const refreshSummary = useCallback(() => {
+    fetchChatSummary(kstToday()).then((r) => {
+      if (!r || r.msgCount === 0) { setSumState(null); return; }
+      const s = r.summary;
+      setSumState(!s ? 'none' : s.status === 'applied' && r.msgCount > s.msgCount ? 'none' : s.status);
+    }).catch(() => {});
+  }, []);
+  useEffect(() => { refreshSummary(); }, [refreshSummary]);
+
   const onSend = async (text: string) => {
     if (readOnly) { window.alert('보기 전용이에요 — 상담은 꼼이만 할 수 있어요'); return; }
     if (busy.current) return;
@@ -87,6 +98,7 @@ export default function SkinChatPage() {
       if (full) setMessages((m) => [...m, { id: `local-a-${Date.now()}`, role: 'assistant', text: full, at: new Date().toISOString() }]);
       setSending(false);
       busy.current = false;
+      refreshSummary(); // 답을 받으면 「오늘 상담 정리하기」 버튼이 나타나거나 다시 「정리하기」로
     }
   };
 
@@ -101,6 +113,7 @@ export default function SkinChatPage() {
       suggestions={readOnly ? [] : SUGGESTIONS}
       readOnly={readOnly}
       usage={usage}
+      summary={sumState ? { state: sumState, onOpen: () => router.push(`/skin/chat/summary?date=${kstToday()}`) } : null}
     />
     </SkinScreen>
   );

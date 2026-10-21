@@ -1,10 +1,10 @@
 'use client';
-// 제미나이 6차(gemini-3-flash CLI): 우댕 폰(readOnly) — 입력 막대 대신 「보기 전용」 한 줄 + Claude 사용량 카드(오늘·이번 달·지금까지, 접기). 꼼이 폰은 그대로. 값 그대로.
-// 고친 것: 원 금액에 천 단위 쉼표(₩1650 → ₩1,650).
+// 제미나이 7차(gemini-3-flash CLI): 입력 막대 바로 위 「✨ 오늘 상담 정리하기」 알약 버튼(summary prop), 우댕 폰은 정리가 있을 때만 「오늘 상담 정리 보기」. 값 그대로.
+// 제미나이 7차: 「오늘 상담 정리하기」 버튼 추가 (입력바 위 알약 모양, 상태별 문구 변화). 꼼이 입력 중일 땐 흐리게. 여백 조정.
 
 import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Send, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 
 export default function SkinChat({
   messages,
@@ -15,6 +15,7 @@ export default function SkinChat({
   suggestions,
   readOnly = false,
   usage = null,
+  summary = null,
 }: {
   messages: { id: string; role: 'user' | 'assistant'; text: string; at: string }[];
   streamingText: string | null;
@@ -29,6 +30,7 @@ export default function SkinChat({
     total: { count: number; won: number };
     limit: number;
   } | null;
+  summary?: { state: 'none' | 'draft' | 'applied'; onOpen: () => void } | null;
 }) {
   const [input, setInput] = useState('');
   const [isUsageExpanded, setIsUsageExpanded] = useState(true);
@@ -47,6 +49,36 @@ export default function SkinChat({
   const LoadingPulse = () => (
     <span className="inline-block w-8 h-3 bg-[var(--sd-line)] animate-pulse rounded-sm align-middle" />
   );
+
+  const renderSummaryButton = () => {
+    if (!summary) return null;
+    if (readOnly && summary.state === 'none') return null;
+
+    let label = '';
+    if (readOnly) {
+      label = '오늘 상담 정리 보기';
+    } else {
+      if (summary.state === 'none') label = '✨ 오늘 상담 정리하기';
+      else if (summary.state === 'draft') label = '정리 이어서 보기 · 아직 반영 전';
+      else if (summary.state === 'applied') label = '오늘 정리 다시 보기 ✓';
+    }
+
+    return (
+      <div 
+        className={`fixed ${readOnly ? 'bottom-[68px]' : 'bottom-[88px]'} left-0 right-0 max-w-md mx-auto px-4 flex justify-center z-20 pointer-events-none transition-opacity duration-200 ${!readOnly && sending ? 'opacity-40' : 'opacity-100'}`}
+      >
+        <motion.button
+          initial={{ y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          whileTap={{ scale: 0.96 }}
+          onClick={summary.onOpen}
+          className="pointer-events-auto h-10 px-5 rounded-full bg-[var(--sd-card-solid)] border border-[var(--sd-rel)] text-[var(--sd-rel)] text-[13px] font-bold shadow-lg flex items-center gap-2"
+        >
+          {label}
+        </motion.button>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[var(--sd-surface-2)] flex flex-col max-w-md mx-auto text-[var(--sd-ink)] relative">
@@ -145,7 +177,7 @@ export default function SkinChat({
       )}
 
       {/* 대화 영역 */}
-      <div className={`flex-1 overflow-y-auto p-4 space-y-6 ${readOnly ? 'pb-20' : 'pb-24'}`}>
+      <div className={`flex-1 overflow-y-auto p-4 space-y-6 ${readOnly ? 'pb-32' : 'pb-40'}`}>
         {messages.length === 0 && !streamingText && (
           <div className="flex flex-col items-center justify-center min-h-[300px] space-y-4">
             {readOnly ? (
@@ -193,6 +225,9 @@ export default function SkinChat({
         )}
         <div ref={endRef} />
       </div>
+
+      {/* 오늘 상담 정리 버튼 */}
+      {renderSummaryButton()}
 
       {/* 하단 입력바 또는 안내문 */}
       {readOnly ? (
