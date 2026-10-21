@@ -244,7 +244,7 @@ export async function makeChatSummary(date: string): Promise<{ summary: ChatSumm
   return r.json();
 }
 export async function applyChatSummary(date: string, items: ApplyItem[], memory: MemoryCandidate[]): Promise<boolean> {
-  if (isPractice()) { demo.applyChatSummary(date, items); return true; }
+  if (isPractice()) { demo.applyChatSummary(date, items, memory); return true; }
   const r = await fetch('/api/skin/chat/summary/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, items, memory }) });
   return r.ok;
 }

@@ -75,7 +75,10 @@ export function skinStats(logs: SkinLog[], today: string, days = 30) {
 
   const PERIOD = new Set(['생리 중', '생리 전 1주']);
   const rows = [...trig.entries()]
-    .map(([name, us]) => ({ name, days: us.length, avgUas: avg(us.filter((u) => !Number.isNaN(u))) ?? 0 }))
+    // 점수 안 적은 날은 평균에서 뺀다. 점수 적은 날이 하나도 없으면 줄을 안 보여 줌(빈 점수를 0으로 세서 「술 · 평균 0.0」 — Aside 3차)
+    .map(([name, us]) => ({ name, days: us.length, avg: avg(us.filter((u) => !Number.isNaN(u))) }))
+    .filter((r): r is { name: string; days: number; avg: number } => r.avg != null)
+    .map(({ name, days, avg: a }) => ({ name, days, avgUas: a }))
     .sort((a, b) => b.days - a.days || b.avgUas - a.avgUas);
   // 적어 넣은 의심 요인 상위 6개 + 생리 두 줄은 항상(있으면) 뒤에 붙인다
   const triggers = [...rows.filter((r) => !PERIOD.has(r.name)).slice(0, 6), ...rows.filter((r) => PERIOD.has(r.name))];

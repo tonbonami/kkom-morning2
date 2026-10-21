@@ -1,6 +1,8 @@
 'use client';
+// 제미나이 10차(gemini-3-flash CLI): 완료 화면에 반영 목록(doneList)·기억 n개, 버튼 칩 「일지 n · 기억 n」, 정리 기다리는 동안 ←. 값 그대로.
 // 제미나이 7차(gemini-3-flash CLI, 의견 받고 시안): 「오늘 상담 정리」 — 핵심·꼼이가 말한 것·걱정·해 보기로 한 것 + 일지 반영 후보(켜기·고치기·날짜·일지와 다를 때 바꾸기/메모로만) + 다음 상담에도 기억할 것. 값 그대로.
 // 배선 하나: readOnlyNote(반영한 뒤 다시 볼 때 아래 한 줄 문구).
+// Aside 3차 고침: 반영 완료 화면 상세 목록 및 기억 개수 추가, 푸터 버튼 칩 상세화, 로딩 중 뒤로가기 버튼 추가.
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -67,6 +69,8 @@ interface Props {
   onLater: () => void;
   onOpenJournal: () => void;
   readOnlyNote?: string;
+  doneList?: { dateLabel: string; text: string; mode: 'replace' | 'note' }[];
+  rememberedCount?: number;
 }
 
 export default function SkinChatSummaryView({
@@ -89,7 +93,9 @@ export default function SkinChatSummaryView({
   onApply,
   onLater,
   onOpenJournal,
-  readOnlyNote
+  readOnlyNote,
+  doneList,
+  rememberedCount
 }: Props) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
@@ -101,7 +107,10 @@ export default function SkinChatSummaryView({
 
   if (phase === 'loading') {
     return (
-      <div className="flex flex-col min-h-screen bg-[var(--sd-surface-2)] p-4 pt-12 space-y-4">
+      <div className="flex flex-col min-h-screen bg-[var(--sd-surface-2)] p-4 pt-12 space-y-4 relative">
+        <button onClick={onBack} className="absolute top-4 left-2 p-2">
+          <ChevronLeft size={24} className="text-[var(--sd-ink)]" />
+        </button>
         <div className="flex flex-col items-center justify-center py-10 space-y-4">
           <motion.div 
             animate={{ rotate: 360 }} 
@@ -144,7 +153,30 @@ export default function SkinChatSummaryView({
           <Check className="w-8 h-8 text-[var(--sd-rel)]" />
         </div>
         <h2 className="text-xl font-bold text-[var(--sd-ink)] mb-2">일지에 반영했어요</h2>
-        <p className="text-[var(--sd-muted)] mb-8">상담에서 찾은 기록들이<br />일지에 안전하게 담겼습니다.</p>
+        <p className="text-[var(--sd-muted)] mb-6">고치기 전 기록도 따로 남아 있어요</p>
+        
+        {doneList && doneList.length > 0 && (
+          <div className="w-full space-y-2 mb-4 max-h-[30vh] overflow-y-auto px-1">
+            {doneList.map((it, idx) => (
+              <div key={idx} className="sd-card sd-card--quiet px-3 py-2 text-left">
+                <p className="text-[var(--sd-ink)] text-[13px] leading-tight">
+                  <span className="text-[var(--sd-muted)] font-medium">{it.dateLabel}</span>
+                  <span className="text-[var(--sd-line)] mx-1">·</span>
+                  {it.text}
+                  {it.mode === 'note' && <span className="ml-1 text-[var(--sd-faint)] text-[11px] font-medium">(메모로)</span>}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {typeof rememberedCount === 'number' && rememberedCount > 0 && (
+          <div className="flex items-center gap-1.5 text-[var(--sd-rel)] text-xs font-bold mb-8">
+            <Sparkles size={14} />
+            기억 {rememberedCount}개를 남겼어요
+          </div>
+        )}
+
         <div className="flex flex-col w-full gap-3">
           <button 
             onClick={onOpenJournal}
@@ -164,7 +196,7 @@ export default function SkinChatSummaryView({
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[var(--sd-surface-2)] pb-32">
+    <div className="flex flex-col min-h-screen bg-[var(--sd-surface-2)] pb-32 max-w-md mx-auto w-full">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-[var(--sd-surface-2)]/80 backdrop-blur-md px-4 py-4 flex items-center justify-between border-b border-[var(--sd-line)]">
         <button onClick={onBack} className="p-2 -ml-2"><ChevronLeft size={24} className="text-[var(--sd-ink)]" /></button>
@@ -345,7 +377,7 @@ export default function SkinChatSummaryView({
           ) : (
             <>
               {hasIncompleteDate && (
-                <div className="flex items-center justify-center gap-1.5 text-[var(--sd-crit)] text-xs font-medium animate-bounce">
+                <div className="mx-auto w-fit flex items-center justify-center gap-1.5 text-[var(--sd-crit)] text-xs font-medium animate-bounce bg-[var(--sd-card-solid)] px-3 py-1.5 rounded-full shadow">
                   <AlertCircle size={14} />
                   <span>날짜를 선택하지 않은 항목이 있어요</span>
                 </div>
@@ -353,13 +385,18 @@ export default function SkinChatSummaryView({
               <button
                 disabled={applyCount === 0 || phase === 'applying'}
                 onClick={onApply}
-                className="w-full h-14 bg-[var(--sd-rel)] disabled:bg-[var(--sd-line)] text-white rounded-2xl font-bold text-lg shadow-lg shadow-[var(--sd-rel)]/20 transition-transform active:scale-95 flex items-center justify-center gap-2"
+                className="w-full h-14 bg-[var(--sd-rel)] disabled:bg-[var(--sd-line)] text-white rounded-2xl font-bold text-[17px] shadow-lg shadow-[var(--sd-rel)]/20 transition-transform active:scale-95 flex items-center justify-between px-5"
               >
                 {phase === 'applying' ? (
-                  <span className="animate-pulse">반영하는 중...</span>
+                  <span className="animate-pulse w-full text-center">반영하는 중...</span>
                 ) : (
                   <>
-                    선택한 내용을 일지에 반영 <span className="bg-white/20 px-2 py-0.5 rounded-full text-sm font-black">{applyCount}</span>
+                    <span>선택한 내용을 일지에 반영</span>
+                    <span className="bg-white/20 px-2 py-1 rounded-lg text-[11px] font-black flex gap-1">
+                      <span>일지 {activeItems.length}</span>
+                      <span className="opacity-30">·</span>
+                      <span>기억 {activeMemories.length}</span>
+                    </span>
                   </>
                 )}
               </button>
@@ -733,7 +770,7 @@ function ValueEditor({ edit, onUpdate }: { edit: EditValue; onUpdate: (val: Edit
                     const next = v.areas.includes(area) ? v.areas.filter(a => a !== area) : [...v.areas, area];
                     onUpdate({...v, areas: next});
                   }}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold ${v.areas.includes(area) ? 'bg-[var(--sd-rel)] text-white' : 'bg-[var(--sd-surface-2)] text-[var(--sd-muted)] border border-[var(--sd-line)]'}`}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold ${v.areas.includes(area) ? 'bg-[var(--sd-rel)] text-white' : 'bg-[var(--sd-muted)] border border-[var(--sd-line)]'}`}
                 >
                   {area}
                 </button>

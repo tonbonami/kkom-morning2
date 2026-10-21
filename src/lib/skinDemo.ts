@@ -3,7 +3,7 @@
 //   보이는 숫자·메모·사진은 전부 지어낸 예시다(꼼이 실제 기록 아님).
 import type { SkinLog } from './skinTypes';
 import { practiceAsViewer } from './practice';
-import { patchFromProposals, type ApplyItem, type ChatSummary, type Proposal } from './skinChatSummary';
+import { patchFromProposals, type ApplyItem, type ChatSummary, type MemoryCandidate, type Proposal } from './skinChatSummary';
 
 const kst = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 const add = (d: string, n: number) => new Date(Date.parse(d + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
@@ -97,12 +97,12 @@ export const demo = {
     store.summaries[date] = sampleSummary(date);
     return { summary: store.summaries[date], logs: [store.logs[date]].filter(Boolean) };
   },
-  applyChatSummary(date: string, items: ApplyItem[]) {
+  applyChatSummary(date: string, items: ApplyItem[], memory: MemoryCandidate[] = []) {
     for (const d of new Set(items.map((i) => i.proposal.date!))) {
       const prev = store.logs[d] ?? ({ date: d, meds: [], episodes: [], triggers: [], foods: [], newProducts: [], photos: [], note: '' } as unknown as SkinLog);
       demo.save({ ...(patchFromProposals(prev, items.filter((i) => i.proposal.date === d)) as Partial<SkinLog>), date: d });
     }
-    if (store.summaries[date]) store.summaries[date] = { ...store.summaries[date], status: 'applied', appliedAt: new Date().toISOString() };
+    if (store.summaries[date]) store.summaries[date] = { ...store.summaries[date], status: 'applied', appliedAt: new Date().toISOString(), appliedItems: items, appliedMemory: memory };
   },
   chatReply: '연습 모드라 실제 Claude에게는 보내지 않았어요.\n\n실제로는 여기서 Anthropic이 만든 AI Claude가 꼼이 기록 30일치(점수·약·생리·의심 요인·메모)를 보고, 날짜를 짚어 가며 답해요. 진단이나 약 변경은 하지 않고, 입술·혀가 붓거나 숨이 차면 119부터 안내해요.',
 };

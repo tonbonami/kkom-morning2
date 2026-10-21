@@ -49,6 +49,8 @@ export interface ChatSummary {
   memory: MemoryCandidate[];
   appliedAt?: string;
   appliedCount?: number;
+  appliedItems?: ApplyItem[];          // 실제로 반영한 것(고친 값·날짜·바꾸기/메모) — 다시 볼 때 이걸 보여 준다
+  appliedMemory?: MemoryCandidate[];
 }
 
 // 반영할 때 꼼이가 고른 방식: 바꾸기(replace) · 메모로만 남기기(note). 「그대로 두기」는 아예 안 보낸다.
@@ -56,6 +58,10 @@ export interface ApplyItem { proposal: Proposal; mode: 'replace' | 'note' }
 
 const union = (a: string[] = [], b: string[] = []) => [...new Set([...a, ...b].map((s) => s.trim()).filter(Boolean))];
 const sameMed = (a: string, b: string) => a.replace(/\s+/g, '') === b.replace(/\s+/g, '');
+// 고칠 약 줄: 이름이 같고, 시각이 둘 다 있으면 같은 시각일 때만(다른 시각이면 따로 먹은 것이라 한 줄 더) — Aside 3차
+function medToUpdate(meds: SkinLog['meds'], m: ProposalMed): number {
+  return meds.findIndex((x) => sameMed(x.name, m.name) && (!x.time || !m.time || x.time === m.time));
+}
 
 // 이전 기록 + 고른 후보 → 저장할 바꿈(필드들). 숫자·예아니오·흔적은 바꾸고, 약은 같은 이름이면 고치고 없으면 더하고,
 // 증상·먹은 것은 더하고, 의심·제품은 합치고, 메모는 덧붙인다.
@@ -78,7 +84,7 @@ export function patchFromProposals(prev: SkinLog, items: ApplyItem[]): Record<st
       case 'meds': {
         if (!p.med?.name) break;
         const meds = [...((out.meds as SkinLog['meds']) ?? prev.meds ?? [])];
-        const i = meds.findIndex((m) => sameMed(m.name, p.med!.name));
+        const i = medToUpdate(meds, p.med);
         const next = { name: p.med.name, dose: p.med.dose, time: p.med.time, status: p.med.status };
         if (i >= 0) meds[i] = { ...meds[i], ...Object.fromEntries(Object.entries(next).filter(([, v]) => v != null)) };
         else meds.push(next);
@@ -100,13 +106,17 @@ export function patchFromProposals(prev: SkinLog, items: ApplyItem[]): Record<st
 export function currentValueText(prev: SkinLog | null | undefined, p: Proposal): string | null {
   if (!prev) return null;
   switch (p.field) {
-    case 'wheals': case 'itch': case 'sleepH': case 'waterMl': case 'stress': case 'cycleDay':
-      return prev[p.field] != null ? String(prev[p.field]) : null;
+    case 'wheals': case 'itch': return prev[p.field] != null ? `${['없음', '약간', '보통', '심함'][prev[p.field] as number] ?? ''} (${prev[p.field]})` : null;
+    case 'sleepH': return prev.sleepH != null ? `${prev.sleepH}시간` : null;
+    case 'waterMl': return prev.waterMl != null ? `${prev.waterMl}ml` : null;
+    case 'stress': return prev.stress != null ? `${prev.stress} / 10` : null;
+    case 'cycleDay': return prev.cycleDay != null ? `${prev.cycleDay}일째` : null;
     case 'wakeItch': case 'period':
       return prev[p.field] != null ? (prev[p.field] ? '예' : '아니오') : null;
     case 'trace': return prev.trace ?? null;
     case 'meds': {
-      const m = (prev.meds ?? []).find((x) => p.med && sameMed(x.name, p.med.name));
+      const i = p.med ? medToUpdate(prev.meds ?? [], p.med) : -1;
+      const m = i >= 0 ? prev.meds[i] : null; // 다른 시각이면 한 줄 더라 비교할 것 없음
       return m ? [m.name, m.dose, m.time, m.status && { taken: '먹음', missed: '거름', late: '늦게' }[m.status]].filter(Boolean).join(' · ') : null;
     }
     case 'angioedema': return prev.angioedema ? (prev.angioedema.present ? `있음 ${prev.angioedema.areas.join('·')}` : '없음') : null;

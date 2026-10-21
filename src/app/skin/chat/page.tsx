@@ -109,7 +109,7 @@ export default function SkinChatPage() {
       streamingText={streamingText}
       onSend={onSend}
       sending={sending}
-      onBack={() => (window.history.length > 1 ? router.back() : router.push('/skin'))} // 기록 화면·분석 어디서 왔든 돌아가기
+      onBack={() => router.push('/skin')} // 늘 기록 화면으로(뒤로 가기로 하면 정리 화면과 서로 오가며 갇혔다 — Aside 3차)
       suggestions={readOnly ? [] : SUGGESTIONS}
       readOnly={readOnly}
       usage={usage}

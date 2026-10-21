@@ -80,6 +80,13 @@ export default function SkinChatSummaryPage() {
 
   const show = useCallback((s: ChatSummary) => {
     setSummary(s);
+    if (s.status === 'applied' && s.appliedItems) {
+      // 반영한 날은 「실제로 한 것」(고친 값·고른 날짜·바꾸기/메모)만 — Aside 3차: 처음 제안값이 다시 보였다
+      setRows(s.appliedItems.map((it) => ({ p: it.proposal, on: true, mode: it.mode })));
+      setMem((s.appliedMemory ?? []).map((m) => ({ ...m, on: true })));
+      setPhase('ready');
+      return;
+    }
     // 확실한 것만 처음부터 켜 둔다(짐작은 꺼진 채로 보여 줌)
     setRows(s.proposals.map((p) => ({ p, on: p.certain, mode: 'replace' })));
     setMem(s.memory.map((m) => ({ ...m, on: true })));
@@ -124,7 +131,7 @@ export default function SkinChatSummaryPage() {
     const cur = r.p.date ? currentValueText(logs[r.p.date], r.p) : null;
     return {
       id: String(i), fieldLabel: FIELD_LABEL[r.p.field], label: labelOf(r.p), evidence: r.p.evidence, certain: r.p.certain,
-      date: r.p.date, current: cur && cur !== valueText(r.p) ? cur : null, on: r.on, mode: r.mode, edit: toEdit(r.p),
+      date: r.p.date, current: !locked && cur && cur !== valueText(r.p) ? cur : null, on: r.on, mode: r.mode, edit: toEdit(r.p),
     };
   });
   const memory: MemoryRow[] = mem.map((m, i) => ({ id: String(i), kindLabel: MEMORY_LABEL[m.kind], text: m.text, on: m.on }));
@@ -141,7 +148,13 @@ export default function SkinChatSummaryPage() {
     const list: ApplyItem[] = chosen.map((r) => ({ proposal: { ...r.p, label: labelOf(r.p) }, mode: r.mode }));
     const ok = await applyChatSummary(date, list, mem.filter((m) => m.on).map(({ kind, text }) => ({ kind, text })))
       .catch(() => false);
-    if (ok) { setSummary((s) => (s ? { ...s, status: 'applied' } : s)); setPhase('done'); }
+    if (ok) {
+      const appliedMemory = mem.filter((m) => m.on).map(({ kind, text }) => ({ kind, text }));
+      setSummary((s) => (s ? { ...s, status: 'applied', appliedItems: list, appliedMemory } : s));
+      setRows(list.map((it) => ({ p: it.proposal, on: true, mode: it.mode })));
+      setMem(appliedMemory.map((m) => ({ ...m, on: true })));
+      setPhase('done');
+    }
     else { window.alert('반영하지 못했어요. 다시 눌러 주세요.'); setPhase('ready'); }
   };
 
@@ -157,7 +170,7 @@ export default function SkinChatSummaryPage() {
         items={items}
         memory={memory}
         dateChoices={dateChoices}
-        onBack={() => router.push('/skin/chat')}
+        onBack={() => router.replace('/skin/chat')}
         onRegenerate={() => { if (!readOnly && (!applied || window.confirm('이미 반영한 날이에요. 다시 정리할까요? (일지는 그대로예요)'))) void generate(date); }}
         onToggleItem={(id) => !locked && setRow(id, (r) => ({ ...r, on: !r.on }))}
         onModeItem={(id, mode) => !locked && setRow(id, (r) => ({ ...r, mode }))}
@@ -166,8 +179,10 @@ export default function SkinChatSummaryPage() {
         onToggleMemory={(id) => !locked && setMem((ms) => ms.map((m, i) => (String(i) === id ? { ...m, on: !m.on } : m)))}
         onEditMemory={(id, text) => !locked && setMem((ms) => ms.map((m, i) => (String(i) === id ? { ...m, text } : m)))}
         onApply={() => { void onApply(); }}
-        onLater={() => router.push('/skin/chat')}
+        onLater={() => router.replace('/skin/chat')}
         onOpenJournal={() => router.push(`/skin?date=${date}`)}
+        doneList={rows.filter((r) => r.on && r.p.date).map((r) => ({ dateLabel: md(r.p.date!), text: labelOf(r.p), mode: r.mode }))}
+        rememberedCount={mem.filter((m) => m.on).length}
       />
     </SkinScreen>
   );

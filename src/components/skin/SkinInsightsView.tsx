@@ -3,6 +3,7 @@
 // 제미나이 시안 2판(2026-10-21, gemini-3-flash CLI로 받음) — 검수 반영(구간 표시·범례·n번 비교·요인 표 머리). 값 그대로.
 // 고친 것(버그만): ① 30일 기록 수로 7일 합을 보여 줄지 정해서 7일 합이 없을 때 빈 숫자·NaN 위치 → uas7이 있을 때만
 //   ② 기록 없는 날·0점 막대 높이(시안이 계산만 하고 안 씀) → 막대 값으로 씀.
+//   ⑤ 범례에 동그라미가 두 번(그림 + 글자 「○」) → 글자에서 뺌. (Aside 3차)
 //   ③ 눈금 0·6·15·27·42가 같은 간격이라 11점 점이 「6」 위에 있는 것처럼 보임 → 구간 경계 자리에 ④ 날짜 라벨이 틱 번호로 앞날을 찾아 「10/110/3…」로 붙음 → 날짜로 판단(1일·첫날만 월), 간격 넓힘. (Aside 2차)
 // SkinInsightsView.tsx
 
@@ -154,7 +155,7 @@ export default function SkinInsightsView({
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full border border-[var(--sd-muted)]" />
-                <span className="text-[10px] text-[var(--sd-muted)]">○ 기록 없음</span>
+                <span className="text-[10px] text-[var(--sd-muted)]">기록 없음</span>
               </div>
             </div>
           </div>

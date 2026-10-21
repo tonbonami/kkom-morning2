@@ -41,6 +41,8 @@ export async function POST(req: NextRequest) {
     const add: MemoryItem[] = memory.map((m) => ({ id: newId(), kind: m.kind, text: m.text.trim().slice(0, 300), date, addedAt: now }));
     await db.doc(`skin/${SKIN_OWNER}/chat/memory`).set({ items: FieldValue.arrayUnion(...add), updatedAt: now }, { merge: true });
   }
-  await db.doc(`skin/${SKIN_OWNER}/chatSummaries/${date}`).set({ status: 'applied', appliedAt: now, appliedCount: items.length }, { merge: true });
+  await db.doc(`skin/${SKIN_OWNER}/chatSummaries/${date}`).set({
+    status: 'applied', appliedAt: now, appliedCount: items.length, appliedItems: items, appliedMemory: memory,
+  }, { merge: true });
   return NextResponse.json({ ok: true, logs, applied: items.length, remembered: memory.length });
 }
