@@ -233,7 +233,7 @@ export async function fetchSkinUsage(): Promise<SkinUsage | null> {
 
 // ── 오늘 상담 정리(우댕 2026-10-21) — 정리 받기·불러오기·일지 반영
 export async function fetchChatSummary(date: string): Promise<{ summary: ChatSummary | null; msgCount: number } | null> {
-  if (isPractice()) return { summary: demo.chatSummary(date), msgCount: 2 };
+  if (isPractice()) return { summary: demo.chatSummary(date), msgCount: date === kstToday() ? 2 : 0 }; // 연습 모드는 오늘만 상담이 있는 걸로
   const r = await fetch(`/api/skin/chat/summary?date=${date}`, { cache: 'no-store' });
   return r.ok ? r.json() : null;
 }
