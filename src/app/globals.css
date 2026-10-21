@@ -409,3 +409,6 @@
 /* 가로 스크롤 막대 숨기기 — 제미나이 사진 칸(SkinPhotoStrip)이 쓰는 유틸 */
 .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* 피부 일지: 크롬은 시각 칸에 시계 아이콘 자리를 따로 둬서 좁은 칸(약 시각)에서 「오후 10:00」이 잘린다 → 아이콘만 숨김(아이폰엔 원래 없음, 숫자는 눌러서 바꿈) */
+.skin-screen input[type="time"]::-webkit-calendar-picker-indicator { display: none; }

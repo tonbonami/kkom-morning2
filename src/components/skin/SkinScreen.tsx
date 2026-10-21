@@ -11,7 +11,7 @@ export default function SkinScreen({ children }: { children: React.ReactNode }) 
     <>
       <div aria-hidden className="fixed inset-x-0 top-0 z-30" style={{ height: 'env(safe-area-inset-top)', background: 'var(--sd-surface-2)' }} />
       {/* break-keep: 한글이 「비/교하기」처럼 단어 중간에서 안 끊기게. 글자색 기본값도 여기서(다크 모드에서 색 없는 글자가 묻히던 것 — Aside 2차) */}
-      <div className="fixed inset-x-0 bottom-0 overflow-y-auto overscroll-contain break-keep" style={{ top: 'env(safe-area-inset-top)', background: 'var(--sd-surface-2)', color: 'var(--sd-ink)' }}>
+      <div className="skin-screen fixed inset-x-0 bottom-0 overflow-y-auto overscroll-contain break-keep" style={{ top: 'env(safe-area-inset-top)', background: 'var(--sd-surface-2)', color: 'var(--sd-ink)' }}>
         {practice && (
           // 연습 모드 띠 — 맨 위 흐름 안에 한 줄(스크롤하면 사라짐). 아래 고정이던 땐 저장 막대·안내문을 가렸다(Aside 2차).
           <div className="flex justify-center px-4 pt-2">

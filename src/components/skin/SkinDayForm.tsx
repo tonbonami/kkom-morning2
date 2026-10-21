@@ -1,4 +1,6 @@
 'use client';
+// 제미나이 8차(gemini-3-flash CLI): 약 윗줄에 「용량」 칸(med.dose) — 상담 정리에서 2알→3알로 고친 걸 폼에서도 보고 고치게. 값 그대로.
+// 고친 것: 약 시각 칸 78px에 「오후 10:00」이 잘림 → 104px(크롬은 시계 아이콘 자리까지), 용량 칸 64→52px(390px 한 줄 유지).
 // 제미나이 5차(gemini-3-flash CLI): 약 한 줄을 두 줄로(이름·시각 / 먹음·늦게·거름) + 점수 카드 여백 — 아이폰 첫 화면에서 약 버튼이 저장 막대에 가리던 것. 값 그대로.
 // 고친 것: 약 이름 자리표시가 「약 이름」으로 줄어 있어 원래 「약 이름 (예: 항히스타민제)」로.
 // 제미나이 4차(Aside 2차 반영, gemini-3-flash CLI): 「오늘은 증상 없음」 선택 표시 · 스트레스 11칸 한 줄 · 약 버튼 42px. 값 그대로.
@@ -6,6 +8,7 @@
 // (GPT 상담: 사람마다 다르게 — 꼼이는 적힌 칸만 펼침, 우댕 폰은 이 폼 대신 읽기 카드 SkinDayReport)
 // Aside 2차 고침: 지난 날을 열어도 제목이 「오늘 점수」 → isToday(이미 받는 prop)로 「그날 점수」.
 // 고쳐진 점: 「오늘은 증상 없음」 강조 표시, 스트레스 11칸 그리드(390px 대응), 약 버튼 높이 40px 이상 및 줄 바꿈.
+// 고칠 것: SkinDayForm.tsx — 약 줄에 「용량」 칸 추가 (med.dose)
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -159,7 +162,7 @@ export default function SkinDayForm({
         <div className="space-y-2">
           {value.meds.map((med, idx) => (
             <div key={idx} className="flex flex-col gap-2.5 p-3 bg-[var(--sd-surface-2)] rounded-xl border border-[var(--sd-line)]">
-              {/* 윗줄: 이름(왼쪽) + 시각(오른쪽) + 삭제 */}
+              {/* 윗줄: 이름 + 용량 + 시각 + 삭제 */}
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -172,13 +175,23 @@ export default function SkinDayForm({
                   className="bg-transparent border-none text-sm outline-none text-[var(--sd-ink)] flex-1 font-medium min-w-0"
                 />
                 <input
+                  type="text"
+                  placeholder="1알"
+                  value={med.dose || ''}
+                  onChange={(e) => {
+                    const next = value.meds.map((m, i) => i === idx ? { ...m, dose: e.target.value || null } : m);
+                    onChange({ meds: next });
+                  }}
+                  className="bg-[var(--sd-card-solid)] rounded-lg px-2 py-1 text-[11px] border border-[var(--sd-line)] text-[var(--sd-ink)] w-[52px] shrink-0 text-center"
+                />
+                <input
                   type="time"
                   value={med.time || ''}
                   onChange={(e) => {
                     const next = value.meds.map((m, i) => i === idx ? { ...m, time: e.target.value } : m);
                     onChange({ meds: next });
                   }}
-                  className="bg-[var(--sd-card-solid)] rounded-lg px-2 py-1 text-[11px] border border-[var(--sd-line)] text-[var(--sd-ink)] w-[78px]"
+                  className="bg-[var(--sd-card-solid)] rounded-lg px-2 py-1 text-[11px] border border-[var(--sd-line)] text-[var(--sd-ink)] w-[104px] shrink-0"
                 />
                 <button
                   onClick={() => onChange({ meds: value.meds.filter((_, i) => i !== idx) })}
@@ -211,7 +224,7 @@ export default function SkinDayForm({
           ))}
           <motion.button
             whileTap={{ scale: 0.96 }}
-            onClick={() => onChange({ meds: [...value.meds, { name: '', status: null }] })}
+            onClick={() => onChange({ meds: [...value.meds, { name: '', dose: null, time: null, status: null }] })}
             className="flex items-center justify-center w-full py-2.5 rounded-xl border border-dashed border-[var(--sd-line)] text-[var(--sd-muted)] text-xs"
           >
             <Plus size={14} className="mr-1" /> 약 추가

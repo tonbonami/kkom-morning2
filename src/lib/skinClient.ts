@@ -54,7 +54,7 @@ export async function fetchSkinLogs(from: string, to: string): Promise<SkinLog[]
 
 export async function saveSkinLog(draft: SkinDraft): Promise<SkinLog> {
   // 약 줄 중 아무것도 안 고른 기본 줄(이름만 있는 빈 줄)은 '기록 없음'이라 빼고 보낸다.
-  const meds = draft.meds.filter((m) => m.status || m.time || (m.name.trim() && m.name.trim() !== DEFAULT_MED));
+  const meds = draft.meds.filter((m) => m.status || m.time || m.dose || (m.name.trim() && m.name.trim() !== DEFAULT_MED));
   if (isPractice()) return demo.save({ ...(draft as unknown as Partial<SkinLog>), date: draft.date, meds });
   const r = await fetch('/api/skin/log', {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },

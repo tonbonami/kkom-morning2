@@ -62,6 +62,7 @@ function rules(date: string): string {
   trace('흔적 없음' | '색소 남음' | '긁은 상처'), note(그 밖에 일지 메모로 남길 사실) → text
   triggers(의심 가는 것, 되도록 이 이름: ${TRIGGERS.join(', ')}), newProducts(새로 쓴 제품) → list
   meds → med {name, dose(예: '3알'), time('HH:MM' 24시간), status 'taken' 먹음 | 'missed' 거름 | 'late' 늦게}
+    약 이름을 따로 말하지 않았으면 「이미 일지에 적힌 것」의 약 이름을, 그것도 없으면 「항히스타민」을 쓴다(「약」이라고 쓰지 않는다).
   episodes(두드러기 올라온 때) → episode {start 'HH:MM', durMin 분, areas(이 이름 중: ${AREAS.join(', ')})}
   foods → food {t 'HH:MM' 또는 null, text}
   angioedema(붓기) → angio {present, areas(입술 · 눈 · 목·혀)}
