@@ -1,4 +1,6 @@
 'use client';
+// 제미나이 9차(gemini-3-flash CLI): 사진 올린 날 4px 점 → 작은 카메라 배지 + 범례 「사진」(우댕: 사진 올린 날 표식). 값 그대로.
+// 제미나이 6차(gemini-3-flash CLI): 사진 표시를 카메라 배지로 변경, 범례 한 줄 최적화(「진할수록 심함」+「사진」 추가).
 // 제미나이 5차(gemini-3-flash CLI): 범례를 390px 한 줄로(「늦게」·「안 적음」). 값 그대로.
 // 제미나이 4차(Aside 2차 반영, gemini-3-flash CLI): 「오늘」 버튼 · 범례 12px·「진할수록 심한 날」 · startDate 이전 날 흐리게·막음. 값 그대로.
 // 고친 것: disabled에 '' 이 들어갈 수 있어 타입 오류 → !!startDate.
@@ -8,7 +10,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, FileText, Check, X, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, FileText, Check, X, Clock, Camera } from 'lucide-react';
 
 export type MedStatus = 'taken' | 'missed' | 'late';
 export interface CalDay { 
@@ -89,7 +91,9 @@ export default function SkinCalendar({
           {day.date.slice(-2)}
         </span>
         {day.photo && (
-          <div className="absolute top-0 right-0 w-2 h-2 rounded-full bg-[var(--sd-rel)] border-2 border-[var(--sd-card-solid)]" />
+          <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[var(--sd-card-solid)] border border-[var(--sd-line)] flex items-center justify-center shadow-sm z-20">
+            <Camera size={9} className="text-[var(--sd-rel)]" />
+          </div>
         )}
       </div>
     );
@@ -227,10 +231,16 @@ export default function SkinCalendar({
       </div>
 
       {/* 범례 */}
-      <div className="px-2 flex flex-wrap gap-x-2 gap-y-1 text-[12px] text-[var(--sd-muted)] leading-tight">
+      <div className="px-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-[var(--sd-muted)] leading-tight">
         <div className="flex items-center gap-1">
           <div className="w-2.5 h-2.5 rounded-full bg-[var(--sd-rel)] opacity-80" />
-          <span>진할수록 심한 날</span>
+          <span>진할수록 심함</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3.5 h-3.5 rounded-full bg-[var(--sd-card-solid)] border border-[var(--sd-line)] flex items-center justify-center">
+            <Camera size={9} className="text-[var(--sd-rel)]" />
+          </div>
+          <span>사진</span>
         </div>
         <div className="flex items-center gap-1">
           <Check size={12} />

@@ -2,6 +2,7 @@
 // 제미나이 시안(2026-10-21, 우댕 전달) — 피부 일지 사진 칸. 값 그대로.
 // Aside 검수 고침(2026-10-21): 빈 상태 안내가 nowrap이라 잘림 → 줄바꿈 허용.
 // Aside 2차 고침(2026-10-21): 보기 전용(우댕 폰)인데 「추가」·카메라 칸·지우기가 살아 있어 파일 고르기 창이 열림 → readOnly면 숨김.
+// 보기 전용 + 사진 0장이면 「이 날 올린 사진이 없어요」(빈 상자만 보이던 것).
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -260,6 +261,12 @@ export default function SkinPhotoStrip(props: SkinPhotoStripProps) {
         </motion.button>}
 
         {/* 사진이 1장도 없을 때 안내 문구 */}
+        {/* 보기 전용인데 사진이 없으면 빈 상자만 보여 「안 올린 건지 안 보이는 건지」 헷갈렸다(우댕) → 한 줄 */}
+        {props.photos.length === 0 && props.readOnly && (
+          <span className="text-[14px] ml-1 leading-snug" style={{ color: 'var(--sd-faint)' }}>
+            이 날 올린 사진이 없어요
+          </span>
+        )}
         {props.photos.length === 0 && !props.uploading && !props.readOnly && (
           <span
             className="text-[14px] ml-1 flex-1 min-w-[150px] leading-snug"
