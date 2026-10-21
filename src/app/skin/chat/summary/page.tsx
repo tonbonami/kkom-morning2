@@ -165,6 +165,7 @@ export default function SkinChatSummaryPage() {
         phase={phase}
         errorText={errorText}
         readOnly={locked}
+        appliedView={applied}
         readOnlyNote={readOnly ? undefined : '이 날 정리는 일지에 반영했어요. 상담을 더 하면 새로 정리할 수 있어요.'}
         summary={summary}
         items={items}

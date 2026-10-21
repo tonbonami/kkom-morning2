@@ -1,7 +1,7 @@
 // 피부 일지 연습 모드(?practice=1) — Aside 같은 검수자가 PIN·실제 기록 없이 화면을 끝까지 눌러 볼 수 있게.
 //   서버(/api/skin/*)에 아무것도 묻지도 쓰지도 않는다. 기록은 이 탭 메모리에만, 새로고침하면 처음으로.
 //   보이는 숫자·메모·사진은 전부 지어낸 예시다(꼼이 실제 기록 아님).
-import type { SkinLog } from './skinTypes';
+import { addDaysIso, type SkinLog } from './skinTypes';
 import { practiceAsViewer } from './practice';
 import { patchFromProposals, type ApplyItem, type ChatSummary, type MemoryCandidate, type Proposal } from './skinChatSummary';
 
@@ -53,7 +53,7 @@ function sampleSummary(date: string): ChatSummary {
     plans: ['일주일 동안 술 마신 날을 「의심 가는 것」에 꼭 적어 보기', '다음 진료 때 약 먹는 시간 물어보기'],
     claudeNotes: ['약 먹는 시간·양은 의사와 상의하라고 안내함'],
     proposals: [
-      P({ field: 'meds', date, label: '약 — 항히스타민 · 3알 · 23:00 · 늦게', evidence: '어젯밤 11시에 3알 먹었어', med: { name: '항히스타민', dose: '3알', time: '23:00', status: 'late' } }),
+      P({ field: 'meds', date: addDaysIso(date, -1), label: '약 — 항히스타민 · 3알 · 23:00 · 늦게', evidence: '어젯밤 11시에 3알 먹었어', med: { name: '항히스타민', dose: '3알', time: '23:00', status: 'late' } }),
       P({ field: 'triggers', date, label: '의심 가는 것 — 술', evidence: '저녁에 맥주 한 캔 마셨어', list: ['술'] }),
       P({ field: 'sleepH', date: null, label: '잠 — 5.5시간', evidence: '다섯 시간 반쯤 잔 것 같아', num: 5.5, certain: false }),
     ],

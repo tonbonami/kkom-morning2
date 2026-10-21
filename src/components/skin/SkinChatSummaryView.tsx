@@ -1,7 +1,7 @@
 'use client';
 // 제미나이 10차(gemini-3-flash CLI): 완료 화면에 반영 목록(doneList)·기억 n개, 버튼 칩 「일지 n · 기억 n」, 정리 기다리는 동안 ←. 값 그대로.
 // 제미나이 7차(gemini-3-flash CLI, 의견 받고 시안): 「오늘 상담 정리」 — 핵심·꼼이가 말한 것·걱정·해 보기로 한 것 + 일지 반영 후보(켜기·고치기·날짜·일지와 다를 때 바꾸기/메모로만) + 다음 상담에도 기억할 것. 값 그대로.
-// 배선 하나: readOnlyNote(반영한 뒤 다시 볼 때 아래 한 줄 문구).
+// 배선: readOnlyNote(반영한 뒤 다시 볼 때 아래 한 줄 문구) · appliedView(다시 볼 때 묻는 제목 → 「일지에 반영한 것」「Claude가 기억하는 것」, Aside 4차).
 // Aside 3차 고침: 반영 완료 화면 상세 목록 및 기억 개수 추가, 푸터 버튼 칩 상세화, 로딩 중 뒤로가기 버튼 추가.
 
 import React, { useState } from 'react';
@@ -69,6 +69,7 @@ interface Props {
   onLater: () => void;
   onOpenJournal: () => void;
   readOnlyNote?: string;
+  appliedView?: boolean;
   doneList?: { dateLabel: string; text: string; mode: 'replace' | 'note' }[];
   rememberedCount?: number;
 }
@@ -94,6 +95,7 @@ export default function SkinChatSummaryView({
   onLater,
   onOpenJournal,
   readOnlyNote,
+  appliedView,
   doneList,
   rememberedCount
 }: Props) {
@@ -285,7 +287,7 @@ export default function SkinChatSummaryView({
         {/* Journal Candidates */}
         <section className="space-y-3">
           <div className="flex items-end justify-between px-1">
-            <h3 className="text-[var(--sd-ink)] font-bold text-lg">일지에 반영할까요?</h3>
+            <h3 className="text-[var(--sd-ink)] font-bold text-lg">{appliedView ? '일지에 반영한 것' : '일지에 반영할까요?'}</h3>
             <span className="text-[var(--sd-muted)] text-xs">꼼이가 말한 사실들</span>
           </div>
           
@@ -317,8 +319,8 @@ export default function SkinChatSummaryView({
         {memory.length > 0 && (
           <section className="space-y-3">
             <div className="flex flex-col px-1">
-              <h3 className="text-[var(--sd-ink)] font-bold text-lg">다음 상담에도 기억할 것</h3>
-              <p className="text-[var(--sd-muted)] text-xs">켠 것만 Claude가 다음 상담부터 기억해요</p>
+              <h3 className="text-[var(--sd-ink)] font-bold text-lg">{appliedView ? 'Claude가 기억하는 것' : '다음 상담에도 기억할 것'}</h3>
+              {!appliedView && <p className="text-[var(--sd-muted)] text-xs">켠 것만 Claude가 다음 상담부터 기억해요</p>}
             </div>
             <div className="sd-card overflow-hidden">
               {memory.map((row, idx) => (

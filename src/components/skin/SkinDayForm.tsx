@@ -1,5 +1,6 @@
 'use client';
 // 제미나이 8차(gemini-3-flash CLI): 약 윗줄에 「용량」 칸(med.dose) — 상담 정리에서 2알→3알로 고친 걸 폼에서도 보고 고치게. 값 그대로.
+// Aside 4차: 「아직 저장 전이에요」 앞에도 ✓가 붙어 저장된 것처럼 보임 → 「…저장됨」일 때만 ✓.
 // Aside 3차 고침: 저장 막대에 z가 없어 폼 아래로 옮긴 「힘든 날 알리기」 스위치가 막대 위에 그려져 눌림 → z-30 · via-…/90(변수 색엔 안 먹어 투명) → via-… · 「저장 전/저장됨」 줄이 생길 때 막대가 커져 약 버튼을 가림 → 줄 높이 늘 확보 · 지난날 「오늘은 증상 없음」 → 「그날은」.
 // 고친 것: 약 시각 칸 78px에 「오후 10:00」이 잘림 → 104px(크롬은 시계 아이콘 자리까지), 용량 칸 64→52px(390px 한 줄 유지).
 // 제미나이 5차(gemini-3-flash CLI): 약 한 줄을 두 줄로(이름·시각 / 먹음·늦게·거름) + 점수 카드 여백 — 아이폰 첫 화면에서 약 버튼이 저장 막대에 가리던 것. 값 그대로.
@@ -770,7 +771,7 @@ export default function SkinDayForm({
             {saving ? '저장 중...' : '저장'}
           </motion.button>
           <p className="text-center text-[10px] text-[var(--sd-muted)] mt-2 h-4 flex items-center justify-center gap-1">
-            {savedAt && <><Check size={10} /> {savedAt}</>}
+            {savedAt && <>{savedAt.includes('저장됨') && <Check size={10} />} {savedAt}</>}
           </p>
         </div>
       </div>
