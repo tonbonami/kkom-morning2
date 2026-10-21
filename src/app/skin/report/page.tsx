@@ -43,7 +43,9 @@ export default function SkinReportPage() {
   }, [router, today]);
 
   const firstLog = useMemo(() => (all ? Object.keys(all).sort()[0] ?? null : null), [all]);
-  const [from, to] = rangeOf(range, today, firstLog);
+  const [rawFrom, to] = rangeOf(range, today, firstLog);
+  // 일지 시작 전 날은 빼기 — 분모·목록에 들어가 「기록 3/30일」처럼 안 쓴 것처럼 보였다(Aside 2차)
+  const from = firstLog && rawFrom < firstLog ? (firstLog <= to ? firstLog : to) : rawFrom;
   const days = useMemo(
     () => daysFromTo(from, to).reverse().map((d) => toReportDay(d, all?.[d])),
     [from, to, all],

@@ -1,6 +1,7 @@
 'use client';
 // 제미나이 시안 3판(2026-10-21, gemini-3-flash CLI로 받음) — 적힌 칸만 자동 펼침 + 모두 펼치기/접기, 점수·약 첫 화면, 잠 칩, 스트레스 「안 적음」. 값 그대로.
 // (GPT 상담: 사람마다 다르게 — 꼼이는 적힌 칸만 펼침, 우댕 폰은 이 폼 대신 읽기 카드 SkinDayReport)
+// Aside 2차 고침: 지난 날을 열어도 제목이 「오늘 점수」 → isToday(이미 받는 prop)로 「그날 점수」.
 // SkinDayForm.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -89,7 +90,7 @@ export default function SkinDayForm({
       {/* 1. 오늘 점수 (컴팩트하게 조정) */}
       <div className="sd-card p-4">
         <div className="flex justify-between items-center mb-3">
-          <h2 className="text-base font-bold text-[var(--sd-ink)]">오늘 점수</h2>
+          <h2 className="text-base font-bold text-[var(--sd-ink)]">{isToday ? '오늘 점수' : '그날 점수'}</h2>
           <span className="text-lg font-bold text-[var(--sd-rel)]">
             {isUasEmpty ? '-' : `${uasScore} / 6`}
           </span>

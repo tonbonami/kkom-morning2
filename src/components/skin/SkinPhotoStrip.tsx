@@ -1,6 +1,7 @@
 'use client';
 // 제미나이 시안(2026-10-21, 우댕 전달) — 피부 일지 사진 칸. 값 그대로.
 // Aside 검수 고침(2026-10-21): 빈 상태 안내가 nowrap이라 잘림 → 줄바꿈 허용.
+// Aside 2차 고침(2026-10-21): 보기 전용(우댕 폰)인데 「추가」·카메라 칸·지우기가 살아 있어 파일 고르기 창이 열림 → readOnly면 숨김.
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -13,6 +14,7 @@ interface SkinPhotoStripProps {
   uploading: boolean;
   onAdd: (files: FileList) => void;
   onDelete: (id: string) => void;
+  readOnly?: boolean;
 }
 
 export default function SkinPhotoStrip(props: SkinPhotoStripProps) {
@@ -141,7 +143,7 @@ export default function SkinPhotoStrip(props: SkinPhotoStripProps) {
 
           {/* 하단 제어 영역 */}
           <div className="absolute bottom-0 left-0 w-full p-6 flex justify-center z-10 bg-gradient-to-t from-black/80 to-transparent pb-8">
-            {showDeleteConfirm ? (
+            {props.readOnly ? null : showDeleteConfirm ? (
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
@@ -209,14 +211,14 @@ export default function SkinPhotoStrip(props: SkinPhotoStripProps) {
             {props.dateLabel}
           </span>
         </div>
-        <motion.button
+        {!props.readOnly && <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[14px] font-medium"
           style={{ backgroundColor: 'var(--sd-surface-2)', color: 'var(--sd-ink)' }}
         >
           <Plus size={16} /> 추가
-        </motion.button>
+        </motion.button>}
       </div>
 
       {/* 사진 가로 스크롤 영역 */}
@@ -239,7 +241,7 @@ export default function SkinPhotoStrip(props: SkinPhotoStripProps) {
         ))}
 
         {/* 추가/업로드 버튼 (맨 끝 고정) */}
-        <motion.button
+        {!props.readOnly && <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={() => !props.uploading && fileInputRef.current?.click()}
           className="shrink-0 w-[88px] h-[88px] rounded-xl flex flex-col items-center justify-center gap-1"
@@ -255,10 +257,10 @@ export default function SkinPhotoStrip(props: SkinPhotoStripProps) {
           ) : (
             <Camera size={24} />
           )}
-        </motion.button>
+        </motion.button>}
 
         {/* 사진이 1장도 없을 때 안내 문구 */}
-        {props.photos.length === 0 && !props.uploading && (
+        {props.photos.length === 0 && !props.uploading && !props.readOnly && (
           <span
             className="text-[14px] ml-1 flex-1 min-w-[150px] leading-snug"
             style={{ color: 'var(--sd-faint)' }}

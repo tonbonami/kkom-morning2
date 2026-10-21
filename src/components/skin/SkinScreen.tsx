@@ -9,16 +9,17 @@ export default function SkinScreen({ children }: { children: React.ReactNode }) 
   useEffect(() => setPractice(isPractice()), []);
   return (
     <>
-      {practice && (
-        // 연습 모드 띠 — 화면 맨 아래(저장 막대 위)에 고정. 예시 기록이고 아무것도 저장·전송되지 않는다.
-        <div className="fixed inset-x-0 z-40 flex justify-center pointer-events-none" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 134px)' }}>
-          <span className="px-3 py-1.5 rounded-full text-[12px] font-bold shadow" style={{ background: '#FDE68A', color: '#78350F' }}>
-            🧪 연습 모드 — 예시 기록이에요 · 저장·사진·상담이 실제로 안 나가요
-          </span>
-        </div>
-      )}
       <div aria-hidden className="fixed inset-x-0 top-0 z-30" style={{ height: 'env(safe-area-inset-top)', background: 'var(--sd-surface-2)' }} />
-      <div className="fixed inset-x-0 bottom-0 overflow-y-auto overscroll-contain" style={{ top: 'env(safe-area-inset-top)', background: 'var(--sd-surface-2)' }}>
+      {/* break-keep: 한글이 「비/교하기」처럼 단어 중간에서 안 끊기게. 글자색 기본값도 여기서(다크 모드에서 색 없는 글자가 묻히던 것 — Aside 2차) */}
+      <div className="fixed inset-x-0 bottom-0 overflow-y-auto overscroll-contain break-keep" style={{ top: 'env(safe-area-inset-top)', background: 'var(--sd-surface-2)', color: 'var(--sd-ink)' }}>
+        {practice && (
+          // 연습 모드 띠 — 맨 위 흐름 안에 한 줄(스크롤하면 사라짐). 아래 고정이던 땐 저장 막대·안내문을 가렸다(Aside 2차).
+          <div className="flex justify-center px-4 pt-2">
+            <span className="px-3 py-1.5 rounded-full text-[12px] font-bold" style={{ background: '#FDE68A', color: '#78350F' }}>
+              🧪 연습 모드 — 예시 기록이에요 · 저장·사진·상담이 실제로 안 나가요
+            </span>
+          </div>
+        )}
         {children}
       </div>
     </>

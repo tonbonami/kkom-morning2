@@ -184,7 +184,9 @@ export default function SkinJournalPage() {
   };
   const onChange = (patch: Partial<SkinDraft>) => {
     if (readOnly) { showReadOnly(); return; }
-    setDraft((d) => ({ ...d, ...patch })); setDirty(true);
+    setDraft((d) => ({ ...d, ...patch }));
+    if (!dirty) setSavedAt('아직 저장 전이에요'); // 바꾼 직후에도 예전 「…에 저장됨」이 떠서 저장된 줄 알았다(Aside 2차)
+    setDirty(true);
   };
 
   const onSave = async (): Promise<boolean> => {
@@ -253,7 +255,7 @@ export default function SkinJournalPage() {
         <>
           <SkinCalendar
             mode={calMode}
-            onMode={(m) => { setCalMode(m); if (m === 'month') { setCalYm(monthOf(selected)); void ensureMonth(monthOf(selected)); } }}
+            onMode={(m) => { setCalMode(m); setCalYm(monthOf(selected)); if (m === 'month') void ensureMonth(monthOf(selected)); }}
             week={week}
             month={month}
             today={today}
@@ -264,25 +266,33 @@ export default function SkinJournalPage() {
             loading={monthLoading}
             onOpenReport={() => { void leave('/skin/report'); }}
           />
+        </>
+      }
+      form={
+        <>
+        {
+        // 우댕 폰(보기 전용)은 입력 폼 대신 읽기 카드 — 칸을 하나하나 열 필요 없이 적힌 게 다 보이게(우댕 2026-10-21, GPT 상담).
+        // 사진은 아래 사진 칸에 있으니 카드에선 뺀다. 서버도 requireWriter로 쓰기를 막음
+        readOnly
+          ? <SkinDayReport day={{ ...toReportDay(selected, logs[selected]), photoCount: 0 }} />
+          : <SkinDayForm value={draft} onChange={onChange} onSave={() => { void onSave(); }} saving={saving} savedAt={savedAt} isToday={selected === today} />
+        }
+        {/* 사진·알림 스위치는 폼 아래로(점수·약이 첫 화면에 오게 — Aside 2차 TOP1). 폼 아래 여백(pb-32)을 당겨 쓰고, 저장 막대에 안 가리게 아래 여백 */}
+        <div className={readOnly ? 'mt-4 pb-16' : '-mt-24 pb-40'}>
           <SkinPhotoStrip
             dateLabel={`${Number(selected.slice(5, 7))}월 ${Number(selected.slice(8, 10))}일`}
             photos={photos}
             uploading={uploading}
             onAdd={onAddPhotos}
             onDelete={onDeletePhoto}
+            readOnly={readOnly}
           />
           <SkinPartnerAlert on={partnerAlert} readOnly={readOnly} busy={alertBusy} onToggle={toggleAlert} />
           {readOnly && (
             <p className="text-center text-[13px] mt-3" style={{ color: 'var(--sd-muted)' }}>{READ_ONLY_MSG}</p>
           )}
+        </div>
         </>
-      }
-      form={
-        // 우댕 폰(보기 전용)은 입력 폼 대신 읽기 카드 — 칸을 하나하나 열 필요 없이 적힌 게 다 보이게(우댕 2026-10-21, GPT 상담).
-        // 사진은 위 사진 칸에 이미 있으니 카드에선 뺀다. 서버도 requireWriter로 쓰기를 막음
-        readOnly
-          ? <SkinDayReport day={{ ...toReportDay(selected, logs[selected]), photoCount: 0 }} />
-          : <SkinDayForm value={draft} onChange={onChange} onSave={() => { void onSave(); }} saving={saving} savedAt={savedAt} isToday={selected === today} />
       }
     />
     {roToast && (

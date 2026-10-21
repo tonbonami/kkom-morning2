@@ -2,6 +2,7 @@
 // 제미나이 시안 2판(2026-10-21, gemini-3-flash CLI로 받음) — 검수 반영(구간 표시·범례·n번 비교·요인 표 머리). 값 그대로.
 // 고친 것(버그만): ① 30일 기록 수로 7일 합을 보여 줄지 정해서 7일 합이 없을 때 빈 숫자·NaN 위치 → uas7이 있을 때만
 //   ② 기록 없는 날·0점 막대 높이(시안이 계산만 하고 안 씀) → 막대 값으로 씀.
+//   ③ 눈금 0·6·15·27·42가 같은 간격이라 11점 점이 「6」 위에 있는 것처럼 보임 → 구간 경계 자리에 ④ 날짜 라벨이 틱 번호로 앞날을 찾아 「10/110/3…」로 붙음 → 날짜로 판단(1일·첫날만 월), 간격 넓힘. (Aside 2차)
 // SkinInsightsView.tsx
 
 import React from 'react';
@@ -53,14 +54,11 @@ export default function SkinInsightsView({
   const status = summary.uas7 !== null ? getUas7Status(summary.uas7) : null;
 
   // 그래프 X축 포맷: 월이 바뀌거나 첫 날이면 MM/DD, 아니면 DD
-  const formatXAxis = (dateStr: string, index: number) => {
+  const formatXAxis = (dateStr: string) => {
     const date = new Date(dateStr);
     const day = date.getDate();
     const month = date.getMonth() + 1;
-    if (index === 0) return `${month}/${day}`;
-    
-    const prevDate = new Date(series[index - 1].date);
-    if (date.getMonth() !== prevDate.getMonth()) return `${month}/${day}`;
+    if (dateStr === series[0]?.date || day === 1) return `${month}/${day}`;
     return `${day}`;
   };
 
@@ -125,12 +123,10 @@ export default function SkinInsightsView({
                   <span className="text-[10px] font-bold mt-1">▼</span>
                 </motion.div>
               </div>
-              <div className="flex justify-between mt-5 text-[9px] font-bold text-[var(--sd-faint)] uppercase tracking-tighter">
-                <span>0</span>
-                <span>6</span>
-                <span>15</span>
-                <span>27</span>
-                <span>42</span>
+              <div className="relative h-3 mt-5 text-[9px] font-bold text-[var(--sd-faint)] uppercase tracking-tighter">
+                {[0, 6, 15, 27, 42].map((v) => (
+                  <span key={v} className="absolute -translate-x-1/2 first:translate-x-0 last:-translate-x-full" style={{ left: `${(v / 42) * 100}%` }}>{v}</span>
+                ))}
               </div>
             </>
           )}
@@ -162,7 +158,7 @@ export default function SkinInsightsView({
                   tickFormatter={formatXAxis}
                   axisLine={false} 
                   tickLine={false}
-                  minTickGap={5}
+                  minTickGap={12}
                 />
                 <YAxis 
                   domain={[0, 6]} 

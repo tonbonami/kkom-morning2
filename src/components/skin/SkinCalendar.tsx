@@ -1,5 +1,6 @@
 'use client';
 // 제미나이 시안(2026-10-21, gemini-3-flash CLI로 받음) — 7일 띠 → 주·달 달력. 값 그대로.
+// Aside 2차 고침: 루트 max-w-[390px] 때문에 컴퓨터 폭에서 달력 카드만 다른 카드보다 좁음 → 뺌.
 // SkinCalendar.tsx
 
 import React from 'react';
@@ -94,7 +95,7 @@ export default function SkinCalendar({
   const trailingPadding = Array.from({ length: totalCells - padding.length - month.days.length });
 
   return (
-    <div className="flex flex-col gap-2 mb-4 w-full max-w-[390px]">
+    <div className="flex flex-col gap-2 mb-4 w-full">
       <div className="sd-card overflow-hidden">
         {/* 헤더 */}
         <div className="flex items-center justify-between px-4 h-[52px]">

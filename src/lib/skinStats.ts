@@ -28,6 +28,7 @@ const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.le
 
 export interface SkinSummary {
   uas7: number | null; uas7Prev: number | null;
+  uas7Days: number;                            // 최근 7일 중 점수를 적은 날 — 7보다 적으면 uas7은 빈 날을 평균으로 채운 값
   daysLogged: number; daysTotal: number;
   medMissedDays: number;
   afterMissedAvg: number | null; afterTakenAvg: number | null;
@@ -82,6 +83,7 @@ export function skinStats(logs: SkinLog[], today: string, days = 30) {
 
   const summary: SkinSummary = {
     uas7: uas7Of(byDate, today),
+    uas7Days: Array.from({ length: 7 }, (_, i) => byDate.get(addDays(today, -i))?.uas).filter((u) => u != null).length,
     uas7Prev: uas7Of(byDate, addDays(today, -7)),
     daysLogged: window.filter((d) => byDate.get(d)?.uas != null).length,
     daysTotal: days,
