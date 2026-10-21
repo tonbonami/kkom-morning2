@@ -49,21 +49,24 @@ export default function SkinChatPage() {
       .catch(() => {});
   }, [router]);
 
-  // 「오늘 상담 정리하기」 버튼 상태 — 오늘 상담이 있으면 오늘, 없으면 최근 7일 중 정리 안 한 가장 최근 날(「어제 상담 정리하기」).
-  // 반영한 뒤 상담을 더 했으면 다시 「정리하기」. (우댕 2026-10-22: 어제 28말 상담이 정리 없이 끝남)
+  // 「상담 정리하기」 버튼 — 최근 7일 중 정리 안 한(또는 반영 전) 날을 **오래된 날부터** 하나씩(어제 → 오늘 순).
+  // 그런 날이 없고 오늘 상담이 있으면 「오늘 정리 다시 보기」. 반영한 뒤 상담을 더 했으면 그날은 다시 「정리하기」.
+  // (우댕 2026-10-22: 어제 28말 상담이 정리 없이 끝남 / 오늘 상담을 시작해도 어제 정리로 갈 길이 남아 있어야)
   const [sum, setSum] = useState<{ state: 'none' | 'draft' | 'applied'; date: string } | null>(null);
   const refreshSummary = useCallback(async () => {
     const today = kstToday();
-    for (let i = 0; i < 7; i++) {
-      const d = addDays(today, -i);
-      const r = await fetchChatSummary(d).catch(() => null);
+    const days = Array.from({ length: 7 }, (_, i) => addDays(today, i - 6)); // 6일 전 → 오늘
+    const rows = await Promise.all(days.map((d) => fetchChatSummary(d).catch(() => null)));
+    let todayRow: { state: 'none' | 'draft' | 'applied'; date: string } | null = null;
+    for (let i = 0; i < days.length; i++) {
+      const r = rows[i];
       if (!r || r.msgCount === 0) continue;
       const s = r.summary;
       const state = !s ? 'none' : s.status === 'applied' && r.msgCount > s.msgCount ? 'none' : s.status;
-      if (i === 0 || state !== 'applied') { setSum({ state, date: d }); return; }
-      if (state === 'applied') break; // 지난날은 다 정리했으면 버튼 없음
+      if (state !== 'applied') { setSum({ state, date: days[i] }); return; }
+      if (days[i] === today) todayRow = { state, date: today };
     }
-    setSum(null);
+    setSum(todayRow);
   }, []);
   useEffect(() => { void refreshSummary(); }, [refreshSummary]);
 
