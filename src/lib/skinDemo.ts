@@ -53,7 +53,7 @@ function sampleSummary(date: string): ChatSummary {
     plans: ['일주일 동안 술 마신 날을 「의심 가는 것」에 꼭 적어 보기', '다음 진료 때 약 먹는 시간 물어보기'],
     claudeNotes: ['약 먹는 시간·양은 의사와 상의하라고 안내함'],
     proposals: [
-      P({ field: 'meds', date, label: '약 — 항히스타민(예시) 3알 · 23:00 · 늦게', evidence: '어젯밤 11시에 3알 먹었어', med: { name: '항히스타민(예시)', dose: '3알', time: '23:00', status: 'late' } }),
+      P({ field: 'meds', date, label: '약 — 항히스타민 · 3알 · 23:00 · 늦게', evidence: '어젯밤 11시에 3알 먹었어', med: { name: '항히스타민', dose: '3알', time: '23:00', status: 'late' } }),
       P({ field: 'triggers', date, label: '의심 가는 것 — 술', evidence: '저녁에 맥주 한 캔 마셨어', list: ['술'] }),
       P({ field: 'sleepH', date: null, label: '잠 — 5.5시간', evidence: '다섯 시간 반쯤 잔 것 같아', num: 5.5, certain: false }),
     ],
