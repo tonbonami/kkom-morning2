@@ -1474,6 +1474,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     const end = ta?.selectionEnd ?? start;
     const next = draft.slice(0, start) + token + draft.slice(end);
     setDraft(next);
+    // 방금 넣은 「(행복)」 때문에 큰 「행복」 추천이 바로 다시 떠서, 누르면 같은 그림이 두 번 갔다(Aside 2026-10-22) → 이 단어 동안은 추천 줄을 접는다
+    setSugClosed({ prefix: next.slice(0, tokenStart(next)) });
     requestAnimationFrame(() => {
       if (ta) { ta.focus(); const pos = start + token.length; ta.setSelectionRange(pos, pos); }
     });
