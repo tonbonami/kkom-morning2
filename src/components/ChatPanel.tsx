@@ -18,6 +18,8 @@ import {
 import { MOOD_OPTIONS } from '@/lib/moods';
 import { normForMatch, toJamo, prepareAlias, matchTier, isConsonantsOnly, type PreparedAlias } from '@/lib/hangulMatch';
 import StickerSuggestTray, { type SuggestItem } from './StickerSuggestTray';
+import StickerSendPreview from './StickerSendPreview';
+import StickerTextStack from './StickerTextStack';
 import ChatEffectLayer, { type ChatEffect } from '@/components/ChatEffectLayer';
 
 // 메시지 효과 키워드 → 이모지
@@ -830,7 +832,7 @@ function LinkPreview({ url, mine }: { url: string; mine: boolean }) {
 }
 
 export function preview(m: ChatMessage): string {
-  if (m.sticker) return '이모티콘';
+  if (m.sticker) return m.text?.trim() ? `이모티콘 ${m.text.trim().slice(0, 40)}` : '이모티콘';
   if (m.videoUrl) return '동영상';
   if (m.imageUrl) return '사진';
   if (m.audioUrl) return '음성 메시지';
@@ -1304,6 +1306,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   };
 
   const send = () => {
+    if (pendingSticker && !editing) { void sendPendingSticker(); return; }   // 미리보기 이모티콘 + 글 한 묶음
     const t = draft.trim();
     if (!t) return;
     // 수정 중이면 새로 보내는 대신 원본을 고친다.
@@ -1533,27 +1536,60 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       default: return [];
     }
   };
-  // 이모티콘 + 입력칸 글을 같이 보낸다 — 카톡처럼(우댕 2026-10-22: 「사랑해」 치고 추천 이모티콘을 누르면 글이 입력칸에 남아 매번 지웠다).
-  // 이모티콘 먼저, 글은 바로 뒤에(서버 시각 순서가 뒤집히지 않게 이모티콘 저장을 기다린 뒤). 수정 중일 땐 글은 그대로 둔다.
-  const sendStickerWithDraft = async (image: string) => {
-    const t = editing ? '' : draft.trim();
+  // 카톡식 이모티콘 보내기(우댕 2026-10-22 「1번」 결정 · 제미나이 시안 StickerSendPreview·StickerTextStack):
+  //   고르면 바로 보내지 않고 입력칸 위에 미리보기 → 같은 걸 한 번 더 누르거나(카톡) 보내기를 누르면
+  //   이모티콘 + 친 글이 **메시지 하나**(sticker + text)로 가서 한 말풍선 묶음으로 그려진다. 글이 없으면 이모티콘만.
+  //   (그 전엔 누르는 즉시 이모티콘만 가고 글이 입력칸에 남았다 → 잠깐 「두 개로 연달아」였다가 이걸로)
+  const [pendingSticker, setPendingSticker] = useState<{ image: string; thumb: string; isVideo: boolean; label: string } | null>(null);
+  const sendPendingSticker = async (image?: string) => {
+    const img = image ?? pendingSticker?.image;
+    if (!img) return;
+    const t = draft.trim();
     const reply = replyTo ?? undefined;
-    setReplyTo(null);
+    setPendingSticker(null); setReplyTo(null); setPairFrom(null);
     if (t) { setDraft(''); stopTyping(); }
-    await onSend('', undefined, image, reply);
-    if (t) {
-      await onSend(t);
-      const url = firstUrl(t);
-      if (url) void detectLinkPrompt(url, t);
-    }
+    await onSend(t, undefined, img, reply);
+    if (t) { const url = firstUrl(t); if (url) void detectLinkPrompt(url, t); }
+  };
+  const chooseSticker = (image: string, label: string, thumb?: string) => {
+    // 메시지 고치는 중엔 미리보기 없이 예전처럼 이모티콘만 바로(고치던 글은 그대로)
+    if (editing) { void onSend('', undefined, image, replyTo ?? undefined); setReplyTo(null); return; }
+    if (pendingSticker?.image === image) { void sendPendingSticker(image); return; }   // 같은 걸 한 번 더 → 바로 전송(카톡)
+    setPendingSticker({ image, thumb: thumb ?? image, isVideo: isVideoSrc(image), label });
   };
 
   const pickSticker = (mode: StickerMode, key: string, image: string) => {
     recordPick({ mode, key, image });                      // 최근·자주 기록(원래 mode로)
     if (mode === 'mini') { insertParen(key); setStickerOpen(false); return; }     // (단어) 인라인 미니 — 넣고 서랍 닫기
-    void sendStickerWithDraft(image);                      // 나머지: 스티커 + 입력칸 글(있으면)
-    setStickerOpen(false);
+    chooseSticker(image, key);                             // 나머지: 미리보기(서랍은 열어 둔다 — 카톡처럼 한 번 더 누르면 전송)
   };
+
+  // 받은 메시지의 이모티콘 그림(혼자일 때와 글과 묶일 때 같이 씀)
+  const stickerArt = (src: string) => (
+    isVideoSrc(src) ? (
+      <video src={src} poster={posterOf(src)} autoPlay loop muted playsInline
+        className="w-40 h-40 rounded-[26px] object-cover bg-white shadow-sm" />
+    ) : FULL_STICKERS.has(src) ? (
+      <motion.img src={src} alt="이모티콘" className="w-[76vw] max-w-[400px] h-auto rounded-2xl shadow-sm"
+        initial={{ scale: 0.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ scale: { type: 'spring', stiffness: 300, damping: 20 }, opacity: { duration: 0.2 } }} />
+    ) : (
+      // 크기 통일 — ⚠️ 높이·폭 '둘 다' 상한(max-h 138 / max-w 150, 비율유지 contain). 높이만 잡으면
+      //   세로긴 프레임(사이 팩)은 잡히지만 가로넓은 것(심심해 319x252→187폭)·정사각(ㅋㅋㅋ 꽉참)이 커 보임.
+      //   두 상한으로 캐릭터 '덩치'를 통일(우댕: 뭐해/도착/심심해/ㅋㅋㅋ 지적). 푸데데 가로형이 대략 상한.
+      //   챗 이모티콘은 말풍선 없이 그림만. ⚠️ 움짤(sai-anim)은 스스로 움직여 통 흔들기(rotate) 제외, 정지만 흔든다.
+      <motion.img src={src} alt="이모티콘"
+        className="max-h-[138px] max-w-[150px] object-contain drop-shadow-sm"
+        initial={{ scale: 0.4, opacity: 0 }}
+        animate={src.startsWith('/emo/sai-anim/')
+          ? { scale: 1, opacity: 1 }
+          : { scale: 1, opacity: 1, rotate: [0, -5, 5, -3, 0] }}
+        transition={src.startsWith('/emo/sai-anim/')
+          ? { scale: { type: 'spring', stiffness: 420, damping: 14 }, opacity: { duration: 0.15 } }
+          : { scale: { type: 'spring', stiffness: 420, damping: 14 }, opacity: { duration: 0.15 }, rotate: { duration: 1.8, repeat: Infinity, repeatDelay: 2.4, ease: 'easeInOut' } }} />
+    )
+  );
 
   // 원본 사진·동영상 저장 — 중복 탭 방지용 saving 상태만 관리, 실제 저장은 saveMedia가 플랫폼별로.
   const handleSave = async (url: string, kind: 'image' | 'video') => {
@@ -1908,29 +1944,16 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       ) : m.deleted ? (
                         <div className="max-w-[75%] px-3.5 py-2 text-[14px] italic text-slate-400 bg-black/5 rounded-2xl">삭제된 메시지예요</div>
                       ) : m.sticker ? (
-                        isVideoSrc(m.sticker) ? (
-                          <video src={m.sticker} poster={posterOf(m.sticker)} autoPlay loop muted playsInline
-                            className="w-40 h-40 rounded-[26px] object-cover bg-white shadow-sm" />
-                        ) : FULL_STICKERS.has(m.sticker) ? (
-                          <motion.img src={m.sticker} alt="이모티콘" className="w-[76vw] max-w-[400px] h-auto rounded-2xl shadow-sm"
-                            initial={{ scale: 0.6, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ scale: { type: 'spring', stiffness: 300, damping: 20 }, opacity: { duration: 0.2 } }} />
-                        ) : (
-                          // 크기 통일 — ⚠️ 높이·폭 '둘 다' 상한(max-h 138 / max-w 150, 비율유지 contain). 높이만 잡으면
-                          //   세로긴 프레임(사이 팩)은 잡히지만 가로넓은 것(심심해 319x252→187폭)·정사각(ㅋㅋㅋ 꽉참)이 커 보임.
-                          //   두 상한으로 캐릭터 '덩치'를 통일(우댕: 뭐해/도착/심심해/ㅋㅋㅋ 지적). 푸데데 가로형이 대략 상한.
-                          //   챗 이모티콘은 말풍선 없이 그림만. ⚠️ 움짤(sai-anim)은 스스로 움직여 통 흔들기(rotate) 제외, 정지만 흔든다.
-                          <motion.img src={m.sticker} alt="이모티콘"
-                            className="max-h-[138px] max-w-[150px] object-contain drop-shadow-sm"
-                            initial={{ scale: 0.4, opacity: 0 }}
-                            animate={m.sticker.startsWith('/emo/sai-anim/')
-                              ? { scale: 1, opacity: 1 }
-                              : { scale: 1, opacity: 1, rotate: [0, -5, 5, -3, 0] }}
-                            transition={m.sticker.startsWith('/emo/sai-anim/')
-                              ? { scale: { type: 'spring', stiffness: 420, damping: 14 }, opacity: { duration: 0.15 } }
-                              : { scale: { type: 'spring', stiffness: 420, damping: 14 }, opacity: { duration: 0.15 }, rotate: { duration: 1.8, repeat: Infinity, repeatDelay: 2.4, ease: 'easeInOut' } }} />
-                        )
+                        m.text?.trim() ? (
+                          // 이모티콘 + 글 한 메시지 → 카톡처럼 이모티콘 위·글 말풍선 아래 한 묶음(제미나이 StickerTextStack)
+                          <StickerTextStack mine={mine} sticker={stickerArt(m.sticker)}>
+                            <div
+                              className={`max-w-full px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap break-keep rounded-2xl ${mine ? 'rounded-tr-sm shadow-[0_2px_8px_rgba(0,0,0,0.12)]' : 'rounded-tl-sm shadow-[0_2px_12px_rgba(0,0,0,0.04)]'}`}
+                              style={{ background: mine ? 'var(--ct-my-bg)' : 'var(--ct-partner-bg)', color: mine ? 'var(--ct-my-text)' : 'var(--ct-partner-text)' }}>
+                              {renderRich(m.text, m.from)}
+                            </div>
+                          </StickerTextStack>
+                        ) : stickerArt(m.sticker)
                       ) : m.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -2191,16 +2214,19 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           <div className="relative px-3 pt-2 backdrop-blur-xl border-t border-black/[0.04]"
             // 키보드가 떠 있으면 키보드 높이 + 8px만(아래 안전영역 틈은 키보드가 덮으니 뺀다 — 카톡처럼 붙게)
             style={{ paddingBottom: kbInset ? `${kbInset + 8}px` : 'max(env(safe-area-inset-bottom), 1.25rem)', background: 'var(--ct-header)' }}>
-            {/* 카톡식 이모티콘 추천 트레이 — 제미나이 C안 그대로(StickerSuggestTray). 입력바 바로 위에 떠 있다(absolute bottom-full). 탭=이모티콘 + 친 글 같이 전송 */}
+            {/* 카톡식 이모티콘 추천 트레이 — 제미나이 C안 그대로(StickerSuggestTray). 입력바 바로 위에 떠 있다(absolute bottom-full). 탭=미리보기 */}
             <StickerSuggestTray
               items={trayItems}
               reduceMotion={!!reduceMotion}
               onPick={(t) => {
                 const it = (pairFrom ? pairFrom.items : suggestions).find((x) => x.image === t.id); if (!it) return;
-                recordPick(it); void sendStickerWithDraft(it.image); setPairFrom(null); // 친 글도 같이(카톡처럼)
+                recordPick(it); chooseSticker(it.image, it.key, drawerThumb(it.thumb)); // 미리보기 → 한 번 더 누르거나 보내기(카톡)
               }}
               onClose={() => { if (pairFrom) setPairFrom(null); else setSugClosed({ prefix: draft.slice(0, tokenStart(draft)) }); }}
             />
+            {/* 카톡식 이모티콘 미리보기 — 추천 줄 위를 덮는다(z-30). 그림을 누르면 바로 전송, ✕로 빼기 */}
+            <StickerSendPreview item={pendingSticker} hasText={!!draft.trim()} reduceMotion={!!reduceMotion}
+              onCancel={() => setPendingSticker(null)} onSendNow={() => { void sendPendingSticker(); }} />
             {/* 업로드 진행 — 동영상은 실제 % 바, 사진은 짧아서 간단한 진행 표시 */}
             <AnimatePresence>
               {uploading && (
@@ -2386,7 +2412,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     style={{ color: stickerOpen ? '#FB7BA8' : 'var(--ct-chip-icon)' }}>
                     {stickerOpen ? <Keyboard size={21} /> : <Smile size={21} />}
                   </button>
-                  {draft.trim() && (
+                  {(draft.trim() || pendingSticker) && (
                     // onPointerDown preventDefault — 버튼이 입력창 포커스를 뺏지 않게(연속 전송 시 자판 유지)
                     <button onClick={send} onPointerDown={(e) => e.preventDefault()} aria-label="보내기"
                       className="grid h-10 w-10 place-items-center rounded-full bg-[#FB7BA8] text-white shadow-[0_4px_14px_rgba(251,123,168,0.35)] active:scale-90 transition">

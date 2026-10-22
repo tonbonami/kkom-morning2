@@ -39,7 +39,7 @@ export async function sendMessage(
   audio?: { url: string; dur: number },
   video?: { url: string; dur?: number },
 ): Promise<void> {
-  if (isPractice()) { practiceBlocked(sticker ? '이모티콘' : imageUrl ? '사진' : audio ? '음성' : video ? '동영상' : `「${text.trim().slice(0, 20)}」`); return; }
+  if (isPractice()) { practiceBlocked(sticker ? (text.trim() ? `이모티콘 + 「${text.trim().slice(0, 20)}」` : '이모티콘') : imageUrl ? '사진' : audio ? '음성' : video ? '동영상' : `「${text.trim().slice(0, 20)}」`); return; }
   const t = text.trim();
   if (!t && !imageUrl && !sticker && !audio && !video) return;
   const clipped = t.slice(0, 2000);
@@ -68,7 +68,7 @@ export async function sendMessage(
   const plain = withLinkLabel.replace(/\[\[e:[a-z]+\]\]/g, '🐶').slice(0, 140); // 미니 이모티콘 토큰 → 🐶
   const pushText = video ? '동영상을 보냈어 🎬'
     : audio ? '음성 메시지를 보냈어 🎤'
-    : sticker ? '이모티콘을 보냈어 🐶'
+    : sticker ? (plain ? `${plain} 🐶` : '이모티콘을 보냈어 🐶')
     : imageUrl ? (plain || '사진을 보냈어 📷')
     : plain;
   fetch('/api/message', {
