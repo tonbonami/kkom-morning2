@@ -77,7 +77,7 @@ interface Props {
   messages: ChatMessage[];
   open: boolean;
   onClose: () => void;
-  onSend: (text: string, imageUrl?: string, sticker?: string, replyTo?: ReplyRef, audio?: { url: string; dur: number }, video?: { url: string; dur?: number }) => void;
+  onSend: (text: string, imageUrl?: string, sticker?: string, replyTo?: ReplyRef, audio?: { url: string; dur: number }, video?: { url: string; dur?: number }) => void | Promise<void>;
   partnerOnline: boolean;
   partnerOnWatch?: boolean;   // 폰은 꺼졌고 워치만 켜짐 — '워치로 보는 중'(길게 답장은 못 하는 상태)
   onLoadMore: () => void;
@@ -1531,11 +1531,26 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       default: return [];
     }
   };
+  // 이모티콘 + 입력칸 글을 같이 보낸다 — 카톡처럼(우댕 2026-10-22: 「사랑해」 치고 추천 이모티콘을 누르면 글이 입력칸에 남아 매번 지웠다).
+  // 이모티콘 먼저, 글은 바로 뒤에(서버 시각 순서가 뒤집히지 않게 이모티콘 저장을 기다린 뒤). 수정 중일 땐 글은 그대로 둔다.
+  const sendStickerWithDraft = async (image: string) => {
+    const t = editing ? '' : draft.trim();
+    const reply = replyTo ?? undefined;
+    setReplyTo(null);
+    if (t) { setDraft(''); stopTyping(); }
+    await onSend('', undefined, image, reply);
+    if (t) {
+      await onSend(t);
+      const url = firstUrl(t);
+      if (url) void detectLinkPrompt(url, t);
+    }
+  };
+
   const pickSticker = (mode: StickerMode, key: string, image: string) => {
     recordPick({ mode, key, image });                      // 최근·자주 기록(원래 mode로)
     if (mode === 'mini') { insertParen(key); setStickerOpen(false); return; }     // (단어) 인라인 미니 — 넣고 서랍 닫기
-    onSend('', undefined, image, replyTo ?? undefined);    // 나머지: 단독 스티커 전송
-    setReplyTo(null); setStickerOpen(false);
+    void sendStickerWithDraft(image);                      // 나머지: 스티커 + 입력칸 글(있으면)
+    setStickerOpen(false);
   };
 
   // 원본 사진·동영상 저장 — 중복 탭 방지용 saving 상태만 관리, 실제 저장은 saveMedia가 플랫폼별로.
@@ -2174,13 +2189,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           <div className="relative px-3 pt-2 backdrop-blur-xl border-t border-black/[0.04]"
             // 키보드가 떠 있으면 키보드 높이 + 8px만(아래 안전영역 틈은 키보드가 덮으니 뺀다 — 카톡처럼 붙게)
             style={{ paddingBottom: kbInset ? `${kbInset + 8}px` : 'max(env(safe-area-inset-bottom), 1.25rem)', background: 'var(--ct-header)' }}>
-            {/* 카톡식 이모티콘 추천 트레이 — 제미나이 C안 그대로(StickerSuggestTray). 입력바 바로 위에 떠 있다(absolute bottom-full). 탭=전송 */}
+            {/* 카톡식 이모티콘 추천 트레이 — 제미나이 C안 그대로(StickerSuggestTray). 입력바 바로 위에 떠 있다(absolute bottom-full). 탭=이모티콘 + 친 글 같이 전송 */}
             <StickerSuggestTray
               items={trayItems}
               reduceMotion={!!reduceMotion}
               onPick={(t) => {
                 const it = (pairFrom ? pairFrom.items : suggestions).find((x) => x.image === t.id); if (!it) return;
-                recordPick(it); onSend('', undefined, it.image, replyTo ?? undefined); setReplyTo(null); setPairFrom(null);
+                recordPick(it); void sendStickerWithDraft(it.image); setPairFrom(null); // 친 글도 같이(카톡처럼)
               }}
               onClose={() => { if (pairFrom) setPairFrom(null); else setSugClosed({ prefix: draft.slice(0, tokenStart(draft)) }); }}
             />
