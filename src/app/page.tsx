@@ -81,7 +81,7 @@ const MODULES: ModuleDef[] = [
   { id: 'chat',     name: '꼼톡' },
   { id: 'air',      name: '미세먼지' },
   { id: 'weather',  name: '오늘 밖' },
-  { id: 'skin',     name: '피부 일지' },   // 꼼이 피부 일지 — 둘 다 보임, 안은 PIN 잠금(/skin)
+  { id: 'skin',     name: '꿀닥터' },     // 꼼이 피부 일지 — 둘 다 보임, 안은 PIN 잠금(/skin)
   { id: 'mood',     name: '오늘의 기분' },
   { id: 'dday',     name: '함께한 지' },
   { id: 'calendar', name: '달력' },
@@ -1013,7 +1013,7 @@ export default function KkomMorningHome() {
       newText: newRecipe ? '새 글' : undefined,
     }),
     skin: renderListCard({
-      Icon: Stethoscope, name: '피부 일지', onClick: () => router.push('/skin'),
+      Icon: Stethoscope, name: '꿀닥터', onClick: () => router.push('/skin'),
       // 청진기 든 의사 꿀됑 선화(우댕 A안 OK 2026-10-21, potrace SVG)를 오른쪽에 연하게
       bg: "url('/emo/kkuldaeng/doctor/lineart.svg') right 14px bottom -10px / auto 104% no-repeat, var(--sd-card)", ac: 'var(--sd-rel)',
       recent: skinToday, empty: '오늘 피부 점수 · 약 30초 기록',

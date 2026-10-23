@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
       todayUse?.count ? `Claude 상담 ${todayUse.count}번 ${won(usageCost(todayUse))}` : '',
     ].filter(Boolean);
     const lines: (string | false)[] = [
-      `꼼이 피부 일지 백업 · ${title}`,
+      `꿀닥터(꼼이 피부 일지) 백업 · ${title}`,
       '',
       '■ 기록',
       changed.length ? `지난 메일 뒤로 바뀐 날 ${changed.length}일` : '지난 메일 뒤로 바뀐 기록은 없어요.',
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
         : `⚠️ 저장 위치가 ${project}예요(꼼모닝은 ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}). 서버 키를 확인해 주세요.`,
     ].filter((s): s is string => s !== false);
     mailed = await sendMail({
-      subject: `[꼼모닝] 피부 일지 백업 ${md(today)} · ${subjectBits.join(' · ')}`,
+      subject: `[꼼모닝] 꿀닥터 백업 ${md(today)} · ${subjectBits.join(' · ')}`,
       text: lines.join('\n'),
       attachments: [{ filename: `skin-${today}.json`, content: json, contentType: 'application/json' }],
     });

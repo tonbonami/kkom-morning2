@@ -1,4 +1,5 @@
 // 제미나이 시안(2026-10-21, 우댕 전달) — 값 그대로.
+// 로고(2026-10-24, 우댕 「꿀닥터」 2번 OK): 제목 글자 → 꿀닥터 로고.
 // SkinPinGate.tsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -30,7 +31,7 @@ export default function SkinPinGate({
         <div className="w-16 h-16 rounded-full bg-[var(--sd-surface-2)] flex items-center justify-center mb-4">
           <Lock size={32} color="var(--sd-muted)" />
         </div>
-        <h1 className="text-2xl font-bold">꼼이 피부 일지</h1>
+        <h1><img src="/emo/kkuldaeng/doctor/kkuldoctor-logo.webp" alt="꿀닥터" className="h-12 w-auto mx-auto" /></h1>
         <p className="text-[var(--sd-muted)] text-sm">꼼이만 볼 수 있게 잠겨 있어요</p>
 
         <motion.div

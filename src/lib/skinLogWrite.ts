@@ -58,7 +58,7 @@ export async function writeSkinLog(
   if (date === kstToday() && (log.uas ?? 0) >= 4 && !log.alertedAt) {
     const settings = (await db.doc(SKIN_SETTINGS_PATH).get()).data();
     if (settings?.partnerAlert === true) {
-      const ok = await sendApns('udaeng', '꼼이 피부 일지', '오늘 꼼이 피부가 힘든 날이에요. 한 번 꼭 안아 주세요.', { threadId: 'skin' }).catch(() => false);
+      const ok = await sendApns('udaeng', '꿀닥터', '오늘 꼼이 피부가 힘든 날이에요. 한 번 꼭 안아 주세요.', { threadId: 'skin' }).catch(() => false);
       if (ok) log.alertedAt = now;
     }
   }
