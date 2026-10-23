@@ -1,8 +1,9 @@
 'use client';
-// 로고(2026-10-24, 우댕 「꿀닥터」 2번 OK): 제목 글자 → 꿀닥터 로고(같은 높이 40px — 머리 줄 크기 그대로).
+// 로고(2026-10-24, 우댕 「꿀닥터」 2번 OK): 제목 글자 → 꿀닥터 로고(같은 높이 40px — 머리 줄 크기 그대로). 글씨는 진짜 글자(KkulDoctorLogo) — 그림이면 안 읽혔다.
 // 제미나이 6차(gemini-3-flash CLI): 머리 줄 「분석」 옆 「상담」 버튼(header.onOpenChat) — 상담이 분석 맨 아래에만 있어 세 번 눌러야 갔다. 값 그대로.
 
 import React from 'react';
+import KkulDoctorLogo from './KkulDoctorLogo';
 import { ArrowLeft, LineChart, MessageCircle } from 'lucide-react';
 
 export default function SkinJournalView({
@@ -27,7 +28,7 @@ export default function SkinJournalView({
         <button onClick={header.onBack} className="p-2 -ml-2 text-[var(--sd-ink)]" aria-label="뒤로 가기">
           <ArrowLeft size={24} />
         </button>
-        <h1 className="min-w-0"><img src="/emo/kkuldaeng/doctor/kkuldoctor-logo.webp" alt="꿀닥터" className="h-10 w-auto" /></h1>
+        <h1 className="min-w-0 flex items-center"><KkulDoctorLogo height={46} text={0.72} /></h1>
         <div className="flex items-center -mr-2">
           <button onClick={header.onOpenInsights} className="p-2 text-[var(--sd-rel)] flex items-center gap-1">
             <LineChart size={20} />

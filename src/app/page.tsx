@@ -1,5 +1,6 @@
 'use client';
 
+import KkulDoctorLogo from '@/components/skin/KkulDoctorLogo';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -626,13 +627,16 @@ export default function KkomMorningHome() {
   const renderListCard = (o: {
     Icon: LucideIcon; name: string; onClick: () => void; bg: string; ac: string;
     recent: string; empty: string; count: number; unit: string; newText?: string;
+    title?: React.ReactNode;   // 아이콘+이름 대신 로고(꿀닥터)
   }) => (
     <button onClick={o.onClick}
       className="sd-card w-full h-full px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
       style={{ background: o.bg }}>
-      <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-        <o.Icon size={16} strokeWidth={2.2} /> {o.name}
-      </div>
+      {o.title ?? (
+        <div className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+          <o.Icon size={16} strokeWidth={2.2} /> {o.name}
+        </div>
+      )}
       <div className="mt-auto pt-2">
         {o.recent ? (
           <p className="text-[13.5px] font-bold line-clamp-1" style={{ color: 'var(--sd-ink)' }}>{o.recent}</p>
@@ -1014,8 +1018,10 @@ export default function KkomMorningHome() {
     }),
     skin: renderListCard({
       Icon: Stethoscope, name: '꿀닥터', onClick: () => router.push('/skin'),
-      // 청진기 든 의사 꿀됑 선화(우댕 A안 OK 2026-10-21, potrace SVG)를 오른쪽에 연하게
-      bg: "url('/emo/kkuldaeng/doctor/lineart.svg') right 14px bottom -10px / auto 104% no-repeat, var(--sd-card)", ac: 'var(--sd-rel)',
+      // 바깥 배너 = 꿀닥터 로고(걷는 의사 꿀됑 + 글씨, 우댕 2026-10-24 「바깥 들어가는 배너를 바꾸라는 뜻」). 카드 크기 그대로.
+      // 예전 청진기 꿀됑 선화 배경(lineart.svg)은 로고의 꿀됑과 겹쳐 뺐다(파일은 남겨 둠).
+      title: <KkulDoctorLogo height={84} text={0.58} />,
+      bg: 'var(--sd-card)', ac: 'var(--sd-rel)',
       recent: skinToday, empty: '오늘 피부 점수 · 약 30초 기록',
       count: 0, unit: '',
     }),
