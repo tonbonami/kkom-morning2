@@ -1,5 +1,5 @@
 // 피부 일지 — 브라우저 쪽 도우미. 서버(/api/skin/*)는 PIN 쿠키(httpOnly, path /api/skin)로만 열린다.
-import type { SkinLog } from './skinTypes';
+import { emptyMemos, itch10Of, sevOf, MEMO_SLOTS, type MemoSlot, type SkinLog } from './skinTypes';
 import { nameFromCode } from './letters';
 import { isPractice } from './practice';
 import { demo } from './skinDemo';
@@ -69,6 +69,8 @@ export function draftFrom(date: string, log?: SkinLog | null): SkinDraft {
   const meds = log?.meds?.length ? log.meds.map((m) => ({ ...m })) : [{ name: DEFAULT_MED, time: null, status: null }];
   return {
     date,
+    // 가려움 0~10(예전 0~3 기록은 0·3·7·10으로 보여 줌), 붉어짐 0~10, 메모 네 칸 — 우댕 2026-10-24
+    itch10: itch10Of(log), redness: log?.redness ?? null, memos: { ...emptyMemos(), ...(log?.memos ?? {}) },
     wheals: log?.wheals ?? null, itch: log?.itch ?? null,
     meds,
     episodes: log?.episodes ?? [], angioedema: log?.angioedema ?? null, trace: log?.trace ?? null,
@@ -119,7 +121,7 @@ async function shrinkImage(file: File, maxSide = 1600): Promise<Blob> {
   }
 }
 
-export type SkinPhotoView = { id: string; url: string; t: string | null };
+export type SkinPhotoView = { id: string; url: string; t: string | null; slot?: MemoSlot | null };   // slot = 아침·점심·저녁·밤 메모 칸(없으면 예전 사진)
 
 export async function fetchSkinPhotos(date: string): Promise<SkinPhotoView[]> {
   if (isPractice()) return demo.photos(date);
@@ -127,10 +129,11 @@ export async function fetchSkinPhotos(date: string): Promise<SkinPhotoView[]> {
   return r.ok ? (await r.json()).photos : [];
 }
 
-export async function uploadSkinPhoto(date: string, file: File): Promise<SkinPhotoView> {
-  if (isPractice()) return demo.addPhoto(date, file);
+export async function uploadSkinPhoto(date: string, file: File, slot?: MemoSlot): Promise<SkinPhotoView> {
+  if (isPractice()) return demo.addPhoto(date, file, slot);
   const fd = new FormData();
   fd.append('date', date);
+  if (slot) fd.append('slot', slot);
   fd.append('file', await shrinkImage(file), 'photo.jpg');
   const r = await fetch('/api/skin/photo', { method: 'POST', body: fd });
   if (!r.ok) throw new Error(`upload ${r.status}`);
@@ -196,7 +199,12 @@ export async function fetchSkinLogsLong(from: string, to: string): Promise<SkinL
 export function toReportDay(date: string, l?: SkinLog | null): ReportDay {
   return {
     date, logged: !!l,
-    wheals: l?.wheals ?? null, itch: l?.itch ?? null, uas: l?.uas ?? null,
+    itch10: itch10Of(l), redness: l?.redness ?? null, sev: sevOf(l),
+    memos: { ...emptyMemos(), ...(l?.memos ?? {}) },
+    photoCountBySlot: {
+      ...(Object.fromEntries(MEMO_SLOTS.map((k) => [k, (l?.photos ?? []).filter((p) => p.slot === k).length])) as Record<MemoSlot, number>),
+      etc: (l?.photos ?? []).filter((p) => !p.slot).length,
+    },
     meds: l?.meds ?? [], episodes: l?.episodes ?? [], angioedema: l?.angioedema ?? null, trace: l?.trace ?? null,
     triggers: l?.triggers ?? [], foods: l?.foods ?? [],
     sleepH: l?.sleepH ?? null, wakeItch: l?.wakeItch ?? null, waterMl: l?.waterMl ?? null, stress: l?.stress ?? null,
@@ -208,13 +216,13 @@ export function toReportDay(date: string, l?: SkinLog | null): ReportDay {
 
 export function reportSummary(days: ReportDay[]) {
   const logged = days.filter((d) => d.logged);
-  const scored = logged.filter((d) => d.uas != null);
+  const scored = logged.filter((d) => d.sev != null);
   const count = new Map<string, number>();
   for (const d of logged) for (const t of new Set(d.triggers)) count.set(t, (count.get(t) ?? 0) + 1);
   return {
     daysLogged: logged.length, daysTotal: days.length,
-    avgUas: scored.length ? Math.round((scored.reduce((s, d) => s + (d.uas ?? 0), 0) / scored.length) * 10) / 10 : null,
-    hardDays: scored.filter((d) => (d.uas ?? 0) >= 4).length,
+    avgUas: scored.length ? Math.round((scored.reduce((s, d) => s + (d.sev ?? 0), 0) / scored.length) * 10) / 10 : null,   // 하루 점수 0~10 평균(이름만 그대로)
+    hardDays: scored.filter((d) => (d.sev ?? 0) >= 7).length,
     medMissedDays: logged.filter((d) => d.meds.some((m) => m.status === 'missed')).length,
     angioedemaDays: logged.filter((d) => d.angioedema?.present).length,
     topTriggers: [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, n]) => ({ name, days: n })),

@@ -9,7 +9,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { FieldValue } from 'firebase-admin/firestore';
 import { requireReader, requireWriter } from '@/lib/skinAuth';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { DATE_RE, SKIN_OWNER, addDaysIso, skinLogPath, type SkinLog } from '@/lib/skinTypes';
+import { DATE_RE, MEMO_SLOTS, SKIN_OWNER, addDaysIso, skinLogPath, type SkinLog } from '@/lib/skinTypes';
 import { dayLine } from '@/lib/skinContext';
 import { PROPOSAL_FIELDS, type ChatSummary, type MemoryItem } from '@/lib/skinChatSummary';
 import { AREAS, TRIGGERS } from '@/components/skin/skinUi';
@@ -34,7 +34,7 @@ const Proposal = z.object({
   field: z.enum(PROPOSAL_FIELDS), date: z.string().nullable(), label: z.string(),
   num: z.number().nullable(), bool: z.boolean().nullable(), text: z.string().nullable(), list: z.array(z.string()),
   med: Med.nullable(), episode: Episode.nullable(), food: Food.nullable(), angio: Angio.nullable(),
-  evidence: z.string(), certain: z.boolean(),
+  evidence: z.string(), certain: z.boolean(), slot: z.enum(MEMO_SLOTS).nullable(),
 });
 const Output = z.object({
   key: z.array(z.string()), facts: z.array(z.string()), worries: z.array(z.string()), plans: z.array(z.string()), claudeNotes: z.array(z.string()),
@@ -57,9 +57,10 @@ function rules(date: string): string {
 - 날짜: 「오늘」= ${date}, 「어제」= ${addDaysIso(date, -1)}, 날짜를 말했으면 그날. 애매하면 null.
 - 아래 「이미 일지에 적힌 것」(최근 7일)에 이미 들어 있는 내용이면 빼라 — 메모에 같은 뜻으로 적혀 있어도 뺀다(꼼이가 상담 뒤 손으로 먼저 적어 두는 날이 있다).
 - field별 값 슬롯(나머지 슬롯은 null, list는 빈 배열):
-  wheals·itch(0~3 정수: 0 없음 1 약간 2 보통 3 심함), sleepH(시간), waterMl(ml), stress(0~10), cycleDay(생리 며칠째) → num
+  itch10(가려움)·redness(붉어짐)(0~10 정수: 0 증상 없음, 10 가장 심함 — 꼼이가 숫자로 말한 것만, 「좀 가려웠어」 같은 말은 숫자로 바꾸지 말고 note로), sleepH(시간), waterMl(ml), stress(0~10), cycleDay(생리 며칠째) → num
   wakeItch(가려워서 깸), period(생리 중) → bool
   trace('흔적 없음' | '색소 남음' | '긁은 상처'), note(그 밖에 일지 메모로 남길 사실) → text
+  slot: note 후보는 그 일이 있었던 때의 메모 칸 'morning' 아침 | 'noon' 점심 | 'evening' 저녁 | 'night' 밤(모르면 null → 밤 칸). 나머지 후보도 때를 알면 채운다(꼼이가 「메모로만 남기기」를 고르면 그 칸에 들어감).
   triggers(의심 가는 것, 되도록 이 이름: ${TRIGGERS.join(', ')}), newProducts(새로 쓴 제품) → list
   meds → med {name, dose(예: '3알'), time('HH:MM' 24시간), status 'taken' 먹음 | 'missed' 거름 | 'late' 늦게}
     약 이름을 따로 말하지 않았으면 「이미 일지에 적힌 것」의 약 이름을, 그것도 없으면 「항히스타민」을 쓴다(「약」이라고 쓰지 않는다).

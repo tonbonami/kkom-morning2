@@ -8,7 +8,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { FieldValue, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
 import { requireReader, requireWriter } from '@/lib/skinAuth';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { SKIN_OWNER, SKIN_START, type SkinLog } from '@/lib/skinTypes';
+import { SKIN_OWNER, SKIN_START, sevOf, type SkinLog } from '@/lib/skinTypes';
 import { INTAKE_SECTIONS } from '@/lib/skinIntake';
 import { skinStats, medOf } from '@/lib/skinStats';
 import { dayLine } from '@/lib/skinContext';
@@ -46,6 +46,7 @@ const RULES = `너는 Anthropic이 만든 AI인 Claude다. 꼼모닝(커플 앱)
 - 그래서 꼼이가 일지에 적어 달라고 하거나 기록해 둘 만한 사실을 말하면, 내용을 다시 늘어놓지 말고 「대화 끝나고 아래 ✨ 오늘 상담 정리하기를 눌러 주세요. 제가 정리해서 일지에 넣을 걸 보여 드리면 확인만 하시면 돼요」처럼 짧게 안내한다.
 - 꼼이에게 직접 옮겨 적거나 붙여 넣으라고 하지 않는다. 다른 사람(남자친구 포함)에게 기록을 부탁하라고 하지 않는다. 「고쳐 둘게요」「적어 둘게요」처럼 네가 지금 바로 저장하는 것처럼 말하지 않는다.
 - 남자친구는 앱에서 「우댕」이라고 부르고, 일지를 보기만 한다.
+- 점수(2026-10-24부터): 가려움·붉어짐을 각각 0~10으로 적는다(0 = 증상 없음). 하루 점수 = 둘 중 높은 값, 7 이상이면 힘든 날. 그 전 기록은 팽진·가려움 0~3이었고 가려움만 0~10으로 환산해 보여 준다. 메모는 아침·점심·저녁·밤 네 칸이고 칸마다 사진이 붙는다.
 
 하지 않는 일
 - 진단을 내리지 않는다. 약을 새로 시작·중단·증량·감량하라고 하지 않는다 — 약은 의사·약사와 상의하라고 한다.
@@ -81,9 +82,9 @@ function monthLines(logs: SkinLog[]): string[] {
   const by = new Map<string, SkinLog[]>();
   for (const l of logs) by.set(l.date.slice(0, 7), [...(by.get(l.date.slice(0, 7)) ?? []), l]);
   return [...by.entries()].map(([m, ls]) => {
-    const scored = ls.filter((l) => l.uas != null);
-    const avg = scored.length ? (scored.reduce((a, l) => a + (l.uas ?? 0), 0) / scored.length).toFixed(1) : '모름';
-    return `- ${m}: 적은 날 ${ls.length}일, 평균 UAS ${avg}, 4점 이상 ${scored.filter((l) => (l.uas ?? 0) >= 4).length}일, 약 거른 날 ${ls.filter((l) => medOf(l) === 'missed').length}일, 붓기 ${ls.filter((l) => l.angioedema?.present).length}일`;
+    const scored = ls.filter((l) => sevOf(l) != null);
+    const avg = scored.length ? (scored.reduce((a, l) => a + (sevOf(l) ?? 0), 0) / scored.length).toFixed(1) : '모름';
+    return `- ${m}: 적은 날 ${ls.length}일, 평균 하루 점수 ${avg}/10, 7점 이상 ${scored.filter((l) => (sevOf(l) ?? 0) >= 7).length}일, 약 거른 날 ${ls.filter((l) => medOf(l) === 'missed').length}일, 붓기 ${ls.filter((l) => l.angioedema?.present).length}일`;
   });
 }
 
@@ -125,9 +126,9 @@ async function buildContext(db: FirebaseFirestore.Firestore, today: string): Pro
     '',
     '## 최근 30일 요약 (앱이 계산)',
     `- 점수 적은 날 ${summary.daysLogged}/30일, 약 거른 날 ${summary.medMissedDays}일`,
-    `- 최근 7일 UAS7 ${summary.uas7 ?? '모름(4일 미만 기록)'}${summary.uas7 != null && summary.uas7Days < 7 ? ` (7일 중 ${summary.uas7Days}일 기록, 빈 날은 평균으로 채운 값)` : ''}, 그 전 7일 ${summary.uas7Prev ?? '모름'}`,
-    `- 약 거른 다음날 평균 UAS ${summary.afterMissedAvg?.toFixed(1) ?? '모름'}(${summary.afterMissedN}번), 먹은 다음날 ${summary.afterTakenAvg?.toFixed(1) ?? '모름'}(${summary.afterTakenN}번)`,
-    `- 자주 적은 의심 요인: ${triggers.map((t) => `${t.name}(${t.days}일, 그날 평균 UAS ${t.avgUas.toFixed(1)})`).join(', ') || '없음'}`,
+    `- 최근 7일 하루 점수 평균 ${summary.avg7 ?? '모름(3일 미만 기록)'}${summary.avg7 != null ? `/10 (7일 중 ${summary.days7}일 기록)` : ''}, 그 전 7일 ${summary.avg7Prev ?? '모름'}`,
+    `- 약 거른 다음날 평균 점수 ${summary.afterMissedAvg?.toFixed(1) ?? '모름'}(${summary.afterMissedN}번), 먹은 다음날 ${summary.afterTakenAvg?.toFixed(1) ?? '모름'}(${summary.afterTakenN}번)`,
+    `- 자주 적은 의심 요인: ${triggers.map((t) => `${t.name}(${t.days}일, 그날 평균 ${t.avgUas.toFixed(1)}/10)`).join(', ') || '없음'}`,
     '',
     '## 날짜별 일지 전체 (처음 → 오늘)',
     logs.length ? logs.map(dayLine).join('\n') : '아직 없음',

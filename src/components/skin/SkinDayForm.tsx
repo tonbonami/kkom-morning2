@@ -1,4 +1,6 @@
 'use client';
+// 제미나이 12차(gemini-3-flash CLI, 우댕 2026-10-24): 팽진 뺌 · 가려움·붉어짐 1~10 슬라이드(itch10·redness) · 메모 카드 → memoArea(아침·점심·저녁·밤). 값 그대로.
+// 제미나이 9차(2026-10-24, 우댕): 팽진 삭제, 가려움·붉어짐 1~10 슬라이더 도입, 하단 메모 props 대체.
 // 제미나이 8차(gemini-3-flash CLI): 약 윗줄에 「용량」 칸(med.dose) — 상담 정리에서 2알→3알로 고친 걸 폼에서도 보고 고치게. 값 그대로.
 // Aside 4차: 「아직 저장 전이에요」 앞에도 ✓가 붙어 저장된 것처럼 보임 → 「…저장됨」일 때만 ✓.
 // Aside 3차 고침: 저장 막대에 z가 없어 폼 아래로 옮긴 「힘든 날 알리기」 스위치가 막대 위에 그려져 눌림 → z-30 · via-…/90(변수 색엔 안 먹어 투명) → via-… · 「저장 전/저장됨」 줄이 생길 때 막대가 커져 약 버튼을 가림 → 줄 높이 늘 확보 · 지난날 「오늘은 증상 없음」 → 「그날은」.
@@ -24,6 +26,7 @@ export default function SkinDayForm({
   saving,
   savedAt,
   isToday,
+  memoArea,
 }: {
   value: SkinDraft;
   onChange: (patch: Partial<SkinDraft>) => void;
@@ -31,6 +34,7 @@ export default function SkinDayForm({
   saving: boolean;
   savedAt: string | null;
   isToday: boolean;
+  memoArea?: React.ReactNode;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [customTrigger, setCustomTrigger] = useState('');
@@ -67,8 +71,9 @@ export default function SkinDayForm({
     setExpanded(next);
   };
 
-  const uasScore = (value.wheals ?? 0) + (value.itch ?? 0);
-  const isUasEmpty = value.wheals === null && value.itch === null;
+  // 점수: 가려움/붉어짐 중 높은 값
+  const maxScore = Math.max(value.itch10 ?? -1, value.redness ?? -1);
+  const scoreDisplay = maxScore === -1 ? '-' : maxScore === 0 ? '없음' : `${maxScore} / 10`;
 
   const episodeSummary = value.episodes.length > 0
     ? `${value.episodes.length}번 · ${
@@ -95,76 +100,49 @@ export default function SkinDayForm({
 
   return (
     <div className="pb-32 space-y-3">
-      {/* 1. 오늘 점수 (위아래 여백 축소) */}
-      <div className="sd-card px-4 py-3">
-        <div className="flex justify-between items-center mb-2.5">
+      {/* 1. 오늘 점수 (슬라이더 구조) */}
+      <div className="sd-card px-4 py-4">
+        <div className="flex justify-between items-center mb-4">
           <h2 className="text-base font-bold text-[var(--sd-ink)]">{isToday ? '오늘 점수' : '그날 점수'}</h2>
           <span className="text-lg font-bold text-[var(--sd-rel)]">
-            {isUasEmpty ? '-' : `${uasScore} / 6`}
+            {scoreDisplay}
           </span>
         </div>
 
-        <div className="space-y-3">
-          <div>
-            <p className="text-xs text-[var(--sd-muted)] mb-1.5">팽진 (부푼 자국)</p>
-            <div className="flex gap-1.5">
-              {[0, 1, 2, 3].map((score) => (
-                <motion.button
-                  key={`wheal-${score}`}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => onChange({ wheals: score })}
-                  className={`flex-1 py-1.5 text-xs rounded-xl border transition-colors ${
-                    value.wheals === score
-                      ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]'
-                      : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'
-                  }`}
-                >
-                  {score === 0 ? '없음' : score === 1 ? '약간' : score === 2 ? '보통' : '심함'}
-                </motion.button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="text-xs text-[var(--sd-muted)] mb-1.5">가려움</p>
-            <div className="flex gap-1.5">
-              {[0, 1, 2, 3].map((score) => (
-                <motion.button
-                  key={`itch-${score}`}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => onChange({ itch: score })}
-                  className={`flex-1 py-1.5 text-xs rounded-xl border transition-colors ${
-                    value.itch === score
-                      ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)] border-[var(--sd-rel)]'
-                      : 'bg-[var(--sd-card-solid)] text-[var(--sd-ink)] border-[var(--sd-line)]'
-                  }`}
-                >
-                  {score === 0 ? '없음' : score === 1 ? '약간' : score === 2 ? '보통' : '심함'}
-                </motion.button>
-              ))}
-            </div>
-          </div>
+        <div className="space-y-5">
+          <Slider10 
+            label="가려움" 
+            value={value.itch10} 
+            onChange={(n) => onChange({ itch10: n })} 
+          />
+          <Slider10 
+            label="붉어짐" 
+            value={value.redness} 
+            onChange={(n) => onChange({ redness: n })} 
+            gradient 
+          />
+
           <motion.button
             whileTap={{ scale: 0.98 }}
-            onClick={() => onChange({ wheals: 0, itch: 0 })}
+            onClick={() => onChange({ itch10: 0, redness: 0 })}
             className={`w-full py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
-              value.wheals === 0 && value.itch === 0
+              value.itch10 === 0 && value.redness === 0
                 ? 'bg-[var(--sd-rel)] text-[var(--sd-card-solid)]'
                 : 'bg-[var(--sd-surface-2)] text-[var(--sd-ink)]'
             }`}
           >
-            {value.wheals === 0 && value.itch === 0 && <Check size={14} />}
+            {value.itch10 === 0 && value.redness === 0 && <Check size={14} />}
             {isToday ? '오늘은 증상 없음' : '그날은 증상 없음'}
           </motion.button>
         </div>
       </div>
 
-      {/* 2. 약 (2줄 구조로 변경하여 저장 바 간섭 해결) */}
+      {/* 2. 약 */}
       <div className="sd-card p-4">
         <h2 className="text-base font-bold text-[var(--sd-ink)] mb-3">약</h2>
         <div className="space-y-2">
           {value.meds.map((med, idx) => (
             <div key={idx} className="flex flex-col gap-2.5 p-3 bg-[var(--sd-surface-2)] rounded-xl border border-[var(--sd-line)]">
-              {/* 윗줄: 이름 + 용량 + 시각 + 삭제 */}
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -202,7 +180,6 @@ export default function SkinDayForm({
                   <Trash2 size={14} />
                 </button>
               </div>
-              {/* 아랫줄: 상태 버튼 3개 */}
               <div className="flex gap-1.5">
                 {(['taken', 'late', 'missed'] as const).map((status) => (
                   <motion.button
@@ -547,7 +524,6 @@ export default function SkinDayForm({
         summary={lifeSummary}
       >
         <div className="space-y-6">
-          {/* 잠 */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium text-[var(--sd-ink)]">잠 (시간)</span>
@@ -579,7 +555,6 @@ export default function SkinDayForm({
             </div>
           </div>
 
-          {/* 가려워서 깼어요 */}
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-[var(--sd-ink)]">가려워서 깼어요</span>
             <div className="flex gap-2">
@@ -600,7 +575,6 @@ export default function SkinDayForm({
             </div>
           </div>
 
-          {/* 물 */}
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-[var(--sd-ink)]">마신 물 (ml)</span>
             <div className="flex items-center gap-2">
@@ -621,7 +595,6 @@ export default function SkinDayForm({
             </div>
           </div>
 
-          {/* 스트레스 */}
           <div>
             <div className="flex justify-between text-sm font-medium text-[var(--sd-ink)] mb-3">
               <span>스트레스</span>
@@ -748,16 +721,8 @@ export default function SkinDayForm({
         </div>
       </CollapsibleSection>
 
-      {/* 11. 메모 */}
-      <div className="sd-card p-5 mb-6">
-        <h2 className="text-base font-bold text-[var(--sd-ink)] mb-3">메모</h2>
-        <textarea
-          value={value.note}
-          onChange={(e) => onChange({ note: e.target.value })}
-          placeholder="특이사항이나 하고 싶은 말을 적어주세요."
-          className="w-full bg-[var(--sd-surface-2)] text-[var(--sd-ink)] p-3 rounded-xl min-h-[100px] outline-none border border-[var(--sd-line)] resize-none text-sm"
-        />
-      </div>
+      {/* 11. 메모 Area (props로 대체됨) */}
+      {memoArea}
 
       {/* 하단 고정 저장 바 */}
       <div className="fixed bottom-0 left-0 right-0 z-30 max-w-md mx-auto p-4 bg-gradient-to-t from-[var(--sd-surface-2)] via-[var(--sd-surface-2)] to-transparent pb-8 pointer-events-none">
@@ -774,6 +739,81 @@ export default function SkinDayForm({
             {savedAt && <>{savedAt.includes('저장됨') && <Check size={10} />} {savedAt}</>}
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function Slider10({ 
+  label, 
+  value, 
+  onChange, 
+  gradient 
+}: { 
+  label: string; 
+  value: number | null; 
+  onChange: (val: number) => void; 
+  gradient?: boolean;
+}) {
+  // 배선(2026-10-24): 누르기만 되던 것 → 끌기(포인터 잡기) + 키보드(←→). 손잡이 자리 = 누른 자리((값-1)/9).
+  const pick = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const p = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const v = Math.round(p * 9) + 1; // 1 to 10
+    if (v !== value) onChange(v);
+  };
+  const handlePointer = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pick(e);
+  };
+  const handleMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) pick(e);
+  };
+  const handleKey = (e: React.KeyboardEvent) => {
+    const d = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    onChange(Math.max(1, Math.min(10, (value || (d > 0 ? 0 : 2)) + d)));
+  };
+
+  const hasValue = value !== null;
+  const isZero = value === 0;
+  const displayVal = hasValue && value > 0 ? ((value - 1) / 9) * 100 : 0;
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-xs text-[var(--sd-muted)] font-medium">{label}</span>
+        <span className="text-sm font-bold text-[var(--sd-rel)]">
+          {value === null ? '안 적음' : value === 0 ? '없음' : `${value} / 10`}
+        </span>
+      </div>
+      <div 
+        className="relative h-10 flex items-center touch-none cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-[var(--sd-rel)] rounded-full"
+        onPointerDown={handlePointer}
+        onPointerMove={handleMove}
+        onKeyDown={handleKey}
+        role="slider" tabIndex={0} aria-label={label} aria-valuemin={1} aria-valuemax={10}
+        aria-valuenow={value ?? undefined} aria-valuetext={value === null ? '안 적음' : value === 0 ? '없음' : `${value} / 10`}
+      >
+        <div className="absolute w-full h-2 bg-[var(--sd-surface-2)] rounded-full overflow-hidden">
+          {hasValue && !isZero && (
+            <div 
+              className={`h-full rounded-full ${gradient ? 'bg-gradient-to-r from-[var(--sd-rel)] to-[var(--sd-crit)]' : 'bg-[var(--sd-rel)]'}`}
+              style={{ width: `max(12px, ${displayVal}%)` }}
+            />
+          )}
+        </div>
+        <motion.div 
+          className={`absolute w-6 h-6 bg-[var(--sd-card-solid)] border-2 rounded-full shadow-md ${hasValue ? 'border-[var(--sd-rel)]' : 'border-[var(--sd-line)] opacity-20'}`}
+          style={{ left: hasValue ? `calc(${displayVal}% - 12px)` : '-12px' }}
+          animate={{ left: hasValue ? `calc(${displayVal}% - 12px)` : '-12px' }}
+          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        />
+      </div>
+      <div className="flex justify-between px-0.5 -mt-1">
+        <span className="text-[10px] text-[var(--sd-faint)]">1</span>
+        <span className="text-[10px] text-[var(--sd-faint)]">10</span>
       </div>
     </div>
   );

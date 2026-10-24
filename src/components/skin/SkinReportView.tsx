@@ -4,6 +4,7 @@
 //   → 일요일(그 주의 가장 최근 날)에서 시작 ③ 주 머리 날짜가 「최신 ~ 과거」로 거꾸로·기록한 날까지만 → 「과거 ~ 최신」 그 주 전체.
 //   ④ 기록 없는 하루가 「2026-10-21」 날것으로 찍힘 → 「10/21」(여러 날 묶음과 같게) ⑤ 「사진 n장 보기」를 눌러도 아무 일이 없던 것 → 시안 설명대로 그날 기록 화면으로(onOpenDay).
 // SkinReportView.tsx
+// 2026-10-24 점수 0~10로(우댕): 하루 점수 day.sev, 「/ 6」→「/ 10」, 힘든 날 「4점↑」→「7점↑」, 주 머리 「점수 합」→「평균 n/10」.
 
 import React from 'react';
 import { motion } from 'framer-motion';
@@ -71,7 +72,7 @@ export default function SkinReportView({
         }
         currentWeek!.items.push(day);
         currentWeek!.loggedCount += 1;
-        currentWeek!.uasSum += (day.uas || 0);
+        currentWeek!.uasSum += (day.sev || 0);
         currentWeek!.end = day.date; // 내림차순이므로 실제로는 여기가 주의 끝(과거)
       } else {
         if (!emptySequence) {
@@ -138,10 +139,10 @@ export default function SkinReportView({
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[11px] text-[var(--sd-muted)]">평균 점수</span>
-                  <span className="text-[16px] font-bold text-[var(--sd-rel)]">{summary.avgUas?.toFixed(1) || '0'} / 6</span>
+                  <span className="text-[16px] font-bold text-[var(--sd-rel)]">{summary.avgUas?.toFixed(1) || '0'} / 10</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-[11px] text-[var(--sd-muted)]">힘든 날 (4점↑)</span>
+                  <span className="text-[11px] text-[var(--sd-muted)]">힘든 날 (7점↑)</span>
                   <span className={`text-[16px] font-bold ${summary.hardDays > 0 ? 'text-[var(--sd-crit)]' : ''}`}>{summary.hardDays}일</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
@@ -184,7 +185,7 @@ export default function SkinReportView({
                     {group.end.split('-').slice(1).join('/')} ~ {group.start.split('-').slice(1).join('/')}
                   </h2>
                   <div className="text-[11px] text-[var(--sd-muted)]">
-                    기록 {group.loggedCount}일 · 점수 합 {group.uasSum}
+                    기록 {group.loggedCount}일 · 평균 {group.loggedCount ? (group.uasSum / group.loggedCount).toFixed(1) : '-'}/10
                   </div>
                 </div>
                 

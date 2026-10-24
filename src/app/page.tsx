@@ -1,6 +1,7 @@
 'use client';
 
 import KkulDoctorLogo from '@/components/skin/KkulDoctorLogo';
+import { sevOf } from '@/lib/skinTypes';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -248,7 +249,7 @@ export default function KkomMorningHome() {
         const l = j.log;
         const medText: Record<string, string> = { taken: '약 먹음', late: '약 늦게', missed: '약 거름' };
         const med = medText[medOfDay(l) ?? ''] ?? '약 기록 전';
-        setSkinToday(l ? `오늘 UAS ${l.uas ?? '-'} · ${med}` : '오늘 기록 전');
+        setSkinToday(l ? `오늘 점수 ${sevOf(l) ?? '-'}/10 · ${med}` : '오늘 기록 전');
       })
       .catch(() => {});
     return () => { alive = false; };

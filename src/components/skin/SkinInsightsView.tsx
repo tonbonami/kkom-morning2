@@ -1,11 +1,5 @@
 'use client';
-// 제미나이 4차(Aside 2차 반영, gemini-3-flash CLI): 「7일 중 n일 기록 · 빈 날은 평균으로 채운 값」 · 기록 없는 날 빈 동그라미 · 표본 2~4번이면 「아직 n번뿐」. 값 그대로.
-// 제미나이 시안 2판(2026-10-21, gemini-3-flash CLI로 받음) — 검수 반영(구간 표시·범례·n번 비교·요인 표 머리). 값 그대로.
-// 고친 것(버그만): ① 30일 기록 수로 7일 합을 보여 줄지 정해서 7일 합이 없을 때 빈 숫자·NaN 위치 → uas7이 있을 때만
-//   ② 기록 없는 날·0점 막대 높이(시안이 계산만 하고 안 씀) → 막대 값으로 씀.
-//   ⑤ 범례에 동그라미가 두 번(그림 + 글자 「○」) → 글자에서 뺌. (Aside 3차)
-//   ③ 눈금 0·6·15·27·42가 같은 간격이라 11점 점이 「6」 위에 있는 것처럼 보임 → 구간 경계 자리에 ④ 날짜 라벨이 틱 번호로 앞날을 찾아 「10/110/3…」로 붙음 → 날짜로 판단(1일·첫날만 월), 간격 넓힘. (Aside 2차)
-// SkinInsightsView.tsx
+// 제미나이 12차(gemini-3-flash CLI, 우댕 2026-10-24): 점수 0~6(팽진+가려움) → 하루 점수 0~10(가려움·붉어짐 중 높은 값). 7일 합 → 7일 평균. 값 그대로.
 
 import React from 'react';
 import { motion } from 'framer-motion';
@@ -29,34 +23,32 @@ export default function SkinInsightsView({
   onBack: () => void;
   onOpenChat: () => void;
   summary: {
-    uas7: number | null;
-    uas7Prev: number | null;
-    daysLogged: number;
-    daysTotal: number;
+    avg7: number | null;      // 최근 7일 하루 점수 평균(0~10) — 기록 3일 미만이면 null
+    avg7Prev: number | null;  // 그 전 7일 평균
+    days7: number;            // 최근 7일 중 적은 날
+    daysLogged: number; 
+    daysTotal: number; 
     medMissedDays: number;
-    afterMissedAvg: number | null;
-    afterMissedN: number;
-    afterTakenAvg: number | null;
+    afterMissedAvg: number | null; 
+    afterMissedN: number;   // 약 거른 다음날 점수 평균(0~10)
+    afterTakenAvg: number | null; 
     afterTakenN: number;
-    uas7Days: number;
   };
-  series: { date: string; uas: number | null; med: MedStatus | null }[];
-  triggers: { name: string; days: number; avgUas: number }[];
+  series: { date: string; sev: number | null; med: MedStatus | null }[];   // 하루 점수 0~10
+  triggers: { name: string; days: number; avgUas: number }[];  // avgUas는 이제 0~10 평균
   areas: { name: string; days: number }[];
 }) {
-  const isEnoughUas7 = summary.uas7 !== null; // 4일 이상이면 UAS7 표시 (보통 임상 지침)
+  const isEnoughAvg7 = summary.avg7 !== null;
   
-  const getUas7Status = (val: number) => {
-    if (val === 0) return { label: '증상 없음', color: 'bg-green-500' };
-    if (val <= 6) return { label: '잘 조절됨', color: 'bg-emerald-400' };
-    if (val <= 15) return { label: '가벼움', color: 'bg-yellow-400' };
-    if (val <= 27) return { label: '중간', color: 'bg-orange-400' };
+  const getSevStatus = (val: number) => {
+    if (val === 0) return { label: '없음', color: 'bg-green-500' };
+    if (val <= 3) return { label: '가벼움', color: 'bg-emerald-400' };
+    if (val <= 6) return { label: '중간', color: 'bg-yellow-400' };
     return { label: '심함', color: 'bg-[var(--sd-crit)]' };
   };
 
-  const status = summary.uas7 !== null ? getUas7Status(summary.uas7) : null;
+  const status = summary.avg7 !== null ? getSevStatus(summary.avg7) : null;
 
-  // 그래프 X축 포맷: 월이 바뀌거나 첫 날이면 MM/DD, 아니면 DD
   const formatXAxis = (dateStr: string) => {
     const date = new Date(dateStr);
     const day = date.getDate();
@@ -65,7 +57,6 @@ export default function SkinInsightsView({
     return `${day}`;
   };
 
-  // 트리거 그룹화 (생리 주기 관련)
   const menstrualNames = ['생리 중', '생리 전 1주'];
   const menstrualTriggers = triggers.filter(t => menstrualNames.includes(t.name));
   const otherTriggers = triggers.filter(t => !menstrualNames.includes(t.name));
@@ -82,49 +73,46 @@ export default function SkinInsightsView({
       <DoctorPacer src={doctorSrc} thinking={thinking} />
 
       <div className="p-4 space-y-4 pb-32">
-        {/* UAS7 요약 카드 */}
+        {/* 점수 요약 카드 */}
         <div className="sd-card p-6 bg-[var(--sd-card-solid)]">
-          <p className="text-xs font-semibold tracking-wider text-[var(--sd-muted)] mb-3 uppercase">최근 7일 점수 합 · 0~42</p>
+          <p className="text-xs font-semibold tracking-wider text-[var(--sd-muted)] mb-3 uppercase">최근 7일 평균 · 0~10</p>
           
-          {!isEnoughUas7 ? (
+          {!isEnoughAvg7 ? (
             <div className="py-4 text-center text-[var(--sd-muted)] text-sm">
-              기록이 4일 이상이면 보여요
+              기록이 3일 이상이면 보여요
             </div>
           ) : (
             <>
               <div className="flex items-center gap-3 mb-6">
                 <span className="text-4xl font-bold tabular-nums tracking-tighter">
-                  {summary.uas7}
+                  {summary.avg7?.toFixed(1)}
                 </span>
                 {status && (
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${status.color}`}>
                     {status.label}
                   </span>
                 )}
-                {summary.uas7Prev !== null && (
-                  <span className={`text-xs ml-auto font-medium ${summary.uas7! > summary.uas7Prev ? 'text-[var(--sd-crit)]' : 'text-[var(--sd-rel)]'}`}>
-                    {summary.uas7 === summary.uas7Prev ? '지난주와 동일' : `${summary.uas7! > summary.uas7Prev ? '▲' : '▼'} 지난주보다 ${Math.abs(summary.uas7! - summary.uas7Prev)}`}
+                {summary.avg7Prev !== null && (
+                  <span className={`text-xs ml-auto font-medium ${summary.avg7! > summary.avg7Prev ? 'text-[var(--sd-crit)]' : 'text-[var(--sd-rel)]'}`}>
+                    {summary.avg7 === summary.avg7Prev ? '지난주와 동일' : `${summary.avg7! > summary.avg7Prev ? '▲' : '▼'} 지난주보다 ${Math.abs(summary.avg7! - summary.avg7Prev).toFixed(1)}`}
                   </span>
                 )}
               </div>
-              {summary.uas7Days < 7 && (
+              {summary.days7 < 7 && (
                 <p className="text-[10px] text-[var(--sd-muted)] -mt-4 mb-5">
-                  7일 중 {summary.uas7Days}일 기록 · 빈 날은 평균으로 채운 값
+                  7일 중 {summary.days7}일 기록의 평균
                 </p>
               )}
               
               <div className="relative h-2.5 mt-8">
-                {/* 배경 구간 막대 */}
                 <div className="absolute inset-0 flex gap-0.5 rounded-full overflow-hidden opacity-30">
-                  <div className="h-full bg-emerald-400" style={{ width: '14.3%' }} /> {/* 1-6 */}
-                  <div className="h-full bg-yellow-400" style={{ width: '21.4%' }} /> {/* 7-15 */}
-                  <div className="h-full bg-orange-400" style={{ width: '28.6%' }} /> {/* 16-27 */}
-                  <div className="h-full bg-[var(--sd-crit)]" style={{ width: '35.7%' }} /> {/* 28-42 */}
+                  <div className="h-full bg-emerald-400" style={{ width: '30%' }} /> {/* 0-3 */}
+                  <div className="h-full bg-yellow-400" style={{ width: '30%' }} /> {/* 3-6 */}
+                  <div className="h-full bg-[var(--sd-crit)]" style={{ width: '40%' }} /> {/* 6-10 */}
                 </div>
-                {/* 현재 위치 표시기 */}
                 <motion.div 
                   initial={{ left: 0 }}
-                  animate={{ left: `${(summary.uas7! / 42) * 100}%` }}
+                  animate={{ left: `${(summary.avg7! / 10) * 100}%` }}
                   className="absolute top-1/2 -translate-y-1/2 -ml-1.5 flex flex-col items-center"
                 >
                   <div className="w-3 h-3 rounded-full border-2 border-[var(--sd-card-solid)] bg-[var(--sd-ink)] shadow-sm" />
@@ -132,8 +120,8 @@ export default function SkinInsightsView({
                 </motion.div>
               </div>
               <div className="relative h-3 mt-5 text-[9px] font-bold text-[var(--sd-faint)] uppercase tracking-tighter">
-                {[0, 6, 15, 27, 42].map((v) => (
-                  <span key={v} className="absolute -translate-x-1/2 first:translate-x-0 last:-translate-x-full" style={{ left: `${(v / 42) * 100}%` }}>{v}</span>
+                {[0, 3, 6, 10].map((v) => (
+                  <span key={v} className="absolute -translate-x-1/2 first:translate-x-0 last:-translate-x-full" style={{ left: `${(v / 10) * 100}%` }}>{v}</span>
                 ))}
               </div>
             </>
@@ -147,7 +135,7 @@ export default function SkinInsightsView({
             <div className="flex flex-col items-end gap-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-sm bg-[var(--sd-ink)] opacity-20" />
-                <span className="text-[10px] text-[var(--sd-muted)]">그날 점수 (0~6)</span>
+                <span className="text-[10px] text-[var(--sd-muted)]">그날 점수 (0~10)</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-sm bg-[color-mix(in_srgb,var(--sd-crit)_60%,transparent)]" />
@@ -162,7 +150,7 @@ export default function SkinInsightsView({
           
           <div className="h-48 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={series.map((s) => ({ ...s, bar: s.uas === null ? 0.15 : Math.max(s.uas, 0.15) }))} margin={{ top: 5, right: 5, left: -30, bottom: 0 }}>
+              <BarChart data={series.map((s) => ({ ...s, bar: s.sev === null ? 0.25 : Math.max(s.sev, 0.25) }))} margin={{ top: 5, right: 5, left: -30, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke="var(--sd-line)" strokeDasharray="3 3" />
                 <XAxis 
                   dataKey="date" 
@@ -173,8 +161,8 @@ export default function SkinInsightsView({
                   minTickGap={12}
                 />
                 <YAxis 
-                  domain={[0, 6]} 
-                  ticks={[0, 3, 6]} 
+                  domain={[0, 10]} 
+                  ticks={[0, 5, 10]} 
                   axisLine={false} 
                   tickLine={false} 
                   tick={{ fontSize: 9, fill: 'var(--sd-muted)' }} 
@@ -187,7 +175,7 @@ export default function SkinInsightsView({
                       return (
                         <div className="bg-[var(--sd-card-solid)] p-2 rounded-lg shadow-lg border border-[var(--sd-line)] text-xs">
                           <p className="font-bold mb-1">{data.date}</p>
-                          <p className="text-[var(--sd-muted)]">점수: <span className="text-[var(--sd-ink)]">{data.uas ?? '안 적음'}</span></p>
+                          <p className="text-[var(--sd-muted)]">점수: <span className="text-[var(--sd-ink)]">{data.sev ?? '안 적음'}</span></p>
                           {data.med === 'missed' && <p className="text-[var(--sd-crit)] font-bold">약 거름</p>}
                         </div>
                       );
@@ -197,9 +185,8 @@ export default function SkinInsightsView({
                 />
                 <Bar dataKey="bar" radius={[2, 2, 2, 2]}>
                   {series.map((entry, index) => {
-                    // 기록 없는 날(null)은 빈 동그라미, 0점은 얇고 진한 막대
-                    const isNull = entry.uas === null;
-                    const isZero = entry.uas === 0;
+                    const isNull = entry.sev === null;
+                    const isZero = entry.sev === 0;
                     return (
                       <Cell 
                         key={`cell-${index}`} 
@@ -220,7 +207,7 @@ export default function SkinInsightsView({
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="sd-card p-4 bg-[var(--sd-card-solid)] flex flex-col items-center text-center">
-              <p className="text-[10px] font-bold text-[var(--sd-muted)] mb-2 leading-tight">약 거른 다음날<br/>점수 평균 (0~6)</p>
+              <p className="text-[10px] font-bold text-[var(--sd-muted)] mb-2 leading-tight">약 거른 다음날<br/>점수 평균 (0~10)</p>
               {summary.afterMissedN < 2 ? (
                 <p className="text-xs font-medium text-[var(--sd-faint)] my-2">더 모이면 보여요</p>
               ) : (
@@ -235,7 +222,7 @@ export default function SkinInsightsView({
               )}
             </div>
             <div className="sd-card p-4 bg-[var(--sd-card-solid)] flex flex-col items-center text-center">
-              <p className="text-[10px] font-bold text-[var(--sd-muted)] mb-2 leading-tight">약 먹은 다음날<br/>점수 평균 (0~6)</p>
+              <p className="text-[10px] font-bold text-[var(--sd-muted)] mb-2 leading-tight">약 먹은 다음날<br/>점수 평균 (0~10)</p>
               {summary.afterTakenN < 2 ? (
                 <p className="text-xs font-medium text-[var(--sd-faint)] my-2">더 모이면 보여요</p>
               ) : (
@@ -269,7 +256,7 @@ export default function SkinInsightsView({
                   <tr className="text-[10px] text-[var(--sd-muted)] border-b border-[var(--sd-line)]">
                     <th className="py-2 font-bold uppercase">요인</th>
                     <th className="py-2 font-bold uppercase text-center">적은 날</th>
-                    <th className="py-2 font-bold uppercase text-right">평균 (0~6)</th>
+                    <th className="py-2 font-bold uppercase text-right">0~10</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm">
@@ -306,7 +293,6 @@ export default function SkinInsightsView({
         </p>
       </div>
 
-      {/* 하단 플로팅 버튼 */}
       <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-gradient-to-t from-[var(--sd-surface-2)] via-[var(--sd-surface-2)] to-transparent z-30">
         <motion.button
           whileTap={{ scale: 0.96 }}

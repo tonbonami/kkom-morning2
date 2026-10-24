@@ -1,10 +1,15 @@
 // Claude에게 보내는 일지 한 줄(상담 맥락·상담 정리가 같이 씀, 서버 전용)
 import { medOf } from './skinStats';
-import type { SkinLog } from './skinTypes';
+import { MEMO_SLOTS, MEMO_SLOT_LABEL, sevOf, type SkinLog } from './skinTypes';
 
 export function dayLine(l: SkinLog): string {
   const parts: string[] = [l.date];
-  parts.push(l.uas != null ? `팽진${l.wheals} 가려움${l.itch} UAS${l.uas}` : '점수 기록 없음');
+  // 점수: 새 기록은 가려움·붉어짐 0~10(하루 점수 = 둘 중 높은 값), 예전 기록(2026-10-24 전)은 팽진·가려움 0~3
+  if (l.itch10 != null || l.redness != null) {
+    parts.push(`가려움 ${l.itch10 ?? '?'}/10 붉어짐 ${l.redness ?? '?'}/10 → 하루 점수 ${sevOf(l)}/10`);
+  } else if (l.uas != null) {
+    parts.push(`(예전 척도) 팽진${l.wheals}/3 가려움${l.itch}/3 → 하루 점수 ${sevOf(l)}/10로 환산`);
+  } else parts.push('점수 기록 없음');
   const med = medOf(l);
   parts.push(`약 ${med === 'taken' ? '먹음' : med === 'late' ? '늦게 먹음' : med === 'missed' ? '거름' : '기록 없음'}${(l.meds ?? []).filter((m) => m.time).map((m) => ` ${m.name} ${m.time}`).join('')}`);
   for (const e of l.episodes ?? []) {
@@ -21,5 +26,10 @@ export function dayLine(l: SkinLog): string {
   if (l.newProducts?.length) parts.push(`새 제품 ${l.newProducts.join(', ')}`);
   if (l.env) parts.push(`날씨 ${l.env.temp ?? '?'}°C 습도${l.env.humidity ?? '?'}% PM10 ${l.env.pm10 ?? '?'} PM2.5 ${l.env.pm25 ?? '?'}`);
   if (l.note) parts.push(`메모: ${l.note.replace(/\s*\n\s*/g, ' / ')}`);
+  for (const k of MEMO_SLOTS) {
+    const t = l.memos?.[k]?.trim();
+    const n = (l.photos ?? []).filter((p) => p.slot === k).length;
+    if (t || n) parts.push(`${MEMO_SLOT_LABEL[k]} 메모: ${(t ?? '').replace(/\s*\n\s*/g, ' / ')}${n ? ` (사진 ${n}장)` : ''}`);
+  }
   return parts.join(' | ');
 }

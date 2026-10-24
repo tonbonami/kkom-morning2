@@ -3,6 +3,7 @@
 // 우댕 2026-10-21: "대화 하고 나서 오늘 상담 정리하기를 누르면 일목요연하게 정리 → 일지에 반영할까요 → 고칠 게 있으면 고쳐서(2알 → 3알)"
 // 꼼이: 처음 열면 Claude가 정리(20~40초) → 켜고 고르고 고친 것만 반영. 반영한 날은 다시 볼 수만(같은 걸 두 번 더하지 않게).
 // 우댕 폰: 정리가 있으면 읽기만.
+// 2026-10-24: 가려움·붉어짐 0~10(팽진 없앰), 메모 후보는 아침·점심·저녁·밤 칸 표시. 예전 초안의 팽진·가려움(0~3)은 그대로 보여 준다.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SkinChatSummaryView, { type EditValue, type MemoryRow, type SummaryItem } from '@/components/skin/SkinChatSummaryView';
@@ -10,13 +11,14 @@ import SkinScreen from '@/components/skin/SkinScreen';
 import { AREAS } from '@/components/skin/skinUi';
 import type { SkinLog } from '@/lib/skinTypes';
 import {
-  FIELD_LABEL, MEMORY_LABEL, currentValueText, type ApplyItem, type ChatSummary, type Proposal,
+  FIELD_LABEL, MEMORY_LABEL, currentValueText, slotLabel, type ApplyItem, type ChatSummary, type Proposal,
 } from '@/lib/skinChatSummary';
 import { addDays, applyChatSummary, fetchChatSummary, fetchSkinLogs, kstToday, makeChatSummary, skinSession, weekdayOf } from '@/lib/skinClient';
 
 type Phase = 'loading' | 'ready' | 'error' | 'applying' | 'done';
 const STATUS = { taken: '먹음', missed: '거름', late: '늦게' } as const;
 const NUM: Partial<Record<Proposal['field'], { unit: string; min: number; max: number; step: number }>> = {
+  itch10: { unit: '/ 10', min: 0, max: 10, step: 1 }, redness: { unit: '/ 10', min: 0, max: 10, step: 1 },
   wheals: { unit: '(0~3)', min: 0, max: 3, step: 1 }, itch: { unit: '(0~3)', min: 0, max: 3, step: 1 },
   sleepH: { unit: '시간', min: 0, max: 16, step: 0.5 }, waterMl: { unit: 'ml', min: 0, max: 5000, step: 250 },
   stress: { unit: '/ 10', min: 0, max: 10, step: 1 }, cycleDay: { unit: '일째', min: 1, max: 14, step: 1 },
@@ -48,13 +50,15 @@ function withEdit(p: Proposal, kind: EditValue['kind'], v: EditValue['value']): 
 // 후보 값 → 한 줄(고치면 다시 만듦)
 function valueText(p: Proposal): string {
   switch (p.field) {
+    case 'itch10': case 'redness': return p.num != null ? `${p.num} / 10` : '';
     case 'wheals': case 'itch': return p.num != null ? `${SCORE[p.num] ?? p.num} (${p.num})` : '';
     case 'sleepH': return p.num != null ? `${p.num}시간` : '';
     case 'waterMl': return p.num != null ? `${p.num}ml` : '';
     case 'stress': return p.num != null ? `${p.num} / 10` : '';
     case 'cycleDay': return p.num != null ? `${p.num}일째` : '';
     case 'wakeItch': case 'period': return p.bool == null ? '' : p.bool ? '예' : '아니오';
-    case 'trace': case 'note': return p.text ?? '';
+    case 'trace': return p.text ?? '';
+    case 'note': return p.text ? `${slotLabel(p)} · ${p.text}` : '';
     case 'triggers': case 'newProducts': return p.list.join(', ');
     case 'meds': return p.med ? [p.med.name, p.med.dose, p.med.time, p.med.status && STATUS[p.med.status]].filter(Boolean).join(' · ') : '';
     case 'episodes': return p.episode ? [p.episode.start, p.episode.areas.join('·'), p.episode.durMin ? `${p.episode.durMin}분` : null].filter(Boolean).join(' · ') : '';

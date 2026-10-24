@@ -7,11 +7,11 @@ import SkinJournalView from '@/components/skin/SkinJournalView';
 import SkinCalendar, { type CalDay } from '@/components/skin/SkinCalendar';
 import SkinDayReport from '@/components/skin/SkinDayReport';
 import SkinDayForm from '@/components/skin/SkinDayForm';
-import SkinPhotoStrip from '@/components/skin/SkinPhotoStrip';
+import SkinMemoSlots from '@/components/skin/SkinMemoSlots';
 import SkinScreen from '@/components/skin/SkinScreen';
 import SkinPartnerAlert from '@/components/skin/SkinPartnerAlert';
 import type { SkinDraft } from '@/components/skin/skinUi';
-import type { SkinLog } from '@/lib/skinTypes';
+import { MEMO_SLOTS, emptyLog, sevOf, type MemoSlot, type SkinLog } from '@/lib/skinTypes';
 import {
   READ_ONLY_MSG, addDays, addMonths, appUserName, monthDays, monthOf, toReportDay, deleteSkinPhoto, draftFrom, fetchSkinLogs, fetchSkinPhotos, kstToday, medOfDay,
   fetchSkinSettings, prefillCycle, saveSkinLog, saveSkinSettings, savedAtText, skinLogin, skinSession, uploadSkinPhoto, type SkinPhotoView, type SkinRole,
@@ -65,7 +65,7 @@ export default function SkinJournalPage() {
     if (ok) setPartnerAlert(next); else window.alert('바꾸지 못했어요. 다시 해 주세요.');
     setAlertBusy(false);
   };
-  const [uploading, setUploading] = useState(false);
+  const [uploadingSlot, setUploadingSlot] = useState<MemoSlot | null>(null);
 
   // 고른 날의 사진(15분짜리 주소라 날을 바꿀 때마다 새로 받는다)
   useEffect(() => {
@@ -76,25 +76,43 @@ export default function SkinJournalPage() {
     return () => { alive = false; };
   }, [gate, selected]);
 
-  const onAddPhotos = async (files: FileList) => {
+  // 사진은 아침·점심·저녁·밤 메모 칸마다(우댕 2026-10-24 — 하루 사진 칸은 없앰)
+  const onAddPhotos = async (slot: MemoSlot, files: FileList) => {
     if (readOnly) { showReadOnly(); return; }
     const list = Array.from(files);
-    setUploading(true);
+    const date = selected;
+    setUploadingSlot(slot);
     try {
       for (const f of list) {
-        const p = await uploadSkinPhoto(selected, f);
+        const p = await uploadSkinPhoto(date, f, slot);
         setPhotos((cur) => [...cur, p]);
+        // 달력 사진 표시가 새로고침 없이 바로 뜨게(서버도 사진을 올리면 그날 기록을 만든다)
+        setLogs((m) => {
+          const l = m[date] ?? emptyLog(date, new Date().toISOString());
+          return { ...m, [date]: { ...l, photos: [...(l.photos ?? []), { id: p.id, path: '', t: p.t ?? undefined, slot }] } };
+        });
       }
     } catch {
       window.alert('사진을 올리지 못했어요. 다시 해 주세요.');
     } finally {
-      setUploading(false);
+      setUploadingSlot(null);
     }
   };
+  const photosBySlot = useMemo(
+    () => Object.fromEntries(MEMO_SLOTS.map((k) => [k, photos.filter((p) => p.slot === k)])) as Record<MemoSlot, SkinPhotoView[]>,
+    [photos],
+  );
+  const legacyPhotos = useMemo(() => photos.filter((p) => !p.slot), [photos]);
+  // 지금 시각에 맞는 메모 칸(처음 펼쳐 둠): 5~11시 아침 · 11~16시 점심 · 16~21시 저녁 · 그 밖 밤
+  const nowSlot: MemoSlot = (() => {
+    const h = new Date(Date.now() + 9 * 3600_000).getUTCHours();
+    return h >= 5 && h < 11 ? 'morning' : h >= 11 && h < 16 ? 'noon' : h >= 16 && h < 21 ? 'evening' : 'night';
+  })();
 
   const onDeletePhoto = async (id: string) => {
     if (readOnly) { showReadOnly(); return; }
     setPhotos((cur) => cur.filter((p) => p.id !== id));
+    setLogs((m) => (m[selected] ? { ...m, [selected]: { ...m[selected], photos: (m[selected].photos ?? []).filter((p) => p.id !== id) } } : m));
     await deleteSkinPhoto(selected, id).catch(() => {});
   };
 
@@ -229,7 +247,7 @@ export default function SkinJournalPage() {
 
   const calDay = useCallback((date: string): CalDay => {
     const l = logs[date];
-    return { date, uas: l?.uas ?? null, med: medOfDay(l), hasLog: !!l, photo: (l?.photos?.length ?? 0) > 0 };
+    return { date, uas: sevOf(l), med: medOfDay(l), hasLog: !!l, photo: (l?.photos?.length ?? 0) > 0 };   // uas 자리에 하루 점수 0~10(달력이 /10으로)
   }, [logs]);
   // 주 띠: 고른 날이 최근 7일 안이면 오늘까지, 아니면 고른 날을 가운데쯤(오늘은 안 넘김)
   const week = useMemo(() => {
@@ -237,6 +255,22 @@ export default function SkinJournalPage() {
     return Array.from({ length: 7 }, (_, i) => calDay(addDays(end, i - 6)));
   }, [calDay, selected, today]);
   const month = useMemo(() => ({ ym: calYm, days: monthDays(calYm).map(calDay) }), [calDay, calYm]);
+
+  // 아침·점심·저녁·밤 메모 + 칸마다 사진(제미나이 SkinMemoSlots) — 꼼이는 폼 안, 우댕은 읽기 카드 아래
+  const memoArea = (
+    <SkinMemoSlots
+      memos={draft.memos}
+      onChange={(slot, text) => onChange({ memos: { ...draft.memos, [slot]: text } })}
+      photos={photosBySlot}
+      onAddPhotos={(slot, files) => { void onAddPhotos(slot, files); }}
+      onDeletePhoto={(id) => { void onDeletePhoto(id); }}
+      uploadingSlot={uploadingSlot}
+      nowSlot={nowSlot}
+      readOnly={readOnly}
+      legacyNote={draft.note || undefined}
+      legacyPhotos={legacyPhotos.length ? legacyPhotos : undefined}
+    />
+  );
 
   if (gate === 'loading') return <div className="sd-app min-h-screen" />;
   if (gate === 'locked') {
@@ -273,21 +307,15 @@ export default function SkinJournalPage() {
         <>
         {
         // 우댕 폰(보기 전용)은 입력 폼 대신 읽기 카드 — 칸을 하나하나 열 필요 없이 적힌 게 다 보이게(우댕 2026-10-21, GPT 상담).
-        // 사진은 아래 사진 칸에 있으니 카드에선 뺀다. 서버도 requireWriter로 쓰기를 막음
+        // 메모·사진은 아래 메모 칸(보기 전용)에서 보여 주니 카드에선 뺀다. 서버도 requireWriter로 쓰기를 막음
         readOnly
-          ? <SkinDayReport day={{ ...toReportDay(selected, logs[selected]), photoCount: 0 }} />
-          : <SkinDayForm value={draft} onChange={onChange} onSave={() => { void onSave(); }} saving={saving} savedAt={savedAt} isToday={selected === today} />
+          ? <SkinDayReport day={{ ...toReportDay(selected, logs[selected]), photoCount: 0, note: '', memos: { morning: '', noon: '', evening: '', night: '' }, photoCountBySlot: { morning: 0, noon: 0, evening: 0, night: 0, etc: 0 } }} memoBelow />
+          : <SkinDayForm value={draft} onChange={onChange} onSave={() => { void onSave(); }} saving={saving} savedAt={savedAt} isToday={selected === today} memoArea={memoArea} />
         }
-        {/* 사진·알림 스위치는 폼 아래로(점수·약이 첫 화면에 오게 — Aside 2차 TOP1). 폼 아래 여백(pb-32)을 당겨 쓰고, 저장 막대에 안 가리게 아래 여백 */}
+        {/* 우댕 폰: 읽기 카드 아래 메모 네 칸(사진 포함, 보기만). 꼼이 폰은 폼 안(memoArea)에 들어간다 */}
+        {readOnly && <div className="mt-4">{memoArea}</div>}
+        {/* 알림 스위치는 폼 아래로(점수·약이 첫 화면에 오게 — Aside 2차 TOP1). 폼 아래 여백(pb-32)을 당겨 쓰고, 저장 막대에 안 가리게 아래 여백 */}
         <div className={readOnly ? 'mt-4 pb-16' : '-mt-24 pb-40'}>
-          <SkinPhotoStrip
-            dateLabel={`${Number(selected.slice(5, 7))}월 ${Number(selected.slice(8, 10))}일`}
-            photos={photos}
-            uploading={uploading}
-            onAdd={onAddPhotos}
-            onDelete={onDeletePhoto}
-            readOnly={readOnly}
-          />
           <SkinPartnerAlert on={partnerAlert} readOnly={readOnly} busy={alertBusy} onToggle={toggleAlert} />
           {readOnly && (
             <p className="text-center text-[13px] mt-3" style={{ color: 'var(--sd-muted)' }}>{READ_ONLY_MSG}</p>

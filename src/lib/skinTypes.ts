@@ -36,13 +36,25 @@ export interface SkinEnv {
   temp: number | null; humidity: number | null; pm10: number | null; pm25: number | null;
   station?: string | null; at: string;
 }
-export interface SkinPhoto { id: string; path: string; t?: string | null }
+// 메모 칸(우댕 2026-10-24: 메모를 아침·점심·저녁·밤으로 나누고 칸마다 사진)
+export const MEMO_SLOTS = ['morning', 'noon', 'evening', 'night'] as const;
+export type MemoSlot = (typeof MEMO_SLOTS)[number];
+export const MEMO_SLOT_LABEL: Record<MemoSlot, string> = { morning: '아침', noon: '점심', evening: '저녁', night: '밤' };
+export type SkinMemos = Record<MemoSlot, string>;
+export const emptyMemos = (): SkinMemos => ({ morning: '', noon: '', evening: '', night: '' });
+
+export interface SkinPhoto { id: string; path: string; t?: string | null; slot?: MemoSlot | null }   // slot 없음 = 예전(하루 사진 칸) 사진
 
 export interface SkinLog {
   date: string;                  // YYYY-MM-DD (문서 id)
-  wheals: number | null;         // 팽진 0~3
-  itch: number | null;           // 가려움 0~3
-  uas: number | null;            // wheals + itch (둘 다 있을 때만)
+  // 점수(우댕 2026-10-24 바꿈): 가려움·붉어짐 0~10 슬라이드(0 = 「증상 없음」), 팽진은 없앰.
+  itch10?: number | null;        // 가려움 0~10
+  redness?: number | null;       // 붉어짐 0~10
+  sev?: number | null;           // 하루 대표 점수 = 가려움·붉어짐 중 높은 값(우댕 고름). 저장 때 계산. 읽을 땐 sevOf()
+  // ↓ 예전 점수(2026-10-24 전 기록) — 지우지 않고 둔다. 읽을 때 sevOf()가 가려움 0~3을 0~10으로 바꿔 쓴다
+  wheals: number | null;         // 팽진 0~3(예전)
+  itch: number | null;           // 가려움 0~3(예전)
+  uas: number | null;            // wheals + itch(예전)
   meds: SkinMed[];               // [] = 약 기록 없음(≠ 안 먹음)
   episodes: SkinEpisode[];
   angioedema: SkinAngioedema | null;
@@ -57,7 +69,8 @@ export interface SkinLog {
   period: boolean | null;
   newProducts: string[];
   photos: SkinPhoto[];
-  note: string;
+  note: string;                  // 예전 한 칸 메모(2026-10-24 전). 새 메모는 memos
+  memos?: SkinMemos;             // 아침·점심·저녁·밤 메모
   env: SkinEnv | null;           // 서버가 저장 때 붙임(오늘 기록만)
   source: 'app' | 'artifact-import';
   createdAt: string;
@@ -101,6 +114,12 @@ export function sanitizeLogPatch(input: Record<string, unknown>): Partial<SkinLo
   const has = (k: string) => Object.prototype.hasOwnProperty.call(input, k);
   if (has('wheals')) out.wheals = num(input.wheals, 0, 3, true);
   if (has('itch')) out.itch = num(input.itch, 0, 3, true);
+  if (has('itch10')) out.itch10 = num(input.itch10, 0, 10, true);
+  if (has('redness')) out.redness = num(input.redness, 0, 10, true);
+  if (has('memos')) {
+    const m = (input.memos ?? {}) as Record<string, unknown>;
+    out.memos = Object.fromEntries(MEMO_SLOTS.map((k) => [k, str(m[k], 3000) ?? ''])) as SkinMemos;
+  }
   if (has('meds')) out.meds = (Array.isArray(input.meds) ? input.meds : []).slice(0, 10).map((m: any) => ({
     name: str(m?.name, 60) || '항히스타민', dose: str(m?.dose, 60), time: time(m?.time), status: medStatus(m?.status),
   }));
@@ -131,11 +150,22 @@ export function sanitizeLogPatch(input: Record<string, unknown>): Partial<SkinLo
 export const uasOf = (w: number | null | undefined, i: number | null | undefined): number | null =>
   w == null || i == null ? null : w + i;
 
+// 가려움 0~10 — 새 값이 없으면 예전 0~3을 0·3·7·10으로
+export const itch10Of = (l?: Partial<SkinLog> | null): number | null =>
+  l?.itch10 != null ? l.itch10 : l?.itch != null ? Math.round((l.itch * 10) / 3) : null;
+// 하루 대표 점수 0~10 = 가려움·붉어짐 중 높은 값(둘 다 없으면 null). 예전 기록은 가려움만으로.
+export function sevOf(l?: Partial<SkinLog> | null): number | null {
+  const v = [itch10Of(l), l?.redness ?? null].filter((x): x is number => x != null);
+  return v.length ? Math.max(...v) : null;
+}
+export const HARD_DAY = 7;   // 이 점수 이상 = 힘든 날(우댕 알림·모아보기)
+
 export function emptyLog(date: string, now: string, source: SkinLog['source'] = 'app'): SkinLog {
   return {
     date, wheals: null, itch: null, uas: null, meds: [], episodes: [], angioedema: null, trace: null,
     triggers: [], foods: [], sleepH: null, wakeItch: null, waterMl: null, stress: null, cycleDay: null,
     period: null, newProducts: [], photos: [], note: '', env: null, source, createdAt: now, updatedAt: now,
+    itch10: null, redness: null, sev: null, memos: emptyMemos(),
   };
 }
 

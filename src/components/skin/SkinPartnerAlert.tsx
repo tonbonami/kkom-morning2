@@ -12,8 +12,8 @@ export default function SkinPartnerAlert({ on, readOnly, busy, onToggle }: {
       <div className="min-w-0">
         <p className="text-[15px] font-bold" style={{ color: 'var(--sd-ink)' }}>힘든 날 우댕에게 알리기</p>
         <p className="text-[13px] mt-0.5" style={{ color: 'var(--sd-muted)' }}>
-          {readOnly ? (on ? '꼼이가 켜 뒀어요 — 꼼이 오늘 점수(0~6)가 4 이상이 되면 알림이 와요' : '꼼이가 켜면 힘든 날 알림이 와요')
-            : '오늘 점수(0~6)가 4 이상인 날, 우댕 폰에 「오늘 꼼이 피부가 힘든 날이에요」만 한 번 가요. 점수·기록·사진은 안 가요. 누르면 바로 적용돼요.'}
+          {readOnly ? (on ? '꼼이가 켜 뒀어요 — 꼼이 가려움이나 붉어짐이 7 이상(0~10)이 되면 알림이 와요' : '꼼이가 켜면 힘든 날 알림이 와요')
+            : '가려움이나 붉어짐이 7 이상(0~10)인 날, 우댕 폰에 「오늘 꼼이 피부가 힘든 날이에요」만 한 번 가요. 점수·기록·사진은 안 가요. 누르면 바로 적용돼요.'}
         </p>
       </div>
       <button

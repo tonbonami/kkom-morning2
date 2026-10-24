@@ -7,7 +7,7 @@ import { requireWriter } from '@/lib/skinAuth';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { DATE_RE, SKIN_OWNER, type SkinLog } from '@/lib/skinTypes';
 import { kstToday, writeSkinLog } from '@/lib/skinLogWrite';
-import { PROPOSAL_FIELDS, patchFromProposals, type ApplyItem, type MemoryCandidate, type MemoryItem } from '@/lib/skinChatSummary';
+import { APPLY_FIELDS, patchFromProposals, type ApplyItem, type MemoryCandidate, type MemoryItem } from '@/lib/skinChatSummary';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   // 날짜가 있고 오늘 이후가 아닌 후보만(날짜 모르는 건 화면에서 꼼이가 골라야 옴)
   const items = (Array.isArray(body?.items) ? body.items : []).filter((it: ApplyItem) =>
-    it && (it.mode === 'replace' || it.mode === 'note') && PROPOSAL_FIELDS.includes(it.proposal?.field)
+    it && (it.mode === 'replace' || it.mode === 'note') && APPLY_FIELDS.includes(it.proposal?.field)
     && typeof it.proposal?.date === 'string' && DATE_RE.test(it.proposal.date) && it.proposal.date <= kstToday()) as ApplyItem[];
   const memory = (Array.isArray(body?.memory) ? body.memory : []).filter((m: MemoryCandidate) =>
     m && KINDS.includes(m.kind) && typeof m.text === 'string' && m.text.trim()).slice(0, 30) as MemoryCandidate[];

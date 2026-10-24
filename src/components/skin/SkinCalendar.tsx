@@ -1,4 +1,5 @@
 'use client';
+// 배선(2026-10-24): 점수 0~10으로 — 진하기 /6 → /10(uas 자리에 하루 점수가 온다).
 // 제미나이 9차(gemini-3-flash CLI): 사진 올린 날 4px 점 → 작은 카메라 배지 + 범례 「사진」(우댕: 사진 올린 날 표식). 값 그대로.
 // 제미나이 6차(gemini-3-flash CLI): 사진 표시를 카메라 배지로 변경, 범례 한 줄 최적화(「진할수록 심함」+「사진」 추가).
 // 제미나이 5차(gemini-3-flash CLI): 범례를 390px 한 줄로(「늦게」·「안 적음」). 값 그대로.
@@ -59,7 +60,7 @@ export default function SkinCalendar({
     const isBeforeStart = startDate && day.date < startDate;
     const isToday = day.date === today;
     const isAfterToday = day.date > today;
-    const uasLevel = day.uas !== null ? Math.min(day.uas / 6, 1) : 0;
+    const uasLevel = day.uas !== null ? Math.min(day.uas / 10, 1) : 0;   // 하루 점수 0~10(2026-10-24, 예전 0~6)
     const circleSize = isSmall ? 'w-8 h-8' : 'w-9 h-9';
 
     if (isBeforeStart) {

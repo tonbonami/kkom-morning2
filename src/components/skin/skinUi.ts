@@ -1,5 +1,6 @@
 // 제미나이 시안(2026-10-21, 우댕 전달) — 꼼이 피부 일지 공통 타입. 값 그대로.
 // skinUi.ts
+// 배선(2026-10-24): SkinDraft에 itch10·redness·memos 추가(가려움·붉어짐 0~10, 메모 네 칸).
 export type MedStatus = 'taken' | 'missed' | 'late';
 
 export interface SkinMed {
@@ -22,10 +23,17 @@ export interface SkinFood {
   text: string;
 }
 
+export type MemoSlot = 'morning' | 'noon' | 'evening' | 'night';
+export type SkinMemos = Record<MemoSlot, string>;
+
 export interface SkinDraft {
   date: string; // 'YYYY-MM-DD'
-  wheals: number | null; // 0~3
-  itch: number | null; // 0~3
+  // 2026-10-24(우댕): 가려움·붉어짐 0~10 슬라이드(0 = 증상 없음, null = 안 적음), 팽진 없앰
+  itch10: number | null;   // 가려움 0~10
+  redness: number | null;  // 붉어짐 0~10
+  memos: SkinMemos;        // 아침·점심·저녁·밤 메모
+  wheals: number | null; // 0~3 — 예전 기록 그대로 두는 값(화면에선 안 씀)
+  itch: number | null; // 0~3 — 예전 기록 그대로 두는 값(화면에선 안 씀)
   meds: SkinMed[];
   episodes: SkinEpisode[];
   angioedema: { present: boolean; areas: string[] } | null;

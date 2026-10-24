@@ -4,7 +4,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import { sendApns } from '@/lib/apns';
 import {
-  emptyLog, sanitizeLogPatch, skinLogPath, uasOf, SKIN_CYCLE_PATH, SKIN_SETTINGS_PATH, daysBetween,
+  emptyLog, sanitizeLogPatch, skinLogPath, uasOf, sevOf, HARD_DAY, SKIN_CYCLE_PATH, SKIN_SETTINGS_PATH, daysBetween,
   type SkinEnv, type SkinLog,
 } from '@/lib/skinTypes';
 
@@ -35,7 +35,8 @@ export async function writeSkinLog(
   const base = prev ?? emptyLog(date, now);
   const raw = typeof patch === 'function' ? patch(base) : patch;
   const log: SkinLog = { ...base, ...sanitizeLogPatch(raw), date, updatedAt: now };
-  log.uas = uasOf(log.wheals, log.itch);
+  log.uas = uasOf(log.wheals, log.itch);   // 예전 점수(팽진+가려움) — 새 기록엔 팽진이 없어 null
+  log.sev = sevOf(log);                      // 하루 대표 점수 0~10 = 가려움·붉어짐 중 높은 값(우댕 2026-10-24)
   if (date === kstToday() && !log.env) log.env = await envSnapshot(origin);
 
   // 생리 주기 자동(우댕 고름 2026-10-21): 「생리 중」으로 저장하면 n일째를 채우고, 새로 시작한 날이면 시작일로 남긴다.
@@ -54,8 +55,8 @@ export async function writeSkinLog(
     }
   }
 
-  // 힘든 날 우댕 알림(꼼이가 켰을 때만, 오늘 기록이 UAS 4 이상이 된 첫 저장에 한 번). 붓기·숨참 같은 응급은 화면의 119 안내가 먼저.
-  if (date === kstToday() && (log.uas ?? 0) >= 4 && !log.alertedAt) {
+  // 힘든 날 우댕 알림(꼼이가 켰을 때만, 오늘 하루 점수가 7 이상(0~10)이 된 첫 저장에 한 번). 붓기·숨참 같은 응급은 화면의 119 안내가 먼저.
+  if (date === kstToday() && (log.sev ?? 0) >= HARD_DAY && !log.alertedAt) {
     const settings = (await db.doc(SKIN_SETTINGS_PATH).get()).data();
     if (settings?.partnerAlert === true) {
       const ok = await sendApns('udaeng', '꿀닥터', '오늘 꼼이 피부가 힘든 날이에요. 한 번 꼭 안아 주세요.', { threadId: 'skin' }).catch(() => false);

@@ -1,7 +1,7 @@
 // 피부 일지 연습 모드(?practice=1) — Aside 같은 검수자가 PIN·실제 기록 없이 화면을 끝까지 눌러 볼 수 있게.
 //   서버(/api/skin/*)에 아무것도 묻지도 쓰지도 않는다. 기록은 이 탭 메모리에만, 새로고침하면 처음으로.
 //   보이는 숫자·메모·사진은 전부 지어낸 예시다(꼼이 실제 기록 아님).
-import { addDaysIso, type SkinLog } from './skinTypes';
+import { addDaysIso, sevOf, type MemoSlot, type SkinLog } from './skinTypes';
 import { practiceAsViewer } from './practice';
 import { patchFromProposals, type ApplyItem, type ChatSummary, type MemoryCandidate, type Proposal } from './skinChatSummary';
 
@@ -20,8 +20,16 @@ function demoLogs(): Record<string, SkinLog> {
     const wheals = prevMissed ? 3 : period ? 2 : i % 3 === 0 ? 1 : 0;
     const itch = prevMissed ? 3 : period ? 2 : i % 2 === 0 ? 1 : 0;
     const at = new Date(Date.parse(date + 'T12:30:00Z')).toISOString();
+    // 최근 1주는 새 점수(가려움·붉어짐 0~10, 메모 네 칸), 그 전은 예전 점수(팽진·가려움 0~3) — 둘 다 보이게
+    const fresh = i >= -7;
+    const itch10 = fresh ? (prevMissed ? 8 : period ? 6 : i % 2 === 0 ? 3 : 1) : null;
+    const redness = fresh ? (prevMissed ? 7 : period ? 5 : i % 3 === 0 ? 2 : 1) : null;
     out[date] = {
-      date, wheals, itch, uas: wheals + itch,
+      date, wheals: fresh ? null : wheals, itch: fresh ? null : itch, uas: fresh ? null : wheals + itch,
+      itch10, redness, sev: fresh ? Math.max(itch10!, redness!) : Math.round((itch * 10) / 3),
+      memos: fresh
+        ? { morning: i === -1 ? '예시 — 일어나니 팔이 살짝 붉었어요' : '', noon: '', evening: prevMissed ? '예시 — 퇴근길 손바닥이 뜨거웠어요' : '', night: i % 2 === 0 ? '예시 — 샤워 뒤 조금 가려움' : '' }
+        : { morning: '', noon: '', evening: '', night: '' },
       meds: [{ name: '항히스타민(예시)', dose: null, time: missed ? null : '22:00', status: missed ? 'missed' : 'taken' }],
       episodes: wheals >= 2 ? [{ start: '19:40', durMin: 90, areas: ['손·손바닥', '팔'], over24h: false, bruiseLike: false }] : [],
       angioedema: null, trace: wheals >= 2 ? '흔적 없음' : null,
@@ -36,7 +44,7 @@ function demoLogs(): Record<string, SkinLog> {
   return out;
 }
 
-const store = { logs: demoLogs(), photos: {} as Record<string, { id: string; url: string; t: string | null }[]>, partnerAlert: false,
+const store = { logs: demoLogs(), photos: {} as Record<string, { id: string; url: string; t: string | null; slot?: MemoSlot | null }[]>, partnerAlert: false,
   intake: { '1.1': '30대', '2.4': '6' } as Record<string, string | string[]>, role: 'kkomi' as 'kkomi' | 'viewer',
   summaries: {} as Record<string, ChatSummary> };
 
@@ -56,6 +64,8 @@ function sampleSummary(date: string): ChatSummary {
       P({ field: 'meds', date: addDaysIso(date, -1), label: '약 — 항히스타민 · 3알 · 23:00 · 늦게', evidence: '어젯밤 11시에 3알 먹었어', med: { name: '항히스타민', dose: '3알', time: '23:00', status: 'late' } }),
       P({ field: 'triggers', date, label: '의심 가는 것 — 술', evidence: '저녁에 맥주 한 캔 마셨어', list: ['술'] }),
       P({ field: 'sleepH', date: null, label: '잠 — 5.5시간', evidence: '다섯 시간 반쯤 잔 것 같아', num: 5.5, certain: false }),
+      P({ field: 'itch10', date, label: '가려움 — 6 / 10', evidence: '오늘 가려움은 6 정도였어', num: 6 }),
+      P({ field: 'note', date, label: '메모 — 아침 · 손바닥이 가려워서 일어남', evidence: '아침에 손바닥 가려워서 깼어', text: '손바닥이 가려워서 일어남', slot: 'morning' }),
     ],
     memory: [
       { kind: 'plan', text: '일주일 동안 술 마신 날을 적어서 다음날 점수와 비교해 보기로 함' },
@@ -78,12 +88,13 @@ export const demo = {
     const prev = store.logs[log.date];
     const next = { ...(prev ?? {}), ...log, updatedAt: now, createdAt: prev?.createdAt ?? now } as SkinLog;
     next.uas = next.wheals != null && next.itch != null ? next.wheals + next.itch : null;
+    next.sev = sevOf(next);
     store.logs[log.date] = next;
     return next;
   },
   photos(date: string) { return store.photos[date] ?? []; },
-  addPhoto(date: string, file: Blob) {
-    const p = { id: 'demo-' + Date.now(), url: URL.createObjectURL(file), t: new Date().toISOString() };
+  addPhoto(date: string, file: Blob, slot?: MemoSlot) {
+    const p = { id: 'demo-' + Date.now(), url: URL.createObjectURL(file), t: new Date().toISOString(), slot: slot ?? null };
     store.photos[date] = [...(store.photos[date] ?? []), p];
     return p;
   },

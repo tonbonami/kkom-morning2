@@ -2,7 +2,7 @@
 // 저장할 때마다 쌓는 logs/{날짜}/versions 는 하루 백업 파일엔 안 넣는다(그건 Firestore 안의 되돌리기용, 날마다 파일이 그 몫을 한다).
 import type { Firestore } from 'firebase-admin/firestore';
 import { medOf } from './skinStats';
-import { SKIN_OWNER, type SkinLog } from './skinTypes';
+import { MEMO_SLOTS, MEMO_SLOT_LABEL, SKIN_OWNER, sevOf, type SkinLog } from './skinTypes';
 
 export type SkinSnapshot = {
   kind: 'kkom-skin-backup'; v: 1; owner: string; exportedAt: string;
@@ -49,13 +49,14 @@ export const md = (date: string) => `${Number(date.slice(5, 7))}/${Number(date.s
 export function dayLine(l: SkinLog): string {
   const med = { taken: '약 먹음', missed: '약 거름', late: '약 늦게', none: '' }[medOf(l) ?? 'none'];
   const parts = [
-    l.uas != null ? `점수 ${l.uas}/6` : '점수 안 적음',
+    sevOf(l) != null ? `점수 ${sevOf(l)}/10${l.itch10 != null || l.redness != null ? ` (가려움 ${l.itch10 ?? '-'} · 붉어짐 ${l.redness ?? '-'})` : ''}` : '점수 안 적음',
     med,
     l.angioedema?.present ? `붓기${l.angioedema.areas.length ? ` ${l.angioedema.areas.join('·')}` : ''}` : '',
     l.triggers?.length ? `의심 ${l.triggers.join('·')}` : '',
     l.period ? `생리 중${l.cycleDay ? ` ${l.cycleDay}일째` : ''}` : '',
     l.photos?.length ? `사진 ${l.photos.length}장` : '',
     l.note ? `메모 「${l.note.replace(/\s+/g, ' ').slice(0, 60)}${l.note.length > 60 ? '…' : ''}」` : '',
+    ...MEMO_SLOTS.map((k) => (l.memos?.[k]?.trim() ? `${MEMO_SLOT_LABEL[k]} 「${l.memos[k].replace(/\s+/g, ' ').slice(0, 40)}${l.memos[k].length > 40 ? '…' : ''}」` : '')),
   ].filter(Boolean);
   return `${md(l.date)}(${weekdayKo(l.date)}) ${parts.join(' · ')}`;
 }
