@@ -207,12 +207,17 @@ export default function SkinJournalPage() {
     setDirty(true);
   };
 
+  // 저장하는 동안(서버 왕복) 또 바꾼 게 있으면 그건 아직 저장 전 — 「저장됨」으로 덮지 않는다(2026-10-25 「저장이 잘 안 되는 것 같다」)
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
   const onSave = async (): Promise<boolean> => {
     if (readOnly) { showReadOnly(); return false; }
     setSaving(true);
+    const sent = draft;
     try {
-      const log = await saveSkinLog(draft);
+      const log = await saveSkinLog(sent);
       setLogs((m) => ({ ...m, [log.date]: log }));
+      if (draftRef.current !== sent) { setSavedAt('아직 저장 전이에요'); return true; }
       setSavedAt(savedAtText(log.updatedAt));
       setDirty(false);
       try { localStorage.removeItem(draftKey(log.date)); } catch {}

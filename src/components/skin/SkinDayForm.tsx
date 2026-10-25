@@ -744,6 +744,13 @@ export default function SkinDayForm({
   );
 }
 
+// 화면이 방금 스크롤됐는지 — 관성 스크롤을 멈추려고 톡 친 손가락이 막대 값을 바꾸지 않게(스크롤 상자 것도 capture로 받는다)
+let lastScrollAt = 0;
+if (typeof window !== 'undefined') {
+  window.addEventListener('scroll', () => { lastScrollAt = Date.now(); }, { capture: true, passive: true });
+}
+const SLIDER_SLOP = 8;   // px — 이만큼 움직이기 전엔 「톡」인지 「끌기」인지 「스크롤」인지 모른다
+
 function Slider10({ 
   label, 
   value, 
@@ -755,20 +762,45 @@ function Slider10({
   onChange: (val: number) => void; 
   gradient?: boolean;
 }) {
-  // 배선(2026-10-24): 누르기만 되던 것 → 끌기(포인터 잡기) + 키보드(←→). 손잡이 자리 = 누른 자리((값-1)/9).
-  const pick = (e: React.PointerEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const p = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  // 배선(2026-10-25, 우댕 「값 고른 뒤 다른 걸 만져도 막대가 지 맘대로 움직여」):
+  //   전엔 막대가 touch-action:none 이라 화면을 스크롤하려고 막대 위에 손가락을 대고 밀면 그게 끌기로 먹혀 값이 바뀌었다.
+  //   이제 세로 스크롤은 화면에 넘기고(pan-y), 가로로 분명히 밀 때만 끌기, 제자리 톡이면 그 자리 값. 스크롤 직후의 톡은 무시.
+  const g = React.useRef<{ id: number; x: number; y: number; drag: boolean } | null>(null);
+  const setAt = (el: HTMLElement, clientX: number) => {
+    const rect = el.getBoundingClientRect();
+    const p = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     const v = Math.round(p * 9) + 1; // 1 to 10
     if (v !== value) onChange(v);
   };
-  const handlePointer = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    pick(e);
+  const handleDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse') {   // 컴퓨터 마우스는 스크롤과 안 헷갈리니 바로
+      e.currentTarget.setPointerCapture(e.pointerId);
+      g.current = { id: e.pointerId, x: e.clientX, y: e.clientY, drag: true };
+      setAt(e.currentTarget, e.clientX);
+      return;
+    }
+    g.current = { id: e.pointerId, x: e.clientX, y: e.clientY, drag: false };
   };
   const handleMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) pick(e);
+    const s = g.current;
+    if (!s || s.id !== e.pointerId) return;
+    if (!s.drag) {
+      const dx = Math.abs(e.clientX - s.x), dy = Math.abs(e.clientY - s.y);
+      if (dy > SLIDER_SLOP && dy >= dx) { g.current = null; return; }   // 세로 = 화면 스크롤
+      if (dx <= SLIDER_SLOP) return;
+      s.drag = true;
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* 이미 놓친 손가락 */ }
+    }
+    setAt(e.currentTarget, e.clientX);
   };
+  const handleUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const s = g.current;
+    g.current = null;
+    if (!s || s.id !== e.pointerId) return;
+    if (!s.drag && Date.now() - lastScrollAt < 400) return;   // 스크롤 멈추려고 친 톡
+    setAt(e.currentTarget, e.clientX);
+  };
+  const handleCancel = () => { g.current = null; };   // 화면이 스크롤을 가져감
   const handleKey = (e: React.KeyboardEvent) => {
     const d = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : 0;
     if (!d) return;
@@ -779,6 +811,7 @@ function Slider10({
   const hasValue = value !== null;
   const isZero = value === 0;
   const displayVal = hasValue && value > 0 ? ((value - 1) / 9) * 100 : 0;
+  const knobLeft = hasValue ? `calc(${displayVal}% - 12px)` : '-12px';
 
   return (
     <div>
@@ -789,14 +822,17 @@ function Slider10({
         </span>
       </div>
       <div 
-        className="relative h-10 flex items-center touch-none cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-[var(--sd-rel)] rounded-full"
-        onPointerDown={handlePointer}
+        className="relative h-10 flex items-center touch-pan-y cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-[var(--sd-rel)] rounded-full"
+        style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+        onPointerDown={handleDown}
         onPointerMove={handleMove}
+        onPointerUp={handleUp}
+        onPointerCancel={handleCancel}
         onKeyDown={handleKey}
         role="slider" tabIndex={0} aria-label={label} aria-valuemin={1} aria-valuemax={10}
         aria-valuenow={value ?? undefined} aria-valuetext={value === null ? '안 적음' : value === 0 ? '없음' : `${value} / 10`}
       >
-        <div className="absolute w-full h-2 bg-[var(--sd-surface-2)] rounded-full overflow-hidden">
+        <div className="absolute w-full h-2 bg-[var(--sd-surface-2)] rounded-full overflow-hidden pointer-events-none">
           {hasValue && !isZero && (
             <div 
               className={`h-full rounded-full ${gradient ? 'bg-gradient-to-r from-[var(--sd-rel)] to-[var(--sd-crit)]' : 'bg-[var(--sd-rel)]'}`}
@@ -804,11 +840,12 @@ function Slider10({
             />
           )}
         </div>
+        {/* 손잡이: 튕기는 스프링 대신 짧게 따라오기(값이 「지 맘대로 움직이는」 것처럼 보이지 않게) */}
         <motion.div 
-          className={`absolute w-6 h-6 bg-[var(--sd-card-solid)] border-2 rounded-full shadow-md ${hasValue ? 'border-[var(--sd-rel)]' : 'border-[var(--sd-line)] opacity-20'}`}
-          style={{ left: hasValue ? `calc(${displayVal}% - 12px)` : '-12px' }}
-          animate={{ left: hasValue ? `calc(${displayVal}% - 12px)` : '-12px' }}
-          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          className={`absolute w-6 h-6 bg-[var(--sd-card-solid)] border-2 rounded-full shadow-md pointer-events-none ${hasValue ? 'border-[var(--sd-rel)]' : 'border-[var(--sd-line)] opacity-20'}`}
+          initial={false}
+          animate={{ left: knobLeft }}
+          transition={{ duration: 0.12, ease: 'easeOut' }}
         />
       </div>
       <div className="flex justify-between px-0.5 -mt-1">
