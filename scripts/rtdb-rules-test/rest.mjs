@@ -1,0 +1,115 @@
+import fs from 'node:fs';
+const NS = 'demo-kkom-default-rtdb';
+const B = `http://127.0.0.1:9123`;
+const url = (p) => `${B}/${p}.json?ns=${NS}`;
+const backup = process.argv[2];
+async function req(method, path, body, admin = false) {
+  const r = await fetch(url(path), { method, headers: { 'Content-Type': 'application/json', ...(admin ? { Authorization: 'Bearer owner' } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const text = await r.text();
+  return { ok: r.ok, status: r.status, text };
+}
+// seed with real backup as admin
+const seed = JSON.parse(fs.readFileSync(backup, 'utf8'));
+const s = await req('PUT', '', seed, true);
+if (!s.ok) { console.log('seed failed', s.status, s.text.slice(0, 200)); process.exit(1); }
+const page = seed.canvas.book.currentPage;
+const pts = [{ x: 0.1, y: 0.2, p: 0.5 }, { x: 0.12, y: 0.22, p: 0.6 }];
+const stroke = (t) => ({ color: '#334155', size: 7, points: pts, by: '꼼이', t });
+let pass = 0, fail = 0;
+async function expect(want, label, method, path, body) {
+  const r = await req(method, path, body);
+  const good = want === 'allow' ? r.ok : (r.status === 401 || r.status === 403);
+  if (good) pass++; else fail++;
+  console.log(`${good ? 'OK  ' : 'FAIL'} ${want.padEnd(5)} ${r.status} ${label}${good ? '' : '  → ' + r.text.slice(0, 120)}`);
+  return r;
+}
+const now = Date.now();
+// ── 앱이 실제로 하는 것(전부 통과해야 함)
+await expect('allow', '책 읽기(앱 SSE)', 'GET', 'canvas/book');
+await expect('allow', '현재 페이지 읽기', 'GET', 'canvas/book/currentPage');
+await expect('allow', '페이지 목록 읽기', 'GET', 'canvas/book/pages');
+await expect('allow', '책 처음 만들기(웹 ensureBook)', 'PATCH', 'canvas/book', { currentPage: 'main', 'pages/main': { t: 0 } });
+await expect('allow', '새 페이지(웹 update)', 'PATCH', 'canvas/book', { [`pages/p_${now}`]: { t: now }, currentPage: `p_${now}` });
+await expect('allow', '새 페이지(앱 PUT)', 'PUT', `canvas/book/pages/p_${now + 1}`, { t: now + 1 });
+await expect('allow', '현재 페이지 이동(앱)', 'PUT', 'canvas/book/currentPage', page);
+await expect('allow', '획 읽기', 'GET', `canvas/${page}/strokes`);
+await expect('allow', '획 쓰기(앱, 서버시각 .sv)', 'PUT', `canvas/${page}/strokes/kkomi/s_test1`, stroke({ '.sv': 'timestamp' }));
+await expect('allow', '획 쓰기(앱 예전 빌드, 숫자 t)', 'PUT', `canvas/${page}/strokes/udaeng/s_test2`, stroke(now));
+const pushed = await expect('allow', '획 쓰기(웹 push, serverTimestamp)', 'POST', `canvas/${page}/strokes/udaeng`, { ...stroke({ '.sv': 'timestamp' }), by: '우댕' });
+await expect('allow', '웹 획 지우기(push 한 것)', 'DELETE', `canvas/${page}/strokes/udaeng/${JSON.parse(pushed.text).name}`);
+const t1 = await req('GET', `canvas/${page}/strokes/kkomi/s_test1/t`);
+console.log('     .sv 로 저장된 t =', t1.text);
+await expect('allow', '되돌리기(앱 DELETE 한 획)', 'DELETE', `canvas/${page}/strokes/kkomi/s_test1`);
+await expect('allow', '지우개(웹 multi-path null)', 'PATCH', '', { [`canvas/${page}/strokes/udaeng/s_test2`]: null });
+await expect('allow', '생중계 쓰기(앱/웹)', 'PUT', `canvas/${page}/live/udaeng`, { id: 's_live', color: '#334155', size: 7, points: pts });
+await expect('allow', '생중계 읽기', 'GET', `canvas/${page}/live/kkomi`);
+await expect('allow', '생중계 끄기(null)', 'PUT', `canvas/${page}/live/udaeng`, null);
+await expect('allow', '지문 읽기(웹 meta)', 'GET', `canvas/${page}/meta`);
+await expect('allow', '지문 읽기(앱)', 'GET', `canvas/${page}/meta/passageUrl`);
+await expect('allow', '지문 넣기(웹 update)', 'PATCH', `canvas/${page}/meta`, { passageUrl: 'https://firebasestorage.googleapis.com/v0/b/x/o/canvas%2Fpassage.jpg?alt=media' });
+await expect('allow', '지문 넣기(앱 PUT)', 'PUT', `canvas/${page}/meta/passageUrl`, 'https://example.com/a.jpg');
+await expect('allow', '지문 빼기', 'DELETE', `canvas/${page}/meta/passageUrl`);
+await expect('allow', '하트·댓글 읽기', 'GET', `canvas/${page}/react`);
+await expect('allow', '하트 켜기', 'PUT', `canvas/${page}/react/likes/kkomi`, true);
+await expect('allow', '하트 끄기', 'DELETE', `canvas/${page}/react/likes/kkomi`);
+await expect('allow', '댓글 쓰기(앱 PUT)', 'PUT', `canvas/${page}/react/comments/c_${now}`, { by: '꼼이', text: '귀여워 🐝🐝🐝', t: now });
+await expect('allow', '댓글 쓰기(웹 push)', 'POST', `canvas/${page}/react/comments`, { by: '우댕', text: '고마워', t: now });
+await expect('allow', '댓글 지우기', 'DELETE', `canvas/${page}/react/comments/c_${now}`);
+await expect('allow', '웹 전체 지우기(이 페이지 획 통째)', 'DELETE', `canvas/p_${now + 1}/strokes`);
+await expect('allow', '앱 내 획 전부 지우기', 'DELETE', `canvas/p_${now + 1}/strokes/kkomi`);
+await expect('allow', '페이지 삭제(웹 multi-path)', 'PATCH', '', { [`canvas/book/pages/p_${now}`]: null, 'canvas/book/currentPage': page, [`canvas/p_${now}`]: null });
+await expect('allow', '페이지 삭제(앱) — 목록', 'DELETE', `canvas/book/pages/p_${now + 1}`);
+await expect('allow', '페이지 삭제(앱) — 내용', 'DELETE', `canvas/p_${now + 1}`);
+await expect('allow', '입력 중 켜기', 'PUT', 'chatTyping/udaeng', true);
+await expect('allow', '입력 중 읽기', 'GET', 'chatTyping/kkomi');
+await expect('allow', '폰 알림주소 저장(앱)', 'PUT', 'pushTokens/kkomi', { token: 'ab'.repeat(32), platform: 'ios', t: now });
+await expect('allow', '폰 알림주소 읽기(서버)', 'GET', 'pushTokens/kkomi');
+await expect('allow', '워치 알림주소 저장', 'PUT', 'watchTokens/udaeng', { token: 'cd'.repeat(32), platform: 'watchos', t: now });
+await expect('allow', '워치 알림주소 읽기(서버)', 'GET', 'watchTokens/udaeng');
+await expect('allow', '잠금화면 토큰 저장(앱)', 'PUT', 'liveActivityTokens/kkomi', { token: 'ef'.repeat(40), t: now });
+await expect('allow', '잠금화면 토큰 읽기(서버)', 'GET', 'liveActivityTokens/kkomi');
+await expect('allow', '하트 알림 간격 읽기', 'GET', 'pushMeta/kkomi/lastHeart');
+await expect('allow', '하트 알림 간격 쓰기', 'PUT', 'pushMeta/kkomi/lastHeart', now);
+await expect('allow', '잠금화면 알림 간격 쓰기', 'PUT', 'pushMeta/udaeng/lastLA', now);
+await expect('allow', '잠금화면 상태 쓰기(서버)', 'PUT', 'liveActivityState/kkomi', { online: true, partnerName: '우댕', dday: 'D+1125', agoText: '방금', skyEmoji: '☀️', pm10: 30, temp: 14 });
+await expect('allow', '잠금화면 상태 읽기(서버)', 'GET', 'liveActivityState/udaeng');
+await expect('allow', '죽은 알림주소 지우기(서버)', 'DELETE', 'watchTokens/udaeng');
+// ── 막혀야 하는 것
+await expect('deny', '전체 읽기', 'GET', '');
+await expect('deny', '전체 덮어쓰기', 'PUT', '', { hacked: true });
+await expect('deny', '전체 지우기', 'DELETE', '');
+await expect('deny', '낙서장 통째 읽기', 'GET', 'canvas');
+await expect('deny', '낙서장 통째 지우기', 'DELETE', 'canvas');
+await expect('deny', '책 통째 지우기', 'DELETE', 'canvas/book');
+await expect('deny', '알림주소 통째 읽기', 'GET', 'pushTokens');
+await expect('deny', '알림주소 통째 지우기', 'DELETE', 'pushTokens');
+await expect('deny', '엉뚱한 곳에 쓰기', 'PUT', 'evil', 'x'.repeat(100));
+await expect('deny', '모르는 사람 이름으로 획', 'PUT', `canvas/${page}/strokes/hacker/s_x`, stroke(now));
+await expect('deny', '획 모양 아닌 것', 'PUT', `canvas/${page}/strokes/kkomi/s_x`, { foo: 1 });
+await expect('deny', '페이지에 엉뚱한 칸', 'PUT', `canvas/${page}/evil`, 1);
+await expect('deny', '모르는 사람 알림주소', 'PUT', 'pushTokens/hacker', { token: 'x' });
+await expect('deny', '알림주소에 엉뚱한 값', 'PUT', 'pushTokens/kkomi', 'x');
+await expect('deny', '페이지를 통째 덮어쓰기(내용 있음)', 'PUT', `canvas/${page}`, { strokes: { kkomi: { x: { color: '#000', size: 1, points: pts } } } });
+await expect('deny', '획 묶음을 통째 덮어쓰기', 'PUT', `canvas/${page}/strokes`, { kkomi: { x: { color: '#000', size: 1, points: pts } } });
+await expect('deny', '현재 페이지에 엉뚱한 값', 'PUT', 'canvas/book/currentPage', 123);
+// Aside 지적 반영분
+await expect('deny', '점 목록 자리에 글자', 'PUT', `canvas/${page}/strokes/kkomi/s_x`, { color: '#000', size: 3, points: '배열 아님' });
+await expect('deny', '점 목록 번호가 글자', 'PUT', `canvas/${page}/strokes/kkomi/s_x`, { color: '#000', size: 3, points: { arbitrary: { x: 1, y: 2 } } });
+await expect('deny', '생중계 점 목록에 숫자', 'PUT', `canvas/${page}/live/kkomi`, { id: 'a', color: '#000', size: 3, points: 5 });
+await expect('deny', '모르는 사람 알림주소 읽기', 'GET', 'pushTokens/hacker');
+await expect('deny', '모르는 사람 입력 중 읽기', 'GET', 'chatTyping/hacker');
+await expect('deny', '모르는 사람 생중계 읽기', 'GET', `canvas/${page}/live/hacker`);
+await expect('deny', '모르는 사람 잠금화면 상태 읽기', 'GET', 'liveActivityState/hacker');
+await expect('deny', '아주 긴 페이지 이름에 획', 'PUT', `canvas/${'x'.repeat(70)}/strokes/kkomi/s_x`, stroke(now));
+await expect('deny', '현재 페이지를 book으로', 'PUT', 'canvas/book/currentPage', 'book');
+await expect('deny', '페이지 목록에 book', 'PUT', 'canvas/book/pages/book', { t: now });
+await expect('deny', '작성자 이름 아무거나', 'PUT', `canvas/${page}/strokes/kkomi/s_x`, { ...stroke(now), by: '해커' });
+await expect('deny', '댓글 작성자 아무거나', 'PUT', `canvas/${page}/react/comments/c_x`, { by: '해커', text: 'hi', t: now });
+await expect('allow', '번호 매긴 점 목록(객체 모양)', 'PUT', `canvas/${page}/strokes/kkomi/s_obj`, { color: '#000', size: 3, points: { 0: { x: 0.1, y: 0.1 }, 1: { x: 0.2, y: 0.2 } }, by: '꼼이', t: now });
+await expect('allow', '  └ 지우기', 'DELETE', `canvas/${page}/strokes/kkomi/s_obj`);
+// 원래 데이터 그대로인지(시험 획은 다 지웠으니 꿀벌 페이지 획이 시드와 같아야 함)
+const after = await req('GET', `canvas/${page}/strokes`, undefined, true);
+const before = JSON.stringify(seed.canvas[page].strokes);
+console.log('\n꿀벌 페이지 획 보존:', JSON.stringify(JSON.parse(after.text)) === before ? '그대로' : '달라짐');
+console.log(`\n통과 ${pass} / 실패 ${fail}`);
+process.exit(fail ? 1 : 0);

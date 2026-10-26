@@ -1,0 +1,178 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "canvas": {
+      "book": {
+        ".read": true,
+        "currentPage": {
+          ".write": true,
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64 && newData.val() !== 'book'"
+        },
+        "pages": {
+          "$pid": {
+            ".write": "$pid.length <= 64 && $pid !== 'book'",
+            ".validate": "newData.hasChildren(['t'])",
+            "t": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          }
+        },
+        "$other": { ".validate": false }
+      },
+
+      "$page": {
+        ".write": "!newData.exists() && $page.length <= 64",
+        ".validate": "$page.length <= 64",
+
+        "strokes": {
+          ".read": true,
+          ".write": "!newData.exists()",
+          "$user": {
+            ".write": "!newData.exists() && ($user === 'udaeng' || $user === 'kkomi')",
+            "$id": {
+              ".write": "($user === 'udaeng' || $user === 'kkomi') && $id.length <= 64",
+              ".validate": "newData.hasChildren(['color', 'size', 'points'])",
+              "color": { ".validate": "newData.isString() && newData.val().length <= 32" },
+              "size": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 200" },
+              "points": {
+                ".validate": "newData.hasChildren()",
+                "$i": {
+                  ".validate": "$i.matches(/^(0|[1-9][0-9]*)$/) && newData.hasChildren(['x', 'y'])",
+                  "x": { ".validate": "newData.isNumber()" },
+                  "y": { ".validate": "newData.isNumber()" },
+                  "p": { ".validate": "newData.isNumber()" },
+                  "$other": { ".validate": false }
+                }
+              },
+              "by": { ".validate": "newData.val() === '우댕' || newData.val() === '꼼이'" },
+              "t": { ".validate": "newData.isNumber()" },
+              "tool": { ".validate": "newData.isString() && newData.val().length <= 16" },
+              "$other": { ".validate": false }
+            }
+          }
+        },
+
+        "live": {
+          "$user": {
+            ".read": "$user === 'udaeng' || $user === 'kkomi'",
+            ".write": "$user === 'udaeng' || $user === 'kkomi'",
+            ".validate": "newData.hasChildren(['color', 'size', 'points'])",
+            "id": { ".validate": "newData.isString() && newData.val().length <= 64" },
+            "color": { ".validate": "newData.isString() && newData.val().length <= 32" },
+            "size": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 200" },
+            "points": {
+              ".validate": "newData.hasChildren()",
+              "$i": {
+                ".validate": "$i.matches(/^(0|[1-9][0-9]*)$/) && newData.hasChildren(['x', 'y'])",
+                "x": { ".validate": "newData.isNumber()" },
+                "y": { ".validate": "newData.isNumber()" },
+                "p": { ".validate": "newData.isNumber()" },
+                "$other": { ".validate": false }
+              }
+            },
+            "tool": { ".validate": "newData.isString() && newData.val().length <= 16" },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "meta": {
+          ".read": true,
+          "passageUrl": {
+            ".write": true,
+            ".validate": "newData.isString() && newData.val().length <= 2048"
+          },
+          "$other": { ".validate": false }
+        },
+
+        "react": {
+          ".read": true,
+          "likes": {
+            "$user": {
+              ".write": "$user === 'udaeng' || $user === 'kkomi'",
+              ".validate": "newData.isBoolean()"
+            }
+          },
+          "comments": {
+            "$cid": {
+              ".write": "$cid.length <= 64",
+              ".validate": "newData.hasChildren(['by', 'text', 't'])",
+              "by": { ".validate": "newData.val() === '우댕' || newData.val() === '꼼이'" },
+              "text": { ".validate": "newData.isString() && newData.val().length <= 4000" },
+              "t": { ".validate": "newData.isNumber()" },
+              "$other": { ".validate": false }
+            }
+          },
+          "$other": { ".validate": false }
+        },
+
+        "$other": { ".validate": false }
+      }
+    },
+
+    "chatTyping": {
+      "$user": {
+        ".read": "$user === 'udaeng' || $user === 'kkomi'",
+        ".write": "$user === 'udaeng' || $user === 'kkomi'",
+        ".validate": "newData.isBoolean()"
+      }
+    },
+
+    "pushTokens": {
+      "$user": {
+        ".read": "$user === 'udaeng' || $user === 'kkomi'",
+        ".write": "$user === 'udaeng' || $user === 'kkomi'",
+        ".validate": "newData.hasChildren(['token'])",
+        "token": { ".validate": "newData.isString() && newData.val().length <= 512" },
+        "platform": { ".validate": "newData.isString() && newData.val().length <= 16" },
+        "t": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "watchTokens": {
+      "$user": {
+        ".read": "$user === 'udaeng' || $user === 'kkomi'",
+        ".write": "$user === 'udaeng' || $user === 'kkomi'",
+        ".validate": "newData.hasChildren(['token'])",
+        "token": { ".validate": "newData.isString() && newData.val().length <= 512" },
+        "platform": { ".validate": "newData.isString() && newData.val().length <= 16" },
+        "t": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "liveActivityTokens": {
+      "$user": {
+        ".read": "$user === 'udaeng' || $user === 'kkomi'",
+        ".write": "$user === 'udaeng' || $user === 'kkomi'",
+        ".validate": "newData.hasChildren(['token'])",
+        "token": { ".validate": "newData.isString() && newData.val().length <= 512" },
+        "t": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "pushMeta": {
+      "$user": {
+        ".read": "$user === 'udaeng' || $user === 'kkomi'",
+        "lastHeart": {
+          ".write": "$user === 'udaeng' || $user === 'kkomi'",
+          ".validate": "newData.isNumber()"
+        },
+        "lastLA": {
+          ".write": "$user === 'udaeng' || $user === 'kkomi'",
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
+    "liveActivityState": {
+      "$user": {
+        ".read": "$user === 'udaeng' || $user === 'kkomi'",
+        ".write": "$user === 'udaeng' || $user === 'kkomi'",
+        ".validate": "newData.hasChildren()"
+      }
+    }
+  }
+}
