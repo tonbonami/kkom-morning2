@@ -13,7 +13,8 @@ import UIKit
 let RTDB_URL = "https://kkom-morning-default-rtdb.asia-southeast1.firebasedatabase.app"
 
 struct NetPoint: Codable { var x: Double; var y: Double; var p: Double }
-struct NetStroke: Codable { var color: String; var size: Double; var points: [NetPoint] }
+// t = 그린 순서(서버 시각 ms). 화면은 t 순으로 겹쳐 그린다 — 늦게 그은 선이 위.
+struct NetStroke: Codable { var color: String; var size: Double; var points: [NetPoint]; var t: Double? = nil }
 
 final class SyncClient: NSObject, URLSessionDataDelegate {
     let me: String       // "udaeng" | "kkomi"
@@ -128,11 +129,14 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
     func commit(id: String, _ s: NetStroke) {
         q.async { [weak self] in
             guard let self = self else { return }
+            // t는 서버 시각(.sv) — 둘이 같이 그릴 때 기기 시계가 어긋나도 순서가 안 뒤집히게(사이담 대조 2026-10-27)
             let dict: [String: Any] = ["color": s.color, "size": s.size,
                                        "points": s.points.map { ["x": $0.x, "y": $0.y, "p": $0.p] },
-                                       "by": self.me == "udaeng" ? "우댕" : "꼼이", "t": Int(Date().timeIntervalSince1970 * 1000)]
+                                       "by": self.me == "udaeng" ? "우댕" : "꼼이", "t": [".sv": "timestamp"]]
             self.write("PUT", "\(RTDB_URL)/canvas/\(self.page)/strokes/\(self.me)/\(id).json", body: self.jsonData(dict))
-            self.committed["\(self.me)/\(id)"] = s   // 낙관적 로컬 반영(에코 오면 동일 id로 덮임)
+            var pending = s
+            pending.t = .greatestFiniteMagnitude   // 서버 시각이 오기 전엔 맨 위(방금 그은 선)
+            self.committed["\(self.me)/\(id)"] = pending   // 낙관적 로컬 반영(에코 오면 동일 id로 덮임)
         }
     }
     func deleteMine(id: String) {
@@ -346,7 +350,12 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
             let key = "\(comps[0])/\(comps[1])"
             if let st = Self.decodeStroke(value) { committed[key] = st } else { committed[key] = nil }
         }
-        let list = committed.map { ($0.key, $0.value) }
+        // ⚠️ committed는 Dictionary라 꺼내는 순서가 뒤죽박죽(실행마다 달라짐) → 그대로 그리면 나중에 그은 선이
+        //    먼저 그은 칠 밑에 깔린다(10/26 꿀벌: 노란 칠 위 검은 선이 아래로). 반드시 t 순, 같으면 key 순으로.
+        let list = committed.map { ($0.key, $0.value) }.sorted { a, b in
+            let ta = a.1.t ?? 0, tb = b.1.t ?? 0
+            return ta != tb ? ta < tb : a.0 < b.0
+        }
         DispatchQueue.main.async { self.onCommitted?(list) }
     }
 
@@ -360,7 +369,7 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
             return NetPoint(x: x, y: y, p: pr)
         }
         guard pts.count >= 1 else { return nil }
-        return NetStroke(color: color, size: size, points: pts)
+        return NetStroke(color: color, size: size, points: pts, t: (dict["t"] as? NSNumber)?.doubleValue)
     }
 
     // 재접속 (현재 page 기준으로 다시 열기)

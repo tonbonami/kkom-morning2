@@ -13,7 +13,7 @@ import { storage, rtdb } from './firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
   ref as dbRef, set as dbSet, push as dbPush, remove as dbRemove,
-  update as dbUpdate, get as dbGet, onValue, onDisconnect,
+  update as dbUpdate, get as dbGet, onValue, onDisconnect, serverTimestamp,
 } from 'firebase/database';
 
 export const DEFAULT_BOARD = 'main'; // 첫 페이지 id (기존 낙서 승계)
@@ -80,7 +80,8 @@ export async function addStroke(
   if (!stroke.points || stroke.points.length < 2) return;
   const user = liveKey(by);
   const r = dbPush(dbRef(rtdb, `canvas/${boardId}/strokes/${user}`));
-  await dbSet(r, { color: stroke.color, size: stroke.size, points: stroke.points, by, t: Date.now() });
+  // t = 서버 시각 — 둘이 같이 그릴 때 기기 시계가 어긋나도 그린 순서대로 겹치게(앱 낙서장과 같은 기준, 2026-10-27)
+  await dbSet(r, { color: stroke.color, size: stroke.size, points: stroke.points, by, t: serverTimestamp() });
 }
 
 // ids = "{user}/{pushId}" 복합 id. 멀티패스 업데이트로 한 번에 삭제.

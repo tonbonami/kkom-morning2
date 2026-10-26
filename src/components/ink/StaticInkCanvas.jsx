@@ -3,6 +3,9 @@
 import { useEffect, useRef } from 'react'
 import { drawStrokes, strokeToPath } from './brush.js'
 
+// 구운 획 목록의 지문(id 순서) — id가 없으면 자리 번호
+const strokeKey = (list) => list.map((st, i) => st.id ?? `#${i}`).join('|')
+
 const TEMP_FADE_MS = 900
 
 /**
@@ -14,6 +17,7 @@ export default function StaticInkCanvas({ width, height, strokes, liveStroke, fa
   const bakedRef = useRef(null)
   const liveRef = useRef(null)
   const bakedCountRef = useRef(0)
+  const bakedKeyRef = useRef('')
   const rafRef = useRef(0)
   const propsRef = useRef({})
   propsRef.current = { width, height, liveStroke, fadingStrokes }
@@ -31,6 +35,7 @@ export default function StaticInkCanvas({ width, height, strokes, liveStroke, fa
     }
     drawStrokes(bakedRef.current.getContext('2d'), strokes, width, height)
     bakedCountRef.current = strokes.length
+    bakedKeyRef.current = strokeKey(strokes)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width, height, dpr])
 
@@ -38,13 +43,17 @@ export default function StaticInkCanvas({ width, height, strokes, liveStroke, fa
   useEffect(() => {
     if (!width || !height) return
     const ctx = bakedRef.current.getContext('2d')
-    if (strokes.length >= bakedCountRef.current) {
-      drawStrokes(ctx, strokes.slice(bakedCountRef.current), width, height)
+    // 이미 구운 앞부분이 그대로일 때만 꼬리를 덧그린다. 늦게 온 획이 중간(t 순)에 끼거나 지워지면 전부 다시
+    // (전엔 길이만 보고 꼬리만 그려 중간에 낀 획이 영영 안 그려졌다 — 사이담이 찾아 줌, 2026-10-27)
+    const n = bakedCountRef.current
+    if (strokes.length >= n && strokeKey(strokes.slice(0, n)) === bakedKeyRef.current) {
+      drawStrokes(ctx, strokes.slice(n), width, height)
     } else {
       ctx.clearRect(0, 0, width, height)
       drawStrokes(ctx, strokes, width, height)
     }
     bakedCountRef.current = strokes.length
+    bakedKeyRef.current = strokeKey(strokes)
   }, [strokes, width, height])
 
   // 라이브 획 + 페이드아웃 임시 획

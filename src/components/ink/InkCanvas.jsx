@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { drawStrokes, strokeToPath, pseudoPressure, smoothVelocity } from './brush.js'
 import { createPalmArbiter } from './palm.js'
 
+// 구운 획 목록의 지문(id 순서) — id가 없으면 자리 번호
+const strokeKey = (list) => list.map((st, i) => st.id ?? `#${i}`).join('|')
+
 /**
  * 필기 캔버스 (PDF 위 오버레이, 교사 전용 입력)
  *
@@ -96,6 +99,7 @@ export default function InkCanvas({
   const fadingRef = useRef([])
   const rafRef = useRef(0)
   const bakedCountRef = useRef(0)
+  const bakedKeyRef = useRef('')
 
   const stateRef = useRef({})
   stateRef.current = {
@@ -136,19 +140,24 @@ export default function InkCanvas({
     setupCanvas(liveRef.current)
     drawStrokes(bctx, strokes, width, height)
     bakedCountRef.current = strokes.length
+    bakedKeyRef.current = strokeKey(strokes)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width, height, setupCanvas])
 
   useEffect(() => {
     if (!width || !height) return
     const ctx = bakedRef.current.getContext('2d')
-    if (strokes.length >= bakedCountRef.current) {
-      drawStrokes(ctx, strokes.slice(bakedCountRef.current), width, height)
+    // 이미 구운 앞부분이 그대로일 때만 꼬리를 덧그린다. 늦게 온 획이 중간(t 순)에 끼거나 지워지면 전부 다시
+    // (전엔 길이만 보고 꼬리만 그려 중간에 낀 획이 영영 안 그려졌다 — 사이담이 찾아 줌, 2026-10-27)
+    const n = bakedCountRef.current
+    if (strokes.length >= n && strokeKey(strokes.slice(0, n)) === bakedKeyRef.current) {
+      drawStrokes(ctx, strokes.slice(n), width, height)
     } else {
       ctx.clearRect(0, 0, width, height)
       drawStrokes(ctx, strokes, width, height)
     }
     bakedCountRef.current = strokes.length
+    bakedKeyRef.current = strokeKey(strokes)
   }, [strokes, width, height])
 
   /** 화면 좌표 → 캔버스 css-px (확대 transform 중에도 정확) */
