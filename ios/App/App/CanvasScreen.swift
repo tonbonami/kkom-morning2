@@ -373,7 +373,9 @@ struct CanvasScreen: View {
         guard let url = url, let u = URL(string: url) else { passageImage = nil; return }
         URLSession.shared.dataTask(with: u) { data, _, _ in
             guard let data = data, let img = UIImage(data: data) else { return }
-            DispatchQueue.main.async { self.passageImage = img }
+            // 받는 사이 페이지를 넘겼으면(지문이 바뀌었거나 없어졌으면) 버린다 — 안 그러면 늦게 온 1쪽 교재 사진이
+            // 지문 없는 페이지에 깔리고, 그 뒤 페이지들도 지문이 계속 nil이라 안 지워졌다(2026-10-27 우댕 「모든 그림에 교재 표지」)
+            DispatchQueue.main.async { if self.controller.passageUrl == url { self.passageImage = img } }
         }.resume()
     }
 }

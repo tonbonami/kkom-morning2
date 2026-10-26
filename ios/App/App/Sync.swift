@@ -68,10 +68,17 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
         super.init()
     }
 
+    // 페이지 스트림은 책(currentPage)을 받은 뒤에 연다 — 전엔 'main'(1쪽)부터 열어 1쪽 획·교재 사진을 잠깐 받았다가
+    // 원래 페이지로 넘어갔다(늦게 온 1쪽 사진이 남는 버그의 출발점). 책이 3초 안에 안 오면 그냥 지금 페이지로 연다.
+    private var pageStreamsOpened = false
     func start() {
         q.async { [weak self] in
             guard let self = self, !self.stopped else { return }
             self.openStream("\(RTDB_URL)/canvas/book.json", kind: .book)
+        }
+        q.asyncAfter(deadline: .now() + 3) { [weak self] in
+            guard let self = self, !self.stopped, !self.pageStreamsOpened else { return }
+            self.pageStreamsOpened = true
             self.openPageStreams()
         }
     }
@@ -295,7 +302,11 @@ final class SyncClient: NSObject, URLSessionDataDelegate {
             self.onPages?(pageList.isEmpty ? ["main"] : pageList)
             self.onCurrentPage?(cp)
         }
-        if cp != page { switchPage(to: cp) }
+        if !pageStreamsOpened {
+            pageStreamsOpened = true
+            page = cp
+            openPageStreams()
+        } else if cp != page { switchPage(to: cp) }
     }
     private func tOf(_ v: Any) -> Double { ((v as? [String: Any])?["t"] as? NSNumber)?.doubleValue ?? 0 }
 
