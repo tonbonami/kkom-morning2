@@ -208,6 +208,10 @@ const sugKkulAnim = (w: string): Suggestion | undefined => {  // 꿀됑 움짤
   const s = KKUL_ANIM.find((x) => x.word === w);
   return s ? { key: s.word, image: s.image, thumb: drawerThumb(s.image), mode: 'kkulgif' } : undefined;
 };
+const sugUri = (w: string): Suggestion | undefined => {  // 우리(꿀됑+꼼이 커플) 16종
+  const s = URI_STICKERS.find((x) => x.word === w);
+  return s ? { key: s.word, image: s.image, thumb: s.image, mode: 'uri' } : undefined;
+};
 
 // ── 키워드(동의어) → 관련 스티커 규칙 ──
 // ⚠️ 한 이모티콘 ≠ 한 단어. 여러 동의어·구어·오타·초성까지 걸어 '일상 단어'로 다 뜨게 한다.
@@ -313,29 +317,30 @@ type Intent = { id: string; aliases: string[]; pop?: number; get: () => (Suggest
 const INTENTS: Intent[] = [
   { id: 'call',     pop: 6, aliases: ['꼼슌아', '꼼슌', '꼼슌이', '꼼슌띠', '꼼이', '꼼아', '자기야', '애기야', '여보', '내강아지', '강아지야', '겸둥아', '겸둥이', 'ㄲㅅ'], get: () => [sugKkul('꼼슌아')] },
   { id: 'hello',    aliases: ['안녕', '안뇽', '안냥', '하이', '하잉', '헬로', '방가', '반가워', 'ㅎㅇ', 'hi', 'hello'], get: () => [sugAnim('안녕!')] },
-  { id: 'morning',  pop: 3, aliases: ['좋은아침', '굿모닝', '모닝', '잘잤어', '잘잤니', '일어났어', '기상', '아침이야', '조은아침', '굿몽', 'ㄱㅁ'], get: () => [sugKkul('좋은아침'), sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
+  { id: 'morning',  pop: 3, aliases: ['좋은아침', '굿모닝', '모닝', '잘잤어', '잘잤니', '일어났어', '기상', '아침이야', '조은아침', '굿몽', 'ㄱㅁ'], get: () => [sugKkul('좋은아침'), sugUri('꼼모닝'), sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
   { id: 'doki',     aliases: ['두근두근', '두근', '설레', '설렌다', '떨려', '콩닥콩닥', '심쿵', '긴장돼', 'ㄷㄱㄷㄱ'], get: () => [sugAnim('두근두근')] },
-  { id: 'love',     pop: 6, aliases: ['사랑해', '사랑', '사랑해요', '사랑한다', '좋아해', '조아해', '알러뷰', '러브', '러브유', '내사랑', '사룽해', 'ㅅㄹㅎ', 'ㅅㄹ', 'love', '❤', '❤️', '💕', '💗'], get: () => [sugKkul('사랑해'), sugAnim('사랑해'), sugMini('사랑해'), sugCouple('사랑해'), sugMini('하트')] },
+  { id: 'love',     pop: 6, aliases: ['사랑해', '사랑', '사랑해요', '사랑한다', '좋아해', '조아해', '알러뷰', '러브', '러브유', '내사랑', '사룽해', 'ㅅㄹㅎ', 'ㅅㄹ', 'love', '❤', '❤️', '💕', '💗'], get: () => [sugKkul('사랑해'), sugUri('사랑해'), sugAnim('사랑해'), sugMini('사랑해'), sugCouple('사랑해'), sugMini('하트')] },
   { id: 'miss',     pop: 5, aliases: ['보고싶어', '보고싶다', '보고파', '그리워', '생각나', '생각나서', '보곺', '보고시퍼', '언제봐', '만나고싶어', 'ㅂㄱㅅㅇ', 'ㅂㄱㅍ'], get: () => [sugKkul('보고싶어'), sugAnim('보고싶어'), sugMini('보고파'), sugCouple('보고파')] },
   { id: 'thanks',   pop: 3, aliases: ['고마워', '고맙다', '고마웡', '고마워요', '고맙', '감사해', '감사', '땡큐', '감솨', 'ㄱㅅ', 'ㄳ', 'thanks', 'thx'], get: () => [sugKkul('고마워'), sugAnim('고마워'), sugMini('고마워')] },
-  { id: 'sulk',     aliases: ['삐짐', '삐졌어', '삐질거야', '삐졌다', '서운해', '서운', '토라졌어', '시무룩', '흥칫뿡', 'ㅃㅈ'], get: () => [sugAnim('삐짐'), sugMini('삐졌어'), sugAnim('흥!')] },
+  { id: 'sulk',     aliases: ['삐짐', '삐졌어', '삐질거야', '삐졌다', '서운해', '서운', '토라졌어', '시무룩', '흥칫뿡', 'ㅃㅈ'], get: () => [sugAnim('삐짐'), sugUri('삐짐'), sugMini('삐졌어'), sugAnim('흥!')] },
   { id: 'hmph',     aliases: ['흥', '흥칫', '칫', '몰라', '흥이다', '에잇'], get: () => [sugAnim('흥!'), sugAnim('삐짐')] },
-  { id: 'sorry',    pop: 2, aliases: ['미안해', '미안', '미안해요', '미안하다', '죄송해', '죄송', '쏘리', '사과할게', '미얀', '먄', 'ㅈㅅ', 'sorry'], get: () => [sugAnim('미안해'), sugKkul('미안해'), sugSai('미안'), sugMini('미안해')] },
+  { id: 'sorry',    pop: 2, aliases: ['미안해', '미안', '미안해요', '미안하다', '죄송해', '죄송', '쏘리', '사과할게', '미얀', '먄', 'ㅈㅅ', 'sorry'], get: () => [sugAnim('미안해'), sugKkul('미안해'), sugSai('미안'), sugMini('미안해'), sugUri('화해')] },
   { id: 'wakeup',   pop: 3, aliases: ['일어나', '일어나라', '일어나자', '일어나세요', '일어날시간', '기상', '기상해', '기상기상', '깨워', '깨워줘', '깨어나', '모닝콜', '알람', '늦잠', '그만자', 'ㅇㅇㄴ'], get: () => [sugKkulAnim('일어나 붕붕'), sugKkul('좋은아침'), sugAnim('좋은 아침')] },
   { id: 'tteok1',   pop: 2, aliases: ['찰떡', '찰떡커플', '찰떡궁합', '우리는찰떡', '찰떡이야'], get: () => [sugKkulAnim('찰떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
   { id: 'tteok2',   pop: 2, aliases: ['쑥떡'], get: () => [sugKkulAnim('쑥떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
   { id: 'tteok3',   pop: 2, aliases: ['콩떡'], get: () => [sugKkulAnim('콩떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
   { id: 'tteok4',   pop: 2, aliases: ['개떡'], get: () => [sugKkulAnim('개떡!'), sugKkulAnim('멍!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
   { id: 'tteok5',   pop: 2, aliases: ['멍', '멍!', '멍멍', '멍때려', '멍때림'], get: () => [sugKkulAnim('멍!')] },   // 떡 말놀이 끝에 둘이 외치는 「멍!」(우댕 2026-10-27)
+  { id: 'yaksok',   pop: 3, aliases: ['약속', '약속!', '약속해', '약속할게', '약속이야', '꼭이야', '손가락걸어', '새끼손가락', '도장', '도장꾹'], get: () => [sugKkul('약속!'), sugSai('약속!')] },   // 꼼이 발바닥 도장 · 꿀됑 코 도장(내 캐릭터가 앞)
   { id: 'hehe',     pop: 4, aliases: ['헤헤', '헤헤헤', '헤헷', '헿', '흐흐', '히히', '헤헤헤헤'], get: () => [sugSai('헤헤'), sugMini('헤헤')] },
   { id: 'offwork',  pop: 5, aliases: ['퇴근', '퇴근해', '퇴근했어', '퇴근한다', '퇴근이다', '퇴근중', '퇴근각', '칼퇴', '집간다', '집에간다', 'ㅌㄱ'], get: () => [sugAnim('퇴근!'), sugKkul('가는중'), sugSai('가는중')] },
-  { id: 'night',    pop: 2, aliases: ['잘자', '잘자요', '자야겠다', '잘게', '굿밤', '굿나잇', '취침', '꿈꿔', '자러갈게', '자자', 'ㅈㅈ'], get: () => [sugAnim('잘자'), sugSai('굿밤')] },
+  { id: 'night',    pop: 2, aliases: ['잘자', '잘자요', '자야겠다', '잘게', '굿밤', '굿나잇', '취침', '꿈꿔', '자러갈게', '자자', 'ㅈㅈ'], get: () => [sugAnim('잘자'), sugUri('잘자'), sugSai('굿밤')] },
   { id: 'bath',     aliases: ['씻고올게', '씻으러', '씻으러가', '샤워', '샤워할게', '샤워하고올게', '목욕', '씻는중', '세수', 'ㅆㄱㅇㄱ'], get: () => [sugAnim('씻고 올게')] },
   { id: 'sick',     pop: 3, aliases: ['아파', '아프다', '아파요', '아픔', '감기', '몸살', '열나', '골골', '몸안좋아', '컨디션', '병원', '두통', '배아파'], get: () => [sugAnim('아파'), sugMini('아파'), sugKkul('괜찮아?')] },
-  { id: 'worried',  pop: 3, aliases: ['괜찮아', '괜찮니', '괜춘', '무슨일이야', '걱정돼', '걱정', '어디아파', '별일없지', 'ㄱㅊ'], get: () => [sugKkul('괜찮아?'), sugCouple('토닥토닥')] },
+  { id: 'worried',  pop: 3, aliases: ['괜찮아', '괜찮니', '괜춘', '무슨일이야', '걱정돼', '걱정', '어디아파', '별일없지', 'ㄱㅊ'], get: () => [sugKkul('괜찮아?'), sugUri('괜찮아'), sugCouple('토닥토닥')] },
   { id: 'yay',      aliases: ['좋아', '좋다', '조아', '오예', '굿', '찬성', '좋았어', '마음에들어', 'ㅈㅇ'], get: () => [sugAnim('좋아!'), sugMini('최고야')] },
   { id: 'scream',   pop: 3, aliases: ['으악', '으아악', '으아', '악', '꺄', '깜짝이야', '깜짝', '놀랐어', '무서워', '펄쩍', '끼야'], get: () => [sugKkulAnim('으악 펄쩍'), sugKkul('으악'), sugAnim('으악'), sugSai('헐')] },
-  { id: 'congrats', aliases: ['축하해', '축하', '축하한다', '추카', '추카해', '생일축하', '생축', '생일', '기념일', 'ㅊㅋ', '🎉', '🎊'], get: () => [sugAnim('축하해!'), sugAnim('선물'), sugCouple('헹가래')] },
+  { id: 'congrats', aliases: ['축하해', '축하', '축하한다', '추카', '추카해', '생일축하', '생축', '생일', '기념일', 'ㅊㅋ', '🎉', '🎊'], get: () => [sugAnim('축하해!'), sugUri('축하해'), sugAnim('선물'), sugCouple('헹가래')] },
   { id: 'gift',     aliases: ['선물', '선물이야', '선물줄게', '기프트', '기프티콘', '서프라이즈', '택배', '🎁'], get: () => [sugAnim('선물'), sugKkulAnim('꽃 줄게')] },
   { id: 'shy',      aliases: ['부끄러워', '부끄', '수줍어', '쑥스러워', '민망해', '창피해', '헤헤', 'ㅂㄲ'], get: () => [sugAnim('부끄')] },
   { id: 'hug',      pop: 3, aliases: ['안아줘', '안아줄게', '안고싶어', '꼬옥', '꼭안아', '포옹', '허그', '폭안겨', '안겨', 'ㅇㅇㅈ'], get: () => [sugKkulAnim('안아줘 꼬리하트'), sugKkul('꼬옥'), sugAnim('꼬옥'), sugMini('안아줘'), sugCouple('토닥토닥')] },
@@ -343,7 +348,7 @@ const INTENTS: Intent[] = [
   { id: 'bed',      aliases: ['일어나기싫어', '못일어나', '이불밖은위험해', '더잘래', '늦잠', '이불', '눕고싶어', '월요일싫어'], get: () => [sugAnim('일어나기 싫어')] },
   { id: 'rain',     aliases: ['비온다', '비와', '비오네', '비올듯', '장마', '우중충', '빗소리', '비내려', '우산', '☔'], get: () => [sugAnim('비온다')] },
   { id: 'cheer',    pop: 2, aliases: ['힘내', '힘내자', '화이팅', '파이팅', '아자', '아자아자', '응원', '응원할게', '잘할수있어', '기운내', '힘들어', '지쳤어', '고생했어', '고생해', 'ㅎㄴ'], get: () => [sugAnim('힘내!'), sugMini('힘내'), sugCouple('헹가래')] },
-  { id: 'pudede',   aliases: ['푸데데', '푸데뎅', '꿀잠', '낮잠', '쿨쿨', '새근새근', 'ㅍㄷㄷ'], get: () => [sugKkul('푸데데'), sugDang('푸데데'), sugKkom('푸데데')] },  // 둘만의 말 「푸데데」=꿀잠(삐짐 아님)
+  { id: 'pudede',   aliases: ['푸데데', '푸데뎅', '꿀잠', '낮잠', '쿨쿨', '새근새근', 'ㅍㄷㄷ'], get: () => [sugKkul('푸데데'), sugUri('푸데데'), sugDang('푸데데'), sugKkom('푸데데')] },  // 둘만의 말 「푸데데」=꿀잠(삐짐 아님)
   { id: 'sleepy',   aliases: ['졸려', '졸립다', '졸림', '잠와', '잠온다', '하품', '나른해', '눈감겨', '꾸벅꾸벅', '피곤해', '피곤', 'ㅈㄹ'], get: () => [sugAnim('졸려'), sugSai('졸려'), sugMini('졸려')] },
   { id: 'kiss',     pop: 2, aliases: ['뽀뽀', '뽀뽀해줘', '쪽', '쪽쪽', '키스', '입맞춤', '음마', 'ㅃㅃ', '😘', '💋'], get: () => [sugAnim('뽀뽀'), sugKkulAnim('기습 뽀뽀'), sugKkul('뽀뽀'), sugCouple('뽀뽀')] },
   { id: 'cute',     pop: 4, aliases: ['귀여워', '귀엽다', '귀엽', '앙귀여워', '귀엽꼬미', '기여워', '커여워', '커엽다', '졸귀', '귀요미', '깨물고싶어', 'ㄱㅇㅇ'], get: () => [sugKkul('앙귀여워'), sugDang('귀엽꼬미'), sugDang('앙 귀여워')] },
@@ -351,9 +356,9 @@ const INTENTS: Intent[] = [
   { id: 'hungry',   pop: 5, aliases: ['배고파', '배고픔', '배곺', '꼬르륵', '출출해', '출출', '허기져', '허기', '밥줘', '뭐먹지', '먹고싶어', '야식', '간식', '굶었어', 'ㅂㄱㅍ'], get: () => [sugKkul('배고파'), sugSai('배고파'), sugSai('맛점')] },
   { id: 'going',    pop: 4, aliases: ['가는중', '가고있어', '출발', '출발했어', '출발한다', '이동중', '오는중', '퇴근', '퇴근중', '퇴근길', '집가는중', '집에가', '곧가', '금방가', '버스탔어', '지하철', '버스', '지금가', 'ㄱㄴㅈ'], get: () => [sugKkul('가는중'), sugSai('가는중'), sugKkom('달려가는 중'), sugSai('출근중')] },
   { id: 'commute',  aliases: ['출근', '출근중', '출근길', '회사가는중', '일하러가', '회사간다', '지각', '업무시작', 'ㅊㄱ'], get: () => [sugSai('출근중'), sugSai('가는중'), sugKkul('가는중'), sugSai('바빠')] },
-  { id: 'arrive',   pop: 3, aliases: ['도착', '도착했어', '도착함', '왔어', '다왔어', '집왔어', '거의왔어', '도착완료', '내렸어', 'ㄷㅊ'], get: () => [sugKkul('도착!'), sugSai('도착!')] },
+  { id: 'arrive',   pop: 3, aliases: ['도착', '도착했어', '도착함', '왔어', '다왔어', '집왔어', '거의왔어', '도착완료', '내렸어', 'ㄷㅊ'], get: () => [sugKkul('도착!'), sugUri('왔어!'), sugSai('도착!')] },
   { id: 'really',   pop: 4, aliases: ['진짜', '진짜야', '진짜아', '정말', '레알', '실화', '실화냐', '진심', 'ㄹㅇ', 'ㅈㅉ'], get: () => [sugKkul('진짜아?'), sugSai('헐')] },
-  { id: 'whitening', pop: 2, aliases: ['화이트닝', '화잇닝', '화트닝', 'ㅎㅇㅌㄴ'], get: () => [sugKkul('화이트닝')] },
+  { id: 'whitening', pop: 2, aliases: ['화이트닝', '화잇닝', '화트닝', 'ㅎㅇㅌㄴ'], get: () => [sugKkul('화이트닝'), sugUri('화이트닝')] },
   { id: 'yes',      pop: 4, aliases: ['응', '응응', '웅', '웅웅', '어엉', '맞아', '맞아맞아', '알겠어', '알았어', '오케이', '오키', '그래', 'ㅇㅇ', 'ㅇㅋ', 'ok'], get: () => [sugKkul('응응')] },
   { id: 'lunch',    aliases: ['맛점', '점심', '점심먹자', '밥먹자', '뭐먹을까', '식사', '런치', '점심시간', '밥먹었어', '밥', '맛있게먹어', 'ㅁㅈ'], get: () => [sugSai('맛점'), sugKkul('배고파')] },
   { id: 'what',     aliases: ['뭐해', '모해', '머해', '뭐하니', '뭐함', '뭐하는중', '지금뭐해', '모하냐', 'ㅁㅎ'], get: () => [sugSai('뭐해?')] },
@@ -370,7 +375,7 @@ const INTENTS: Intent[] = [
   { id: 'sparkle',  aliases: ['반짝', '반짝반짝', '빛나', '영롱해', '눈부셔', '예뻐', '이뻐', '샤방샤방', '✨'], get: () => [sugMini('반짝')] },
   { id: 'heart',    aliases: ['하트', '하투', '내마음', '마음', '심장'], get: () => [sugMini('하트'), sugCouple('하트')] },
   { id: 'clap',     aliases: ['짝짝짝', '짝짝', '박수', '박수쳐', '굿잡', '브라보', '👏'], get: () => [sugMini('짝짝짝')] },
-  { id: 'welldone', aliases: ['잘했어', '잘했다', '대견해', '기특해', '수고했어', '장하다', 'ㅈㅎㅇ'], get: () => [sugMini('잘했어'), sugMini('짝짝짝')] },
+  { id: 'welldone', aliases: ['잘했어', '잘했다', '대견해', '기특해', '수고했어', '장하다', 'ㅈㅎㅇ'], get: () => [sugUri('수고했어'), sugMini('잘했어'), sugMini('짝짝짝')] },
   { id: 'flower',   aliases: ['꽃다발', '꽃', '꽃선물', '플라워', '꽃줄게', '꽃 줄게', '장미', '프로포즈', '🌹', '💐'], get: () => [sugKkulAnim('꽃 줄게'), sugMini('꽃다발'), sugCouple('장미')] },
   { id: 'praiseme', aliases: ['칭찬해줘', '칭찬', '잘했지', '나잘했지', '인정해줘', '쓰담해줘'], get: () => [sugMini('칭찬해줘'), sugMini('잘했어')] },
   { id: 'best',     aliases: ['최고야', '최고', '짱', '짱이야', '멋져', '완벽해', '쩐다', '리스펙', '👍'], get: () => [sugMini('최고야'), sugAnim('좋아!')] },
@@ -382,6 +387,14 @@ const INTENTS: Intent[] = [
   { id: 'pat',      aliases: ['토닥토닥', '토닥', '다독다독', '위로', '울지마', '쓰담쓰담', '옆에있을게', 'ㅌㄷㅌㄷ'], get: () => [sugCouple('토닥토닥'), sugMini('안아줘')] },
   { id: 'toss',     aliases: ['헹가래', '합격', '해냈다', '성공', '만세'], get: () => [sugCouple('헹가래'), sugAnim('축하해!')] },
   { id: 'fly',      aliases: ['날아가자', '날아가', '훨훨', '떠나자', '여행가자', '여행', '어디론가'], get: () => [sugCouple('날아가자')] },
+  // ── 우리 탭(꿀됑+꼼이 커플 16종, 2026-10-27) — 다른 묶음에 없던 말 ──
+  { id: 'mukbang',  pop: 2, aliases: ['냠냠', '냠냠냠', '먹방', '맛있다', '맛있어', '맛있겠다', '같이먹자', '먹자', '얌얌', '쩝쩝'], get: () => [sugUri('냠냠냠'), sugKkul('배고파')] },
+  { id: 'photo',    pop: 2, aliases: ['찰칵', '사진', '사진찍자', '셀카', '셀카찍자', '인생샷', '찍어줘', '네컷', '📸'], get: () => [sugUri('찰칵')] },
+  { id: 'takecare', pop: 3, aliases: ['조심히와', '조심히 와', '조심히가', '조심해', '조심히들어가', '잘다녀와', '다녀와', '다녀올게', '출근잘해', '안전운전'], get: () => [sugUri('조심히 와')] },
+  { id: 'goodjob',  pop: 3, aliases: ['수고했어', '수고했다', '수고많았어', '고생했어', '고생많았어', '오늘도고생', '수고', '애썼어'], get: () => [sugUri('수고했어'), sugMini('잘했어')] },
+  { id: 'reconcile', aliases: ['화해', '화해하자', '화해해', '풀자', '풀었어', '사과할게', '사과'], get: () => [sugUri('화해'), sugKkul('미안해')] },
+  { id: 'dust',     pop: 2, aliases: ['미세먼지', '먼지', '초미세먼지', '공기', '공기안좋아', '마스크', '황사', '먼지저리가'], get: () => [sugUri('먼지 저리가')] },
+  { id: 'date',     pop: 2, aliases: ['데이트', '데이트하자', '데이트가자', '놀러가자', '만나자', '카페', '카페가자', '주말에만나'], get: () => [sugUri('데이트')] },
 ];
 // 자음 한 글자 단축키 — 둘이 자주 쓰는 순(우댕이 보낸 메시지 2,049개 집계)으로 앞의 몇 개만.
 const KEY_SHORTCUTS: Record<string, string[]> = {
@@ -485,6 +498,7 @@ const KKUL_STICKERS: { word: string; image: string }[] = [
   { word: '푸데데',   image: '/emo/kkuldaeng/18-pudede.webp' }, // 둘만의 말 「푸데데」=꿀잠 — 꼼이 닮은 말티푸 인형 안고 (우댕 B안 OK 2026-10-20)
   { word: '뽀뽀',     image: '/emo/kkuldaeng/19-ppoppo.webp' },
   { word: '미안해',   image: '/emo/kkuldaeng/20-mianhae.webp' }, // 꿀단지 내밀며 울먹 — Aside 검수 "꿀됑에 미안해 없음" (우댕 A안 OK 2026-10-21) // 꼼이가 꿀됑 볼에 기습 뽀뽀, 꿀됑 더듬이가 하트로 (우댕 "1,2 둘다" 2026-10-20)
+  { word: '약속!',    image: '/emo/kkuldaeng/21-yaksok.webp' },  // 하트 카드에 코 도장(콧구멍 두 개), 코끝에 잉크 — 글 속 (약속)과 같은 그림(art/yaksok)
 ];
 // 꿀됑 움짤 탭(우댕 지시: 따로) — sai-anim 경로에 둬서 서랍은 정지컷(-still.png), 채팅은 흔들기 없이 재생(기존 움짤 규칙 그대로).
 //   만든 법·원본은 art/kkuldaeng/{euak,…} (Codex 키프레임 → Kling → 편집 → make_anim.py).
@@ -504,6 +518,26 @@ const KKUL_ANIM: { word: string; image: string }[] = [
   // 떡 말놀이 마무리 — 개떡 다음에 둘이 같이 「멍!」 → 멍때림 「멍...」 (art/kkuldaeng/meong, Kling 18 A·B 중 가운데 뺀 판, 우댕 「②로 하자」 2026-10-27)
   { word: '멍!', image: '/emo/sai-anim/kkul-meong.webp' },
   { word: '기습 뽀뽀', image: '/emo/sai-anim/kkul-kiss.webp' },   // art/kkuldaeng/kiss — 꼼이가 볼에 쪽 → 꿀됑 더듬이 하트·빨개져 붕 뜸 (Kling 17, 우댕 "그냥 클링으로" 2026-10-20)
+];
+// 우리 탭 — 꿀됑+꼼이가 같이 나오는 커플 16종(정지, 글씨 배지). GPT 회의(후보 20 → 16, 순서 = 자주 쓸 것 앞) + 우댕 OK(2026-10-27).
+//   원본·회의 원문·지시문·만든 스크립트는 art/couple16 (make_couple.py: 투명 그림 → 배지 webp 320).
+const URI_STICKERS: { word: string; image: string }[] = [
+  { word: '꼼모닝',     image: '/emo/uri/01-morning.webp' },   // 한 이불에서 빼꼼, 더듬이가 아침 해
+  { word: '잘자',       image: '/emo/uri/02-night.webp' },     // 등 맞대고 동그랗게, 날개 이불
+  { word: '사랑해',     image: '/emo/uri/03-love.webp' },      // 하트 풍선 줄이 꿀됑 꼬리에
+  { word: '냠냠냠',     image: '/emo/uri/04-mukbang.webp' },   // 한 그릇 먹방, 코에 면 한 가닥
+  { word: '찰칵',       image: '/emo/uri/05-selfie.webp' },    // 셀카, 더듬이 끝이 하트
+  { word: '조심히 와',  image: '/emo/uri/06-takecare.webp' },  // 목도리 배웅, 끝이 더듬이 방울 귀마개
+  { word: '왔어!',      image: '/emo/uri/07-arrived.webp' },   // 급브레이크 데굴
+  { word: '괜찮아',     image: '/emo/uri/08-itsok.webp' },     // 볼 기대기, 더듬이도 같이 축
+  { word: '수고했어',   image: '/emo/uri/09-goodjob.webp' },   // 뻗은 꿀됑에게 꽃목걸이
+  { word: '삐짐',       image: '/emo/uri/10-sulk.webp' },      // 등 돌렸는데 꼬리는 몰래 닿음
+  { word: '화해',       image: '/emo/uri/11-makeup.webp' },    // 사과(=사과) 물고 꽃이랑 콩
+  { word: '축하해',     image: '/emo/uri/12-congrats.webp' },  // 촛불은 멀쩡, 귀·더듬이만 휙
+  { word: '푸데데',     image: '/emo/uri/13-nap.webp' },       // 꿀됑 배 베고 낮잠, 콧방울
+  { word: '화이트닝',   image: '/emo/uri/14-whitening.webp' }, // 둘만의 구호 — 반짝 이빨 광선 교차
+  { word: '먼지 저리가', image: '/emo/uri/15-dust.webp' },     // 날개 바람에 울상 먼지들 도망
+  { word: '데이트',     image: '/emo/uri/16-date.webp' },      // 셰이크 하나에 빨대 둘
 ];
 
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
@@ -526,6 +560,7 @@ const SAI_STICKERS: { word: string; image: string }[] = [
   { word: '굿밤', image: '/emo/sai/goodnight.webp' },
   { word: '바빠', image: '/emo/sai/busy.webp' },
   { word: '헤헤', image: '/emo/sai/hehe.webp' },   // 꼼이 말버릇 헤헤(73번, 전부 꼼이) — A안: 두 앞발로 입 가리고 눈웃음(우댕 OK 2026-10-19)
+  { word: '약속!', image: '/emo/sai/yaksok.webp' }, // 하트 카드에 발바닥 도장 — 글 속 (약속)과 같은 그림(art/yaksok)
 ];
 
 // 사이담이 탭 — 사이담 말티푸 표정·몸짓 21종. 사이담 EMOTICONS(setId=BASIC) 정의 순서 그대로.
@@ -559,8 +594,19 @@ const SAIDAMI_STICKERS: { word: string; image: string }[] = [
 // 겹치는 단어(사랑해·보고파·하트는 커플 스티커에도 있음)는 꼼이미니(말티푸)가 렌더 우선.
 // 커플 스티커는 '커플' 탭 탭전송(단독 스티커)으로 그대로 살아있어 손실 없음.
 const MINI_BY_WORD: Record<string, string> = Object.fromEntries(SAIDAMI_STICKERS.map((s) => [s.word, s.image]));
-// (단어) 매칭 = 꼼이미니 단어 + 커플 텍스트스티커(중복 제거). 손으로 쳐도 그림이 된다.
-const STICKER_ALT = [...new Set([...SAIDAMI_STICKERS.map((s) => s.word), ...Object.keys(TEXT_STICKERS)])].join('|');
+// 보낸 사람 캐릭터로 바꿔 그리는 글 속 단어 — 꼼이미니·커플 스티커보다 먼저 본다.
+//   (야호): 우댕이 치면 꿀됑 야호(우댕 문장 끝 인사, 340번), 꼼이가 친 (야호)는 원래 포차코 그대로.
+//   (약속): 꼼이는 발바닥 도장, 우댕은 꿀됑 코 도장(원본 art/yaksok, GPT 상의 B+D안).
+const TEXT_STICKER_BY_SENDER: Record<string, Record<string, string>> = {
+  '우댕': { '야호': '/emo/kkuldaeng/mini/yaho.webp', '약속': '/emo/kkuldaeng/mini/yaksok.webp' },
+  '꼼이': { '약속': '/emo/kkom/mini/yaksok.webp' },
+};
+const senderSticker = (w: string, from?: string) => (from ? TEXT_STICKER_BY_SENDER[from]?.[w] : undefined);
+// (단어) 매칭 = 꼼이미니 단어 + 커플 텍스트스티커 + 보낸 사람별 단어(중복 제거). 손으로 쳐도 그림이 된다.
+const STICKER_ALT = [...new Set([
+  ...SAIDAMI_STICKERS.map((s) => s.word), ...Object.keys(TEXT_STICKERS),
+  ...Object.values(TEXT_STICKER_BY_SENDER).flatMap((m) => Object.keys(m)),
+])].join('|');
 // [[e:id]] 포차코 미니 OR (단어) 스티커 둘 다 매칭
 const RICH_RE = new RegExp(`\\[\\[e:([a-z]+)\\]\\]|\\((${STICKER_ALT})\\)`, 'g');
 const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
@@ -568,7 +614,7 @@ const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
 // 이모티콘 서랍 탭 — 사이챗과 동일 구조(썸네일 + 이름). id/데이터는 꼼모닝 것.
 // 카톡식 탭 — 최근·자주(🕒) + 세트별 탭. 아이콘은 '실제 스티커 대표 그림'(썸네일)이라
 //   어떤 세트인지 한눈에 보인다(윈도우 이모지 X). 포차코는 한 탭에 몰지 않고 기본/우댕/꼼이/커플로 분리.
-type StickerMode = 'recent' | 'gif' | 'kkul' | 'kkulgif' | 'maltipoo' | 'basic' | 'dang' | 'kkom' | 'couple' | 'mini';
+type StickerMode = 'recent' | 'gif' | 'kkul' | 'kkulgif' | 'uri' | 'maltipoo' | 'basic' | 'dang' | 'kkom' | 'couple' | 'mini';
 const STICKER_TABS: { id: StickerMode; name: string; thumb?: string; icon?: string }[] = [
   { id: 'recent',   name: '최근·자주', icon: '🕒' },
   { id: 'gif',      name: '움짤',      thumb: '/emo/sai-anim/love-still.png' },
@@ -580,6 +626,7 @@ const STICKER_TABS: { id: StickerMode; name: string; thumb?: string; icon?: stri
   { id: 'mini',     name: '미니',      thumb: '/emo/saidami/love.webp' },
   { id: 'kkul',     name: '꿀됑',      thumb: '/emo/kkuldaeng/01-ggomsyun.webp' },   // 우댕 지시: 탭 맨 끝
   { id: 'kkulgif',  name: '꿀됑 움짤', thumb: '/emo/sai-anim/kkul-euak-still.png' },  // 우댕 지시: 움짤은 탭 따로
+  { id: 'uri',      name: '우리',      thumb: '/emo/uri/03-love.webp' },               // 꿀됑+꼼이 커플 16종 — 맨 끝(2026-10-27)
 ];
 
 // 최근·자주 쓴 이모티콘(기기별 localStorage). pick 할 때마다 기록.
@@ -604,6 +651,7 @@ function allDrawerItems() {
   SAIDAMI_STICKERS.forEach((s) => put('mini', s.word, s.image, s.image));
   KKUL_STICKERS.forEach((s) => put('kkul', s.word, s.image, s.image));
   KKUL_ANIM.forEach((s) => put('kkulgif', s.word, s.image, drawerThumb(s.image)));
+  URI_STICKERS.forEach((s) => put('uri', s.word, s.image, s.image));
   return (ALL_DRAWER_ITEMS = out);
 }
 // ── 짝 답장 — 받은 이모티콘과 같은 뜻의 '내 캐릭터' 이모티콘으로 답한다(카톡 '이모티콘 따라하기' + 우리 둘 짝 캐릭터).
@@ -689,11 +737,6 @@ function linkify(text: string, keyBase: number): React.ReactNode[] {
   if (last < text.length) out.push(text.slice(last));
   return out;
 }
-// 보낸 사람 캐릭터로 바꿔 그리는 글 속 단어 — (야호)를 우댕이 치면 꿀됑 야호(우댕 문장 끝 인사, 340번).
-//   꼼이가 친 (야호)는 원래 포차코 그대로. 서랍 '커플' 탭의 큰 야호 스티커는 건드리지 않는다.
-const TEXT_STICKER_BY_SENDER: Record<string, Record<string, string>> = {
-  '우댕': { '야호': '/emo/kkuldaeng/mini/yaho.webp' },
-};
 function renderRich(text: string, from?: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let last = 0; let i = 0; let m: RegExpExecArray | null;
@@ -708,15 +751,16 @@ function renderRich(text: string, from?: string): React.ReactNode {
         parts.push(<img key={i++} src={opt.image} alt={opt.label} className="inline-block w-6 h-6 align-middle object-contain" />);
       } else parts.push(m[0]);
     } else if (m[2] !== undefined) {
-      // 꼼이미니(말티푸) 먼저 — 32px 인라인, 폭 자동, 말풍선 없음(사이담 스펙)
-      const miniSrc = MINI_BY_WORD[m![2]];
+      // 꼼이미니(말티푸) 먼저 — 32px 인라인, 폭 자동, 말풍선 없음(사이담 스펙). 단 보낸 사람별 그림이 있으면 그게 우선.
+      const bySender = senderSticker(m![2], from);
+      const miniSrc = bySender ? undefined : MINI_BY_WORD[m![2]];
       if (miniSrc) {
         // eslint-disable-next-line @next/next/no-img-element
         parts.push(<img key={i++} src={miniSrc} alt={m![2]} className="inline-block h-9 w-auto align-text-bottom object-contain mx-[2px]" />);
         last = m.index + m[0].length;
         continue;
       }
-      const src = (from && TEXT_STICKER_BY_SENDER[from]?.[m![2]]) || TEXT_STICKERS[m![2]];
+      const src = bySender || TEXT_STICKERS[m![2]];
       if (isVideoSrc(src)) {
         // 진짜 동영상 스티커 (편지처럼 MP4 재생)
         parts.push(
@@ -747,13 +791,13 @@ function renderRich(text: string, from?: string): React.ReactNode {
 }
 
 // 미니/스티커 토큰만으로 이루어진 메시지인지 판별 — 그런 메시지는 말풍선 없이 크게 띄운다(카톡식).
-function parseStickerTokens(text: string): { srcs: string[]; onlyTokens: boolean } {
+function parseStickerTokens(text: string, from?: string): { srcs: string[]; onlyTokens: boolean } {
   const srcs: string[] = []; let rest = '';
   let last = 0; let m: RegExpExecArray | null; RICH_RE.lastIndex = 0;
   while ((m = RICH_RE.exec(text)) !== null) {
     rest += text.slice(last, m.index);
     if (m[1] !== undefined) { const opt = MOOD_OPTIONS.find((o) => o.id === m![1]); if (opt) srcs.push(opt.image); else rest += m[0]; }
-    else if (m[2] !== undefined) { const s = MINI_BY_WORD[m![2]] ?? TEXT_STICKERS[m![2]]; if (s) srcs.push(s); else rest += m[0]; }
+    else if (m[2] !== undefined) { const s = senderSticker(m![2], from) ?? MINI_BY_WORD[m![2]] ?? TEXT_STICKERS[m![2]]; if (s) srcs.push(s); else rest += m[0]; }
     last = m.index + m[0].length;
   }
   rest += text.slice(last);
@@ -1531,6 +1575,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       case 'gif': return [{ items: ANIM_STICKERS.map((s) => ({ key: s.word, image: s.image, thumb: s.still })) }];
       case 'kkul': return [{ items: KKUL_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'kkulgif': return [{ items: KKUL_ANIM.map((s) => ({ key: s.word, image: s.image, thumb: drawerThumb(s.image) })) }];
+      case 'uri': return [{ items: URI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'maltipoo': return [{ items: SAI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'mini': return [{ items: SAIDAMI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'basic': return [{ items: MOOD_OPTIONS.map((o) => ({ key: o.id, image: o.image })) }];
@@ -1986,7 +2031,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       ) : m.audioUrl ? (
                         <div onClick={(e) => e.stopPropagation()}><VoiceBubble url={m.audioUrl} dur={m.audioDur ?? 0} mine={mine} /></div>
                       ) : (() => {
-                        const tok = parseStickerTokens(m.text);
+                        const tok = parseStickerTokens(m.text, m.from);
                         if (tok.onlyTokens) return <BigMinis srcs={tok.srcs} />;   // 미니만 → 말풍선 없이 크게(카톡식)
                         const linkUrl = firstUrl(m.text);
                         const onlyUrl = !!linkUrl && m.text.trim() === linkUrl;
