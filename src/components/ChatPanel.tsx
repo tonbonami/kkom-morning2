@@ -325,7 +325,8 @@ const INTENTS: Intent[] = [
   { id: 'tteok1',   pop: 2, aliases: ['찰떡', '찰떡커플', '찰떡궁합', '우리는찰떡', '찰떡이야'], get: () => [sugKkulAnim('찰떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
   { id: 'tteok2',   pop: 2, aliases: ['쑥떡'], get: () => [sugKkulAnim('쑥떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
   { id: 'tteok3',   pop: 2, aliases: ['콩떡'], get: () => [sugKkulAnim('콩떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
-  { id: 'tteok4',   pop: 2, aliases: ['개떡'], get: () => [sugKkulAnim('개떡!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
+  { id: 'tteok4',   pop: 2, aliases: ['개떡'], get: () => [sugKkulAnim('개떡!'), sugKkulAnim('멍!'), sugKkulAnim('찰떡 쑥떡 콩떡 개떡')] },
+  { id: 'tteok5',   pop: 2, aliases: ['멍', '멍!', '멍멍', '멍때려', '멍때림'], get: () => [sugKkulAnim('멍!')] },   // 떡 말놀이 끝에 둘이 외치는 「멍!」(우댕 2026-10-27)
   { id: 'hehe',     pop: 4, aliases: ['헤헤', '헤헤헤', '헤헷', '헿', '흐흐', '히히', '헤헤헤헤'], get: () => [sugSai('헤헤'), sugMini('헤헤')] },
   { id: 'offwork',  pop: 5, aliases: ['퇴근', '퇴근해', '퇴근했어', '퇴근한다', '퇴근이다', '퇴근중', '퇴근각', '칼퇴', '집간다', '집에간다', 'ㅌㄱ'], get: () => [sugAnim('퇴근!'), sugKkul('가는중'), sugSai('가는중')] },
   { id: 'night',    pop: 2, aliases: ['잘자', '잘자요', '자야겠다', '잘게', '굿밤', '굿나잇', '취침', '꿈꿔', '자러갈게', '자자', 'ㅈㅈ'], get: () => [sugAnim('잘자'), sugSai('굿밤')] },
@@ -500,6 +501,8 @@ const KKUL_ANIM: { word: string; image: string }[] = [
   { word: '콩떡!', image: '/emo/sai-anim/kkul-tteok-kong.webp' },
   { word: '개떡!', image: '/emo/sai-anim/kkul-tteok-gae.webp' },
   { word: '찰떡 쑥떡 콩떡 개떡', image: '/emo/sai-anim/kkul-tteok-all.webp' },
+  // 떡 말놀이 마무리 — 개떡 다음에 둘이 같이 「멍!」 → 멍때림 「멍...」 (art/kkuldaeng/meong, Kling 18 A·B 중 가운데 뺀 판, 우댕 「②로 하자」 2026-10-27)
+  { word: '멍!', image: '/emo/sai-anim/kkul-meong.webp' },
   { word: '기습 뽀뽀', image: '/emo/sai-anim/kkul-kiss.webp' },   // art/kkuldaeng/kiss — 꼼이가 볼에 쪽 → 꿀됑 더듬이 하트·빨개져 붕 뜸 (Kling 17, 우댕 "그냥 클링으로" 2026-10-20)
 ];
 
@@ -607,10 +610,11 @@ function allDrawerItems() {
 //   같은 뜻 = 그 그림이 들어 있는 뜻 묶음(INTENTS) + 이름이 같은 그림. 순서: 내 캐릭터 → 같은 그림(나도) → 나머지. 최대 8개.
 //   그림 주소 끝 ?v=… 는 배포마다 바뀌어서 떼고 비교한다(옛 메시지도 짝이 찾아지게).
 const bareSrc = (src: string) => src.split('?')[0];
-// 떡 말놀이 — 받은 떡의 '다음 떡'을 짝 답장 맨 앞에(찰떡→쑥떡→콩떡→개떡→다시 찰떡).
+// 떡 말놀이 — 받은 떡의 '다음 떡'을 짝 답장 맨 앞에(찰떡→쑥떡→콩떡→개떡→멍!→다시 찰떡).
 const TTEOK_NEXT: Record<string, string> = {
   '/emo/sai-anim/kkul-tteok-chal.webp': '쑥떡!', '/emo/sai-anim/kkul-tteok-ssuk.webp': '콩떡!',
-  '/emo/sai-anim/kkul-tteok-kong.webp': '개떡!', '/emo/sai-anim/kkul-tteok-gae.webp': '찰떡!',
+  '/emo/sai-anim/kkul-tteok-kong.webp': '개떡!', '/emo/sai-anim/kkul-tteok-gae.webp': '멍!',
+  '/emo/sai-anim/kkul-meong.webp': '찰떡!',
 };
 function pairCandidates(sticker: string, me: string): Suggestion[] {
   const target = bareSrc(sticker);
