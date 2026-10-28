@@ -1050,7 +1050,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const favIds = useMemo(() => new Set(favPicks.map(emoId)), [favPicks]);
   // 서랍 검색어 — 서랍을 닫으면 비운다.
   const [emoQuery, setEmoQuery] = useState('');
-  useEffect(() => { if (!stickerOpen) setEmoQuery(''); }, [stickerOpen]);
+  useEffect(() => { if (!stickerOpen) { setEmoQuery(''); setKwWord(null); } }, [stickerOpen]);
   useEffect(() => {
     if (!me) return;
     try {
@@ -1096,19 +1096,22 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const frequentList = Object.values(freqPicks).sort((a, b) => b.count - a.count).slice(0, 8);
   // 카톡식 추천 — 입력할 때마다 갱신(freqPicks 선언 뒤에 둬야 한다: 위에 두면 TDZ로 렌더가 죽는다).
   //   지금 치는 단어(자모 앞부분·초성·한 글자 단축키) + 문맥 + 내가 자주 쓴 것. 같은 점수면 직전 순서를 유지해 깜빡임을 줄인다.
+  //   ⚠️ 2026-10-28 우댕 「추천이 불편해」(카톡 화면 비교): 글을 칠 때마다 입력바 위에 큰 추천 줄(112px)이 떠서 대화를 가렸고,
+  //   고르면 친 단어(「사랑해」)가 글로 같이 나갔다. → 카톡처럼 바꿈:
+  //   ① 마지막 단어에 맞는 이모티콘이 있으면 입력칸 오른쪽 이모티콘 단추가 그 그림(작게)으로 바뀐다
+  //   ② 누르면 서랍이 그 단어로 찾은 결과로 열린다 ③ 고르면 친 단어는 입력칸에서 빠지고 미리보기가 대화 위에 반투명하게
+  //   ④ 보내기(또는 그림 한 번 더)로 전송. 미리보기 ✕면 뺀 단어를 되돌린다.
+  const lastWord = ((w) => (/[()]/.test(w) ? '' : w))(draft.trim().split(/\s+/).pop() ?? '');
   const prevSugOrder = useRef<string[]>([]);
-  const suggestions = useMemo(() => {
-    const out = computeSuggestions(draft, me, freqPicks, prevSugOrder.current, favIds);
+  const wordSugs = useMemo(() => {
+    const out = lastWord ? computeSuggestions(lastWord, me, freqPicks, prevSugOrder.current, favIds) : [];
     prevSugOrder.current = out.map((x) => x.image);
     return out;
-  }, [draft, me, freqPicks, favIds]);
-  // ✕ 닫기 — 지금 치는 단어 동안만 숨긴다(GPT 권장). 공백 뒤 새 단어가 시작되거나, 다 지우거나, 보내면 다시 뜬다.
-  //   기억하는 건 '닫을 때 마지막 단어가 시작된 위치까지의 앞부분' — 그 앞부분이 그대로이고 같은 단어를 치는 중이면 숨김.
-  const [sugClosed, setSugClosed] = useState<{ prefix: string } | null>(null);
-  const tokenStart = (t: string) => { const m = t.match(/\S+$/); return m ? t.length - m[0].length : t.length; };
-  const sugHidden = !!sugClosed && draft.length > 0 && !/\s$/.test(draft)
-    && tokenStart(draft) === sugClosed.prefix.length && draft.startsWith(sugClosed.prefix);
-  useEffect(() => { if (!draft) setSugClosed(null); }, [draft]);
+  }, [lastWord, me, freqPicks, favIds]);
+  // 단어로 서랍을 연 동안(카톡 「검색」) — 고른 이모티콘이 그 단어를 대신하므로 입력칸에서 뺀다.
+  //   검색칸이 그 단어 그대로일 때만(다른 탭·다른 검색어에서 고르면 글은 그대로 — GPT 상의 2026-10-28).
+  const [kwWord, setKwWord] = useState<string | null>(null);
+  const [kwUndo, setKwUndo] = useState<{ before: string; after: string; word: string } | null>(null);
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -1117,16 +1120,14 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [actionMsg, setActionMsg] = useState<ChatMessage | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);  // 내 메시지 수정 중
-  // 추천 트레이(제미나이 C안, 수정 0)에 넘길 형태 — editing 선언 뒤여야 한다(TDZ). id=그림 경로(고유), 썸네일은 서랍과 같은 정지컷.
-  // 짝 답장 중이면 추천 줄 자리에 짝 후보를 띄운다(같은 제미나이 트레이). 글자를 치면 짝 답장은 접고 평소 추천으로.
+  // 짝 답장 트레이(제미나이 C안) — 말풍선 메뉴 「짝 답장」을 눌렀을 때만 입력바 위에 짝 후보 줄을 띄운다.
+  //   editing 선언 뒤여야 한다(TDZ). 글자를 치면 접는다. (치는 동안 뜨던 추천 줄은 2026-10-28 입력칸 단추로 옮김)
   const [pairFrom, setPairFrom] = useState<{ id: string; items: Suggestion[] } | null>(null);
   useEffect(() => { setPairFrom(null); }, [draft]);
   const trayItems = useMemo<SuggestItem[]>(
-    () => (stickerOpen || editing ? []
-      : pairFrom ? pairFrom.items.map((it) => ({ id: it.image, thumb: drawerThumb(it.thumb), label: `${it.key} 짝 답장` }))
-      : sugHidden ? []
-      : suggestions.map((it) => ({ id: it.image, thumb: drawerThumb(it.thumb), label: `${it.key} 추천 이모티콘` }))),
-    [suggestions, sugHidden, stickerOpen, editing, pairFrom],
+    () => (stickerOpen || editing || !pairFrom ? []
+      : pairFrom.items.map((it) => ({ id: it.image, thumb: drawerThumb(it.thumb), label: `${it.key} 짝 답장` }))),
+    [stickerOpen, editing, pairFrom],
   );
   const [flashId, setFlashId] = useState<string | null>(null);  // 인용 탭 → 원본 잠깐 강조
 
@@ -1525,8 +1526,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     const end = ta?.selectionEnd ?? start;
     const next = draft.slice(0, start) + token + draft.slice(end);
     setDraft(next);
-    // 방금 넣은 「(행복)」 때문에 큰 「행복」 추천이 바로 다시 떠서, 누르면 같은 그림이 두 번 갔다(Aside 2026-10-22) → 이 단어 동안은 추천 줄을 접는다
-    setSugClosed({ prefix: next.slice(0, tokenStart(next)) });
+    // 방금 넣은 「(행복)」로 큰 「행복」이 다시 추천되지 않게 — 괄호 낀 단어는 입력칸 추천 단추를 안 띄운다(lastWord).
     requestAnimationFrame(() => {
       if (ta) { ta.focus(); const pos = start + token.length; ta.setSelectionRange(pos, pos); }
     });
@@ -1589,28 +1589,64 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   //   고르면 바로 보내지 않고 입력칸 위에 미리보기 → 같은 걸 한 번 더 누르거나(카톡) 보내기를 누르면
   //   이모티콘 + 친 글이 **메시지 하나**(sticker + text)로 가서 한 말풍선 묶음으로 그려진다. 글이 없으면 이모티콘만.
   //   (그 전엔 누르는 즉시 이모티콘만 가고 글이 입력칸에 남았다 → 잠깐 「두 개로 연달아」였다가 이걸로)
-  const [pendingSticker, setPendingSticker] = useState<{ image: string; thumb: string; isVideo: boolean; label: string } | null>(null);
+  //   2026-10-28: 미리보기는 대화 위 반투명 카드(★·✕). 입력칸 단추(단어 그림)로 연 서랍에서 고르면 그 단어는 입력칸에서 빠진다.
+  const [pendingSticker, setPendingSticker] = useState<{ image: string; thumb: string; isVideo: boolean; label: string; pick?: EmoPick } | null>(null);
   const sendPendingSticker = async (image?: string) => {
     const img = image ?? pendingSticker?.image;
     if (!img) return;
     const t = draft.trim();
     const reply = replyTo ?? undefined;
-    setPendingSticker(null); setReplyTo(null); setPairFrom(null);
+    setPendingSticker(null); setReplyTo(null); setPairFrom(null); setKwUndo(null); setKwWord(null);
     if (t) { setDraft(''); stopTyping(); }
     await onSend(t, undefined, img, reply);
     if (t) { const url = firstUrl(t); if (url) void detectLinkPrompt(url, t); }
   };
-  const chooseSticker = (image: string, label: string, thumb?: string) => {
+  const activeKw = () => (kwWord && emoQuery.trim() === kwWord ? kwWord : null);
+  // 입력칸 끝의 찾은 단어를 떼어 낸 글(없으면 null) — 「오늘도 사랑해」 → 「오늘도」
+  const withoutKeyword = (word: string) => {
+    const t = draft.replace(/\s+$/, '');
+    return word && t.endsWith(word) ? t.slice(0, t.length - word.length).replace(/\s+$/, '') : null;
+  };
+  const chooseSticker = (image: string, label: string, thumb?: string, pick?: EmoPick) => {
     // 메시지 고치는 중엔 미리보기 없이 예전처럼 이모티콘만 바로(고치던 글은 그대로)
     if (editing) { void onSend('', undefined, image, replyTo ?? undefined); setReplyTo(null); return; }
     if (pendingSticker?.image === image) { void sendPendingSticker(image); return; }   // 같은 걸 한 번 더 → 바로 전송(카톡)
-    setPendingSticker({ image, thumb: thumb ?? image, isVideo: isVideoSrc(image), label });
+    // 단어로 연 서랍이면 고른 이모티콘이 그 단어를 대신한다 — 입력칸에서 뺀다(한 번만). ✕로 빼면 되돌린다.
+    const kw = activeKw();
+    if (kw) {
+      const after = withoutKeyword(kw);
+      if (after !== null) { setKwUndo({ before: draft, after, word: kw }); setDraft(after); }
+      setKwWord(null);
+    }
+    setPendingSticker({ image, thumb: thumb ?? image, isVideo: isVideoSrc(image), label, pick });
+  };
+  const cancelPendingSticker = () => {
+    setPendingSticker(null);
+    if (kwUndo && draft === kwUndo.after) {
+      setDraft(kwUndo.before);
+      if (stickerOpen) setKwWord(kwUndo.word);   // 서랍에서 다시 고르면 또 뺀다
+    }
+    setKwUndo(null);
+  };
+  // 입력칸 단추에 띄울 작은 그림 — 마지막 단어로 찾은 첫 이모티콘(움짤은 정지컷). 서랍이 열렸거나 고치는 중이면 없음.
+  const kwThumb = !stickerOpen && !editing && wordSugs[0] ? drawerThumb(wordSugs[0].thumb) : null;
+  // 입력칸 단추(단어 그림) → 그 단어로 찾은 서랍(카톡 「검색」 탭). 키보드는 내린다.
+  const openKeywordSearch = () => {
+    setKwWord(lastWord);
+    setEmoQuery(lastWord); setStickerOpen(true); setAttachOpen(false); taRef.current?.blur();
   };
 
   const pickSticker = (mode: StickerMode, key: string, image: string) => {
     recordPick({ mode, key, image });                      // 최근·자주 기록(원래 mode로)
-    if (mode === 'mini') { insertParen(key); setStickerOpen(false); return; }     // (단어) 인라인 미니 — 넣고 서랍 닫기
-    chooseSticker(image, key);                             // 나머지: 미리보기(서랍은 열어 둔다 — 카톡처럼 한 번 더 누르면 전송)
+    if (mode === 'mini') {                                 // (단어) 인라인 미니 — 넣고 서랍 닫기
+      const kw = activeKw(); const after = kw ? withoutKeyword(kw) : null;
+      if (after !== null) {                                // 단어로 찾았으면 그 단어 자리에 (단어)
+        setDraft(`${after}${after ? ' ' : ''}(${key})`); setKwWord(null);
+        requestAnimationFrame(() => taRef.current?.focus());
+      } else insertParen(key);
+      setStickerOpen(false); return;
+    }
+    chooseSticker(image, key, undefined, { mode, key, image });   // 나머지: 미리보기(서랍은 열어 둔다 — 카톡처럼 한 번 더 누르면 전송)
   };
 
   // 받은 메시지의 이모티콘 그림(혼자일 때와 글과 묶일 때 같이 씀)
@@ -2131,6 +2167,12 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           </div>
 
 
+          {/* 아래 묶음(서랍·수정·답장 바·입력줄) — 미리보기가 이 묶음 맨 위에 붙어 대화 위로 반투명하게 뜬다(서랍이 열려 있어도 서랍 위). */}
+          <div className="relative">
+          <StickerSendPreview item={pendingSticker} hasText={!!draft.trim()} reduceMotion={!!reduceMotion}
+            fav={!!pendingSticker?.pick && favIds.has(emoId(pendingSticker.pick))}
+            onToggleFav={pendingSticker?.pick ? () => toggleFav(pendingSticker.pick!) : undefined}
+            onCancel={cancelPendingSticker} onSendNow={() => { void sendPendingSticker(); }} />
           {/* 이모티콘 서랍 — 제미나이 2차: 아이콘만 탭 + 카톡식 '최근·자주' 첫 탭.
               + 검색칸(모든 탭을 이름·같은 뜻 말로) · 내 캐릭터 탭 먼저 · 꾹 눌러 ★ 즐겨찾기(벤치마킹 1·2번, 우댕 선택 2026-10-16) */}
           {stickerOpen && (
@@ -2159,7 +2201,11 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     </div>
                   ) : (
                     <>
-                      <div className="mb-1.5 px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>찾은 이모티콘 {searchHits.length}개</div>
+                      <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>
+                        <span>찾은 이모티콘 {searchHits.length}개</span>
+                        {/* 입력칸 단추로 들어온 검색이면 — 고른 그림이 친 단어를 대신한다는 걸 알려 둔다 */}
+                        {activeKw() && <span className="truncate font-semibold text-[#FB7BA8]">고르면 입력한 「{activeKw()}」 대신 가요</span>}
+                      </div>
                       <div className="grid grid-cols-4 gap-1.5">{searchHits.map((p) => emoCell(p, 'aspect-square'))}</div>
                     </>
                   )}
@@ -2263,19 +2309,16 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           <div className="relative px-3 pt-2 backdrop-blur-xl border-t border-black/[0.04]"
             // 키보드가 떠 있으면 키보드 높이 + 8px만(아래 안전영역 틈은 키보드가 덮으니 뺀다 — 카톡처럼 붙게)
             style={{ paddingBottom: kbInset ? `${kbInset + 8}px` : 'max(env(safe-area-inset-bottom), 1.25rem)', background: 'var(--ct-header)' }}>
-            {/* 카톡식 이모티콘 추천 트레이 — 제미나이 C안 그대로(StickerSuggestTray). 입력바 바로 위에 떠 있다(absolute bottom-full). 탭=미리보기 */}
+            {/* 짝 답장 트레이 — 제미나이 C안 그대로(StickerSuggestTray). 입력바 바로 위에 떠 있다(absolute bottom-full). 탭=미리보기 */}
             <StickerSuggestTray
               items={trayItems}
               reduceMotion={!!reduceMotion}
               onPick={(t) => {
-                const it = (pairFrom ? pairFrom.items : suggestions).find((x) => x.image === t.id); if (!it) return;
-                recordPick(it); chooseSticker(it.image, it.key, drawerThumb(it.thumb)); // 미리보기 → 한 번 더 누르거나 보내기(카톡)
+                const it = pairFrom?.items.find((x) => x.image === t.id); if (!it) return;
+                recordPick(it); chooseSticker(it.image, it.key, drawerThumb(it.thumb), { mode: it.mode, key: it.key, image: it.image });
               }}
-              onClose={() => { if (pairFrom) setPairFrom(null); else setSugClosed({ prefix: draft.slice(0, tokenStart(draft)) }); }}
+              onClose={() => setPairFrom(null)}
             />
-            {/* 카톡식 이모티콘 미리보기 — 추천 줄 위를 덮는다(z-30). 그림을 누르면 바로 전송, ✕로 빼기 */}
-            <StickerSendPreview item={pendingSticker} hasText={!!draft.trim()} reduceMotion={!!reduceMotion}
-              onCancel={() => setPendingSticker(null)} onSendNow={() => { void sendPendingSticker(); }} />
             {/* 업로드 진행 — 동영상은 실제 % 바, 사진은 짧아서 간단한 진행 표시 */}
             <AnimatePresence>
               {uploading && (
@@ -2452,14 +2495,23 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 <div className="flex shrink-0 items-center gap-0.5 self-end">
                   {/* 서랍이 열리면 ⌨로 바뀐다 — 누르면 서랍 닫고 바로 입력칸으로(카톡 방식).
                       서랍을 열 땐 키보드를 내린다: 폰에서 키보드와 서랍이 같이 뜨면 메시지가 거의 안 보인다. */}
+                  {/* 카톡식 — 마지막 단어에 맞는 이모티콘이 있으면 이 단추가 그 그림(작게)으로 바뀐다. 누르면 그 단어로 찾은 서랍. */}
                   <button onClick={() => {
                       if (stickerOpen) { setStickerOpen(false); taRef.current?.focus(); }
-                      else { setStickerOpen(true); setAttachOpen(false); taRef.current?.blur(); }
+                      else if (kwThumb) openKeywordSearch();
+                      else { setKwWord(null); setStickerOpen(true); setAttachOpen(false); taRef.current?.blur(); }
                     }}
-                    aria-label={stickerOpen ? '키보드로' : '이모티콘'} title={stickerOpen ? '키보드로' : '이모티콘'}
+                    aria-label={stickerOpen ? '키보드로' : kwThumb ? `「${lastWord}」 이모티콘 찾기` : '이모티콘'}
+                    title={stickerOpen ? '키보드로' : kwThumb ? `「${lastWord}」 이모티콘` : '이모티콘'}
                     className="grid h-10 w-10 place-items-center rounded-full active:scale-90 transition"
                     style={{ color: stickerOpen ? '#FB7BA8' : 'var(--ct-chip-icon)' }}>
-                    {stickerOpen ? <Keyboard size={21} /> : <Smile size={21} />}
+                    {stickerOpen ? <Keyboard size={21} />
+                      : kwThumb ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <motion.img key={kwThumb} src={kwThumb} alt="" draggable={false} className="h-9 w-9 object-contain"
+                          initial={reduceMotion ? false : { scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                          transition={{ type: 'spring', stiffness: 520, damping: 22 }} />
+                      ) : <Smile size={21} />}
                   </button>
                   {(draft.trim() || pendingSticker) && (
                     // onPointerDown preventDefault — 버튼이 입력창 포커스를 뺏지 않게(연속 전송 시 자판 유지)
@@ -2472,6 +2524,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               </div>
             )}
           </div>
+          </div>{/* 아래 묶음 끝 */}
 
           {/* 타임캡슐 작성 */}
           <AnimatePresence>

@@ -1,89 +1,62 @@
 'use client';
-// 제미나이 시안(2026-10-22, gemini-3-flash CLI) — 카톡식 이모티콘 미리보기(입력바 위). 값 그대로.
-// 고친 것: ✕·그림 버튼에 aria-label(읽기 프로그램용)만.
+// 카톡식 이모티콘 미리보기 — 대화 위에 반투명하게 떠 있는 카드(우댕 2026-10-28 카톡 화면 비교).
+//   ★ 즐겨찾기(왼쪽 위) · ✕ 빼기(오른쪽 위) · 그림을 누르면 바로 전송. 뒤 대화가 비쳐 보이게 반투명 + 흐림.
+//   처음엔 제미나이 시안(2026-10-22, 불투명 카드 + 안내 문구)이었는데, 대화를 가리고 글이 많아 카톡처럼 바꿨다.
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { Star, X } from 'lucide-react';
 
 export default function StickerSendPreview({
   item,
   hasText,
+  fav = false,
+  onToggleFav,
   onCancel,
   onSendNow,
   reduceMotion = false,
 }: {
   item: { image: string; thumb: string; isVideo: boolean; label: string } | null;
   hasText: boolean;
+  fav?: boolean;
+  onToggleFav?: () => void;
   onCancel: () => void;
   onSendNow: () => void;
   reduceMotion?: boolean;
 }) {
-  const trayVariants = {
-    hidden: { opacity: 0, y: reduceMotion ? 0 : 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
-    exit: { opacity: 0, y: reduceMotion ? 0 : 15, transition: { duration: 0.15, ease: 'easeIn' } },
-  };
-
   return (
     <AnimatePresence>
       {item && (
         <motion.div
-          variants={trayVariants}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          className="absolute bottom-full left-0 right-0 z-30 px-2 pb-2"
+          key="sticker-preview"
+          initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.92, y: reduceMotion ? 0 : 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.16, ease: 'easeOut' } }}
+          exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.95, transition: { duration: 0.12, ease: 'easeIn' } }}
+          // 바깥 줄은 누름을 통과시킨다 — 카드 밖 대화는 그대로 스크롤·탭된다.
+          className="pointer-events-none absolute bottom-full left-0 right-0 z-30 flex justify-center pb-2"
         >
-          <div className="relative flex items-center p-3 w-full bg-[var(--ct-sheet)] border border-[var(--ct-sheet-border)] rounded-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] overflow-hidden min-h-[140px]">
-            {/* 이모티콘 미리보기 영역 */}
-            <button
-              type="button"
-              onClick={onSendNow}
-              aria-label="이 이모티콘 바로 보내기"
-              className="flex-shrink-0 flex items-center justify-center bg-transparent focus:outline-none group"
-            >
+          <div className="pointer-events-auto relative flex w-[212px] flex-col items-center rounded-[22px] px-4 pb-3 pt-9 backdrop-blur-md"
+            style={{ background: 'rgba(38,36,44,0.42)', boxShadow: '0 6px 24px rgba(0,0,0,0.14)' }}>
+            {onToggleFav && (
+              <button type="button" onClick={onToggleFav} aria-label={fav ? '즐겨찾기에서 빼기' : '즐겨찾기에 담기'} aria-pressed={fav}
+                className="absolute left-1.5 top-1.5 grid h-9 w-9 place-items-center rounded-full text-white active:bg-white/15">
+                <Star size={20} strokeWidth={2.2} fill={fav ? '#FFD84D' : 'rgba(255,255,255,0.0)'} color={fav ? '#FFD84D' : '#fff'} />
+              </button>
+            )}
+            <button type="button" onClick={onCancel} aria-label="이모티콘 빼기"
+              className="absolute right-1.5 top-1.5 grid h-9 w-9 place-items-center rounded-full text-white active:bg-white/15">
+              <X size={21} strokeWidth={2.4} />
+            </button>
+            <button type="button" onClick={onSendNow} aria-label="이 이모티콘 바로 보내기" className="flex items-center justify-center focus:outline-none">
               {item.isVideo ? (
-                <video
-                  src={item.image}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="max-h-[110px] w-auto object-contain rounded-lg"
-                />
+                <video src={item.image} autoPlay loop muted playsInline className="max-h-[124px] w-auto rounded-lg object-contain" />
               ) : (
-                <img
-                  src={item.image}
-                  alt={item.label}
-                  className="max-h-[110px] w-auto object-contain"
-                />
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.image} alt={item.label} className="max-h-[124px] max-w-[168px] object-contain drop-shadow-sm" draggable={false} />
               )}
             </button>
-
-            {/* 안내 문구 영역 */}
-            <div className="ml-3 flex-1 flex flex-col justify-center pr-8">
-              <p className="text-[12px] leading-tight text-[var(--ct-chip-text)] opacity-80 break-keep">
-                {hasText ? (
-                  <>
-                    보내기를 누르면 글과 함께 가요
-                    <br />
-                    그림을 한 번 더 누르면 바로
-                  </>
-                ) : (
-                  '보내기나 그림을 한 번 더 누르면 보내요'
-                )}
-              </p>
-            </div>
-
-            {/* ✕ 닫기 버튼 */}
-            <button
-              type="button"
-              onClick={onCancel}
-              aria-label="이모티콘 빼기"
-              className="absolute top-1 right-1 w-10 h-10 flex items-center justify-center text-[var(--ct-label)] hover:text-[#FB7BA8] transition-colors"
-            >
-              <X size={20} strokeWidth={2.5} />
-            </button>
+            {hasText && (
+              <span className="mt-1.5 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white">입력한 글과 함께 가요</span>
+            )}
           </div>
         </motion.div>
       )}
