@@ -410,6 +410,13 @@ const PREPARED = INTENTS.map((it) => ({ it, aliases: it.aliases.map(prepareAlias
 // 내 캐릭터 먼저 — 우댕은 꿀됑·우댕 포차코, 꼼이는 꼼이 움짤·꼼이 포차코·미니에 작은 가산점.
 const OWN_MODES: Record<string, StickerMode[]> = { '우댕': ['kkul', 'kkulgif', 'dang'], '꼼이': ['gif', 'kkom', 'mini'] };
 
+// 입력칸 글의 「뜻 있는 낱말」 — 꾸밈(~ ! ? . … ♥ ♡ 이모지, ㅋㅋ·ㅎㅎ·ㅠㅠ·ㅜㅜ 두 글자 이상)은 낱말 끝에서 떼고, 꾸밈만인 낱말은 뺀다.
+//   「사랑해~~」 → [사랑해] · 「배고파 ㅠㅠ」 → [배고파] · 「ㅋㅋㅋ」 → [] · 「내사랑 꼼슌이 보고싶어」 → 3개.
+//   ㅋ·ㅎ 한 글자는 꾸밈으로 안 본다(잘못 지우면 뜻이 사라진다 — GPT 상의 2026-10-28).
+const DECOR_TAIL = /(?:[~!?.,…♥♡\u2764\uFE0F]|\p{Extended_Pictographic}|ㅋ{2,}|ㅎ{2,}|[ㅠㅜ]{2,})+$/u;
+function meaningWords(t: string): string[] {
+  return t.trim().split(/\s+/).map((w) => w.replace(DECOR_TAIL, '')).filter(Boolean);
+}
 function computeSuggestions(
   draft: string, me: string, freq: Record<string, { count: number }>, prevOrder: string[], fav?: Set<string>,
 ): Suggestion[] {
@@ -1101,7 +1108,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   //   ① 마지막 단어에 맞는 이모티콘이 있으면 입력칸 오른쪽 이모티콘 단추가 그 그림(작게)으로 바뀐다
   //   ② 누르면 서랍이 그 단어로 찾은 결과로 열린다 ③ 고르면 친 단어는 입력칸에서 빠지고 미리보기가 대화 위에 반투명하게
   //   ④ 보내기(또는 그림 한 번 더)로 전송. 미리보기 ✕면 뺀 단어를 되돌린다.
-  const lastWord = ((w) => (/[()]/.test(w) ? '' : w))(draft.trim().split(/\s+/).pop() ?? '');
+  //   ⚠️ 지우는 건 입력칸이 그 낱말 하나(+꾸밈)뿐일 때만 — 문장이면 글은 그대로 + 이모티콘(replacesDraft, 우댕 2026-10-28).
+  const lastWord = ((w) => (/[()]/.test(w) ? '' : w))(meaningWords(draft).pop() ?? draft.trim().split(/\s+/).pop() ?? '');
   const prevSugOrder = useRef<string[]>([]);
   const wordSugs = useMemo(() => {
     const out = lastWord ? computeSuggestions(lastWord, me, freqPicks, prevSugOrder.current, favIds) : [];
@@ -1612,20 +1620,17 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     if (t) { const url = firstUrl(t); if (url) void detectLinkPrompt(url, t); }
   };
   const activeKw = () => (kwWord && emoQuery.trim() === kwWord ? kwWord : null);
-  // 입력칸 끝의 찾은 단어를 떼어 낸 글(없으면 null) — 「오늘도 사랑해」 → 「오늘도」
-  const withoutKeyword = (word: string) => {
-    const t = draft.replace(/\s+$/, '');
-    return word && t.endsWith(word) ? t.slice(0, t.length - word.length).replace(/\s+$/, '') : null;
-  };
+  // 이모티콘이 글을 「대신」하나 — 입력칸이 그 낱말 하나(+꾸밈)뿐일 때만. 문장이면 글은 하나도 안 지우고 같이 간다.
+  //   우댕 2026-10-28: 「내사랑 꼼슌이 보고싶어」에서 보고싶어를 고르면 카톡은 메시지까지 다 가는데 꼼톡은 지워 버렸다 → GPT 상의.
+  const replacesDraft = () => meaningWords(draft).length <= 1;
   const chooseSticker = (image: string, label: string, thumb?: string, pick?: EmoPick) => {
     // 메시지 고치는 중엔 미리보기 없이 예전처럼 이모티콘만 바로(고치던 글은 그대로)
     if (editing) { void onSend('', undefined, image, replyTo ?? undefined); setReplyTo(null); return; }
     if (pendingSticker?.image === image) { void sendPendingSticker(image); return; }   // 같은 걸 한 번 더 → 바로 전송(카톡)
-    // 단어로 연 서랍이면 고른 이모티콘이 그 단어를 대신한다 — 입력칸에서 뺀다(한 번만). ✕로 빼면 되돌린다.
+    // 단어로 연 서랍에서, 입력칸이 그 낱말 하나뿐이면 이모티콘이 그 말을 대신한다 — 글을 비운다(한 번만). ✕로 빼면 되돌린다.
     const kw = activeKw();
     if (kw) {
-      const after = withoutKeyword(kw);
-      if (after !== null) { setKwUndo({ before: draft, after, word: kw }); setDraft(after); }
+      if (replacesDraft() && draft.trim()) { setKwUndo({ before: draft, after: '', word: kw }); setDraft(''); }
       setKwWord(null);
     }
     setPendingSticker({ image, thumb: thumb ?? image, isVideo: isVideoSrc(image), label, pick });
@@ -1649,9 +1654,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const pickSticker = (mode: StickerMode, key: string, image: string) => {
     recordPick({ mode, key, image });                      // 최근·자주 기록(원래 mode로)
     if (mode === 'mini') {                                 // (단어) 인라인 미니 — 넣고 서랍 닫기
-      const kw = activeKw(); const after = kw ? withoutKeyword(kw) : null;
-      if (after !== null) {                                // 단어로 찾았으면 그 단어 자리에 (단어)
-        setDraft(`${after}${after ? ' ' : ''}(${key})`); setKwWord(null);
+      if (activeKw()) {                                   // 단어로 찾았으면: 그 낱말뿐이면 (단어)로 바꾸고, 문장이면 끝에 붙인다
+        setDraft(replacesDraft() ? `(${key})` : `${draft.replace(/\s+$/, '')} (${key})`); setKwWord(null);
         requestAnimationFrame(() => taRef.current?.focus());
       } else insertParen(key);
       setStickerOpen(false); return;
@@ -2180,6 +2184,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           {/* 아래 묶음(서랍·수정·답장 바·입력줄) — 미리보기가 이 묶음 맨 위에 붙어 대화 위로 반투명하게 뜬다(서랍이 열려 있어도 서랍 위). */}
           <div className="relative">
           <StickerSendPreview item={pendingSticker} hasText={!!draft.trim()} reduceMotion={!!reduceMotion}
+            replacedWord={kwUndo && !draft.trim() ? kwUndo.word : undefined}
             fav={!!pendingSticker?.pick && favIds.has(emoId(pendingSticker.pick))}
             onToggleFav={pendingSticker?.pick ? () => toggleFav(pendingSticker.pick!) : undefined}
             onCancel={cancelPendingSticker} onSendNow={() => { void sendPendingSticker(); }} />
@@ -2214,7 +2219,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>
                         <span>찾은 이모티콘 {searchHits.length}개</span>
                         {/* 입력칸 단추로 들어온 검색이면 — 고른 그림이 친 단어를 대신한다는 걸 알려 둔다 */}
-                        {activeKw() && <span className="truncate font-semibold text-[#FB7BA8]">고르면 입력한 「{activeKw()}」 대신 가요</span>}
+                        {activeKw() && <span className="truncate font-semibold text-[#FB7BA8]">{replacesDraft() ? `고르면 입력한 「${activeKw()}」 대신 가요` : '고르면 입력한 글과 함께 가요'}</span>}
                       </div>
                       <div className="grid grid-cols-4 gap-1.5">{searchHits.filter((p) => p.mode !== 'mini').map((p) => emoCell(p, 'aspect-square'))}</div>
                       {searchHits.some((p) => p.mode === 'mini') && (

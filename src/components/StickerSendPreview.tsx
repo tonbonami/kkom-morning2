@@ -2,6 +2,7 @@
 // 카톡식 이모티콘 미리보기 — 대화 위에 반투명하게 떠 있는 카드(우댕 2026-10-28 카톡 화면 비교).
 //   ★ 즐겨찾기(왼쪽 위) · ✕ 빼기(오른쪽 위) · 그림을 누르면 바로 전송. 뒤 대화가 비쳐 보이게 반투명 + 흐림.
 //   처음엔 제미나이 시안(2026-10-22, 불투명 카드 + 안내 문구)이었는데, 대화를 가리고 글이 많아 카톡처럼 바꿨다.
+//   카드 아래 한 줄로 「무엇이 갈지」를 보여 준다 — 낱말을 대신하면 「‘사랑해’ 대신 보내요」, 문장이면 「글은 그대로 두고 함께 보내요」(GPT 상의).
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, X } from 'lucide-react';
@@ -9,6 +10,7 @@ import { Star, X } from 'lucide-react';
 export default function StickerSendPreview({
   item,
   hasText,
+  replacedWord,
   fav = false,
   onToggleFav,
   onCancel,
@@ -17,6 +19,7 @@ export default function StickerSendPreview({
 }: {
   item: { image: string; thumb: string; isVideo: boolean; label: string } | null;
   hasText: boolean;
+  replacedWord?: string;
   fav?: boolean;
   onToggleFav?: () => void;
   onCancel: () => void;
@@ -54,8 +57,10 @@ export default function StickerSendPreview({
                 <img src={item.image} alt={item.label} className="max-h-[124px] max-w-[168px] object-contain drop-shadow-sm" draggable={false} />
               )}
             </button>
-            {hasText && (
-              <span className="mt-1.5 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white">입력한 글과 함께 가요</span>
+            {(hasText || replacedWord) && (
+              <span className="mt-1.5 max-w-full truncate rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                {hasText ? '글은 그대로 두고 함께 보내요' : `‘${replacedWord}’ 대신 보내요`}
+              </span>
             )}
           </div>
         </motion.div>
