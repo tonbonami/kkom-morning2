@@ -1072,6 +1072,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     } catch { setStickerMode('basic'); }
   }, [me]);
   const recordPick = (p: EmoPick) => {
+    if (isPractice()) return;   // 연습 모드(검수)로 누른 건 진짜 「최근·자주」에 안 남긴다(Aside 2026-10-22·10-28 지적)
     const id = emoId(p);
     setRecentPicks((prev) => {
       const next = [p, ...prev.filter((x) => emoId(x) !== id)].slice(0, 24);
@@ -2217,7 +2218,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                   ) : (
                     <>
                       <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>
-                        <span>찾은 이모티콘 {searchHits.length}개</span>
+                        <span>찾은 이모티콘 {searchHits.filter((p) => p.mode !== 'mini').length}개</span>
                         {/* 입력칸 단추로 들어온 검색이면 — 고른 그림이 친 단어를 대신한다는 걸 알려 둔다 */}
                         {activeKw() && <span className="truncate font-semibold text-[#FB7BA8]">{replacesDraft() ? `고르면 입력한 「${activeKw()}」 대신 가요` : '고르면 입력한 글과 함께 가요'}</span>}
                       </div>
