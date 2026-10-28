@@ -1535,7 +1535,16 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   // 이모티콘 서랍 — 현재 탭의 섹션 목록. 대부분 섹션 하나(label 없음)지만, '포차코'는 여러 섹션(sticky header)으로.
   //   서랍엔 정지컷(thumb 있으면), 전송·채팅엔 image(움짤 webp 포함). label 있으면 소제목이 걸린다.
   type SItem = { key: string; image: string; video?: boolean; thumb?: string };
-  const searchHits = useMemo(() => (emoQuery.trim() ? searchStickers(emoQuery, me, freqPicks, favIds) : []), [emoQuery, me, freqPicks, favIds]);
+  // 찾기 순위에 쓰는 「자주·★」는 서랍을 열 때 한 번만 찍어 둔다 — 고르거나 ★를 누를 때마다 결과 순서가 바뀌어
+  //   같은 자리를 다시 누르면 다른 그림이 나왔다(Aside 실사용 2026-10-28).
+  const [rankSnap, setRankSnap] = useState<{ freq: Record<string, { count: number }>; fav: Set<string> }>({ freq: {}, fav: new Set() });
+  useEffect(() => { if (stickerOpen) setRankSnap({ freq: freqPicks, fav: favIds }); }, [stickerOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  const searchHits = useMemo(() => {
+    if (!emoQuery.trim()) return [];
+    // 글 속 미니(누르면 입력칸에 (단어)로 들어감)는 맨 뒤 따로 — 미리보기가 뜨는 보통 이모티콘과 섞여 헷갈렸다(Aside 2026-10-28).
+    const hits = searchStickers(emoQuery, me, rankSnap.freq, rankSnap.fav);
+    return [...hits.filter((h) => h.mode !== 'mini'), ...hits.filter((h) => h.mode === 'mini')];
+  }, [emoQuery, me, rankSnap]);
   // 서랍 칸 하나 — 탭=전송, 꾹(0.45초)·우클릭=★ 담기/빼기. 꾹 누른 뒤 손 뗄 때 오는 click은 삼킨다.
   //   이미지 길게 누르기의 아이폰 저장 메뉴(callout)·끌기는 막는다.
   //   ⚠️ fired는 어느 버튼이든 누를 때마다 지운다 — 예전엔 오른쪽 버튼이면 지우기 전에 빠져나가, 우클릭 ★가 첫 번째만 되고
@@ -1597,6 +1606,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     const t = draft.trim();
     const reply = replyTo ?? undefined;
     setPendingSticker(null); setReplyTo(null); setPairFrom(null); setKwUndo(null); setKwWord(null);
+    setEmoQuery('');   // 보낸 뒤 서랍이 옛 검색 결과에 머물지 않게 — 평소 탭 화면으로(Aside 2026-10-28)
     if (t) { setDraft(''); stopTyping(); }
     await onSend(t, undefined, img, reply);
     if (t) { const url = firstUrl(t); if (url) void detectLinkPrompt(url, t); }
@@ -2206,7 +2216,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                         {/* 입력칸 단추로 들어온 검색이면 — 고른 그림이 친 단어를 대신한다는 걸 알려 둔다 */}
                         {activeKw() && <span className="truncate font-semibold text-[#FB7BA8]">고르면 입력한 「{activeKw()}」 대신 가요</span>}
                       </div>
-                      <div className="grid grid-cols-4 gap-1.5">{searchHits.map((p) => emoCell(p, 'aspect-square'))}</div>
+                      <div className="grid grid-cols-4 gap-1.5">{searchHits.filter((p) => p.mode !== 'mini').map((p) => emoCell(p, 'aspect-square'))}</div>
+                      {searchHits.some((p) => p.mode === 'mini') && (
+                        <>
+                          <div className="mb-1.5 mt-3 px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>글 속 미니 — 누르면 입력칸에 (단어)로 들어가요</div>
+                          <div className="grid grid-cols-5 gap-1.5">{searchHits.filter((p) => p.mode === 'mini').map((p) => emoCell(p, 'aspect-square'))}</div>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
