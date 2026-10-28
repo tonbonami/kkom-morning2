@@ -1,0 +1,94 @@
+// ChatPanel.tsx 2484~2545줄 그대로 (입력줄 알약 <div ref={pillRef}> ~ 보내기 버튼). 커밋 569393f 기준.
+              </div>
+            ) : (
+              // 입력줄 = 하나의 둥근 알약(사이담 참고). 버튼은 알약 안에 얹혀 입력칸이 넓게 숨쉰다.
+              <div ref={pillRef} className="flex items-end gap-1 rounded-[26px] p-1.5 ring-1 ring-black/[0.06] shadow-sm transition focus-within:ring-2 focus-within:ring-[#FB7BA8]/35"
+                style={{ background: 'var(--ct-chip)' }}>
+                <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={onFile} />
+                {/* 왼쪽 ＋ — 사진·음성·타임캡슐 접기(카톡식). 이모티콘은 오른쪽으로 옮겨 입력칸을 넓혔다. */}
+                <button onClick={() => { setAttachOpen((v) => !v); setStickerOpen(false); }} aria-label="첨부"
+                  className="grid h-10 w-10 shrink-0 self-end place-items-center rounded-full active:scale-90 transition"
+                  style={{ color: attachOpen ? '#FB7BA8' : 'var(--ct-chip-icon)' }}>
+                  {/* 열리면 ×로 돌아 '다시 누르면 닫힌다'가 보이게(Aside 1부) */}
+                  <Plus size={22} className={`transition-transform duration-200 ${attachOpen ? 'rotate-45' : ''}`} />
+                </button>
+                {/* ⚠️ 모바일(터치)에선 Enter = 줄바꿈. 폰 키보드엔 Shift+Enter가 없어 Enter를 전송에 쓰면
+                    줄바꿈이 불가능하다 → 전송은 오른쪽 보내기 버튼으로. 데스크톱(정밀 포인터)만 Enter로 전송.
+                    e.nativeEvent.isComposing — 한글 조합 중 Enter로 조합 확정할 때 오전송 방지. */}
+                {/* onFocus — 입력칸을 누르면 이모티콘 서랍을 닫고 키보드로(카톡 방식). 전엔 서랍이 열린 채로 남아
+                    메시지 영역이 반 넘게 가려졌다(Aside 1부: 703→336px). */}
+                {/* 자동 높이 = grid 겹치기: 안 보이는 '그림자 글'(같은 글씨·여백)이 칸 높이를 정하고 textarea는 그 칸을 채운다.
+                    JS가 높이를 건드리지 않아 칸이 접혔다 펴지는 일이 없다 → 아이폰 캐럿이 엉뚱한 줄에 남지 않는다. 최대 132px 넘으면 속스크롤. */}
+                <div className="grid min-w-0 flex-1">
+                <div aria-hidden className="invisible col-start-1 row-start-1 max-h-[132px] overflow-hidden whitespace-pre-wrap break-words px-1.5 py-2.5 text-[15px] leading-snug">{draft + ' '}</div>
+                <textarea ref={taRef} value={draft} onChange={onInput} onBlur={stopTyping} onPaste={onPaste}
+                  onFocus={() => setStickerOpen(false)}
+                  onKeyDown={(e) => {
+                    const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+                    if (e.key === 'Enter' && !e.shiftKey && !coarse && !e.nativeEvent.isComposing) { e.preventDefault(); send(); }
+                  }}
+                  rows={1} placeholder={uploading ? '올리는 중…' : `${partner}에게 할 말…`}
+                  style={{ background: 'transparent', color: 'var(--ct-chip-text)' }}
+                  className="col-start-1 row-start-1 h-full min-w-0 resize-none overflow-y-auto break-words px-1.5 py-2.5 text-[15px] leading-snug outline-none max-h-[132px]" />
+                </div>
+                {/* 오른쪽 — 이모티콘 + (글이 있으면) 보내기. 음성·타임캡슐은 ＋로 옮겼다. */}
+                <div className="flex shrink-0 items-center gap-0.5 self-end">
+                  {/* 서랍이 열리면 ⌨로 바뀐다 — 누르면 서랍 닫고 바로 입력칸으로(카톡 방식).
+                      서랍을 열 땐 키보드를 내린다: 폰에서 키보드와 서랍이 같이 뜨면 메시지가 거의 안 보인다. */}
+                  {/* 카톡식 — 마지막 단어에 맞는 이모티콘이 있으면 이 단추가 그 그림(작게)으로 바뀐다. 누르면 그 단어로 찾은 서랍. */}
+                  <button onClick={() => {
+                      if (stickerOpen) { setStickerOpen(false); taRef.current?.focus(); }
+                      else if (kwThumb) openKeywordSearch();
+                      else { setKwWord(null); setStickerOpen(true); setAttachOpen(false); taRef.current?.blur(); }
+                    }}
+                    aria-label={stickerOpen ? '키보드로' : kwThumb ? `「${lastWord}」 이모티콘 찾기` : '이모티콘'}
+                    title={stickerOpen ? '키보드로' : kwThumb ? `「${lastWord}」 이모티콘` : '이모티콘'}
+                    className="grid h-10 w-10 place-items-center rounded-full active:scale-90 transition"
+                    style={{ color: stickerOpen ? '#FB7BA8' : 'var(--ct-chip-icon)' }}>
+                    {stickerOpen ? <Keyboard size={21} />
+                      : kwThumb ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <motion.img key={kwThumb} src={kwThumb} alt="" draggable={false} className="h-9 w-9 object-contain"
+                          initial={reduceMotion ? false : { scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                          transition={{ type: 'spring', stiffness: 520, damping: 22 }} />
+                      ) : <Smile size={21} />}
+                  </button>
+                  {(draft.trim() || pendingSticker) && (
+                    // onPointerDown preventDefault — 버튼이 입력창 포커스를 뺏지 않게(연속 전송 시 자판 유지)
+                    <button onClick={send} onPointerDown={(e) => e.preventDefault()} aria-label="보내기"
+                      className="grid h-10 w-10 place-items-center rounded-full bg-[#FB7BA8] text-white shadow-[0_4px_14px_rgba(251,123,168,0.35)] active:scale-90 transition">
+                      <Send size={18} />
+                    </button>
+                  )}
+                </div>
+
+// ── 위에서 쓰는 값들(같은 파일) ──
+  //   지금 치는 단어(자모 앞부분·초성·한 글자 단축키) + 문맥 + 내가 자주 쓴 것. 같은 점수면 직전 순서를 유지해 깜빡임을 줄인다.
+  //   ⚠️ 2026-10-28 우댕 「추천이 불편해」(카톡 화면 비교): 글을 칠 때마다 입력바 위에 큰 추천 줄(112px)이 떠서 대화를 가렸고,
+  //   고르면 친 단어(「사랑해」)가 글로 같이 나갔다. → 카톡처럼 바꿈:
+  //   ① 마지막 단어에 맞는 이모티콘이 있으면 입력칸 오른쪽 이모티콘 단추가 그 그림(작게)으로 바뀐다
+  //   ② 누르면 서랍이 그 단어로 찾은 결과로 열린다 ③ 고르면 친 단어는 입력칸에서 빠지고 미리보기가 대화 위에 반투명하게
+  //   ④ 보내기(또는 그림 한 번 더)로 전송. 미리보기 ✕면 뺀 단어를 되돌린다.
+  //   ⚠️ 지우는 건 입력칸이 그 낱말 하나(+꾸밈)뿐일 때만 — 문장이면 글은 그대로 + 이모티콘(replacesDraft, 우댕 2026-10-28).
+  const lastWord = ((w) => (/[()]/.test(w) ? '' : w))(meaningWords(draft).pop() ?? draft.trim().split(/\s+/).pop() ?? '');
+  const prevSugOrder = useRef<string[]>([]);
+  const wordSugs = useMemo(() => {
+    const out = lastWord ? computeSuggestions(lastWord, me, freqPicks, prevSugOrder.current, favIds) : [];
+    prevSugOrder.current = out.map((x) => x.image);
+    return out;
+  }, [lastWord, me, freqPicks, favIds]);
+  // 단어로 서랍을 연 동안(카톡 「검색」) — 고른 이모티콘이 그 단어를 대신하므로 입력칸에서 뺀다.
+  //   검색칸이 그 단어 그대로일 때만(다른 탭·다른 검색어에서 고르면 글은 그대로 — GPT 상의 2026-10-28).
+  const [kwWord, setKwWord] = useState<string | null>(null);
+  const [kwUndo, setKwUndo] = useState<{ before: string; after: string; word: string } | null>(null);
+  const [partnerTyping, setPartnerTyping] = useState(false);
+// ...
+  };
+  // 입력칸 단추에 띄울 작은 그림 — 마지막 단어로 찾은 첫 이모티콘(움짤은 정지컷). 서랍이 열렸거나 고치는 중이면 없음.
+  const kwThumb = !stickerOpen && !editing && wordSugs[0] ? drawerThumb(wordSugs[0].thumb) : null;
+  // 입력칸 단추(단어 그림) → 그 단어로 찾은 서랍(카톡 「검색」 탭). 키보드는 내린다.
+  const openKeywordSearch = () => {
+    setKwWord(lastWord);
+    setEmoQuery(lastWord); setStickerOpen(true); setAttachOpen(false); taRef.current?.blur();
+  };
+
