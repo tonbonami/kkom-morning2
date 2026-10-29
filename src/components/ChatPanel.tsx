@@ -220,6 +220,7 @@ const sugUri = (w: string): Suggestion | undefined => {  // 우리(꿀됑+꼼이
 const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   // ── 꿀댕이 전용(둘만 쓰는 말) ──
   { re: /꼼슌|꼼슌아|꼼슌이|꼼슌띠/,                            get: () => [sugKkul('꼼슌아')] },
+  { re: /꼼돌|꼼돌아|꼼돌이/,                                  get: () => [sugSai('꼼돌아')] },   // 꼼이가 우댕을 부르는 말 — 꿀됑 「꼼슌아」의 짝
   { re: /화이트닝/,                                            get: () => [sugKkul('화이트닝')] },
   { re: /^(응+|웅+|ㅇㅇ+|맞아|맞아맞아|알겠어|오케이?|ㅇㅋ)(?![가-힣])/, get: () => [sugKkul('응응')] },
 
@@ -316,6 +317,7 @@ function normalizeInput(t: string): string {
 type Intent = { id: string; aliases: string[]; pop?: number; get: () => (Suggestion | undefined)[] };
 const INTENTS: Intent[] = [
   { id: 'call',     pop: 6, aliases: ['꼼슌아', '꼼슌', '꼼슌이', '꼼슌띠', '꼼이', '꼼아', '자기야', '애기야', '여보', '내강아지', '강아지야', '겸둥아', '겸둥이', 'ㄲㅅ'], get: () => [sugKkul('꼼슌아')] },
+  { id: 'callback', pop: 4, aliases: ['꼼돌아', '꼼돌', '꼼돌이', 'ㄲㄷ'], get: () => [sugSai('꼼돌아')] },
   { id: 'hello',    aliases: ['안녕', '안뇽', '안냥', '하이', '하잉', '헬로', '방가', '반가워', 'ㅎㅇ', 'hi', 'hello'], get: () => [sugAnim('안녕!')] },
   { id: 'morning',  pop: 3, aliases: ['좋은아침', '굿모닝', '모닝', '잘잤어', '잘잤니', '일어났어', '기상', '아침이야', '조은아침', '굿몽', 'ㄱㅁ'], get: () => [sugKkul('좋은아침'), sugUri('꼼모닝'), sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
   { id: 'doki',     aliases: ['두근두근', '두근', '설레', '설렌다', '떨려', '콩닥콩닥', '심쿵', '긴장돼', 'ㄷㄱㄷㄱ'], get: () => [sugAnim('두근두근')] },
@@ -568,6 +570,7 @@ const SAI_STICKERS: { word: string; image: string }[] = [
   { word: '바빠', image: '/emo/sai/busy.webp' },
   { word: '헤헤', image: '/emo/sai/hehe.webp' },   // 꼼이 말버릇 헤헤(73번, 전부 꼼이) — A안: 두 앞발로 입 가리고 눈웃음(우댕 OK 2026-10-19)
   { word: '약속!', image: '/emo/sai/yaksok.webp' }, // 하트 카드에 발바닥 도장 — 글 속 (약속)과 같은 그림(art/yaksok)
+  { word: '꼼돌아', image: '/emo/sai/kkomdol.webp' }, // 꼼이가 우댕을 부름 — 꿀됑 「꼼슌아」를 좌우로 뒤집은 짝(art/kkom-call A안, 우댕 OK 2026-10-30)
 ];
 
 // 사이담이 탭 — 사이담 말티푸 표정·몸짓 21종. 사이담 EMOTICONS(setId=BASIC) 정의 순서 그대로.
