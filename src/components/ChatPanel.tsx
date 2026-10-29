@@ -221,6 +221,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   // ── 꿀댕이 전용(둘만 쓰는 말) ──
   { re: /꼼슌|꼼슌아|꼼슌이|꼼슌띠/,                            get: () => [sugKkul('꼼슌아')] },
   { re: /꼼돌|꼼돌아|꼼돌이/,                                  get: () => [sugSai('꼼돌아')] },   // 꼼이가 우댕을 부르는 말 — 꿀됑 「꼼슌아」의 짝
+  { re: /냥냥|의기냥|의기양양|다짐|결심|각오/,                  get: () => [sugKkulAnim('의기냥냥!')] },   // 뭔가 다짐할 때 외치는 둘만의 구호
   { re: /화이트닝/,                                            get: () => [sugKkul('화이트닝')] },
   { re: /^(응+|웅+|ㅇㅇ+|맞아|맞아맞아|알겠어|오케이?|ㅇㅋ)(?![가-힣])/, get: () => [sugKkul('응응')] },
 
@@ -318,6 +319,7 @@ type Intent = { id: string; aliases: string[]; pop?: number; get: () => (Suggest
 const INTENTS: Intent[] = [
   { id: 'call',     pop: 6, aliases: ['꼼슌아', '꼼슌', '꼼슌이', '꼼슌띠', '꼼이', '꼼아', '자기야', '애기야', '여보', '내강아지', '강아지야', '겸둥아', '겸둥이', 'ㄲㅅ'], get: () => [sugKkul('꼼슌아')] },
   { id: 'callback', pop: 4, aliases: ['꼼돌아', '꼼돌', '꼼돌이', 'ㄲㄷ'], get: () => [sugSai('꼼돌아')] },
+  { id: 'nyang',    pop: 2, aliases: ['의기냥냥', '냥냥', '의기양양', '다짐', '다짐해', '결심', '결심했어', '각오', '해낸다', '해내자', '해낼거야'], get: () => [sugKkulAnim('의기냥냥!')] },
   { id: 'hello',    aliases: ['안녕', '안뇽', '안냥', '하이', '하잉', '헬로', '방가', '반가워', 'ㅎㅇ', 'hi', 'hello'], get: () => [sugAnim('안녕!')] },
   { id: 'morning',  pop: 3, aliases: ['좋은아침', '굿모닝', '모닝', '잘잤어', '잘잤니', '일어났어', '기상', '아침이야', '조은아침', '굿몽', 'ㄱㅁ'], get: () => [sugKkul('좋은아침'), sugUri('꼼모닝'), sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
   { id: 'doki',     aliases: ['두근두근', '두근', '설레', '설렌다', '떨려', '콩닥콩닥', '심쿵', '긴장돼', 'ㄷㄱㄷㄱ'], get: () => [sugAnim('두근두근')] },
@@ -527,6 +529,8 @@ const KKUL_ANIM: { word: string; image: string }[] = [
   // 떡 말놀이 마무리 — 개떡 다음에 둘이 같이 「멍!」 → 멍때림 「멍...」 (art/kkuldaeng/meong, Kling 18 A·B 중 가운데 뺀 판, 우댕 「②로 하자」 2026-10-27)
   { word: '멍!', image: '/emo/sai-anim/kkul-meong.webp' },
   { word: '기습 뽀뽀', image: '/emo/sai-anim/kkul-kiss.webp' },   // art/kkuldaeng/kiss — 꼼이가 볼에 쪽 → 꿀됑 더듬이 하트·빨개져 붕 뜸 (Kling 17, 우댕 "그냥 클링으로" 2026-10-20)
+  // 둘만의 다짐 구호 「냥냥! 의기냥냥!」 — 고양이 발짓 → 고개 번쩍 외침 → 뿌듯한데 더듬이 방울 둘이 콩 (art/nyang, Kling 19, 우댕 「꿀됑 먼저 넣어」 2026-10-30)
+  { word: '의기냥냥!', image: '/emo/sai-anim/kkul-nyang.webp' },
 ];
 // 우리 탭 — 꿀됑+꼼이가 같이 나오는 커플 16종(정지, 글씨 배지). GPT 회의(후보 20 → 16, 순서 = 자주 쓸 것 앞) + 우댕 OK(2026-10-27).
 //   원본·회의 원문·지시문·만든 스크립트는 art/couple16 (make_couple.py: 투명 그림 → 배지 webp 320).
