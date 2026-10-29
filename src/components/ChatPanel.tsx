@@ -166,6 +166,7 @@ const ANIM_RAW: { word: string; image: string; still: string }[] = [
   { word: '졸려',       image: '/emo/sai-anim/doze.webp',    still: '/emo/sai-anim/doze-still.png' },   // 콧방울 펑(반복 고리)
   { word: '뽀뽀',       image: '/emo/sai-anim/kiss.webp',    still: '/emo/sai-anim/kiss-still.png' },   // 귀로 하트(반복 고리) — art/kling/kiss
   { word: '퇴근!',      image: '/emo/sai-anim/offwork.webp', still: '/emo/sai-anim/offwork-still.png' }, // 6시 땡 → 귀 날개로 날아 퇴근(꼼이 퇴근 23번, 거의 18시) — art/kling/offwork
+  { word: '의기냥냥!',  image: '/emo/sai-anim/kkom-nyang.webp', still: '/emo/sai-anim/kkom-nyang-still.png' }, // 둘만의 다짐 구호 — 냥! 냥! 펀치 → 뿌듯한데 귀가 코끝에 찰싹(art/nyang, Kling 19·20, 우댕 「넣어」 2026-10-30). 꿀됑 판은 KKUL_ANIM
 ];
 // ⚠️ sai-anim webp/still을 사이담이 같은 이름으로 재인코딩(알파 복구·재작업)할 때마다 EMO_V를 +1 → 기기 캐시 무효화(전역).
 //   2026-09-11 알파 복구(라이트에서 눈 회색) 14종 반영으로 3. (사이담 EMO_V와 별개, 값만 맞춰 올리면 됨)
@@ -221,7 +222,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   // ── 꿀댕이 전용(둘만 쓰는 말) ──
   { re: /꼼슌|꼼슌아|꼼슌이|꼼슌띠/,                            get: () => [sugKkul('꼼슌아')] },
   { re: /꼼돌|꼼돌아|꼼돌이/,                                  get: () => [sugSai('꼼돌아')] },   // 꼼이가 우댕을 부르는 말 — 꿀됑 「꼼슌아」의 짝
-  { re: /냥냥|의기냥|의기양양|다짐|결심|각오/,                  get: () => [sugKkulAnim('의기냥냥!')] },   // 뭔가 다짐할 때 외치는 둘만의 구호
+  { re: /냥냥|의기냥|의기양양|다짐|결심|각오/,                  get: () => [sugKkulAnim('의기냥냥!'), sugAnim('의기냥냥!')] },   // 뭔가 다짐할 때 외치는 둘만의 구호(내 캐릭터 판이 앞 — OWN_MODES)
   { re: /화이트닝/,                                            get: () => [sugKkul('화이트닝')] },
   { re: /^(응+|웅+|ㅇㅇ+|맞아|맞아맞아|알겠어|오케이?|ㅇㅋ)(?![가-힣])/, get: () => [sugKkul('응응')] },
 
@@ -319,7 +320,7 @@ type Intent = { id: string; aliases: string[]; pop?: number; get: () => (Suggest
 const INTENTS: Intent[] = [
   { id: 'call',     pop: 6, aliases: ['꼼슌아', '꼼슌', '꼼슌이', '꼼슌띠', '꼼이', '꼼아', '자기야', '애기야', '여보', '내강아지', '강아지야', '겸둥아', '겸둥이', 'ㄲㅅ'], get: () => [sugKkul('꼼슌아')] },
   { id: 'callback', pop: 4, aliases: ['꼼돌아', '꼼돌', '꼼돌이', 'ㄲㄷ'], get: () => [sugSai('꼼돌아')] },
-  { id: 'nyang',    pop: 2, aliases: ['의기냥냥', '냥냥', '의기양양', '다짐', '다짐해', '결심', '결심했어', '각오', '해낸다', '해내자', '해낼거야'], get: () => [sugKkulAnim('의기냥냥!')] },
+  { id: 'nyang',    pop: 2, aliases: ['의기냥냥', '냥냥', '의기양양', '다짐', '다짐해', '결심', '결심했어', '각오', '해낸다', '해내자', '해낼거야'], get: () => [sugKkulAnim('의기냥냥!'), sugAnim('의기냥냥!')] },
   { id: 'hello',    aliases: ['안녕', '안뇽', '안냥', '하이', '하잉', '헬로', '방가', '반가워', 'ㅎㅇ', 'hi', 'hello'], get: () => [sugAnim('안녕!')] },
   { id: 'morning',  pop: 3, aliases: ['좋은아침', '굿모닝', '모닝', '잘잤어', '잘잤니', '일어났어', '기상', '아침이야', '조은아침', '굿몽', 'ㄱㅁ'], get: () => [sugKkul('좋은아침'), sugUri('꼼모닝'), sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
   { id: 'doki',     aliases: ['두근두근', '두근', '설레', '설렌다', '떨려', '콩닥콩닥', '심쿵', '긴장돼', 'ㄷㄱㄷㄱ'], get: () => [sugAnim('두근두근')] },

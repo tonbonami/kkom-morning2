@@ -18,6 +18,13 @@ SEQS = {   # (폴더, 배지, 24fps 프레임 번호)
         + [('kkul-b', B, i) for i in (19, 22, 25)]               # Kling이 몸을 돌리며 살짝 뜨는 구간 — 빠르게 지나감
         + [('kkul-b', B, i) for i in range(28, 74)]              # 더듬이 방울 둘이 머리 위에서 콩(떨어졌다 다시 붙음)
         + [('kkul-b', B, 73)] * 12),                             # 끝에서 0.5초 멈춤
+    'kkom': (   # 펀치는 Kling 20(kkom-p, 한 번만 생성) — 19차 영상 1은 뒷다리로 서고 몸이 늘어나 탈락
+        [('kkom-p', A, i) for i in range(7, 22)]                 # 머리 숙여 힘 모으기 → 냥! 펀치
+        + [('kkom-p', A, i) for i in (21, 20, 19, 18, 17)]       # 앞발 거두기(되감기)
+        + [('kkom-p', A, i) for i in range(17, 22)]              # 냥! 한 번 더 — 빠르게
+        + [('kkom-p', A, i) for i in range(22, 31)]              # 앞발 뻗은 채 외침
+        + [('kkom-b', B, i) for i in range(1, 74)]               # 가슴 펴고 뿌듯 → 리본 쪽 귀가 코끝에 찰싹(Kling 19 영상 2)
+        + [('kkom-b', B, 73)] * 12),                             # 끝에서 0.5초 멈춤
 }
 
 def main(name, fps=12, src_fps=24, quality=70):
