@@ -22,7 +22,10 @@ type Plugin = {
   status(): Promise<SleepSoundStatus>;
   addListener(ev: 'state', cb: (s: SleepSoundStatus) => void): Promise<{ remove: () => void }>;
 };
-let pluginP: Promise<Plugin | null> | null = null;
+// ⚠️ Capacitor 플러그인 프록시는 어떤 속성이든 함수로 돌려준다 — `then`도. 그래서 Promise의 결과로 프록시를 그대로 돌려주면
+//   「또 다른 약속」으로 보고 proxy.then()을 불러 영영 안 끝난다(빌드 62 첫 확인 때 카드가 「앱에서 들을 수 있어요」로 멈춤).
+//   → 프록시는 { api } 상자에 넣어 주고받는다. async 함수에서 프록시를 return 하지 말 것.
+let pluginP: Promise<{ api: Plugin } | null> | null = null;
 // 개발 서버에서만: 주소에 ?mockSleep 이 있으면 가짜 플러그인(소리 없음)으로 화면·흐름을 확인한다.
 function mockPlugin(): Plugin {
   let s: SleepSoundStatus = { playing: false, sound: 'rain', volume: 0.6, endAt: null };
@@ -36,13 +39,13 @@ function mockPlugin(): Plugin {
     addListener: async (_e, cb) => { subs.push(cb); return { remove: () => { subs.splice(subs.indexOf(cb), 1); } }; },
   };
 }
-function plugin(): Promise<Plugin | null> {
+function plugin(): Promise<{ api: Plugin } | null> {
   if (!pluginP) pluginP = (async () => {
-    if (process.env.NODE_ENV !== 'production' && typeof location !== 'undefined' && /mockSleep/.test(location.search)) return mockPlugin();
+    if (process.env.NODE_ENV !== 'production' && typeof location !== 'undefined' && /mockSleep/.test(location.search)) return { api: mockPlugin() };
     try {
       const { Capacitor, registerPlugin } = await import('@capacitor/core');
       if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable('SleepSound')) return null;   // 옛 빌드(플러그인 없음)도 여기서 걸러진다
-      return registerPlugin('SleepSound') as unknown as Plugin;
+      return { api: registerPlugin('SleepSound') as unknown as Plugin };
     } catch { return null; }
   })();
   return pluginP;
@@ -73,14 +76,14 @@ export function useSleepSound() {
   useEffect(() => {
     try { const raw = localStorage.getItem(KEY); if (raw) setPrefs({ ...DEFAULT_PREFS, ...JSON.parse(raw) }); } catch { /* 기본값 */ }
     let off: (() => void) | undefined; let alive = true;
-    plugin().then(async (p) => {
-      if (!alive || !p) return;
+    plugin().then(async (b) => {
+      if (!alive || !b) return;
       setAvailable(true);
-      try { setSt(await p.status()); } catch { /* noop */ }
-      const h = await p.addListener('state', (s) => setSt(s)); off = () => h.remove();
+      try { setSt(await b.api.status()); } catch { /* noop */ }
+      const h = await b.api.addListener('state', (s) => setSt(s)); off = () => h.remove();
     });
     // 앱으로 돌아올 때 네이티브 상태를 다시 읽는다(웹 화면이 상태의 원본이 되면 안 됨)
-    const onVis = () => { if (document.visibilityState === 'visible') plugin().then((p) => p?.status().then(setSt).catch(() => {})); };
+    const onVis = () => { if (document.visibilityState === 'visible') plugin().then((b) => b?.api.status().then(setSt).catch(() => {})); };
     document.addEventListener('visibilitychange', onVis);
     return () => { alive = false; off?.(); document.removeEventListener('visibilitychange', onVis); };
   }, []);
@@ -95,14 +98,14 @@ export function useSleepSound() {
   }, []);
 
   const play = useCallback(async (over?: Partial<Prefs>) => {
-    const p = await plugin(); if (!p) return;
+    const b = await plugin(); if (!b) return;
     const pr = { ...prefs, ...over };
     const endAt = pr.endMode === 'morning' ? nextMorning(pr.morningTime) : null;
-    try { setSt(await p.play({ sound: pr.sound, volume: pr.volume, endAt })); } catch { /* noop */ }
+    try { setSt(await b.api.play({ sound: pr.sound, volume: pr.volume, endAt })); } catch { /* noop */ }
   }, [prefs]);
   const stop = useCallback(async () => {
-    const p = await plugin(); if (!p) return;
-    try { await p.stop(); } catch { /* noop */ }
+    const b = await plugin(); if (!b) return;
+    try { await b.api.stop(); } catch { /* noop */ }
   }, []);
   const toggle = useCallback(() => (st.playing ? stop() : play()), [st.playing, play, stop]);
 
@@ -115,7 +118,7 @@ export function useSleepSound() {
   }, [savePrefs, st.playing, prefs.endMode, play]);
   const setVolume = useCallback((volume: number) => {
     savePrefs({ volume });
-    plugin().then((p) => p?.setVolume({ volume }).catch(() => {}));
+    plugin().then((b) => b?.api.setVolume({ volume }).catch(() => {}));
   }, [savePrefs]);
 
   const soundId = st.playing ? st.sound : prefs.sound;
