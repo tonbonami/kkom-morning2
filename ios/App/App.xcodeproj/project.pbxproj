@@ -35,18 +35,19 @@
 		A1683D04E86B6094BE503142 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7D3782D0D5C2E8BDD4B2098 /* NotificationService.swift */; };
 		A7F02733B971CFF61012F47E /* InkCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7FE18AAAD6CAAA0BC69073D /* InkCanvas.swift */; };
 		A8057E254D9AFBD603329EE4 /* KkomWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */; };
+		AFFAFA816AF607490B527792 /* rain-window.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 04749902793463AE3408AD34 /* rain-window.m4a */; };
 		B39118D307E7FF5225D637CF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03E83283EDE47AFA52F15E55 /* Foundation.framework */; };
 		BE5BAFBB2FF01EE2B43AC152 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFED05479BA6801EE154AFA0 /* ShareViewController.swift */; };
 		C15473C9BCFE6E608251475D /* KkomWatchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0985B3199406CFEA5EEFE583 /* KkomWatchWidget.swift */; };
 		C200BDA8490062092F231CA3 /* KkomWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 5B1BFE32B2792896DF3CC9DD /* KkomWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C2415ECF6F4E595ACB18992C /* woodang_avatar.png in Resources */ = {isa = PBXBuildFile; fileRef = F43FBAF5F6601C3AEB5DCD7E /* woodang_avatar.png */; };
-		C401146F6B774B2ED99C2FD1 /* rain.caf in Resources */ = {isa = PBXBuildFile; fileRef = A73C44D2282F76E3DAB4D6A5 /* rain.caf */; };
 		C8004F6ADF8E21866AC3BB76 /* KkomNotifyService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9D6B09A1C33CEA1F166CFD8C /* KkomNotifyService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D0065FD0700813CEA915ADE0 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03E83283EDE47AFA52F15E55 /* Foundation.framework */; };
 		DF6DF869301C25680029DEE0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF6DF839301B9E3C0029DEE0 /* WidgetKit.framework */; };
 		DF6DF86A301C25680029DEE0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF6DF83B301B9E3C0029DEE0 /* SwiftUI.framework */; };
 		DF6DF875301C25680029DEE0 /* KkomWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DF6DF868301C25680029DEE0 /* KkomWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DFA8708F030D3DEBAF423710 /* PushBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1316832D8E0CDFB384EF5062 /* PushBridge.swift */; };
+		E6C2CFFEC9E023A9673841F2 /* rain-roof.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 6456035EE1608BFC0F947713 /* rain-roof.m4a */; };
 		EA57C752D99C7B618F0898A2 /* CanvasScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E811AD988B947C59DE5916 /* CanvasScreen.swift */; };
 		F20E82AE748042443919FD8C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5B2E72E83E1B27DDF4150575 /* Assets.xcassets */; };
 		F39EEF465004D243B61403CC /* CanvasUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C80600F48DE4A56CAF7B33B /* CanvasUI.swift */; };
@@ -132,6 +133,7 @@
 
 /* Begin PBXFileReference section */
 		03E83283EDE47AFA52F15E55 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		04749902793463AE3408AD34 /* rain-window.m4a */ = {isa = PBXFileReference; includeInIndex = 1; path = "rain-window.m4a"; sourceTree = "<group>"; };
 		0985B3199406CFEA5EEFE583 /* KkomWatchWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomWatchWidget.swift; sourceTree = "<group>"; };
 		0A25420C23CD2C7F7EEBEF59 /* KkomWatch.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = KkomWatch.entitlements; sourceTree = "<group>"; };
 		12E811AD988B947C59DE5916 /* CanvasScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CanvasScreen.swift; sourceTree = "<group>"; };
@@ -154,6 +156,7 @@
 		5861F52B9D2C0563302F66A2 /* KkomShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KkomShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5B1BFE32B2792896DF3CC9DD /* KkomWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KkomWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5B2E72E83E1B27DDF4150575 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		6456035EE1608BFC0F947713 /* rain-roof.m4a */ = {isa = PBXFileReference; includeInIndex = 1; path = "rain-roof.m4a"; sourceTree = "<group>"; };
 		76A69DDCA0A8BD1C11921EBE /* FireREST.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FireREST.swift; sourceTree = "<group>"; };
 		78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomWatchApp.swift; sourceTree = "<group>"; };
 		79F0DBD8F7D90FACFD3F9F1C /* SleepSound.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SleepSound.swift; sourceTree = "<group>"; };
@@ -163,7 +166,6 @@
 		9D6B09A1C33CEA1F166CFD8C /* KkomNotifyService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KkomNotifyService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A27D05FCF7F9F3DACADCBC9D /* kkomi_avatar.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = kkomi_avatar.png; sourceTree = "<group>"; };
 		A4B1163DEC46995A75029A27 /* MainViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
-		A73C44D2282F76E3DAB4D6A5 /* rain.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = rain.caf; sourceTree = "<group>"; };
 		A96983CEE393F9D59E306613 /* KkomWatchWidget.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = KkomWatchWidget.entitlements; sourceTree = "<group>"; };
 		A9CA351403CE414B584345FF /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		ABFFEEB2C7431ADF351821CC /* Sync.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Sync.swift; sourceTree = "<group>"; };
@@ -367,7 +369,8 @@
 				CDB55EB644281CF5DABEEFBA /* heartbeat.caf */,
 				1C80600F48DE4A56CAF7B33B /* CanvasUI.swift */,
 				79F0DBD8F7D90FACFD3F9F1C /* SleepSound.swift */,
-				A73C44D2282F76E3DAB4D6A5 /* rain.caf */,
+				6456035EE1608BFC0F947713 /* rain-roof.m4a */,
+				04749902793463AE3408AD34 /* rain-window.m4a */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -591,7 +594,8 @@
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				99EA9F2FDD7308892BF4BB4D /* heartbeat.caf in Resources */,
-				C401146F6B774B2ED99C2FD1 /* rain.caf in Resources */,
+				E6C2CFFEC9E023A9673841F2 /* rain-roof.m4a in Resources */,
+				AFFAFA816AF607490B527792 /* rain-window.m4a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

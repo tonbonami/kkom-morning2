@@ -134,7 +134,7 @@ export function SleepSoundScreen({
         </div>
 
         {/* Sound Options */}
-        <div className="grid grid-cols-3 gap-2 mb-6 flex-shrink-0">
+        <div className={`grid ${sounds.length === 4 ? 'grid-cols-2' : 'grid-cols-3'} gap-2 mb-6 flex-shrink-0`}>
           {sounds.map((sound) => (
             <motion.button
               key={sound.id}

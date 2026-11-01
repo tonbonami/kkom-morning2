@@ -6,14 +6,19 @@ import Capacitor
 
 // 잠 소리(백색소음) — 꼼이가 유튜브 빗소리를 틀고 자는데 화면이 꺼지면 멈추고 광고가 떠서(우댕 2026-11-01) 앱이 직접 낸다.
 //   소리는 이 파일(AVAudioEngine)만 낸다. 웹 화면은 고르고·켜고·끄기만(SleepSoundPlugin). GPT 상의: docs/gpt-sleep-sound-answer.md
-//   - 빗소리 = 번들 rain.caf 를 PCM 버퍼로 올려 끊김 없이 반복(.loops) · 분홍·갈색 소음 = 코드로 만든다(파일 없음, 이음새 없음).
+//   - 빗소리 = 실제 녹음 2개(번들 rain-roof.m4a 7분 40초·rain-window.m4a 10분, Pixabay 무료 라이선스, art/sleep/prep_real_rain.py로
+//     끝·처음 교차 페이드) — 메모리에 다 올리지 않고 디스크에서 흘려 읽으며 같은 파일을 늘 2개씩 줄 세워 이어 튼다(이음새 없음).
+//     (처음엔 코드로 합성한 빗소리였는데 우댕 「너무 인공적」 2026-11-02 → 실제 녹음)
+//   - 분홍·갈색 소음 = 코드로 만든다(파일 없음, 이음새 없음).
 //   - Info.plist UIBackgroundModes=audio + AVAudioSession(.playback) → 화면 잠가도 계속.
 //   - 끝 시각(아침 7:00 등)은 네이티브가 잰다(JS 타이머는 백그라운드에서 멈춘다). 끝나기 60초 전부터 서서히 줄이고 정지.
 //   - 전화·Siri·알람으로 끊기면 끝난 뒤 shouldResume 일 때만, 끝 시각 전이면 다시 켠다. 이어폰이 빠지면 바로 멈춘다(스피커로 갑자기 크게 안 나게).
 //   - 상태는 앱 그룹에도 적어 둔다(위젯·나중 기능용).
 final class SleepSoundManager {
     static let shared = SleepSoundManager()
-    static let sounds: [String: String] = ["rain": "포근한 빗소리", "pink": "분홍 소음", "brown": "갈색 소음"]
+    static let sounds: [String: String] = ["rain": "기와지붕 빗소리", "window": "창가 빗소리", "pink": "분홍 소음", "brown": "갈색 소음"]
+    private static let files: [String: String] = ["rain": "rain-roof", "window": "rain-window"]   // id → 번들 m4a 이름(rain 은 옛 설정과 맞추려고 id 유지)
+    private var isFile: Bool { Self.files[soundId] != nil }
     private let appGroup = "group.com.tonbonami.kkommorning"
 
     private(set) var playing = false
@@ -25,7 +30,7 @@ final class SleepSoundManager {
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private var noiseNode: AVAudioSourceNode?
-    private var rainBuffer: AVAudioPCMBuffer?
+    private var loopGen = 0                         // 파일 반복 세대 — 소리를 바꾸거나 멈추면 +1, 옛 세대의 「다음 줄 세우기」는 무시
     // 렌더 스레드가 쓰는 상태는 Swift 배열·프로퍼티 대신 고정 메모리에(실시간 스레드에서 배타 접근 검사·복사 방지)
     //   [0..6] 분홍 필터 · [7] 갈색 마지막 값 · [8] 소음 종류(0 분홍, 1 갈색)
     private let st: UnsafeMutablePointer<Float> = {
@@ -63,7 +68,7 @@ final class SleepSoundManager {
             try wireIfNeeded()
             startSource()
             if !engine.isRunning { try engine.start() }
-            if soundId == "rain" { player.play() }
+            if isFile { player.play() }
         } catch {
             NSLog("[SleepSound] play 실패: \(error)")
             stop(fade: false); return
@@ -101,17 +106,8 @@ final class SleepSoundManager {
     private func wireIfNeeded() throws {
         if wired { return }
         engine.attach(player)
-        if let url = Bundle.main.url(forResource: "rain", withExtension: "caf") {
-            let file = try AVAudioFile(forReading: url)
-            if let buf = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)) {
-                try file.read(into: buf)
-                rainBuffer = buf
-            }
-            engine.connect(player, to: engine.mainMixerNode, format: file.processingFormat)
-        } else {
-            NSLog("[SleepSound] rain.caf 없음")
-            engine.connect(player, to: engine.mainMixerNode, format: nil)
-        }
+        // 빗소리 파일은 둘 다 44.1kHz 스테레오로 만들어 넣었다(prep_real_rain.py) → 연결 형식 하나로 둘 다 튼다
+        engine.connect(player, to: engine.mainMixerNode, format: AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2))
         let fmt = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
         let st = self.st
         let node = AVAudioSourceNode(format: fmt) { _, _, frameCount, abl -> OSStatus in
@@ -152,17 +148,32 @@ final class SleepSoundManager {
 
     // 고른 소리만 들리게 — 빗소리는 플레이어, 소음은 소스 노드(나머지는 볼륨 0)
     private func startSource() {
+        loopGen += 1                                // 먼저 세대를 올리고 멈춘다 — stop()이 부르는 옛 완료 콜백이 다시 줄 세우지 않게
         player.stop()
-        if soundId == "rain", let buf = rainBuffer {
-            player.scheduleBuffer(buf, at: nil, options: .loops, completionHandler: nil)
+        if let name = Self.files[soundId], let url = Bundle.main.url(forResource: name, withExtension: "m4a") {
+            let gen = loopGen
+            enqueue(url, gen); enqueue(url, gen)    // 늘 2개를 줄 세워 둔다 → 하나가 끝나는 순간 다음 것이 바로 이어짐
+        } else if isFile {
+            NSLog("[SleepSound] \(soundId) 파일 없음")
         }
         st[8] = soundId == "brown" ? 1 : 0
     }
 
+    // 파일 하나를 줄 세우고, 그게 다 읽히면(dataConsumed) 같은 세대일 때만 하나 더 — 9시간 내내 2개 대기
+    private func enqueue(_ url: URL, _ gen: Int) {
+        guard let f = try? AVAudioFile(forReading: url) else { NSLog("[SleepSound] 파일 열기 실패 \(url.lastPathComponent)"); return }
+        player.scheduleFile(f, at: nil, completionCallbackType: .dataConsumed) { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self, gen == self.loopGen, self.playing else { return }
+                self.enqueue(url, gen)
+            }
+        }
+    }
+
     private func applyVolume() {
         let out = gain * volume
-        player.volume = soundId == "rain" ? out : 0
-        noiseNode?.volume = soundId == "rain" ? 0 : out
+        player.volume = isFile ? out : 0
+        noiseNode?.volume = isFile ? 0 : out
     }
 
     private func fade(to target: Float, seconds: Double, done: (() -> Void)? = nil) {
@@ -198,6 +209,7 @@ final class SleepSoundManager {
     private func finishStop() {
         fadeTimer?.cancel(); fadeTimer = nil
         endTimer?.cancel(); endTimer = nil
+        loopGen += 1
         player.stop()
         if engine.isRunning { engine.stop() }
         playing = false; interrupted = false; endAt = nil; gain = 0
@@ -236,7 +248,7 @@ final class SleepSoundManager {
         // 출력 장치가 바뀌면 엔진이 멈춘다 → 재생 중이었으면 다시 연결해 켠다(끊김 처리 중이면 그쪽에 맡김)
         guard playing, !interrupted else { return }
         DispatchQueue.main.async {
-            do { self.startSource(); try self.engine.start(); if self.soundId == "rain" { self.player.play() }; self.applyVolume() }
+            do { self.startSource(); try self.engine.start(); if self.isFile { self.player.play() }; self.applyVolume() }
             catch { NSLog("[SleepSound] 엔진 재시작 실패: \(error)"); self.finishStop() }
         }
     }

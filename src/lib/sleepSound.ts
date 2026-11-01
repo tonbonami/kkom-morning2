@@ -6,8 +6,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export type SleepEndMode = 'morning' | 'forever';
 export interface SleepSoundStatus { playing: boolean; sound: string; volume: number; endAt: number | null }
+// 빗소리 둘은 실제 녹음(Pixabay, art/sleep/real/SOURCE.txt) — 처음 합성 빗소리는 우댕 「너무 인공적」(2026-11-02)으로 뺐다. id 'rain'은 옛 설정과 맞추려고 그대로.
 export const SLEEP_SOUNDS = [
-  { id: 'rain', name: '포근한 빗소리', desc: '잔잔한 밤비' },
+  { id: 'rain', name: '기와지붕 빗소리', desc: '토독토독 지붕 위' },
+  { id: 'window', name: '창가 빗소리', desc: '창밖 빗줄기' },
   { id: 'pink', name: '분홍 소음', desc: '부드러운 쉬—' },
   { id: 'brown', name: '갈색 소음', desc: '낮고 둥근 바람' },
 ];
@@ -122,7 +124,7 @@ export function useSleepSound() {
   }, [savePrefs]);
 
   const soundId = st.playing ? st.sound : prefs.sound;
-  const soundName = SLEEP_SOUNDS.find((s) => s.id === soundId)?.name ?? '포근한 빗소리';
+  const soundName = SLEEP_SOUNDS.find((s) => s.id === soundId)?.name ?? '기와지붕 빗소리';
   const remainingText = st.playing ? (st.endAt ? fmtLeft(st.endAt - now) : '끌 때까지 계속') : undefined;
   const endText = useMemo(() => remainingText
     ?? (prefs.endMode === 'morning' ? `${fmtClock(prefs.morningTime)}까지` : '끌 때까지 계속'), [remainingText, prefs]);
