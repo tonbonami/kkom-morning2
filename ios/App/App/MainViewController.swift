@@ -12,6 +12,7 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(PushBridgePlugin())
         bridge?.registerPluginInstance(LiveActivityBridgePlugin())
         bridge?.registerPluginInstance(HapticBridgePlugin())
+        bridge?.registerPluginInstance(SleepSoundPlugin())   // 잠 소리(백색소음) — 화면 잠가도 계속
     }
 }
 

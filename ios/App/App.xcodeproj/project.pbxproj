@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		066C1FFCF05B5C42C4F30EFA /* CanvasPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = 96438190129A200A7B42779A /* CanvasPlugin.m */; };
 		0B98050ADC33CDA93D62482E /* Sync.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABFFEEB2C7431ADF351821CC /* Sync.swift */; };
+		191EF2C7110C4B858FEB9604 /* SleepSound.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F0DBD8F7D90FACFD3F9F1C /* SleepSound.swift */; };
 		19F79F87A7CF70C2D7AAAF91 /* KkomWatchWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B44EFC782AD0E00A83D34740 /* KkomWatchWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2D88668530DA944420D8884D /* LiveActivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90633BA335ABAE160954A1DD /* LiveActivityBridge.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
@@ -39,6 +40,7 @@
 		C15473C9BCFE6E608251475D /* KkomWatchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0985B3199406CFEA5EEFE583 /* KkomWatchWidget.swift */; };
 		C200BDA8490062092F231CA3 /* KkomWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 5B1BFE32B2792896DF3CC9DD /* KkomWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C2415ECF6F4E595ACB18992C /* woodang_avatar.png in Resources */ = {isa = PBXBuildFile; fileRef = F43FBAF5F6601C3AEB5DCD7E /* woodang_avatar.png */; };
+		C401146F6B774B2ED99C2FD1 /* rain.caf in Resources */ = {isa = PBXBuildFile; fileRef = A73C44D2282F76E3DAB4D6A5 /* rain.caf */; };
 		C8004F6ADF8E21866AC3BB76 /* KkomNotifyService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9D6B09A1C33CEA1F166CFD8C /* KkomNotifyService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D0065FD0700813CEA915ADE0 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03E83283EDE47AFA52F15E55 /* Foundation.framework */; };
 		DF6DF869301C25680029DEE0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF6DF839301B9E3C0029DEE0 /* WidgetKit.framework */; };
@@ -154,12 +156,14 @@
 		5B2E72E83E1B27DDF4150575 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		76A69DDCA0A8BD1C11921EBE /* FireREST.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FireREST.swift; sourceTree = "<group>"; };
 		78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomWatchApp.swift; sourceTree = "<group>"; };
+		79F0DBD8F7D90FACFD3F9F1C /* SleepSound.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SleepSound.swift; sourceTree = "<group>"; };
 		8F0F37C8B7C8934708BAB4C9 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		90633BA335ABAE160954A1DD /* LiveActivityBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveActivityBridge.swift; sourceTree = "<group>"; };
 		96438190129A200A7B42779A /* CanvasPlugin.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = CanvasPlugin.m; sourceTree = "<group>"; };
 		9D6B09A1C33CEA1F166CFD8C /* KkomNotifyService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KkomNotifyService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A27D05FCF7F9F3DACADCBC9D /* kkomi_avatar.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = kkomi_avatar.png; sourceTree = "<group>"; };
 		A4B1163DEC46995A75029A27 /* MainViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		A73C44D2282F76E3DAB4D6A5 /* rain.caf */ = {isa = PBXFileReference; includeInIndex = 1; path = rain.caf; sourceTree = "<group>"; };
 		A96983CEE393F9D59E306613 /* KkomWatchWidget.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = KkomWatchWidget.entitlements; sourceTree = "<group>"; };
 		A9CA351403CE414B584345FF /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		ABFFEEB2C7431ADF351821CC /* Sync.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Sync.swift; sourceTree = "<group>"; };
@@ -362,6 +366,8 @@
 				2DC21A45BB08DBC2306696A2 /* HapticBridge.swift */,
 				CDB55EB644281CF5DABEEFBA /* heartbeat.caf */,
 				1C80600F48DE4A56CAF7B33B /* CanvasUI.swift */,
+				79F0DBD8F7D90FACFD3F9F1C /* SleepSound.swift */,
+				A73C44D2282F76E3DAB4D6A5 /* rain.caf */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -585,6 +591,7 @@
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				99EA9F2FDD7308892BF4BB4D /* heartbeat.caf in Resources */,
+				C401146F6B774B2ED99C2FD1 /* rain.caf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -684,6 +691,7 @@
 				2D88668530DA944420D8884D /* LiveActivityBridge.swift in Sources */,
 				9A3CF8066F8FD1E4BD7CE20D /* HapticBridge.swift in Sources */,
 				F39EEF465004D243B61403CC /* CanvasUI.swift in Sources */,
+				191EF2C7110C4B858FEB9604 /* SleepSound.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

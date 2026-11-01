@@ -1,6 +1,8 @@
 'use client';
 
 import KkulDoctorLogo from '@/components/skin/KkulDoctorLogo';
+import { SleepSoundCard } from '@/components/SleepSoundCard';
+import { useSleepSound } from '@/lib/sleepSound';
 import { sevOf } from '@/lib/skinTypes';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -84,6 +86,7 @@ const MODULES: ModuleDef[] = [
   { id: 'air',      name: '미세먼지' },
   { id: 'weather',  name: '오늘 밖' },
   { id: 'skin',     name: '꿀닥터' },     // 꼼이 피부 일지 — 둘 다 보임, 안은 PIN 잠금(/skin)
+  { id: 'sleep',    name: '잠 소리' },    // 잘 때 빗소리·백색소음 — 소리는 아이폰 앱이 냄(화면 잠가도 계속), 자세히는 /sleep
   { id: 'mood',     name: '오늘의 기분' },
   { id: 'dday',     name: '함께한 지' },
   { id: 'calendar', name: '달력' },
@@ -98,7 +101,7 @@ const MODULES: ModuleDef[] = [
 ];
 // ⚠️ 2x1 이 1x1 보다 높다(핵심). 풀폭 카드 = 2x1, 짝지은 1칸 = 1x1.
 const DEFAULT_SIZE: Record<string, CardSize> = {
-  doodle: '2x1', chat: '2x1', air: '2x1', weather: '2x1', memories: '2x1', skin: '2x1',
+  doodle: '2x1', chat: '2x1', air: '2x1', weather: '2x1', memories: '2x1', skin: '2x1', sleep: '2x1',
   mood: '1x1', dday: '1x1', calendar: '1x1', letter: '1x1',
   praise: '1x1', share: '1x1', wishlist: '1x1', again: '1x1', recipes: '1x1', poems: '1x1',
 };
@@ -112,7 +115,7 @@ const SIZE_CYCLE: CardSize[] = ['1x1', '2x1', '2x2'];
 const WHITE_CARDS = new Set(['chat', 'weather', 'mood', 'air', 'letter']);
 // enabledModules 저장 뒤 '나중에' 추가할 모듈 id를 여기 넣으면 기존 사용자도 기본 켬(사이담 함정 대응).
 // 지금은 첫 배포라 저장된 배치가 없음(=전부 켬) → 비워둠. 향후 카드 추가 시 그 id를 넣을 것.
-const ADDED_LATER: string[] = ['skin'];
+const ADDED_LATER: string[] = ['skin', 'sleep'];
 // 저장된 순서를 적용하되 그 뒤 추가된 모듈은 기본 순서상 '제자리'에 끼운다(맨 밑 밀림 방지).
 function applyModuleOrder(order: string[] | undefined): ModuleDef[] {
   if (!order?.length) return MODULES;
@@ -163,6 +166,7 @@ function EditRow({ module, size, enabled, onCycleSize, onToggle }: {
 export default function KkomMorningHome() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const sleep = useSleepSound();   // 잠 소리 카드(소리는 아이폰 앱이 냄) — ⚠️ 훅이라 아래 `if (!mounted) return` 보다 위에
   // ── 홈 모듈 배치 (settings/home 실시간 구독) ──
   const [layout, setLayout] = useState<HomeLayout>({});
   useEffect(() => subscribeHomeLayout(setLayout), []);
@@ -1017,6 +1021,10 @@ export default function KkomMorningHome() {
       count: recipes.length, unit: '개',
       newText: newRecipe ? '새 글' : undefined,
     }),
+    sleep: (
+      <SleepSoundCard playing={sleep.playing} soundName={sleep.soundName} endText={sleep.endText}
+        available={sleep.available} onToggle={() => { void sleep.toggle(); }} onOpen={() => router.push('/sleep')} />
+    ),
     skin: renderListCard({
       Icon: Stethoscope, name: '꿀닥터', onClick: () => router.push('/skin'),
       // 바깥 배너 = 꿀닥터 로고(걷는 의사 꿀됑 + 글씨, 우댕 2026-10-24 「바깥 들어가는 배너를 바꾸라는 뜻」). 카드 크기 그대로.
