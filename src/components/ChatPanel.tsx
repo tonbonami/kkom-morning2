@@ -227,7 +227,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   { re: /^(응+|웅+|ㅇㅇ+|맞아|맞아맞아|알겠어|오케이?|ㅇㅋ)(?![가-힣])/, get: () => [sugKkul('응응')] },
 
   // ── 인사·아침·밤·잠 ──
-  { re: /굿모닝|좋은\s?아침|모닝(?!콜)|잘\s?잤|일어났|기상(?!청|캐스)/, get: () => [sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝'), sugKkul('좋은아침')] },
+  { re: /굿모닝|좋은\s?아침|모닝(?!콜)|잘\s?잤|일어났|기상(?!청|캐스)/, get: () => [sugAnim('좋은 아침'), sugKkulAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝'), sugKkul('좋은아침')] },
   { re: /안녕|하이|방가|ㅎㅇ|하잉|헬로|하이염/,                  get: () => [sugAnim('안녕!')] },
   { re: /잘\s?자|굿\s?밤|굿나잇|자자|자야|잘게|취침|나이트|굿밤/, get: () => [sugAnim('잘자'), sugSai('굿밤')] },
   { re: /일어나|기상|깨워|깨어나|모닝\s?콜|늦잠|그만\s?자/,      get: () => [sugKkulAnim('일어나 붕붕'), sugKkul('좋은아침')] },
@@ -322,7 +322,7 @@ const INTENTS: Intent[] = [
   { id: 'callback', pop: 4, aliases: ['꼼돌아', '꼼돌', '꼼돌이', 'ㄲㄷ'], get: () => [sugSai('꼼돌아')] },
   { id: 'nyang',    pop: 2, aliases: ['의기냥냥', '냥냥', '의기양양', '다짐', '다짐해', '결심', '결심했어', '각오', '해낸다', '해내자', '해낼거야'], get: () => [sugKkulAnim('의기냥냥!'), sugAnim('의기냥냥!')] },
   { id: 'hello',    aliases: ['안녕', '안뇽', '안냥', '하이', '하잉', '헬로', '방가', '반가워', 'ㅎㅇ', 'hi', 'hello'], get: () => [sugAnim('안녕!')] },
-  { id: 'morning',  pop: 3, aliases: ['좋은아침', '굿모닝', '모닝', '잘잤어', '잘잤니', '일어났어', '기상', '아침이야', '조은아침', '굿몽', 'ㄱㅁ'], get: () => [sugKkul('좋은아침'), sugUri('꼼모닝'), sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
+  { id: 'morning',  pop: 3, aliases: ['좋은아침', '굿모닝', '모닝', '잘잤어', '잘잤니', '일어났어', '기상', '아침이야', '조은아침', '굿몽', 'ㄱㅁ'], get: () => [sugKkulAnim('좋은 아침'), sugKkul('좋은아침'), sugUri('꼼모닝'), sugAnim('좋은 아침'), sugSai('굿모닝'), sugCouple('굿모닝')] },
   { id: 'doki',     aliases: ['두근두근', '두근', '설레', '설렌다', '떨려', '콩닥콩닥', '심쿵', '긴장돼', 'ㄷㄱㄷㄱ'], get: () => [sugAnim('두근두근')] },
   { id: 'love',     pop: 6, aliases: ['사랑해', '사랑', '사랑해요', '사랑한다', '좋아해', '조아해', '알러뷰', '러브', '러브유', '내사랑', '사룽해', 'ㅅㄹㅎ', 'ㅅㄹ', 'love', '❤', '❤️', '💕', '💗'], get: () => [sugKkul('사랑해'), sugUri('사랑해'), sugAnim('사랑해'), sugMini('사랑해'), sugCouple('사랑해'), sugMini('하트')] },
   { id: 'miss',     pop: 5, aliases: ['보고싶어', '보고싶다', '보고파', '그리워', '생각나', '생각나서', '보곺', '보고시퍼', '언제봐', '만나고싶어', 'ㅂㄱㅅㅇ', 'ㅂㄱㅍ'], get: () => [sugKkul('보고싶어'), sugAnim('보고싶어'), sugMini('보고파'), sugCouple('보고파')] },
@@ -532,6 +532,8 @@ const KKUL_ANIM: { word: string; image: string }[] = [
   { word: '기습 뽀뽀', image: '/emo/sai-anim/kkul-kiss.webp' },   // art/kkuldaeng/kiss — 꼼이가 볼에 쪽 → 꿀됑 더듬이 하트·빨개져 붕 뜸 (Kling 17, 우댕 "그냥 클링으로" 2026-10-20)
   // 둘만의 다짐 구호 「냥냥! 의기냥냥!」 — 고양이 발짓 → 고개 번쩍 외침 → 뿌듯한데 더듬이 방울 둘이 콩 (art/nyang, Kling 19, 우댕 「꿀됑 먼저 넣어」 2026-10-30)
   { word: '의기냥냥!', image: '/emo/sai-anim/kkul-nyang.webp' },
+  // 꼼이 「좋은 아침」(수평선 위로 꼼이 얼굴이 해처럼)의 짝 — 더듬이 방울이 먼저 빼꼼 → 멍하게 떠오름 → 해 뜨며 쏙 숨었다 뿌듯 → 다시 밤으로(art/kkuldaeng/morning, Kling 21, 우댕 「넣어」 2026-11-02)
+  { word: '좋은 아침', image: '/emo/sai-anim/kkul-morning.webp' },
 ];
 // 우리 탭 — 꿀됑+꼼이가 같이 나오는 커플 16종(정지, 글씨 배지). GPT 회의(후보 20 → 16, 순서 = 자주 쓸 것 앞) + 우댕 OK(2026-10-27).
 //   원본·회의 원문·지시문·만든 스크립트는 art/couple16 (make_couple.py: 투명 그림 → 배지 webp 320).
