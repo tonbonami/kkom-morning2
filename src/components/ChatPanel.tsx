@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard, Search } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
@@ -1282,6 +1283,28 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       setKbInset(0);
     };
   }, [open]);
+  // 이모티콘 서랍 = 키보드 자리(입력줄 아래, 카톡처럼 — 우댕 2026-11-02 · GPT 상의 docs/gpt-drawer-below-input-*.md).
+  //   높이 = 이번에 잰 키보드 높이(흔들림이 잦아든 150ms 뒤 값), 못 쟀으면 화면의 38%(280~360px). 기기별로 저장은 안 한다.
+  const [panelH, setPanelH] = useState(320);
+  useEffect(() => { setPanelH(Math.round(Math.min(360, Math.max(280, window.innerHeight * 0.38)))); }, []);
+  useEffect(() => {
+    if (kbInset < 120) return;
+    const t = setTimeout(() => setPanelH(Math.round(Math.min(480, Math.max(220, kbInset)))), 150);
+    return () => clearTimeout(t);
+  }, [kbInset]);
+  // 서랍 → 키보드로 넘어가는 사이엔 키보드가 다 올라올 때까지 서랍 높이만큼 비워 둔다(입력줄이 바닥으로 떨어졌다 다시 오르지 않게)
+  const [holdPanel, setHoldPanel] = useState(false);
+  useEffect(() => {
+    if (!holdPanel) return;
+    if (kbInset > 80) { setHoldPanel(false); return; }
+    const t = setTimeout(() => setHoldPanel(false), 700);   // 키보드가 없는 기기(데스크톱)면 그냥 풀린다
+    return () => clearTimeout(t);
+  }, [holdPanel, kbInset]);
+  // 서랍 안 찾기 글칸 — 🔍(다시 찾기)를 누를 때만. 같은 손길 안에서 focus 해야 아이폰이 키보드를 띄운다(flushSync).
+  const [searchEditing, setSearchEditing] = useState(false);
+  const emoSearchRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => { if (!stickerOpen) setSearchEditing(false); }, [stickerOpen]);
+  const startEmoSearch = () => { flushSync(() => setSearchEditing(true)); emoSearchRef.current?.focus(); };
   // 키보드 측정 창(KbReadout) — 헤더 이름 5번 연속 탭(2초 안)으로 켜고 끔. 기억 안 함: 새로 열면 늘 꺼져 있다.
   // (예전엔 localStorage에 남아서 새로고침해도 안 꺼졌다 — 남은 값은 지운다.)
   const pillRef = useRef<HTMLDivElement | null>(null);
@@ -2199,120 +2222,6 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
             fav={!!pendingSticker?.pick && favIds.has(emoId(pendingSticker.pick))}
             onToggleFav={pendingSticker?.pick ? () => toggleFav(pendingSticker.pick!) : undefined}
             onCancel={cancelPendingSticker} onSendNow={() => { void sendPendingSticker(); }} />
-          {/* 이모티콘 서랍 — 제미나이 2차: 아이콘만 탭 + 카톡식 '최근·자주' 첫 탭.
-              + 검색칸(모든 탭을 이름·같은 뜻 말로) · 내 캐릭터 탭 먼저 · 꾹 눌러 ★ 즐겨찾기(벤치마킹 1·2번, 우댕 선택 2026-10-16) */}
-          {stickerOpen && (
-            <div className="mx-3 mb-2 rounded-[28px] p-3 backdrop-blur-md border" style={{ background: 'var(--ct-sheet)', borderColor: 'var(--ct-sheet-border)', boxShadow: 'var(--sd-shadow-card)' }}>
-              {/* 검색 — 글씨 16px: 아이폰은 16px 미만 입력칸을 누르면 화면을 확대한다. */}
-              <div className="mb-2 flex h-10 items-center gap-2 rounded-2xl px-3" style={{ background: 'var(--ct-cell)', boxShadow: 'var(--ct-cell-shadow)' }}>
-                <Search size={16} className="shrink-0" style={{ color: 'var(--ct-label)' }} />
-                <input value={emoQuery} onChange={(e) => setEmoQuery(e.target.value)} type="search" enterKeyHint="search"
-                  placeholder="이모티콘 찾기 (ㅂ, 배고파, 잘자…)" aria-label="이모티콘 찾기"
-                  className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-[color:var(--ct-label)] [&::-webkit-search-cancel-button]:hidden"
-                  style={{ color: 'var(--ct-chip-text)' }} />
-                {emoQuery && (
-                  <button type="button" onClick={() => setEmoQuery('')} aria-label="찾기 지우기"
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full active:bg-black/5" style={{ color: 'var(--ct-label)' }}>
-                    <X size={16} />
-                  </button>
-                )}
-              </div>
-
-              {emoQuery.trim() ? (
-                // 키보드가 떠 있으면 결과 칸을 줄여 입력줄·대화가 화면 밖으로 안 밀리게.
-                <div className="overflow-y-auto" style={{ maxHeight: kbInset ? '22vh' : '40vh' }}>
-                  {searchHits.length === 0 ? (
-                    <div className="py-6 text-center text-[12.5px] leading-relaxed" style={{ color: 'var(--ct-label)' }}>
-                      「{emoQuery.trim()}」로 찾은 이모티콘이 없어요.<br />다른 말로 쳐 보세요 (배고파, ㅂㄱ, 잘자…)
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>
-                        <span>찾은 이모티콘 {searchHits.filter((p) => p.mode !== 'mini').length}개</span>
-                        {/* 입력칸 단추로 들어온 검색이면 — 고른 그림이 친 단어를 대신한다는 걸 알려 둔다 */}
-                        {activeKw() && <span className="truncate font-semibold text-[#FB7BA8]">{replacesDraft() ? `고르면 입력한 「${activeKw()}」 대신 가요` : '고르면 입력한 글과 함께 가요'}</span>}
-                      </div>
-                      <div className="grid grid-cols-4 gap-1.5">{searchHits.filter((p) => p.mode !== 'mini').map((p) => emoCell(p, 'aspect-square'))}</div>
-                      {searchHits.some((p) => p.mode === 'mini') && (
-                        <>
-                          <div className="mb-1.5 mt-3 px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>글 속 미니 — 누르면 입력칸에 (단어)로 들어가요</div>
-                          <div className="grid grid-cols-5 gap-1.5">{searchHits.filter((p) => p.mode === 'mini').map((p) => emoCell(p, 'aspect-square'))}</div>
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
-              ) : (
-                <>
-                  {/* 탭 — 실제 스티커 대표 그림(썸네일) 정사각. 최근·자주만 🕒. 선택 시 로즈 배경. 내 캐릭터 탭이 앞(stickerTabs). */}
-                  <div className="flex gap-1 mb-1.5 overflow-x-auto pb-0.5">
-                    {stickerTabs.map((st) => {
-                      const on = st.id === stickerMode;
-                      return (
-                        <button key={st.id} onClick={() => setStickerMode(st.id)} aria-pressed={on} aria-label={`${st.name} 이모티콘`}
-                          className={`shrink-0 grid h-11 w-11 place-items-center rounded-xl transition-colors ${on ? '' : 'active:bg-black/5'}`}
-                          style={on ? { background: 'var(--ct-tab-active)' } : undefined}>
-                          {st.thumb
-                            ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={st.thumb} alt="" className="h-7 w-7 object-contain" />
-                            : <span className="text-[20px]">{st.icon}</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {/* 선택된 탭 이름(어느 탭인지 힌트) + 오른쪽에 ★ 방법 */}
-                  <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5 text-[12px] font-bold text-[color:var(--ct-label)]">
-                    <span>{STICKER_TABS.find((t) => t.id === stickerMode)?.name}</span>
-                    <span className="font-medium opacity-80">꾹 누르면 ★ 즐겨찾기</span>
-                  </div>
-
-                  <div className="overflow-y-auto" style={{ maxHeight: kbInset ? '22vh' : '40vh' }}>
-                    {stickerMode === 'recent' ? (
-                      (recentPicks.length === 0 && frequentList.length === 0 && favPicks.length === 0) ? (
-                        <div className="py-8 text-center text-[12.5px] leading-relaxed text-[#94A3B8]">아직 쓴 이모티콘이 없어요.<br />다른 탭에서 골라 써보면 여기 모여요 🐾<br />꾹 누르면 ★ 즐겨찾기로 맨 위에 둘 수 있어요</div>
-                      ) : (
-                        <div className="flex flex-col gap-3.5">
-                          {favPicks.length > 0 && (
-                            <div>
-                              <h3 className="mb-1.5 text-[11px] font-bold text-[#FB7BA8]">★ 즐겨찾기</h3>
-                              <div className="grid grid-cols-4 gap-1.5">{favPicks.map((p) => emoCell(p, 'aspect-square'))}</div>
-                            </div>
-                          )}
-                          {frequentList.length > 0 && (
-                            <div>
-                              <h3 className="mb-1.5 text-[11px] font-bold text-[color:var(--ct-label)]">자주 쓰는</h3>
-                              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
-                                {frequentList.map((p) => emoCell(p, 'h-16 w-16 shrink-0'))}
-                              </div>
-                            </div>
-                          )}
-                          {recentPicks.length > 0 && (
-                            <div>
-                              <h3 className="mb-1.5 text-[11px] font-bold text-[color:var(--ct-label)]">🕒 최근 사용</h3>
-                              <div className="grid grid-cols-4 gap-1.5">{recentPicks.map((p) => emoCell(p, 'aspect-square'))}</div>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    ) : (
-                      stickerSections(stickerMode).map((sec, si) => (
-                        <div key={si} className={si > 0 ? 'mt-3' : ''}>
-                          {sec.label && (
-                            <div className="sticky top-0 z-10 mb-1.5 py-1 backdrop-blur-sm" style={{ background: 'var(--ct-sheet)' }}>
-                              <span className="inline-block px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>{sec.label}</span>
-                            </div>
-                          )}
-                          <div className="grid grid-cols-4 gap-1.5">
-                            {sec.items.map((it) => emoCell({ mode: stickerMode, key: it.key, image: it.image, thumb: it.thumb, video: it.video }, 'aspect-square'))}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
           {/* 수정 중 바 — 입력창에 원본이 들어가 있고, 전송하면 그 메시지를 고침 */}
           {editing && (
             <div className="mx-3 mb-1 flex items-center gap-2 rounded-xl bg-[#FB7BA8]/10 px-3 py-2">
@@ -2340,7 +2249,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           {/* 입력 */}
           <div className="relative px-3 pt-2 backdrop-blur-xl border-t border-black/[0.04]"
             // 키보드가 떠 있으면 키보드 높이 + 8px만(아래 안전영역 틈은 키보드가 덮으니 뺀다 — 카톡처럼 붙게)
-            style={{ paddingBottom: kbInset ? `${kbInset + 8}px` : 'max(env(safe-area-inset-bottom), 1.25rem)', background: 'var(--ct-header)' }}>
+            //   서랍이 열려 있으면 서랍이 그 자리를 채운다(여백 0). 서랍→키보드로 넘어가는 사이(holdPanel)엔 서랍 높이만큼 비워 둬 입력줄이 안 떨어진다.
+            style={{ paddingBottom: stickerOpen && !searchEditing ? 0 : holdPanel ? `${panelH}px` : kbInset ? `${kbInset + 8}px` : 'max(env(safe-area-inset-bottom), 1.25rem)', background: 'var(--ct-header)' }}>
             {/* 짝 답장 트레이 — 제미나이 C안 그대로(StickerSuggestTray). 입력바 바로 위에 떠 있다(absolute bottom-full). 탭=미리보기 */}
             <StickerSuggestTray
               items={trayItems}
@@ -2514,7 +2424,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 <div className="grid min-w-0 flex-1">
                 <div aria-hidden className="invisible col-start-1 row-start-1 max-h-[132px] overflow-hidden whitespace-pre-wrap break-words px-1.5 py-2.5 text-[15px] leading-snug">{draft + ' '}</div>
                 <textarea ref={taRef} value={draft} onChange={onInput} onBlur={stopTyping} onPaste={onPaste}
-                  onFocus={() => setStickerOpen(false)}
+                  onFocus={() => { if (stickerOpen) { setHoldPanel(true); setStickerOpen(false); } }}
                   onKeyDown={(e) => {
                     const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
                     if (e.key === 'Enter' && !e.shiftKey && !coarse && !e.nativeEvent.isComposing) { e.preventDefault(); send(); }
@@ -2529,7 +2439,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                       서랍을 열 땐 키보드를 내린다: 폰에서 키보드와 서랍이 같이 뜨면 메시지가 거의 안 보인다. */}
                   {/* 카톡식 — 마지막 단어에 맞는 이모티콘이 있으면 이 단추가 그 그림(작게)으로 바뀐다. 누르면 그 단어로 찾은 서랍. */}
                   <button onClick={() => {
-                      if (stickerOpen) { setStickerOpen(false); taRef.current?.focus(); }
+                      if (stickerOpen) { setHoldPanel(true); setStickerOpen(false); taRef.current?.focus(); }
                       else if (kwThumb) openKeywordSearch();
                       else { setKwWord(null); setStickerOpen(true); setAttachOpen(false); taRef.current?.blur(); }
                     }}
@@ -2553,6 +2463,148 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     </button>
                   )}
                 </div>
+              </div>
+            )}
+            {/* 이모티콘 서랍 — 입력줄 아래(카톡처럼 키보드 자리, 우댕 2026-11-02 「어디다 타이핑할지 헷갈려」). 제미나이 2차: 아이콘만 탭 + 카톡식 '최근·자주' 첫 탭.
+                + 검색칸(모든 탭을 이름·같은 뜻 말로) · 내 캐릭터 탭 먼저 · 꾹 눌러 ★ 즐겨찾기(벤치마킹 1·2번, 우댕 선택 2026-10-16) */}
+            {stickerOpen && (
+              // 키보드 자리 — 평소엔 마지막으로 잰 키보드 높이(panelH)로 고정해 키보드↔서랍을 바꿔도 입력줄이 안 움직인다.
+              //   찾기 글칸을 쓰는 동안(searchEditing)엔 키보드가 아래를 차지하니 서랍은 짧게(결과 22vh).
+              <div className="mt-2" style={searchEditing ? undefined : { height: panelH, paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
+              <div className={`rounded-[28px] p-3 backdrop-blur-md border ${searchEditing ? '' : 'flex h-full flex-col'}`} style={{ background: 'var(--ct-sheet)', borderColor: 'var(--ct-sheet-border)', boxShadow: 'var(--sd-shadow-card)' }}>
+                {/* 찾기 — 평소엔 글칸을 안 보인다: 입력줄과 똑같은 흰 글칸이 위아래로 둘이라 「어디다 치지?」 헷갈렸다(우댕 2026-11-02, 카톡 비교·GPT 상의).
+                    찾은 말은 알약으로만 보이고, 🔍(다시 찾기)를 누를 때만 글칸이 나와 키보드가 뜬다. 글씨 16px: 아이폰은 16px 미만 입력칸을 누르면 화면을 확대한다. */}
+                {searchEditing ? (
+                  <div className="mb-2 flex h-10 shrink-0 items-center gap-2 rounded-2xl px-3" style={{ background: 'var(--ct-cell)', boxShadow: 'var(--ct-cell-shadow)' }}>
+                    <Search size={16} className="shrink-0" style={{ color: 'var(--ct-label)' }} />
+                    <input ref={emoSearchRef} value={emoQuery} onChange={(e) => setEmoQuery(e.target.value)} type="search" enterKeyHint="search"
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.blur(); } }}
+                      // 결과를 누르는 순간에도 blur가 먼저 와서 서랍이 커지며 누른 자리가 밀린다 → 조금 늦게 닫는다
+                      onBlur={() => setTimeout(() => setSearchEditing(false), 180)}
+                      placeholder="이모티콘 찾기 (ㅂ, 배고파, 잘자…)" aria-label="이모티콘 찾기"
+                      className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-[color:var(--ct-label)] [&::-webkit-search-cancel-button]:hidden"
+                      style={{ color: 'var(--ct-chip-text)' }} />
+                    {emoQuery && (
+                      <button type="button" onPointerDown={(e) => e.preventDefault()} onClick={() => setEmoQuery('')} aria-label="찾기 지우기"
+                        className="grid h-7 w-7 shrink-0 place-items-center rounded-full active:bg-black/5" style={{ color: 'var(--ct-label)' }}>
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                ) : emoQuery.trim() ? (
+                  // 찾은 말 = 알약(카톡 「〈🔍 · 사랑해」). 글칸처럼 안 보이게 작고 둥근 단추로.
+                  <div className="mb-2 flex shrink-0 items-center gap-1.5 overflow-x-auto">
+                    <button type="button" onClick={startEmoSearch} aria-label="다른 말로 찾기"
+                      className="flex h-8 shrink-0 items-center gap-1 rounded-full px-3 text-[13px] font-bold active:scale-95 transition"
+                      style={{ background: 'var(--ct-tab-active)', color: 'var(--ct-label)' }}>
+                      <Search size={14} /> 다시 찾기
+                    </button>
+                    <span className="flex h-8 shrink-0 items-center gap-1 rounded-full border border-[#FB7BA8] pl-3 pr-1 text-[13px] font-bold text-[#FB7BA8]" style={{ background: 'var(--ct-cell)' }}>
+                      {emoQuery.trim()}
+                      <button type="button" onClick={() => { setEmoQuery(''); setKwWord(null); }} aria-label="찾은 말 지우기"
+                        className="grid h-6 w-6 place-items-center rounded-full active:bg-black/5"><X size={13} /></button>
+                    </span>
+                  </div>
+                ) : null}
+
+                {emoQuery.trim() ? (
+                  // 키보드가 떠 있으면 결과 칸을 줄여 입력줄·대화가 화면 밖으로 안 밀리게.
+                  <div className={`overflow-y-auto overscroll-contain ${searchEditing ? '' : 'min-h-0 flex-1'}`} style={searchEditing ? { maxHeight: '22vh' } : undefined}>
+                    {searchHits.length === 0 ? (
+                      <div className="py-6 text-center text-[12.5px] leading-relaxed" style={{ color: 'var(--ct-label)' }}>
+                        「{emoQuery.trim()}」로 찾은 이모티콘이 없어요.<br />다른 말로 쳐 보세요 (배고파, ㅂㄱ, 잘자…)
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>
+                          <span>찾은 이모티콘 {searchHits.filter((p) => p.mode !== 'mini').length}개</span>
+                          {/* 입력칸 단추로 들어온 검색이면 — 고른 그림이 친 단어를 대신한다는 걸 알려 둔다 */}
+                          {activeKw() && <span className="truncate font-semibold text-[#FB7BA8]">{replacesDraft() ? `고르면 입력한 「${activeKw()}」 대신 가요` : '고르면 입력한 글과 함께 가요'}</span>}
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5">{searchHits.filter((p) => p.mode !== 'mini').map((p) => emoCell(p, 'aspect-square'))}</div>
+                        {searchHits.some((p) => p.mode === 'mini') && (
+                          <>
+                            <div className="mb-1.5 mt-3 px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>글 속 미니 — 누르면 입력칸에 (단어)로 들어가요</div>
+                            <div className="grid grid-cols-5 gap-1.5">{searchHits.filter((p) => p.mode === 'mini').map((p) => emoCell(p, 'aspect-square'))}</div>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {/* 탭 — 실제 스티커 대표 그림(썸네일) 정사각. 최근·자주만 🕒. 선택 시 로즈 배경. 내 캐릭터 탭이 앞(stickerTabs). */}
+                    <div className="flex shrink-0 gap-1 mb-1.5 overflow-x-auto pb-0.5">
+                      {/* 맨 앞 🔍 — 누를 때만 찾기 글칸이 열린다(평소 서랍엔 글칸 없음) */}
+                      <button type="button" onClick={startEmoSearch} aria-label="이모티콘 찾기"
+                        className="shrink-0 grid h-11 w-11 place-items-center rounded-xl active:bg-black/5" style={{ color: 'var(--ct-label)' }}>
+                        <Search size={20} />
+                      </button>
+                      {stickerTabs.map((st) => {
+                        const on = st.id === stickerMode;
+                        return (
+                          <button key={st.id} onClick={() => setStickerMode(st.id)} aria-pressed={on} aria-label={`${st.name} 이모티콘`}
+                            className={`shrink-0 grid h-11 w-11 place-items-center rounded-xl transition-colors ${on ? '' : 'active:bg-black/5'}`}
+                            style={on ? { background: 'var(--ct-tab-active)' } : undefined}>
+                            {st.thumb
+                              ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={st.thumb} alt="" className="h-7 w-7 object-contain" />
+                              : <span className="text-[20px]">{st.icon}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {/* 선택된 탭 이름(어느 탭인지 힌트) + 오른쪽에 ★ 방법 */}
+                    <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2 px-0.5 text-[12px] font-bold text-[color:var(--ct-label)]">
+                      <span>{STICKER_TABS.find((t) => t.id === stickerMode)?.name}</span>
+                      <span className="font-medium opacity-80">꾹 누르면 ★ 즐겨찾기</span>
+                    </div>
+
+                    <div className={`overflow-y-auto overscroll-contain ${searchEditing ? '' : 'min-h-0 flex-1'}`} style={searchEditing ? { maxHeight: '22vh' } : undefined}>
+                      {stickerMode === 'recent' ? (
+                        (recentPicks.length === 0 && frequentList.length === 0 && favPicks.length === 0) ? (
+                          <div className="py-8 text-center text-[12.5px] leading-relaxed text-[#94A3B8]">아직 쓴 이모티콘이 없어요.<br />다른 탭에서 골라 써보면 여기 모여요 🐾<br />꾹 누르면 ★ 즐겨찾기로 맨 위에 둘 수 있어요</div>
+                        ) : (
+                          <div className="flex flex-col gap-3.5">
+                            {favPicks.length > 0 && (
+                              <div>
+                                <h3 className="mb-1.5 text-[11px] font-bold text-[#FB7BA8]">★ 즐겨찾기</h3>
+                                <div className="grid grid-cols-4 gap-1.5">{favPicks.map((p) => emoCell(p, 'aspect-square'))}</div>
+                              </div>
+                            )}
+                            {frequentList.length > 0 && (
+                              <div>
+                                <h3 className="mb-1.5 text-[11px] font-bold text-[color:var(--ct-label)]">자주 쓰는</h3>
+                                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
+                                  {frequentList.map((p) => emoCell(p, 'h-16 w-16 shrink-0'))}
+                                </div>
+                              </div>
+                            )}
+                            {recentPicks.length > 0 && (
+                              <div>
+                                <h3 className="mb-1.5 text-[11px] font-bold text-[color:var(--ct-label)]">🕒 최근 사용</h3>
+                                <div className="grid grid-cols-4 gap-1.5">{recentPicks.map((p) => emoCell(p, 'aspect-square'))}</div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      ) : (
+                        stickerSections(stickerMode).map((sec, si) => (
+                          <div key={si} className={si > 0 ? 'mt-3' : ''}>
+                            {sec.label && (
+                              <div className="sticky top-0 z-10 mb-1.5 py-1 backdrop-blur-sm" style={{ background: 'var(--ct-sheet)' }}>
+                                <span className="inline-block px-0.5 text-[12px] font-bold" style={{ color: 'var(--ct-label)' }}>{sec.label}</span>
+                              </div>
+                            )}
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {sec.items.map((it) => emoCell({ mode: stickerMode, key: it.key, image: it.image, thumb: it.thumb, video: it.video }, 'aspect-square'))}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
               </div>
             )}
           </div>
