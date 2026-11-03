@@ -18,11 +18,31 @@ def key(path):
     rgba = np.dstack([r, g, b2, alpha * 255]).astype(np.uint8)
     return Image.fromarray(rgba, 'RGBA').resize((S, S), Image.LANCZOS)
 
+# 다시 만든 것(Kling 23, 우댕 「허락할게」 2026-11-04):
+#   yay  — 두 발로 선 그림에서 한 번만 폴짝. 꼭대기(24fps f45~53)에서 머리가 화면 위 끝에 닿아 귀가 잘려 그 몇 장을 뺀다(폴짝은 그대로 읽힘).
+#   night — Kling이 숨을 거의 안 그려(22·23차 둘 다) 편집에서 숨을 넣는다: 몸·잎 전체를 바닥 기준으로 세로 6%·가로 1.5% 천천히(3.5%는 카드 140px에서 안 보였다) 부풀렸다 가라앉힘(3초 한 번).
+SPEC = {'yay': ('yay2', set(range(45, 54)), False), 'night': ('night2', set(), True)}
+
+def breathe(im, t):
+    import math
+    s = math.sin(math.pi * t) ** 2                    # 0 → 1 → 0 (한 번 들이쉬고 내쉼, 끝=처음)
+    sy, sx = 1 + 0.06 * s, 1 + 0.015 * s
+    a = np.array(im)[..., 3]; ys, xs = np.where(a > 20)
+    bottom, cx = ys.max(), (xs.min() + xs.max()) / 2
+    w, h = im.size
+    big = im.resize((round(w * sx), round(h * sy)), Image.LANCZOS)
+    out = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    out.alpha_composite(big, (round(cx - cx * sx), round(bottom - bottom * sy)))
+    return out
+
 def main(names, fps=12, quality=75):
     for n in names:
-        files = sorted(os.listdir(os.path.join(HERE, 'frames', n)))
+        src, skip, breath = SPEC.get(n, (n, set(), False))
+        files = [f for f in sorted(os.listdir(os.path.join(HERE, 'frames', src))) if int(f[1:4]) not in skip]
         step = max(1, round(24 / fps))
-        frames = [key(os.path.join(HERE, 'frames', n, f)) for f in files[::step]]
+        frames = [key(os.path.join(HERE, 'frames', src, f)) for f in files[::step]]
+        if breath:
+            frames = [breathe(f, i / len(frames)) for i, f in enumerate(frames)]
         # 반복 이음새: 마지막 프레임이 첫 프레임과 거의 같으면 마지막 것을 빼 같은 장면이 두 번 안 나오게
         a0, a1 = np.array(frames[0]).astype(int), np.array(frames[-1]).astype(int)
         if np.abs(a0 - a1).mean() < 6: frames = frames[:-1]
