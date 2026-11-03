@@ -2,6 +2,10 @@
 #   정지 = 400×400 투명 webp, 캐릭터 키 74%, 가운데(꼬까2와 같은 자리) · 기분 얼굴 = 256×256 투명 webp(사이담 public/mood/quokka 처럼 85%)
 #   글씨는 전부 뺀다 → 배지 붙기 전 초록 원본에서 다시 뽑는다(set16 make_sticker.key — 노랑 조끼가 살구색 안 되게 G만 깎는 키잉).
 #   /usr/bin/python3 art/kkuldoeng-export/export.py [sticker] [mood]
+#   ⚠️ 정지는 글씨 없는 원본을 notext/ 에만 쓴다(사이담 sticker/ 를 바로 덮으면 글씨 붙은 것이 날아간다).
+#   글씨: 우댕 「글씨가 필요하면 넣어야 해. 뜻이 안 통하면 안 돼」(2026-11-04) → LABEL 에 있는 것만 사이담 도구로 얹어 sticker/ 로:
+#     cd ../saidam && EMO_PY=/usr/bin/python3 node scripts/add-emo-label.mjs <notext/이름.webp> "글자"  → 이름-label.webp
+#   LABEL 에 없는 것(그림만으로 뜻이 확실)은 notext/ 그대로 sticker/ 로 복사.
 import os, sys, numpy as np
 from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.join(HERE, '..', '..')
@@ -28,7 +32,12 @@ STICKERS = [
     ('yay', '야호!', f'{K}/yaho/yaho-a-green.png'),
     ('sorry', '미안해', f'{K}/sorry/sorry-a-green.png'),
     ('promise', '약속!(코 도장)', os.path.join(ROOT, 'art', 'yaksok', 'yaksok-kkul.png')),
+    ('call', '부르기(꼼슌아 글씨 뺀 것)', f'{K}/set16/01-ggomsyun-green.png'),
+    ('nap', '꿀잠(푸데데)', f'{K}/pudede/pudede-b-green.png'),
 ]
+LABEL = {'love': '사랑해', 'miss': '보고싶어', 'cute': '앙귀여워', 'hungry': '배고파', 'otw': '가는중', 'arrive': '도착!',
+         'thanks': '고마워', 'really': '진짜아?', 'yes': '응응', 'areyouok': '괜찮아?', 'sorry': '미안해', 'promise': '약속!',
+         'call': '자기야~', 'nap': '꿀잠'}
 
 def cut(path):
     im = Image.open(path)
@@ -49,10 +58,10 @@ def place(im, S, frac, wmax=0.94):
 def main(what):
     rows = []
     if 'sticker' in what:
-        os.makedirs(f'{DST}/sticker', exist_ok=True)
+        os.makedirs(f'{HERE}/notext', exist_ok=True)
         for name, ko, src in STICKERS:
             cv = place(cut(src), 400, 0.74)
-            p = f'{DST}/sticker/{name}.webp'; cv.save(p, 'WEBP', quality=86, method=6)
+            p = f'{HERE}/notext/{name}.webp'; cv.save(p, 'WEBP', quality=86, method=6)
             rows.append(('sticker', name, ko, os.path.getsize(p) // 1024))
     if 'mood' in what:
         os.makedirs(f'{DST}/mood', exist_ok=True)
