@@ -2250,7 +2250,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           <div className="relative px-3 pt-2 backdrop-blur-xl border-t border-black/[0.04]"
             // 키보드가 떠 있으면 키보드 높이 + 8px만(아래 안전영역 틈은 키보드가 덮으니 뺀다 — 카톡처럼 붙게)
             //   서랍이 열려 있으면 서랍이 그 자리를 채운다(여백 0). 서랍→키보드로 넘어가는 사이(holdPanel)엔 서랍 높이만큼 비워 둬 입력줄이 안 떨어진다.
-            style={{ paddingBottom: stickerOpen && !searchEditing ? 0 : holdPanel ? `${panelH}px` : kbInset ? `${kbInset + 8}px` : 'max(env(safe-area-inset-bottom), 1.25rem)', background: 'var(--ct-header)' }}>
+            //   ⚠️ hold 는 panelH + 8 — 서랍 자리는 위 간격(mt-2 = 8px) + panelH 라, panelH 만 비우면 입력줄이 8px 내려갔다 키보드가 오면 다시 올라왔다(441→449→441).
+            style={{ paddingBottom: stickerOpen && !searchEditing ? 0 : holdPanel ? `${panelH + 8}px` : kbInset ? `${kbInset + 8}px` : 'max(env(safe-area-inset-bottom), 1.25rem)', background: 'var(--ct-header)' }}>
             {/* 짝 답장 트레이 — 제미나이 C안 그대로(StickerSuggestTray). 입력바 바로 위에 떠 있다(absolute bottom-full). 탭=미리보기 */}
             <StickerSuggestTray
               items={trayItems}
