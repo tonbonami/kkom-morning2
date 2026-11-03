@@ -6,7 +6,7 @@ import Capacitor
 
 // 잠 소리(백색소음) — 꼼이가 유튜브 빗소리를 틀고 자는데 화면이 꺼지면 멈추고 광고가 떠서(우댕 2026-11-01) 앱이 직접 낸다.
 //   소리는 이 파일(AVAudioEngine)만 낸다. 웹 화면은 고르고·켜고·끄기만(SleepSoundPlugin). GPT 상의: docs/gpt-sleep-sound-answer.md
-//   - 빗소리 = 실제 녹음 2개(번들 rain-roof.m4a 7분 40초·rain-window.m4a 10분, Pixabay 무료 라이선스, art/sleep/prep_real_rain.py로
+//   - 빗소리 = 실제 녹음 2개 — 텐트(rain-tent.m4a 20분, 우댕이 준 9시간 파일에서 10~30분 구간, 2026-11-03 「이걸로 바꿔줘」)·창가(rain-window.m4a 10분, Pixabay). 처음 실제 녹음 기와지붕(rain-roof)은 텐트로 바꿈. art/sleep/prep_real_rain.py 방식으로
 //     끝·처음 교차 페이드) — 메모리에 다 올리지 않고 디스크에서 흘려 읽으며 같은 파일을 늘 2개씩 줄 세워 이어 튼다(이음새 없음).
 //     (처음엔 코드로 합성한 빗소리였는데 우댕 「너무 인공적」 2026-11-02 → 실제 녹음)
 //   - 분홍·갈색 소음 = 코드로 만든다(파일 없음, 이음새 없음).
@@ -16,8 +16,8 @@ import Capacitor
 //   - 상태는 앱 그룹에도 적어 둔다(위젯·나중 기능용).
 final class SleepSoundManager {
     static let shared = SleepSoundManager()
-    static let sounds: [String: String] = ["rain": "기와지붕 빗소리", "window": "창가 빗소리", "pink": "분홍 소음", "brown": "갈색 소음"]
-    private static let files: [String: String] = ["rain": "rain-roof", "window": "rain-window"]   // id → 번들 m4a 이름(rain 은 옛 설정과 맞추려고 id 유지)
+    static let sounds: [String: String] = ["rain": "텐트 빗소리", "window": "창가 빗소리", "pink": "분홍 소음", "brown": "갈색 소음"]
+    private static let files: [String: String] = ["rain": "rain-tent", "window": "rain-window"]   // id → 번들 m4a 이름(rain 은 옛 설정과 맞추려고 id 유지)
     private var isFile: Bool { Self.files[soundId] != nil }
     private let appGroup = "group.com.tonbonami.kkommorning"
 

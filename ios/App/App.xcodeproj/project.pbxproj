@@ -27,6 +27,7 @@
 		53B260FA3AC53ABB40843C01 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 474FCE64304F0513B5EA322B /* ContentView.swift */; };
 		6113B048D551908DBCE78F42 /* KkomShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5861F52B9D2C0563302F66A2 /* KkomShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		64AD27C7EDD4C658C6BAB8FB /* WatchStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B5441AB547E3A521A83969 /* WatchStore.swift */; };
+		90646B6CBCAD7DF17E99EA02 /* rain-tent.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 6F326DFF5B8423BECDB48B67 /* rain-tent.m4a */; };
 		96F636B7A4A3F29803F4E4F9 /* KkomActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19745C55F7234D45630743AE /* KkomActivityAttributes.swift */; };
 		99EA9F2FDD7308892BF4BB4D /* heartbeat.caf in Resources */ = {isa = PBXBuildFile; fileRef = CDB55EB644281CF5DABEEFBA /* heartbeat.caf */; };
 		9A3CF8066F8FD1E4BD7CE20D /* HapticBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DC21A45BB08DBC2306696A2 /* HapticBridge.swift */; };
@@ -47,7 +48,6 @@
 		DF6DF86A301C25680029DEE0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF6DF83B301B9E3C0029DEE0 /* SwiftUI.framework */; };
 		DF6DF875301C25680029DEE0 /* KkomWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DF6DF868301C25680029DEE0 /* KkomWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DFA8708F030D3DEBAF423710 /* PushBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1316832D8E0CDFB384EF5062 /* PushBridge.swift */; };
-		E6C2CFFEC9E023A9673841F2 /* rain-roof.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 6456035EE1608BFC0F947713 /* rain-roof.m4a */; };
 		EA57C752D99C7B618F0898A2 /* CanvasScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E811AD988B947C59DE5916 /* CanvasScreen.swift */; };
 		F20E82AE748042443919FD8C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5B2E72E83E1B27DDF4150575 /* Assets.xcassets */; };
 		F39EEF465004D243B61403CC /* CanvasUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C80600F48DE4A56CAF7B33B /* CanvasUI.swift */; };
@@ -156,7 +156,7 @@
 		5861F52B9D2C0563302F66A2 /* KkomShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KkomShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5B1BFE32B2792896DF3CC9DD /* KkomWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KkomWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5B2E72E83E1B27DDF4150575 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		6456035EE1608BFC0F947713 /* rain-roof.m4a */ = {isa = PBXFileReference; includeInIndex = 1; path = "rain-roof.m4a"; sourceTree = "<group>"; };
+		6F326DFF5B8423BECDB48B67 /* rain-tent.m4a */ = {isa = PBXFileReference; includeInIndex = 1; path = "rain-tent.m4a"; sourceTree = "<group>"; };
 		76A69DDCA0A8BD1C11921EBE /* FireREST.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FireREST.swift; sourceTree = "<group>"; };
 		78A52FD81E9F84AAF4222DDE /* KkomWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KkomWatchApp.swift; sourceTree = "<group>"; };
 		79F0DBD8F7D90FACFD3F9F1C /* SleepSound.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SleepSound.swift; sourceTree = "<group>"; };
@@ -369,8 +369,8 @@
 				CDB55EB644281CF5DABEEFBA /* heartbeat.caf */,
 				1C80600F48DE4A56CAF7B33B /* CanvasUI.swift */,
 				79F0DBD8F7D90FACFD3F9F1C /* SleepSound.swift */,
-				6456035EE1608BFC0F947713 /* rain-roof.m4a */,
 				04749902793463AE3408AD34 /* rain-window.m4a */,
+				6F326DFF5B8423BECDB48B67 /* rain-tent.m4a */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -594,8 +594,8 @@
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				99EA9F2FDD7308892BF4BB4D /* heartbeat.caf in Resources */,
-				E6C2CFFEC9E023A9673841F2 /* rain-roof.m4a in Resources */,
 				AFFAFA816AF607490B527792 /* rain-window.m4a in Resources */,
+				90646B6CBCAD7DF17E99EA02 /* rain-tent.m4a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
