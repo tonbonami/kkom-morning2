@@ -6,7 +6,9 @@ import { motion } from 'framer-motion';
 import type { MiniPart } from '@/lib/miniEmoticons';
 import { PencilLine, Check, XCircle, Smile, Keyboard } from 'lucide-react'; // Added for edit buttons
 
-export const LETTER_PAPER_CLASS = 'bg-[#FCFAF7] sd-card-paper'; // Custom class for warm ivory paper
+// 우댕 2026-11-06 「바탕이 너무 밝아서 꼼이 이모티콘이 잘 안 보여, 조금만 어둡게」 — #FCFAF7 은 꼼이미니 털색(≈#FBF1EA)과 같아 묻혔다. 후보 3개 비교해 B.
+//   ⚠️ `!` — 쓰기 화면 편지지는 `.sd-card`(background: 반투명 흰색, 층 밖 CSS)와 같이 붙어 그쪽이 이겼다(쓰기만 흰색이던 이유).
+export const LETTER_PAPER_CLASS = '!bg-[#EEE3D5] sd-card-paper'; // Custom class for warm ivory paper
 
 export interface LetterPaperProps {
   toName: string;
