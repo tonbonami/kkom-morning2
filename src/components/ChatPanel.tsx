@@ -22,6 +22,7 @@ import StickerSuggestTray, { type SuggestItem } from './StickerSuggestTray';
 import StickerSendPreview from './StickerSendPreview';
 import StickerTextStack from './StickerTextStack';
 import ChatEffectLayer, { type ChatEffect } from '@/components/ChatEffectLayer';
+import { SAIDAMI_STICKERS, MINI_BY_WORD, TEXT_STICKER_BY_SENDER, senderSticker } from '@/lib/miniEmoticons';
 
 // 메시지 효과 키워드 → 이모지
 function effectFor(text: string): string[] | null {
@@ -581,45 +582,8 @@ const SAI_STICKERS: { word: string; image: string }[] = [
   { word: '꼼돌아', image: '/emo/sai/kkomdol.webp' }, // 꼼이가 우댕을 부름 — 꿀됑 「꼼슌아」를 좌우로 뒤집은 짝(art/kkom-call A안, 우댕 OK 2026-10-30)
 ];
 
-// 사이담이 탭 — 사이담 말티푸 표정·몸짓 21종. 사이담 EMOTICONS(setId=BASIC) 정의 순서 그대로.
-// 파일은 사이담 /mood + /praise/saidam 공유본을 꼼모닝 /emo/saidami/로 네임스페이스 복사(우리 /pochacco 무버 안 건드림).
-const SAIDAMI_STICKERS: { word: string; image: string }[] = [
-  { word: '행복', image: '/emo/saidami/happy.webp' },
-  { word: '사랑해', image: '/emo/saidami/love.webp' },
-  { word: '신나', image: '/emo/saidami/excited.webp' },
-  { word: '평온', image: '/emo/saidami/calm.webp' },
-  { word: '졸려', image: '/emo/saidami/sleepy.webp' },
-  { word: '속상해', image: '/emo/saidami/sad.webp' },
-  { word: '화났어', image: '/emo/saidami/angry.webp' },
-  { word: '보고파', image: '/emo/saidami/missing.webp' },
-  { word: '아파', image: '/emo/saidami/sick.webp' },
-  { word: '미안해', image: '/emo/saidami/sorry.webp' },
-  { word: '고마워', image: '/emo/saidami/thanks.webp' },
-  { word: '삐졌어', image: '/emo/saidami/sulky.webp' },
-  { word: '반짝', image: '/emo/saidami/star.webp' },
-  { word: '하트', image: '/emo/saidami/heart.webp' },
-  { word: '짝짝짝', image: '/emo/saidami/clap.webp' },
-  { word: '잘했어', image: '/emo/saidami/medal.webp' },
-  { word: '꽃다발', image: '/emo/saidami/flower.webp' },
-  { word: '칭찬해줘', image: '/emo/saidami/please.webp' },
-  { word: '힘내', image: '/emo/saidami/jump.webp' },
-  { word: '최고야', image: '/emo/saidami/crown.webp' },
-  { word: '안아줘', image: '/emo/saidami/hug.webp' },
-  { word: '헤헤', image: '/emo/saidami/hehe.webp' },   // 꼼이 말버릇(73번) — 글 속 (헤헤). 원본 art/kkom-hehe A안(우댕 OK 2026-10-19)
-];
-
-// 꼼이미니 = 카톡식 (단어) 인라인 미니(32px). 라벨→이미지 룩업.
-// 겹치는 단어(사랑해·보고파·하트는 커플 스티커에도 있음)는 꼼이미니(말티푸)가 렌더 우선.
-// 커플 스티커는 '커플' 탭 탭전송(단독 스티커)으로 그대로 살아있어 손실 없음.
-const MINI_BY_WORD: Record<string, string> = Object.fromEntries(SAIDAMI_STICKERS.map((s) => [s.word, s.image]));
-// 보낸 사람 캐릭터로 바꿔 그리는 글 속 단어 — 꼼이미니·커플 스티커보다 먼저 본다.
-//   (야호): 우댕이 치면 꿀됑 야호(우댕 문장 끝 인사, 340번), 꼼이가 친 (야호)는 원래 포차코 그대로.
-//   (약속): 꼼이는 발바닥 도장, 우댕은 꿀됑 코 도장(원본 art/yaksok, GPT 상의 B+D안).
-const TEXT_STICKER_BY_SENDER: Record<string, Record<string, string>> = {
-  '우댕': { '야호': '/emo/kkuldaeng/mini/yaho.webp', '약속': '/emo/kkuldaeng/mini/yaksok.webp' },
-  '꼼이': { '약속': '/emo/kkom/mini/yaksok.webp' },
-};
-const senderSticker = (w: string, from?: string) => (from ? TEXT_STICKER_BY_SENDER[from]?.[w] : undefined);
+// 꼼이미니(SAIDAMI_STICKERS)·단어→그림(MINI_BY_WORD)·보낸 사람별 그림(TEXT_STICKER_BY_SENDER·senderSticker)은
+//   편지와 같이 쓰려고 src/lib/miniEmoticons.ts 로 옮겼다(2026-11-06). 목록을 고칠 땐 거기서.
 // (단어) 매칭 = 꼼이미니 단어 + 커플 텍스트스티커 + 보낸 사람별 단어(중복 제거). 손으로 쳐도 그림이 된다.
 const STICKER_ALT = [...new Set([
   ...SAIDAMI_STICKERS.map((s) => s.word), ...Object.keys(TEXT_STICKERS),

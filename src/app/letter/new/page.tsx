@@ -1,15 +1,23 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, Send, Mail, Clock, Mic, Square, Play, Pause, Trash2, Pencil, Smile, X, Sparkles } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { X, Sparkles } from 'lucide-react';
 import { sendLetter, uploadVoice, nameFromCode, partnerOf, type Doodle } from '@/lib/letters';
 import { feedback } from '@/lib/feedback';
 import { EMOTICON_SETS, getEmoticonsByIds } from '@/lib/emoticons';
 import { ANIMATED_STICKERS, getAnimatedSticker } from '@/lib/animatedStickers';
 import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
+import { splitMini, miniItemsFor, insertMiniToken } from '@/lib/miniEmoticons';
+import { formatKstLocale, kstParts } from '@/lib/kst';
+import { LetterComposeScreen, type LetterTool } from '@/components/letter/LetterComposeScreen';
+import { LetterEditor } from '@/components/letter/LetterEditor';
+import { MiniEmoticonSheet } from '@/components/letter/MiniEmoticonSheet';
+import { LetterVoicePanel } from '@/components/letter/LetterVoicePanel';
+import { LetterSchedulePanel } from '@/components/letter/LetterSchedulePanel';
+import { LetterStickerPanel } from '@/components/letter/LetterStickerPanel';
+import { LetterPaper } from '@/components/letter/LetterPaper';
 
 const MAX_REC_SEC = 30;
 const MAX_EMOTICONS_PER_LETTER = 3;
@@ -41,7 +49,6 @@ export default function NewLetterPage() {
 
   // 손글씨 — DoodlePad compose 모드가 onChange로 데이터 보내옴
   const [doodle, setDoodle] = useState<DoodleData | null>(null);
-  const [showDoodle, setShowDoodle] = useState(false);
   const [showEmoticonSheet, setShowEmoticonSheet] = useState(false);
   const [activeEmoticonSetId, setActiveEmoticonSetId] = useState(EMOTICON_SETS[0]?.id ?? '');
   const [selectedEmoticonIds, setSelectedEmoticonIds] = useState<string[]>([]);
@@ -195,252 +202,119 @@ export default function NewLetterPage() {
     }
   };
 
+  // ── 편지 새 단장 1차(2026-11-06, GPT 상의 docs/gpt-letter-upgrade-*.md · 제미나이 시안 src/components/letter/*) ──
+  //   글 속 미니 이모티콘: 글자칸엔 `(사랑해)` 그대로, 보여 줄 때만 그림(src/lib/miniEmoticons.ts — 꼼톡과 같은 목록).
+  //   미니 서랍을 열면 글자칸이 포커스를 잃으니, 넣을 자리(커서)를 미리 기억해 둔다(selRef).
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+  const selRef = useRef({ start: 0, end: 0 });
+  const [miniOpen, setMiniOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [activeTool, setActiveTool] = useState<LetterTool | null>(null);
+  const bodyParts = useMemo(() => splitMini(body, me), [body, me]);
+  const miniItems = useMemo(() => miniItemsFor(me), [me]);
+  const rememberSel = () => {
+    const ta = taRef.current;
+    if (ta) selRef.current = { start: ta.selectionStart ?? ta.value.length, end: ta.selectionEnd ?? ta.value.length };
+  };
+  // 글자칸의 커서가 움직일 때마다 기억 — 미리보기를 열면 글자칸이 사라졌다 다시 생기므로 previewOpen 에도 다시 건다.
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    const evs = ['select', 'keyup', 'click', 'input', 'blur'] as const;
+    evs.forEach((e) => ta.addEventListener(e, rememberSel));
+    return () => evs.forEach((e) => ta.removeEventListener(e, rememberSel));
+  }, [previewOpen]);
+  const openMini = () => { rememberSel(); taRef.current?.blur(); setMiniOpen(true); };
+  const closeMini = () => {
+    setMiniOpen(false);
+    setPreviewOpen(false);
+    requestAnimationFrame(() => {
+      const ta = taRef.current;
+      if (ta) { ta.focus(); ta.setSelectionRange(selRef.current.start, selRef.current.end); }
+    });
+  };
+  const pickMini = (word: string) => {
+    const { value, caret } = insertMiniToken(body, selRef.current.start, selRef.current.end, word);
+    setBody(value);
+    selRef.current = { start: caret, end: caret };
+    import('@/lib/feedback').then(({ haptic }) => haptic(15)).catch(() => {});
+  };
+
+  const now = new Date();
+  const dateText = formatKstLocale(now, { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  const stamp = (() => { const p = kstParts(now); return `${p.year}. ${p.month}. ${p.day}`; })();
+  const animatedSt = animatedSticker ? getAnimatedSticker(animatedSticker) : undefined;
+  const stickerCount = selectedEmoticonIds.length + (animatedSticker ? 1 : 0);
+  const toolBadges: Partial<Record<LetterTool, string>> = {
+    ...(recording ? { voice: '녹음 중' } : voiceBlob ? { voice: `${voiceDuration}초` } : {}),
+    ...(doodle ? { doodle: '그림' } : {}),
+    ...(stickerCount ? { sticker: `${stickerCount}` } : {}),
+    ...(scheduled && openAtStr ? { schedule: (() => { const d = new Date(openAtStr); const p = kstParts(d); return `${p.month}/${p.day} ${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`; })() } : {}),
+  };
+  const toolPanel =
+    activeTool === 'voice' ? (
+      <LetterVoicePanel
+        state={recording ? 'recording' : voiceBlob ? 'recorded' : 'idle'}
+        secLeft={secLeft}
+        duration={voiceDuration}
+        playing={playing}
+        onStart={startRecording}
+        onStop={stopRecording}
+        onTogglePlay={togglePlay}
+        onDelete={resetAudio}
+      />
+    ) : activeTool === 'doodle' ? (
+      <DoodlePad mode="compose" initialData={doodle ?? undefined} onChange={(d) => setDoodle(d)} onDone={() => setActiveTool(null)} />
+    ) : activeTool === 'sticker' ? (
+      <LetterStickerPanel
+        emoticons={selectedEmoticons.map((e) => ({ id: e.id, label: e.label, imageUrl: e.imageUrl }))}
+        max={MAX_EMOTICONS_PER_LETTER}
+        onAddEmoticon={() => setShowEmoticonSheet(true)}
+        onRemoveEmoticon={removeSelectedEmoticon}
+        animated={animatedSt ? { label: animatedSt.label, posterUrl: animatedSt.posterUrl, videoUrl: animatedSt.videoUrl } : null}
+        onPickAnimated={() => setShowAnimSheet(true)}
+        onRemoveAnimated={() => setAnimatedSticker(null)}
+      />
+    ) : activeTool === 'schedule' ? (
+      <LetterSchedulePanel enabled={scheduled} onEnabledChange={setScheduled} value={openAtStr} onChange={setOpenAtStr} toName={partner} />
+    ) : null;
+
   return (
-    <div className="min-h-app bg-background text-foreground">
-      <div className="w-full max-w-md mx-auto p-6 space-y-5">
-        <header className="flex items-center gap-3 pt-2">
-          <button
-            onClick={() => router.back()}
-            className="p-2 rounded-xl bg-white/60 border border-white/60 text-slate-500 active:scale-90 transition-all"
-            aria-label="뒤로"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div className="flex items-center gap-2 text-emerald-600">
-            <Mail size={18} strokeWidth={2.5} />
-            <h1 className="text-lg font-black tracking-tight text-slate-900">
-              {partner ? `${partner}에게 편지 쓰기` : '편지 쓰기'}
-            </h1>
-          </div>
-        </header>
-
-        {/* 글 */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <Card variant="glass">
-            <CardContent className="p-5 space-y-3">
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder={`${partner || '상대'}에게 전할 마음을 적어보세요…`}
-                rows={6}
-                autoFocus
-                className="w-full resize-none bg-transparent outline-none text-slate-700 leading-relaxed text-sm placeholder:text-slate-400"
-              />
-              {selectedEmoticons.length > 0 && (
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar rounded-2xl bg-emerald-50/70 border border-emerald-100 px-3 py-2">
-                  {selectedEmoticons.map((item, index) => (
-                    <motion.button
-                      key={`${item.id}-${index}`}
-                      type="button"
-                      initial={{ opacity: 0, y: 8, scale: 0.9 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      onClick={() => removeSelectedEmoticon(index)}
-                      className="relative w-20 h-20 rounded-2xl bg-white shadow-sm border border-white flex items-center justify-center shrink-0 active:scale-95 transition-transform overflow-hidden"
-                      aria-label={`${item.label} 이모티콘 빼기`}
-                    >
-                      <img src={item.imageUrl} alt={item.label} className="w-[92%] h-[92%] object-contain" />
-                      <span className="absolute -right-1 -top-1 w-5 h-5 rounded-full bg-slate-800 text-white flex items-center justify-center shadow-sm">
-                        <X size={12} />
-                      </span>
-                    </motion.button>
-                  ))}
-                </div>
-              )}
-              {/* 움직이는 포차코 스티커 선택 시 프리뷰 (탭하면 빼기) */}
-              {animatedSticker && (() => {
-                const st = getAnimatedSticker(animatedSticker);
-                if (!st) return null;
-                return (
-                  <div className="flex items-center gap-3 rounded-2xl bg-purple-50/70 border border-purple-100 px-3 py-2.5">
-                    <video
-                      src={st.videoUrl}
-                      poster={st.posterUrl}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      className="w-20 h-20 rounded-2xl object-cover bg-white shadow-sm"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-black text-purple-700">🐶 움직이는 포차코</p>
-                      <p className="text-[11px] text-purple-400 font-bold">{st.label} · 편지에 붙어서 재생돼요</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAnimatedSticker(null)}
-                      className="w-7 h-7 rounded-full bg-white text-slate-400 flex items-center justify-center shadow-sm active:scale-90"
-                      aria-label="움직이는 포차코 빼기"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                );
-              })()}
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowEmoticonSheet(true)}
-                    className="inline-flex items-center gap-2 rounded-full bg-white border border-emerald-100 px-3 py-2 text-[13px] font-bold text-emerald-700 shadow-sm active:scale-95 transition-all"
-                  >
-                    <Smile size={15} /> 이모티콘
-                  </button>
-                  {/* 움직이는 포차코 — 2종 이상이라 선택 시트 열기 */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      import('@/lib/feedback').then(({ haptic }) => haptic(20)).catch(() => {});
-                      setShowAnimSheet(true);
-                    }}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-[13px] font-bold shadow-sm active:scale-95 transition-all ${
-                      animatedSticker
-                        ? 'bg-purple-500 border-purple-500 text-white'
-                        : 'bg-white border-purple-100 text-purple-700'
-                    }`}
-                  >
-                    🐶 움직이는 포차코
-                  </button>
-                </div>
-                <span className="text-[11px] font-bold text-slate-400 shrink-0">
-                  {selectedEmoticonIds.length}/{MAX_EMOTICONS_PER_LETTER}
-                </span>
-              </div>
-              {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* 보이스 편지 (30초) */}
-        <div className="rounded-2xl bg-white/60 border border-white px-4 py-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-slate-600 flex items-center gap-2">
-              <Mic size={15} /> 보이스 편지 <span className="text-[10px] text-slate-400 font-medium">(30초)</span>
-            </span>
-            {voiceBlob && (
-              <span className="text-[11px] text-emerald-600 font-bold">
-                녹음됨 · 약 {voiceDuration}초
-              </span>
-            )}
-          </div>
-
-          {!voiceBlob && !recording && (
-            <button
-              onClick={startRecording}
-              className="w-full py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
-            >
-              <Mic size={15} /> 녹음 시작
-            </button>
-          )}
-
-          {recording && (
-            <button
-              onClick={stopRecording}
-              className="w-full py-2.5 rounded-xl bg-red-500 text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
-            >
-              <Square size={14} fill="currentColor" />
-              <span className="flex items-center gap-1.5">
-                녹음 중 · <strong>{secLeft}초</strong> 남음
-                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              </span>
-            </button>
-          )}
-
-          {voiceBlob && !recording && (
-            <div className="flex items-center gap-2">
-              <audio
-                ref={audioRef}
-                src={voicePreviewUrl}
-                onEnded={() => setPlaying(false)}
-                className="hidden"
-              />
-              <button
-                onClick={togglePlay}
-                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm flex items-center justify-center gap-2 transition-colors"
-              >
-                {playing ? <Pause size={14} /> : <Play size={14} />}
-                {playing ? '일시정지' : '들어보기'}
-              </button>
-              <button
-                onClick={resetAudio}
-                className="py-2.5 px-3 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-red-500 transition-colors"
-                aria-label="다시 녹음"
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* 손글씨 첨부 */}
-        <div className="rounded-2xl bg-white/60 border border-white px-4 py-3 space-y-3">
-          <label className="flex items-center justify-between cursor-pointer">
-            <span className="text-sm font-bold text-slate-600 flex items-center gap-2">
-              <Pencil size={15} /> 손글씨 첨부
-              {doodle && <span className="text-[11px] text-emerald-600 font-bold ml-1">· 그림 있음</span>}
-            </span>
-            <input
-              type="checkbox"
-              checked={showDoodle}
-              onChange={(e) => {
-                setShowDoodle(e.target.checked);
-                if (!e.target.checked) setDoodle(null);
-              }}
-              className="w-5 h-5 accent-emerald-500"
-            />
-          </label>
-          {showDoodle && (
-            <div className="pt-1">
-              <DoodlePad
-                mode="compose"
-                initialData={doodle ?? undefined}
-                onChange={(d) => setDoodle(d)}
-                onDone={() => setShowDoodle(false)}
-              />
-              <p className="text-[11px] text-slate-400 leading-tight mt-2 px-1">
-                ✏️ 그린 순서·속도 그대로 {partner || '상대'}에게 재생돼요
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* 예약 편지 */}
-        <div className="rounded-2xl bg-white/50 border border-white px-4 py-3 space-y-3">
-          <label className="flex items-center justify-between cursor-pointer">
-            <span className="text-sm font-bold text-slate-600 flex items-center gap-2">
-              <Clock size={15} /> 예약 편지로 보내기
-            </span>
-            <input
-              type="checkbox"
-              checked={scheduled}
-              onChange={(e) => setScheduled(e.target.checked)}
-              className="w-5 h-5 accent-emerald-500"
-            />
-          </label>
-          {scheduled && (
-            <input
-              type="datetime-local"
-              value={openAtStr}
-              onChange={(e) => setOpenAtStr(e.target.value)}
-              className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-emerald-300"
-            />
-          )}
-          {scheduled && (
-            <p className="text-[11px] text-slate-400 leading-tight">
-              이 날짜·시각이 되면 {partner || '상대'}에게 도착해요. 그 전엔 잠겨 있어요 🔒
-            </p>
-          )}
-        </div>
-
-        <button
-          onClick={handleSend}
-          disabled={!canSend}
-          className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-200/50 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:active:scale-100"
-        >
-          <Send size={16} strokeWidth={2.5} />
-          {sending ? '보내는 중…' : scheduled ? '예약 편지 보내기' : '편지 보내기'}
-        </button>
-      </div>
-
+    <>
+      {/* 들어보기용 — 음성 칸을 접어도 재생이 끊기지 않게 화면 밖에 둔다 */}
+      {voicePreviewUrl && <audio ref={audioRef} src={voicePreviewUrl} onEnded={() => setPlaying(false)} className="hidden" />}
+      <LetterComposeScreen
+        toName={partner}
+        fromName={me}
+        dateText={dateText}
+        editor={
+          <LetterEditor
+            value={body}
+            onChange={setBody}
+            parts={bodyParts}
+            textareaRef={taRef}
+            placeholder={`${partner || '상대'}에게 전할 마음을 적어 보세요…`}
+            autoFocus
+            onFocus={() => { if (miniOpen) setMiniOpen(false); }}
+          />
+        }
+        miniOpen={miniOpen}
+        onToggleMini={() => (miniOpen ? closeMini() : openMini())}
+        previewOpen={previewOpen}
+        onTogglePreview={() => { rememberSel(); setPreviewOpen((v) => !v); }}
+        preview={<LetterPaper toName={partner} fromName={me} dateText={stamp} parts={bodyParts} preview />}
+        activeTool={activeTool}
+        onToolChange={setActiveTool}
+        toolBadges={toolBadges}
+        toolPanel={toolPanel}
+        miniSheet={<MiniEmoticonSheet open={miniOpen} items={miniItems} onPick={pickMini} onClose={closeMini} />}
+        error={error}
+        canSend={canSend}
+        sending={sending}
+        scheduled={scheduled}
+        onSend={handleSend}
+        onBack={() => router.back()}
+      />
       {/* 움직이는 포차코 선택 시트 */}
       <AnimatePresence>
         {showAnimSheet && (
@@ -641,6 +515,6 @@ export default function NewLetterPage() {
           </>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }

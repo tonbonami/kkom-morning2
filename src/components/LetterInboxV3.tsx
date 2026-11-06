@@ -11,6 +11,12 @@ import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
 import { getEmoticonsByIds } from '@/lib/emoticons';
 import { getAnimatedSticker } from '@/lib/animatedStickers';
 import { kstParts, formatKstFull, formatKstMonthDay } from '@/lib/kst';
+import { miniToPlain, splitMini, miniItemsFor, insertMiniToken } from '@/lib/miniEmoticons';   // 목록 미리보기는 글자만 — (사랑해) → 사랑해 · 읽기는 그림으로
+import { LetterPaper } from '@/components/letter/LetterPaper';
+import { LetterReadSheet } from '@/components/letter/LetterReadSheet';
+import { LetterEnclosures } from '@/components/letter/LetterEnclosures';
+import { LetterEditor } from '@/components/letter/LetterEditor';
+import { MiniEmoticonSheet } from '@/components/letter/MiniEmoticonSheet';
 
 export type Letter = {
   id: string;
@@ -316,7 +322,7 @@ export default function LetterInboxV3({
                   <>
                     {letter.body ? (
                       <p className="text-[15px] leading-relaxed text-slate-700 line-clamp-2 mb-3">
-                        {letter.body}
+                        {miniToPlain(letter.body)}
                       </p>
                     ) : hasEmoticons ? (
                       <p className="text-[15px] leading-relaxed text-slate-500 font-bold mb-3">
@@ -471,181 +477,91 @@ function LetterModal({
     }
   };
 
+  // ── 편지 새 단장 1차(2026-11-06): 편지지(LetterPaper) + 읽기 판(LetterReadSheet) — 제미나이 시안 그대로, 여기는 연결만 ──
+  const stampOf = (d: Date) => { const p = kstParts(d); return `${p.year}. ${p.month}. ${p.day}`; };
+  const animated = letter.animatedSticker ? getAnimatedSticker(letter.animatedSticker) : undefined;
+  const bigEmoticons = getEmoticonsByIds(letter.emoticonIds);
+  const hasEnclosures = bigEmoticons.length > 0 || !!letter.voice || !!letter.doodle || !!animated;
+  // 고치는 중에도 글 속에 미니를 넣게 — 쓰기 화면과 같은 규칙(서랍을 열면 글자칸이 포커스를 잃으니 커서를 기억).
+  const editRef = useRef<HTMLTextAreaElement | null>(null);
+  const editSel = useRef({ start: 0, end: 0 });
+  const [editMiniOpen, setEditMiniOpen] = useState(false);
+  const editParts = useMemo(() => splitMini(draft, me), [draft, me]);
+  const editMiniItems = useMemo(() => miniItemsFor(me), [me]);
+  const rememberEditSel = () => {
+    const ta = editRef.current;
+    if (ta) editSel.current = { start: ta.selectionStart ?? ta.value.length, end: ta.selectionEnd ?? ta.value.length };
+  };
+  useEffect(() => {
+    const ta = editRef.current;
+    if (!editing || !ta) return;
+    const evs = ['select', 'keyup', 'click', 'input', 'blur'] as const;
+    evs.forEach((e) => ta.addEventListener(e, rememberEditSel));
+    return () => evs.forEach((e) => ta.removeEventListener(e, rememberEditSel));
+  }, [editing]);
+  const openEditMini = () => { rememberEditSel(); editRef.current?.blur(); setEditMiniOpen(true); };
+  const closeEditMini = () => {
+    setEditMiniOpen(false);
+    requestAnimationFrame(() => {
+      const ta = editRef.current;
+      if (ta) { ta.focus(); ta.setSelectionRange(editSel.current.start, editSel.current.end); }
+    });
+  };
+  const pickEditMini = (word: string) => {
+    const { value, caret } = insertMiniToken(draft, editSel.current.start, editSel.current.end, word);
+    setDraft(value);
+    editSel.current = { start: caret, end: caret };
+  };
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-5 max-w-md mx-auto"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white w-full rounded-[32px] shadow-2xl relative max-h-[85vh] flex flex-col overflow-hidden"
-      >
-        <button
-          onClick={onClose}
-          className="absolute top-5 right-5 p-2 bg-slate-50 text-slate-400 rounded-full hover:bg-slate-100 z-10"
-        >
-          <X size={20} />
-        </button>
-
-        {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 pb-2">
-
-          {/* Header */}
-          <div className="flex items-center gap-3 mb-6 pr-10">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white shadow-inner ${avatarColor(letter.from)}`}>
-              <Mail size={22} />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-lg font-black text-slate-800">
-                {letter.from}의 편지
-              </h2>
-              <p className="text-[13px] font-medium text-slate-400 mt-0.5">
-                {formatFullDate(letter.createdAt)}
-              </p>
-            </div>
-            {isMine && onEdit && !editing && (
-              <button
-                onClick={startEdit}
-                className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-[12.5px] font-bold text-slate-500 hover:bg-slate-200 active:scale-95"
-              >
-                <Pencil size={12} /> 수정
-              </button>
-            )}
-          </div>
-
-          {/* Body — 내가 보낸 편지는 수정 가능(수정 모드면 textarea) */}
-          {editing ? (
-            <div className="mb-6">
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={5}
-                autoFocus
-                placeholder="편지 내용을 고쳐 써줘…"
-                className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-[16px] leading-[1.7] text-slate-700 outline-none focus:border-emerald-300 focus:bg-white"
-              />
-              <div className="mt-2 flex items-center justify-end gap-2">
-                <button
-                  onClick={() => { setEditing(false); setDraft(shownBody); }}
-                  className="rounded-full px-4 py-2 text-[13px] font-bold text-slate-400 hover:text-slate-600"
-                >취소</button>
-                <button
-                  onClick={saveEdit}
-                  disabled={savingEdit}
-                  className="rounded-full bg-emerald-500 px-4 py-2 text-[13px] font-bold text-white hover:bg-emerald-600 disabled:opacity-50 active:scale-95"
-                >{savingEdit ? '저장 중…' : '저장'}</button>
-              </div>
-            </div>
-          ) : shownBody ? (
-            <div className="text-[16px] text-slate-700 leading-[1.7] whitespace-pre-wrap mb-6">
-              {shownBody}
-            </div>
-          ) : (letter.emoticonIds?.length ?? 0) > 0 ? (
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-[13px] font-black text-emerald-700">
-              <Smile size={14} /> 이모티콘만 살짝 보낸 편지
-            </div>
-          ) : null}
-
-          <LetterEmoticonStrip ids={letter.emoticonIds} large />
-
-          {/* Voice Player */}
-          {letter.voice && (
-            <div className="mb-6">
-              <VoicePlayer src={letter.voice.src} mime={letter.voice.mime} durationHint={letter.voice.duration} />
-            </div>
-          )}
-
-          {/* Doodle Replay */}
-          {letter.doodle && (
-            <div className="mb-6">
-              <DoodlePad mode="play" data={letter.doodle} autoPlay />
-            </div>
-          )}
-
-          {/* 움직이는 포차코 스티커 재생 */}
-          {letter.animatedSticker && (() => {
-            const st = getAnimatedSticker(letter.animatedSticker);
-            if (!st) return null;
-            return (
-              <div className="mb-6 flex justify-center">
-                <video
-                  src={st.videoUrl}
-                  poster={st.posterUrl}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-52 h-52 rounded-[28px] object-cover bg-white shadow-[0_8px_28px_rgba(147,51,234,0.15)] border border-purple-100"
-                />
-              </div>
-            );
-          })()}
-
-          {/* Interactive Action Row */}
-          <div className="flex items-center justify-between border-t border-slate-100 pt-5 mb-5">
-            <HeartButton count={letter.hearts} onHeart={onHeart} isLarge />
-            <div className="flex items-center gap-1.5 text-slate-400 font-bold text-[14px]">
-              <MessageCircle size={18} /> {formatCount(comments.length)}
-            </div>
-          </div>
-
-          {/* Comments List */}
-          <div className="flex flex-col gap-4 pb-4">
-            {comments.map(comment => (
-              <div key={comment.id} className="flex items-start gap-3 group">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold text-white shrink-0 shadow-inner ${avatarColor(comment.by)}`}>
-                  {comment.by.substring(0, 1)}
-                </div>
-                <div className="flex-1 min-w-0 bg-slate-50 px-4 py-3 rounded-2xl rounded-tl-none">
-                  <div className="flex items-baseline gap-2 mb-1">
-                    <span className="text-[13px] font-bold text-slate-700">{comment.by}</span>
-                    <span className="text-[11px] font-medium text-slate-400">{formatRelative(comment.createdAt)}</span>
-                  </div>
-                  <p className="text-[14px] font-medium text-slate-600 break-words leading-snug">
-                    {comment.text}
-                  </p>
-                </div>
-                {comment.by === me && (
-                  <button
-                    onClick={() => { if(confirm('댓글을 삭제할까요?')) deleteComment(letter.id, comment.id); }}
-                    className="shrink-0 p-2 text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity self-center"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-              </div>
-            ))}
-            <div ref={commentsEndRef} />
-          </div>
-        </div>
-
-        {/* Fixed Bottom Comment Input */}
-        <div className="shrink-0 bg-white border-t border-slate-100 p-4">
-          <form onSubmit={handleSendComment} className="flex items-center gap-3 bg-[#F7F9F9] p-1.5 pl-4 rounded-full border border-slate-200/50">
-            <input
-              type="text"
-              placeholder="따뜻한 댓글을 남겨주세요..."
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              className="flex-1 bg-transparent text-[14px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none"
+    <LetterReadSheet
+      fromName={letter.from}
+      fullDateText={formatFullDate(letter.createdAt)}
+      paper={
+        <LetterPaper
+          toName={letter.to}
+          fromName={letter.from}
+          dateText={stampOf(letter.createdAt)}
+          parts={splitMini(shownBody, letter.from)}
+          enclosures={hasEnclosures ? (
+            <LetterEnclosures
+              emoticons={bigEmoticons.map((e) => ({ id: e.id, label: e.label, imageUrl: e.imageUrl }))}
+              animated={animated ? { label: animated.label, posterUrl: animated.posterUrl, videoUrl: animated.videoUrl } : null}
+              voice={letter.voice ? <VoicePlayer src={letter.voice.src} mime={letter.voice.mime} durationHint={letter.voice.duration} /> : null}
+              doodle={letter.doodle ? <DoodlePad mode="play" data={letter.doodle} autoPlay /> : null}
             />
-            <button
-              type="submit"
-              disabled={!commentText.trim() || isSending}
-              className="w-10 h-10 rounded-full bg-[#10B981] flex items-center justify-center text-white disabled:opacity-50 disabled:bg-slate-300 transition-colors shrink-0 shadow-sm"
-            >
-              <Send size={18} className="-ml-0.5 mt-0.5" />
-            </button>
-          </form>
-        </div>
-      </motion.div>
-    </motion.div>
+          ) : undefined}
+          canEdit={isMine && !!onEdit}
+          editing={editing}
+          editorSlot={
+            <LetterEditor
+              value={draft}
+              onChange={setDraft}
+              parts={editParts}
+              textareaRef={editRef}
+              placeholder="편지 내용을 고쳐 써 줘…"
+              minRows={5}
+              autoFocus
+              onFocus={() => { if (editMiniOpen) setEditMiniOpen(false); }}
+            />
+          }
+          onStartEdit={startEdit}
+          onSaveEdit={() => { setEditMiniOpen(false); void saveEdit(); }}
+          onCancelEdit={() => { setEditMiniOpen(false); setEditing(false); setDraft(shownBody); }}
+          savingEdit={savingEdit}
+          miniOpen={editMiniOpen}
+          onToggleMini={() => (editMiniOpen ? closeEditMini() : openEditMini())}
+        />
+      }
+      hearts={letter.hearts ?? 0}
+      onHeart={onHeart}
+      comments={comments.map((c) => ({ id: c.id, by: c.by, text: c.text, parts: splitMini(c.text, c.by), timeText: formatRelative(c.createdAt), mine: c.by === me }))}
+      onDeleteComment={(id) => { if (confirm('댓글을 삭제할까요?')) deleteComment(letter.id, id); }}
+      commentText={commentText}
+      onCommentTextChange={setCommentText}
+      onSubmitComment={() => { void handleSendComment({ preventDefault() {} } as React.FormEvent); }}
+      commentSending={isSending}
+      onClose={onClose}
+      miniSheet={editing ? <MiniEmoticonSheet open={editMiniOpen} items={editMiniItems} onPick={pickEditMini} onClose={closeEditMini} /> : undefined}
+    />
   );
 }
