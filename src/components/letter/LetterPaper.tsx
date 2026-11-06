@@ -4,11 +4,16 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import type { MiniPart } from '@/lib/miniEmoticons';
-import { PencilLine, Check, XCircle, Smile, Keyboard } from 'lucide-react'; // Added for edit buttons
+import { PencilLine, Check, XCircle, Smile, Keyboard } from 'lucide-react';
 
-// 우댕 2026-11-06 「바탕이 너무 밝아서 꼼이 이모티콘이 잘 안 보여, 조금만 어둡게」 — #FCFAF7 은 꼼이미니 털색(≈#FBF1EA)과 같아 묻혔다. 후보 3개 비교해 B.
-//   ⚠️ `!` — 쓰기 화면 편지지는 `.sd-card`(background: 반투명 흰색, 층 밖 CSS)와 같이 붙어 그쪽이 이겼다(쓰기만 흰색이던 이유).
-export const LETTER_PAPER_CLASS = '!bg-[#EEE3D5] sd-card-paper'; // Custom class for warm ivory paper
+// 우댕 2026-11-06 흰 말티푸(꼼이미니)가 또렷하게 뜨면서도 코랄 테마와 어우러지는 은은한 살구 피치 그라디언트 적용
+//   ⚠️ `!` — 쓰기 화면 편지지는 `.sd-card`(background: 반투명 흰색, 층 밖 CSS)와 같이 붙어 !가 없으면 흰색이 이긴다.
+// 편지지 색 — 우댕 「B로 해줘, 되돌릴 수도 있게」(2026-11-06). 되돌릴 땐 아래 값 중 하나로 이 한 줄만 바꾼다:
+//   흰 아이보리(1차) '!bg-[#FCFAF7] sd-card-paper' — 꼼이미니가 묻힘
+//   베이지          '!bg-[#EEE3D5] sd-card-paper' — 우댕 「베이지는 아니야」
+//   A 그라디언트    '!bg-[linear-gradient(180deg,#FDF3EE_0%,#F9E0D6_100%)] sd-card-paper' — Gemini 추천, 위쪽 미니가 흐림
+//   B 살구 단색(지금) — Gemini 대안
+export const LETTER_PAPER_CLASS = '!bg-[#F9E0D6] sd-card-paper';
 
 export interface LetterPaperProps {
   toName: string;
@@ -143,7 +148,7 @@ export function LetterPaper({
         <div
           className={`
             font-['Dongle'] text-lg text-[var(--sd-rel)] bg-[var(--sd-rel-soft)]
-            px-3 py-1 rounded-lg shadow-sm whitespace-nowrap tabular-nums
+            border border-[var(--sd-rel)]/20 px-3 py-1 rounded-lg shadow-sm whitespace-nowrap tabular-nums
             ${preview ? 'text-base px-2 py-0.5' : ''}
           `}
         >
@@ -153,7 +158,7 @@ export function LetterPaper({
 
       {/* Enclosures Section */}
       {enclosures && (
-        <div className="pt-4 border-t border-[var(--sd-line)]">
+        <div className="pt-4 border-t border-[var(--sd-line)]/70">
           <p className="text-center text-[var(--sd-cardlabel)] text-sm mb-3">동봉한 것</p>
           <div className="pb-6 px-6">
             {enclosures}
