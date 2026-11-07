@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   ArrowLeft, Pencil, Lock, MailOpen, Clock, X, Mail,
   Heart, MessageCircle, Trash2, Send, Mic, Smile
@@ -17,6 +17,12 @@ import { LetterReadSheet } from '@/components/letter/LetterReadSheet';
 import { LetterEnclosures } from '@/components/letter/LetterEnclosures';
 import { signFor } from '@/lib/letterSign';
 import { paperById } from '@/lib/letterPapers';
+// 편지 3탄 — 처음 열 때 봉투 + 귀퉁이 생각풍선(Antigravity Pro 시안 그대로, 여기는 연결만)
+import { EnvelopeReveal, type OpeningPhase } from '@/components/letter/EnvelopeReveal';
+import { LetterCornerBubbles } from '@/components/letter/LetterCornerBubbles';
+import { UnopenedLetterCard } from '@/components/letter/UnopenedLetterCard';
+import { envelopeFor } from '@/lib/letterEnvelopes';
+import { claimFirstOpen } from '@/lib/letters';
 import { LetterEditor } from '@/components/letter/LetterEditor';
 import { MiniEmoticonSheet } from '@/components/letter/MiniEmoticonSheet';
 
@@ -33,6 +39,8 @@ export type Letter = {
   emoticonIds?: string[];
   animatedSticker?: string | null;
   paper?: string | null;   // 편지지 id(letterPapers.ts) — 없으면 살구
+  revealVersion?: number;  // 1 = 처음 열 때 봉투(편지 3탄)
+  firstOpenedAt?: Date | null;   // 받은 사람이 처음 연 시각
   hearts?: number;
   commentCount?: number;
 };
@@ -106,7 +114,7 @@ function LetterEmoticonStrip({ ids, large = false }: { ids?: string[]; large?: b
           title={item.label}
         >
           <img
-            src={item.imageUrl}
+            src={item.thumbUrl ?? item.imageUrl}   // 움짤은 정지컷 — 목록에서 여러 개 동시에 돌면 버벅인다(편지 3탄)
             alt={item.label}
             className={`${large ? 'w-[94%] h-[94%]' : 'w-[92%] h-[92%]'} object-contain drop-shadow-sm`}
             loading="lazy"
@@ -285,6 +293,27 @@ export default function LetterInboxV3({
             // (보낸 사람이 열어 수정하면 본문이 letters 로 다시 새어나가므로).
             const sealed = letter.sealed === true || !!(letter.openAt && letter.openAt > now);
             const hasEmoticons = (letter.emoticonIds?.length ?? 0) > 0;
+            // 편지 3탄 — 받은 편지인데 아직 안 열었으면 내용을 가리고 봉투 칸으로(옛 편지·보낸 편지는 그대로)
+            const unopened = isMeReceiving && !sealed && letter.revealVersion === 1 && !letter.firstOpenedAt;
+            if (unopened) {
+              return (
+                <motion.div
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3, delay: Math.min(i * 0.03, 0.3) }}
+                  key={letter.id}
+                >
+                  <UnopenedLetterCard
+                    fromName={letter.from}
+                    dateText={formatRelative(letter.createdAt)}
+                    palette={envelopeFor(letter.paper)}
+                    onOpen={() => setSelectedLetter(letter)}
+                  />
+                </motion.div>
+              );
+            }
 
             return (
               <motion.div
@@ -422,6 +451,11 @@ export default function LetterInboxV3({
 }
 
 
+// 편지 3탄 — 생각풍선 그림(글씨 없는 상반신, GPT 회의: 1차는 「평온」 고정) · 봉투 길이(우댕 봉투 시험 화면에서 「1.3초」)
+const BUBBLE_KKUL = '/emo/kkuldaeng/mood/calm.png';
+const BUBBLE_KKOM = '/emo/saidami/calm.webp';
+const ENVELOPE_MS = 1300;
+
 // -----------------------------------------------------------------
 // Letter Modal Sub-Component
 // -----------------------------------------------------------------
@@ -480,6 +514,28 @@ function LetterModal({
     }
   };
 
+  // ── 편지 3탄(2026-11-07): 처음 열 때 봉투 ──
+  //   열 때 한 번만 판단(편지 목록이 새로 들어와도 바뀌지 않게). 받은 사람 + revealVersion 1 + 아직 안 연 편지만.
+  //   트랜잭션을 이긴 기기만 봉투 재생, 지거나·오프라인·3초 넘으면 바로 편지. 봉투가 다 열린 뒤에야 실제 편지·움짤을 그린다.
+  const reduceMotion = useReducedMotion();
+  const [needsEnvelope] = useState(() => letter.to === me && letter.revealVersion === 1 && !letter.firstOpenedAt && letter.sealed !== true);
+  const [gate, setGate] = useState<OpeningPhase>(needsEnvelope ? 'closed' : 'opened');
+  useEffect(() => {
+    if (!needsEnvelope) return;
+    let alive = true;
+    const preload = (src: string) => new Promise<void>((resolve) => {
+      const img = new Image(); img.src = src;
+      const done = () => resolve();
+      if (img.decode) img.decode().then(done, done); else { img.onload = done; img.onerror = done; }
+    });
+    const timeout = new Promise<boolean>((r) => setTimeout(() => r(false), 3000));
+    Promise.all([Promise.race([claimFirstOpen(letter.id, me), timeout]), preload(BUBBLE_KKUL), preload(BUBBLE_KKOM)])
+      .then(([won]) => { if (alive) setGate(won ? 'opening' : 'opened'); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const openNow = useCallback(() => setGate('opened'), []);   // ⚠️ 매번 새 함수면 봉투 타이머가 다시 시작된다
+
   // ── 편지 새 단장 1차(2026-11-06): 편지지(LetterPaper) + 읽기 판(LetterReadSheet) — 제미나이 시안 그대로, 여기는 연결만 ──
   const stampOf = (d: Date) => { const p = kstParts(d); return `${p.year}. ${p.month}. ${p.day}`; };
   const animated = letter.animatedSticker ? getAnimatedSticker(letter.animatedSticker) : undefined;
@@ -519,7 +575,23 @@ function LetterModal({
     <LetterReadSheet
       fromName={letter.from}
       fullDateText={formatFullDate(letter.createdAt)}
-      paper={
+      paper={gate !== 'opened' ? (
+        <EnvelopeReveal
+          phase={gate}
+          fromName={letter.from}
+          toName={letter.to}
+          palette={envelopeFor(letter.paper)}
+          kkulSrc={BUBBLE_KKUL}
+          kkomSrc={BUBBLE_KKOM}
+          reducedMotion={!!reduceMotion}
+          durationMs={ENVELOPE_MS}
+          bubbles="opening"
+          onSkip={openNow}
+          onComplete={openNow}
+        />
+      ) : (
+        // 귀퉁이 생각풍선(읽는 내내, 우댕 「풍선은 읽는 내내」) — 풍선이 편지지 밖으로 반쯤 걸쳐서, 읽기 판 스크롤 칸에 잘리지 않게 둘레를 조금 띄운다
+        <div className="relative m-2">
         <LetterPaper
           toName={letter.to}
           fromName={letter.from}
@@ -556,7 +628,9 @@ function LetterModal({
           miniOpen={editMiniOpen}
           onToggleMini={() => (editMiniOpen ? closeEditMini() : openEditMini())}
         />
-      }
+        <LetterCornerBubbles kkulSrc={BUBBLE_KKUL} kkomSrc={BUBBLE_KKOM} fromName={letter.from} />
+        </div>
+      )}
       hearts={letter.hearts ?? 0}
       onHeart={onHeart}
       comments={comments.map((c) => ({ id: c.id, by: c.by, text: c.text, parts: splitMini(c.text, c.by), timeText: formatRelative(c.createdAt), mine: c.by === me }))}

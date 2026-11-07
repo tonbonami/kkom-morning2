@@ -63,7 +63,8 @@ export async function promotePendingLetters(): Promise<{ total: number; sent: nu
       const vaultSnap = await getDoc(vaultRef);
       if (vaultSnap.exists()) {
         const v = vaultSnap.data();
-        await updateDoc(d.ref, { ...v, sealed: false });
+        // 편지 3탄 — 배포 전에 예약해 둔 편지도 도착 뒤 첫 개봉은 봉투로(revealVersion 이 vault 에 없으면 붙인다)
+        await updateDoc(d.ref, { ...v, revealVersion: v.revealVersion ?? 1, sealed: false });
         await deleteDoc(vaultRef);
         content = { ...data, ...v };
       }

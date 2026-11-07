@@ -115,10 +115,10 @@ export function EnvelopeReveal({
           </motion.div>
         )}
 
-        {/* 3. 생각풍선: 꼼이 (우측 하단 글씨를 가리지 않도록 바깥쪽으로 배치) */}
+        {/* 3. 생각풍선: 꼼이 (꼬리를 down-left로 변경해 우측 글씨 침범을 없애고 아래 여백으로 안전하게 배치) */}
         {bubbles === 'opening' && (
           <motion.div
-            className="absolute -bottom-9 -right-8 z-40 will-change-transform"
+            className="absolute -bottom-10 -right-6 z-40 will-change-transform"
             animate={
               isOpening
                 ? {
@@ -136,7 +136,7 @@ export function EnvelopeReveal({
             <ThoughtBubble
               src={kkomSrc}
               size={kkomSize}
-              tail="up-left"
+              tail="down-left"
               appear={false}
             />
           </motion.div>
@@ -205,7 +205,7 @@ export function EnvelopeReveal({
                 color: palette.labelInk,
                 fontFamily: '"Dongle", sans-serif',
               }}
-              className="text-2xl leading-none font-bold tracking-wide select-none self-end mr-2"
+              className="text-2xl leading-none font-bold tracking-wide select-none self-end mr-8"
             >
               From. {fromName}
             </span>

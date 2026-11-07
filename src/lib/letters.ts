@@ -13,6 +13,7 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  runTransaction,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -73,6 +74,10 @@ export type Letter = {
   animatedSticker?: string | null;
   // 편지지 — letterPapers.ts 의 id 하나(우댕 「편지지 2탄」 2026-11-07). 없으면 기본 살구. 예약편지는 letterVault 에 같이 넣어 승격 때 따라온다.
   paper?: string | null;
+  // 편지 3탄(2026-11-07) — 처음 열 때 봉투. revealVersion 1 인 편지만 봉투로 열린다(옛 편지는 없음 = 바로).
+  //   firstOpenedAt = 받은 사람이 처음 연 시각(claimFirstOpen 트랜잭션, 한 기기만 봉투 재생).
+  revealVersion?: number;
+  firstOpenedAt?: Timestamp | null;
   hearts?: number;           // 무한 카운터
   commentCount?: number;     // 댓글 수 캐시
 };
@@ -202,6 +207,8 @@ export type InboxLetter = {
   emoticonIds?: string[];
   animatedSticker?: string | null;
   paper?: string | null;
+  revealVersion?: number;
+  firstOpenedAt?: Date | null;
   hearts?: number;
   commentCount?: number;
 };
@@ -242,6 +249,8 @@ export function toInboxLetter(l: Letter): InboxLetter {
     emoticonIds: Array.isArray(l.emoticonIds) ? l.emoticonIds.filter((id) => typeof id === 'string') : [],
     animatedSticker: typeof l.animatedSticker === 'string' ? l.animatedSticker : null,
     paper: typeof l.paper === 'string' ? l.paper : null,
+    revealVersion: typeof l.revealVersion === 'number' ? l.revealVersion : undefined,
+    firstOpenedAt: l.firstOpenedAt?.toDate?.() ?? null,
     hearts: l.hearts,
     commentCount: l.commentCount,
   };
@@ -272,6 +281,8 @@ export async function sendLetter(
   if (animatedSticker && typeof animatedSticker === 'string') content.animatedSticker = animatedSticker;
   // 편지지 — 기본(살구)이면 안 넣는다(옛 편지와 똑같이 보이게). 예약편지면 content 째로 vault 로 가서 도착 때 같이 풀린다.
   if (paper && typeof paper === 'string' && paper !== DEFAULT_PAPER_ID) content.paper = paper;
+  // 새 편지는 처음 열 때 봉투(편지 3탄). 예약편지는 content 째로 vault → 도착 때 같이 풀린다.
+  content.revealVersion = 1;
 
   let letterId: string;
 
@@ -318,6 +329,25 @@ export async function sendLetter(
       isScheduled,
     }),
   }).catch(() => {});
+}
+
+// 편지 3탄 — 받은 사람이 이 편지를 '처음' 여는가? 맞으면 firstOpenedAt 을 찍고 true(→ 봉투 재생).
+//   트랜잭션이라 폰·데스크톱에서 동시에 열어도 한 대만 true. 보낸 사람·옛 편지(revealVersion 없음)·이미 연 편지·
+//   예약 도착 전·오프라인(트랜잭션 실패)은 false → 봉투 없이 바로 편지(애니메이션 때문에 편지가 막히면 안 된다).
+export async function claimFirstOpen(letterId: string, me: string): Promise<boolean> {
+  try {
+    return await runTransaction(db, async (tx) => {
+      const ref = doc(db, 'letters', letterId);
+      const snap = await tx.get(ref);
+      if (!snap.exists()) return false;
+      const d = snap.data() as Partial<Letter>;
+      if (d.to !== me || d.revealVersion !== 1 || d.firstOpenedAt || d.sealed === true) return false;
+      tx.update(ref, { firstOpenedAt: serverTimestamp() });
+      return true;
+    });
+  } catch {
+    return false;
+  }
 }
 
 // 보낸 편지 수정 — 본인이 보낸 편지의 본문을 고친다. editedAt 기록(수정됨 표시용).
