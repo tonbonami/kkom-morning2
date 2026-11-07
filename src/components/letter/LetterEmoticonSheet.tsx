@@ -146,7 +146,8 @@ export function LetterEmoticonSheet({
                                  text-[var(--sd-cardlabel)] hover:bg-[var(--sd-surface-2)] min-h-[44px] min-w-[44px]"
                       aria-label={item.label}
                     >
-                      <SignedSticker src={item.thumbUrl} alt={item.label} size={64} sign={sign} tilt={-7} />
+                      {/* 썸네일엔 사인 없이 — 우댕 「썸네일 사인은 빼줘」(2026-11-07). 사인은 담은 뒤 편지·스티커 칸에서만 */}
+                      <SignedSticker src={item.thumbUrl} alt={item.label} size={64} tilt={-7} />
                     </motion.button>
                   ))}
                 </div>
