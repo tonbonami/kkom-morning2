@@ -1,14 +1,16 @@
 // 꼼이 피부 일지 — Claude 상담. PIN 쿠키 필요(읽기 requireReader · 쓰기는 꼼이만 requireWriter).
 //   GET  → { messages }  (skin/kkomi/chat/main, 최근 200개)
-//   POST { text } → 글자를 흘려보내는 text/plain 스트림. 끝나면 대화에 저장.
+//   POST { text, photos? } → 글자를 흘려보내는 text/plain 스트림. 끝나면 대화에 저장.
+//     photos = [{ date, id }] 최대 3장 — 일지에 올린 사진(상담 화면에서 새로 찍은 것도 먼저 오늘 일지에 올린 뒤 보낸다).
+//     우댕 2026-11-08 「ⓐ 상담 화면에 사진 올리기 — 보낸 사진만 상담사가 본다」. 그 전엔 상담 Claude가 사진을 못 봤다(글·장수만).
 // 모델: Claude Opus 5.5(우댕 결정 2026-10-21) — env SKIN_CHAT_MODEL로 바꿀 수 있음.
 // 하루 60번 상한(skin/kkomi/chatUsage/{날짜}), 토큰 사용량도 같이 적어 둔다.
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { FieldValue, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
 import { requireReader, requireWriter } from '@/lib/skinAuth';
-import { adminDb } from '@/lib/firebaseAdmin';
-import { SKIN_OWNER, SKIN_START, sevOf, type SkinLog } from '@/lib/skinTypes';
+import { adminBucket, adminDb } from '@/lib/firebaseAdmin';
+import { DATE_RE, SKIN_OWNER, SKIN_START, sevOf, skinLogPath, type SkinLog } from '@/lib/skinTypes';
 import { INTAKE_SECTIONS } from '@/lib/skinIntake';
 import { skinStats, medOf } from '@/lib/skinStats';
 import { dayLine } from '@/lib/skinContext';
@@ -23,7 +25,11 @@ const HISTORY_TURNS = 60;   // 모델에 다시 보내는 최근 말 개수(더 
 const KEEP = 200;           // 저장해 두는 최근 말 개수
 const THREAD = `skin/${SKIN_OWNER}/chat/main`;
 
-type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; at: string };
+// photos — 꼼이가 상담에 보낸 사진(일지 사진을 가리킨다). path 는 서버만 쓰고 화면엔 서명 주소(photoUrls)로 내보낸다.
+type ChatPhoto = { date: string; id: string; path: string };
+type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; at: string; photos?: ChatPhoto[] };
+const MAX_PHOTOS = 3;
+const PHOTO_TURNS = 6;   // 사진을 다시 보여 주는 최근 말 수 — 그보다 옛 사진은 「보냈었다」는 글만(같은 사진을 매번 다시 보내 비용이 쌓이지 않게)
 
 const kstToday = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 const addDays = (d: string, n: number) => new Date(Date.parse(d + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
@@ -46,6 +52,8 @@ const RULES = `너는 Anthropic이 만든 AI인 Claude다. 꼼모닝(커플 앱)
 - 그래서 꼼이가 일지에 적어 달라고 하거나 기록해 둘 만한 사실을 말하면, 내용을 다시 늘어놓지 말고 「대화 끝나고 아래 ✨ 오늘 상담 정리하기를 눌러 주세요. 제가 정리해서 일지에 넣을 걸 보여 드리면 확인만 하시면 돼요」처럼 짧게 안내한다.
 - 꼼이에게 직접 옮겨 적거나 붙여 넣으라고 하지 않는다. 다른 사람(남자친구 포함)에게 기록을 부탁하라고 하지 않는다. 「고쳐 둘게요」「적어 둘게요」처럼 네가 지금 바로 저장하는 것처럼 말하지 않는다.
 - 남자친구는 앱에서 「우댕」이라고 부르고, 일지를 보기만 한다.
+- 사진(2026-11-08부터): 꼼이는 상담 화면 입력칸 왼쪽 사진 단추로 사진을 보낼 수 있다(일지에 올린 사진에서 고르거나 새로 찍기, 한 번에 3장까지). 너는 꼼이가 이 대화에 보낸 사진만 볼 수 있다. 일지에 적힌 「사진 n장」은 장수일 뿐이고 너에게 보이지 않는다 — 보이지 않는 사진을 본 것처럼 말하지 않는다. 사진을 보면 좋겠으면 「입력칸 왼쪽 사진 단추로 보내 주세요」라고 안내한다. 조금 전에 보낸 사진은 몇 마디 동안만 다시 보이고, 오래된 사진은 「이때 사진을 보냈다」는 표시만 남는다 — 그때는 다시 보내 달라고 한다.
+- 사진을 볼 때: 눈에 보이는 것만 담담하게 말한다(위치, 붉은 정도, 부어오른 자국의 모양·크기, 긁힌 자국, 지난 사진과 달라 보이는 점). 사진만으로 병명을 붙이거나 진단하지 않는다. 사진이 흐리거나 어두우면 그렇다고 말하고 밝은 곳에서 같은 거리로 다시 찍어 달라고 한다. 병원에 보여 줄 만한 사진이면 그렇게 말해 준다. 사진에 응급 신호(입술·눈·혀가 붓는 등)가 보이면 아래 「응급」대로 119를 먼저 말한다.
 - 점수(2026-10-24부터): 가려움·붉어짐을 각각 0~10으로 적는다(0 = 증상 없음). 하루 점수 = 둘 중 높은 값, 7 이상이면 힘든 날. 그 전 기록은 팽진·가려움 0~3이었고 가려움만 0~10으로 환산해 보여 준다. 메모는 아침·점심·저녁·밤 네 칸이고 칸마다 사진이 붙는다.
 
 하지 않는 일
@@ -144,11 +152,53 @@ async function buildContext(db: FirebaseFirestore.Firestore, today: string): Pro
   ].join('\n');
 }
 
+// 사진 파일 → Claude 그림 블록. 일지 사진만(경로가 skin/kkomi/ 밑) — 못 읽으면 건너뛴다.
+async function imageBlocks(photos: ChatPhoto[]): Promise<Anthropic.Beta.BetaImageBlockParam[]> {
+  const bucket = adminBucket();
+  if (!bucket) return [];
+  const out: Anthropic.Beta.BetaImageBlockParam[] = [];
+  for (const p of photos) {
+    if (!p.path.startsWith(`skin/${SKIN_OWNER}/`)) continue;
+    try {
+      const [buf] = await bucket.file(p.path).download();
+      out.push({ type: 'image', source: { type: 'base64', media_type: p.path.endsWith('.png') ? 'image/png' : 'image/jpeg', data: buf.toString('base64') } });
+    } catch { /* 지운 사진 등 — 건너뜀 */ }
+  }
+  return out;
+}
+
+// 보내려는 사진 [{date,id}] → 일지에서 경로를 찾아 확인(꼼이 일지에 실제로 있는 사진만)
+async function resolvePhotos(db: Firestore, raw: unknown): Promise<ChatPhoto[]> {
+  if (!Array.isArray(raw)) return [];
+  const out: ChatPhoto[] = [];
+  for (const r of raw.slice(0, MAX_PHOTOS)) {
+    const date = String((r as { date?: unknown })?.date ?? '');
+    const id = String((r as { id?: unknown })?.id ?? '');
+    if (!DATE_RE.test(date) || !id) continue;
+    const log = (await db.doc(skinLogPath(date)).get()).data() as SkinLog | undefined;
+    const hit = log?.photos?.find((p) => p.id === id);
+    if (hit && hit.path.startsWith(`skin/${SKIN_OWNER}/`) && !out.some((o) => o.id === id)) out.push({ date, id, path: hit.path });
+  }
+  return out;
+}
+
+async function signedUrl(path: string): Promise<string | null> {
+  try {
+    const [url] = await adminBucket()!.file(path).getSignedUrl({ version: 'v4', action: 'read', expires: Date.now() + 15 * 60 * 1000 });
+    return url;
+  } catch { return null; }
+}
+
 export async function GET() {
   const who = await requireReader();
   if (who instanceof NextResponse) return who;
   const snap = await adminDb()!.doc(THREAD).get();
-  return NextResponse.json({ messages: (snap.data()?.messages ?? []) as ChatMsg[] });
+  const messages = await Promise.all(((snap.data()?.messages ?? []) as ChatMsg[]).map(async ({ photos, ...m }) => {
+    if (!photos?.length) return m;
+    const urls = (await Promise.all(photos.map((p) => signedUrl(p.path)))).filter((u): u is string => !!u);
+    return { ...m, photoUrls: urls };
+  }));
+  return NextResponse.json({ messages });
 }
 
 // 화면용 대화는 최근 KEEP말만 두고, 넘친 옛 말은 chatArchive/{YYYY-MM}에 옮겨 둔다(지우지 않음 — 백업 우선, 우댕 2026-10-21)
@@ -169,9 +219,10 @@ export async function POST(req: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY) return NextResponse.json({ error: 'no_api_key' }, { status: 503 });
   const body = await req.json().catch(() => null);
   const text = String(body?.text ?? '').trim().slice(0, 2000);
-  if (!text) return NextResponse.json({ error: 'empty' }, { status: 400 });
-
   const db = adminDb()!;
+  const photos = await resolvePhotos(db, body?.photos);
+  if (!text && !photos.length) return NextResponse.json({ error: 'empty' }, { status: 400 });
+
   const today = kstToday();
   const usageRef = db.doc(`skin/${SKIN_OWNER}/chatUsage/${today}`);
   const used = ((await usageRef.get()).data()?.count as number) ?? 0;
@@ -179,8 +230,18 @@ export async function POST(req: NextRequest) {
 
   const threadRef = db.doc(THREAD);
   const prev = ((await threadRef.get()).data()?.messages ?? []) as ChatMsg[];
-  const userMsg: ChatMsg = { id: newId(), role: 'user', text, at: new Date().toISOString() };
-  const history: Anthropic.Beta.BetaMessageParam[] = [...prev.slice(-HISTORY_TURNS), userMsg].map((m) => ({ role: m.role, content: m.text }));
+  const userMsg: ChatMsg = { id: newId(), role: 'user', text, at: new Date().toISOString(), ...(photos.length ? { photos } : {}) };
+  // 최근 PHOTO_TURNS 말 안의 사진은 그림으로 다시 보여 주고(「아까 사진에서…」), 그보다 옛 사진은 글로 표시만
+  const recentMsgs = [...prev.slice(-HISTORY_TURNS), userMsg];
+  const history: Anthropic.Beta.BetaMessageParam[] = await Promise.all(recentMsgs.map(async (m, i) => {
+    const body = m.text || '(글 없이 사진만 보냄)';
+    if (m.role !== 'user' || !m.photos?.length) return { role: m.role, content: m.text };
+    if (i >= recentMsgs.length - PHOTO_TURNS) {
+      const imgs = await imageBlocks(m.photos);
+      if (imgs.length) return { role: 'user' as const, content: [...imgs, { type: 'text' as const, text: body }] };
+    }
+    return { role: 'user' as const, content: `${body}\n[이때 사진 ${m.photos.length}장을 보냈어요 — 지금은 그 사진이 안 보여요]` };
+  }));
   while (history.length && history[0].role !== 'user') history.shift();
 
   const context = await buildContext(db, today);
