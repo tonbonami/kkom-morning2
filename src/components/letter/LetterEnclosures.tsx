@@ -2,13 +2,17 @@
 'use client';
 
 import React from 'react';
-import { Image } from 'lucide-react'; // Example icon for placeholder
+// import { Image } from 'lucide-react'; // Example icon for placeholder - not used anymore directly for emoticons
+
+// Assuming SignedSticker is in the same directory
+import { SignedSticker } from './SignedSticker';
 
 export interface LetterEnclosuresProps {
   emoticons: { id: string; label: string; imageUrl: string }[];   // 큰 이모티콘 0~3개
   animated: { label: string; posterUrl: string; videoUrl: string } | null;   // 움직이는 포차코(영상)
   voice: React.ReactNode | null;    // 내가 기존 음성 재생기를 넣는다
   doodle: React.ReactNode | null;   // 내가 기존 손글씨 재생 판을 넣는다
+  sign?: string; // 보낸 사람 사인 (Kkomi/Kkuldang)
 }
 
 export function LetterEnclosures({
@@ -16,6 +20,7 @@ export function LetterEnclosures({
   animated,
   voice,
   doodle,
+  sign,
 }: LetterEnclosuresProps) {
   const hasContent = emoticons.length > 0 || animated || voice || doodle;
 
@@ -23,21 +28,29 @@ export function LetterEnclosures({
     return null;
   }
 
+  // Determine sticker size based on count
+  const getStickerSize = (count: number) => {
+    if (count === 1) return 160; // 1개면 크게
+    if (count === 2) return 140; // 2개면 나란히 (140 * 2 + gap)
+    if (count === 3) return 96;  // 3개면 나란히 (96 * 3 + gap)
+    return 64; // Fallback, though we expect 0-3
+  };
+
+  const stickerSize = getStickerSize(emoticons.length);
+
   return (
     <div className="flex flex-col gap-4">
       {emoticons.length > 0 && (
-        <div className="flex flex-wrap gap-2 justify-center">
+        <div className={`flex flex-wrap justify-center ${emoticons.length > 1 ? 'gap-2 max-w-xs mx-auto' : ''}`}>
           {emoticons.map((emo) => (
-            <div key={emo.id} className="flex flex-col items-center">
-              <img
-                src={emo.imageUrl}
-                alt={emo.label}
-                className="w-16 h-16 rounded-lg object-contain"
-              />
-              <span className="text-[var(--sd-cardlabel)] text-xs mt-1 font-['IBM_Plex_Sans_KR']">
-                {emo.label}
-              </span>
-            </div>
+            <SignedSticker
+              key={emo.id}
+              src={emo.imageUrl}
+              alt={emo.label}
+              size={stickerSize}
+              sign={sign}
+              // tilt property is optional, default is -7. Can be explicitly passed if needed.
+            />
           ))}
         </div>
       )}
@@ -53,9 +66,7 @@ export function LetterEnclosures({
             playsInline
             className="w-32 h-32 rounded-lg object-cover"
           />
-          <span className="text-[var(--sd-cardlabel)] text-sm mt-2 font-['IBM_Plex_Sans_KR']">
-            {animated.label}
-          </span>
+          {/* Label removed as per new design */}
         </div>
       )}
 

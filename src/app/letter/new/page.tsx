@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
-import { X, Sparkles } from 'lucide-react';
 import { sendLetter, uploadVoice, nameFromCode, partnerOf, type Doodle } from '@/lib/letters';
 import { feedback } from '@/lib/feedback';
-import { EMOTICON_SETS, getEmoticonsByIds } from '@/lib/emoticons';
+import { emoticonSetsFor, getEmoticonsByIds } from '@/lib/emoticons';
+import { signFor } from '@/lib/letterSign';
 import { ANIMATED_STICKERS, getAnimatedSticker } from '@/lib/animatedStickers';
 import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
 import { splitMini, miniItemsFor, insertMiniToken } from '@/lib/miniEmoticons';
@@ -18,6 +17,9 @@ import { LetterVoicePanel } from '@/components/letter/LetterVoicePanel';
 import { LetterSchedulePanel } from '@/components/letter/LetterSchedulePanel';
 import { LetterStickerPanel } from '@/components/letter/LetterStickerPanel';
 import { LetterPaper } from '@/components/letter/LetterPaper';
+import { LetterEmoticonSheet } from '@/components/letter/LetterEmoticonSheet';
+import { LetterAnimSheet } from '@/components/letter/LetterAnimSheet';
+import { LetterEnclosures } from '@/components/letter/LetterEnclosures';
 
 const MAX_REC_SEC = 30;
 const MAX_EMOTICONS_PER_LETTER = 3;
@@ -50,7 +52,7 @@ export default function NewLetterPage() {
   // 손글씨 — DoodlePad compose 모드가 onChange로 데이터 보내옴
   const [doodle, setDoodle] = useState<DoodleData | null>(null);
   const [showEmoticonSheet, setShowEmoticonSheet] = useState(false);
-  const [activeEmoticonSetId, setActiveEmoticonSetId] = useState(EMOTICON_SETS[0]?.id ?? '');
+  const [activeEmoticonSetId, setActiveEmoticonSetId] = useState('');
   const [selectedEmoticonIds, setSelectedEmoticonIds] = useState<string[]>([]);
   // 움직이는 포차코 스티커 — 선택된 id 하나 (없으면 null) + 선택 시트
   const [animatedSticker, setAnimatedSticker] = useState<string | null>(null);
@@ -147,8 +149,13 @@ export default function NewLetterPage() {
   };
 
   const selectedEmoticons = getEmoticonsByIds(selectedEmoticonIds);
-  const activeEmoticonSet = EMOTICON_SETS.find((set) => set.id === activeEmoticonSetId) ?? EMOTICON_SETS[0];
-  const activeEmoticons = activeEmoticonSet ? getEmoticonsByIds(activeEmoticonSet.emoticonIds) : [];
+  // 팩 탭 — 내 캐릭터 팩 먼저(emoticonSetsFor). 탭을 아직 안 눌렀으면 첫 팩.
+  const sheetSets = useMemo(() => emoticonSetsFor(me).map((set) => ({
+    id: set.id, title: set.title, thumbUrl: set.thumbnailUrl, animated: set.animated,
+    items: getEmoticonsByIds(set.emoticonIds).map((e) => ({ id: e.id, label: e.label, thumbUrl: e.thumbUrl ?? e.imageUrl })),
+  })), [me]);
+  const activeSheetSetId = activeEmoticonSetId || sheetSets[0]?.id || '';
+  const mySign = signFor(me);
 
   const addEmoticon = (id: string) => {
     setError('');
@@ -274,6 +281,7 @@ export default function NewLetterPage() {
         animated={animatedSt ? { label: animatedSt.label, posterUrl: animatedSt.posterUrl, videoUrl: animatedSt.videoUrl } : null}
         onPickAnimated={() => setShowAnimSheet(true)}
         onRemoveAnimated={() => setAnimatedSticker(null)}
+        sign={mySign}
       />
     ) : activeTool === 'schedule' ? (
       <LetterSchedulePanel enabled={scheduled} onEnabledChange={setScheduled} value={openAtStr} onChange={setOpenAtStr} toName={partner} />
@@ -302,7 +310,16 @@ export default function NewLetterPage() {
         onToggleMini={() => (miniOpen ? closeMini() : openMini())}
         previewOpen={previewOpen}
         onTogglePreview={() => { rememberSel(); setPreviewOpen((v) => !v); }}
-        preview={<LetterPaper toName={partner} fromName={me} dateText={stamp} parts={bodyParts} preview />}
+        preview={<LetterPaper toName={partner} fromName={me} dateText={stamp} parts={bodyParts} preview
+          enclosures={selectedEmoticons.length > 0 || animatedSt ? (
+            <LetterEnclosures
+              emoticons={selectedEmoticons.map((e) => ({ id: e.id, label: e.label, imageUrl: e.imageUrl }))}
+              animated={animatedSt ? { label: animatedSt.label, posterUrl: animatedSt.posterUrl, videoUrl: animatedSt.videoUrl } : null}
+              voice={null}
+              doodle={null}
+              sign={mySign}
+            />
+          ) : undefined} />}
         activeTool={activeTool}
         onToolChange={setActiveTool}
         toolBadges={toolBadges}
@@ -315,206 +332,30 @@ export default function NewLetterPage() {
         onSend={handleSend}
         onBack={() => router.back()}
       />
-      {/* 움직이는 포차코 선택 시트 */}
-      <AnimatePresence>
-        {showAnimSheet && (
-          <>
-            <motion.button
-              type="button"
-              aria-label="닫기"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setShowAnimSheet(false)}
-              className="fixed inset-0 z-40 bg-slate-900/25 backdrop-blur-[2px]"
-            />
-            <motion.div
-              initial={{ y: 360, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 360, opacity: 0 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="fixed inset-x-4 bottom-4 z-50 max-w-md mx-auto rounded-[32px] bg-[#F7F9F9] border border-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] overflow-hidden"
-            >
-              <div className="px-5 pt-4 pb-3 bg-white/80 flex items-center justify-between">
-                <div>
-                  <p className="text-[12px] font-black text-purple-500 flex items-center gap-1">
-                    <Sparkles size={13} /> Moving Pochacco
-                  </p>
-                  <h2 className="text-lg font-black text-slate-900 mt-0.5">움직이는 포차코 붙이기</h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAnimSheet(false)}
-                  className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center active:scale-95"
-                  aria-label="닫기"
-                ><X size={17} /></button>
-              </div>
-              <div className="px-5 pb-6 pt-3 grid grid-cols-2 gap-3">
-                {ANIMATED_STICKERS.map((st) => {
-                  const selected = animatedSticker === st.id;
-                  return (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => {
-                        import('@/lib/feedback').then(({ haptic }) => haptic(20)).catch(() => {});
-                        setAnimatedSticker(selected ? null : st.id);
-                        setShowAnimSheet(false);
-                      }}
-                      className={`relative rounded-[22px] p-2 border-2 transition-all ${
-                        selected ? 'border-purple-400 bg-purple-50 shadow-sm' : 'border-slate-100 bg-white'
-                      }`}
-                    >
-                      <video
-                        src={st.videoUrl}
-                        poster={st.posterUrl}
-                        autoPlay loop muted playsInline
-                        className="w-full aspect-square rounded-2xl object-cover bg-white"
-                      />
-                      <p className="mt-1.5 text-[12px] font-black text-slate-700">{st.label}</p>
-                      {selected && (
-                        <span className="absolute top-1 right-1 w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center shadow-md">✓</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="px-5 pb-5 -mt-2 text-center text-[11px] font-bold text-slate-400">
-                편지에 붙으면 상대 화면에서 재생돼요
-              </p>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showEmoticonSheet && (
-          <>
-            <motion.button
-              type="button"
-              aria-label="이모티콘 닫기"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowEmoticonSheet(false)}
-              className="fixed inset-0 z-40 bg-slate-900/25 backdrop-blur-[2px]"
-            />
-            <motion.div
-              initial={{ y: 360, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 360, opacity: 0 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="fixed inset-x-4 bottom-4 z-50 max-w-md mx-auto rounded-[32px] bg-[#F7F9F9] border border-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] overflow-hidden"
-            >
-              <div className="px-5 pt-4 pb-3 bg-white/80">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[12px] font-black text-emerald-500 flex items-center gap-1">
-                      <Sparkles size={13} /> Emoticon Letter
-                    </p>
-                    <h2 className="text-lg font-black text-slate-900 mt-0.5">마음 하나 톡 붙이기</h2>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowEmoticonSheet(false)}
-                    className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center active:scale-95 transition-transform"
-                    aria-label="이모티콘 닫기"
-                  >
-                    <X size={17} />
-                  </button>
-                </div>
-              </div>
-
-              {/* 선택된 이모티콘 미리보기 — 모달 안에서 항상 보이게 (사용자 신고: 가려져서 안 보였음) */}
-              <div className="px-5 py-2.5 bg-emerald-50/40 border-y border-emerald-100/60">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-bold text-slate-500">담은 이모티콘</span>
-                  <span className={`text-[11px] font-black ${selectedEmoticonIds.length >= MAX_EMOTICONS_PER_LETTER ? 'text-rose-500' : 'text-emerald-600'}`}>
-                    {selectedEmoticonIds.length} / {MAX_EMOTICONS_PER_LETTER}
-                  </span>
-                </div>
-                {selectedEmoticonIds.length > 0 ? (
-                  <div className="flex gap-1.5 overflow-x-auto pb-1">
-                    <AnimatePresence>
-                      {selectedEmoticonIds.map((id, idx) => {
-                        const it = getEmoticonsByIds([id])[0];
-                        if (!it) return null;
-                        return (
-                          <motion.button
-                            key={`${id}-${idx}`}
-                            type="button"
-                            initial={{ scale: 0.4, opacity: 0, rotate: -15 }}
-                            animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                            exit={{ scale: 0.4, opacity: 0 }}
-                            transition={{ type: 'spring', damping: 18, stiffness: 320 }}
-                            onClick={() => removeSelectedEmoticon(idx)}
-                            className="relative shrink-0 w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center"
-                            aria-label={`${it.label} 빼기`}
-                          >
-                            <img src={it.imageUrl} alt="" className="w-full h-full object-contain p-1" />
-                            <span className="absolute -top-1 -right-1 bg-slate-800 text-white w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-black">×</span>
-                          </motion.button>
-                        );
-                      })}
-                    </AnimatePresence>
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-slate-400 py-1">탭하면 여기 담겨요</p>
-                )}
-              </div>
-
-              <div className="px-5 py-3 flex items-center gap-2 overflow-x-auto no-scrollbar">
-                {EMOTICON_SETS.map((set) => (
-                  <button
-                    key={set.id}
-                    type="button"
-                    onClick={() => setActiveEmoticonSetId(set.id)}
-                    className={`flex items-center gap-2 shrink-0 rounded-full px-3 py-2 text-[12px] font-black border transition-all ${
-                      activeEmoticonSetId === set.id
-                        ? 'bg-white border-emerald-200 text-emerald-700 shadow-sm'
-                        : 'bg-white/50 border-transparent text-slate-500'
-                    }`}
-                  >
-                    <img src={set.thumbnailUrl} alt="" className="w-7 h-7 object-contain" />
-                    {set.title}
-                  </button>
-                ))}
-              </div>
-
-              {(() => {
-                const maxed = selectedEmoticonIds.length >= MAX_EMOTICONS_PER_LETTER;
-                return (
-                  <div className="px-5 pb-5">
-                    <div className={`grid grid-cols-3 gap-2.5 ${maxed ? 'opacity-50 pointer-events-none' : ''}`}>
-                      {activeEmoticons.map((item) => {
-                        const usedCount = selectedEmoticonIds.filter((id) => id === item.id).length;
-                        return (
-                          <motion.button
-                            key={item.id}
-                            type="button"
-                            whileTap={{ scale: 0.88, rotate: -3 }}
-                            animate={usedCount > 0 ? { scale: [1, 1.05, 1] } : { scale: 1 }}
-                            transition={{ duration: 0.3 }}
-                            onClick={() => addEmoticon(item.id)}
-                            className="relative aspect-square rounded-[26px] bg-white border border-slate-100 shadow-[0_6px_18px_rgba(15,23,42,0.04)] flex items-center justify-center active:border-emerald-200 transition-colors overflow-hidden p-1.5"
-                            aria-label={`${item.label} 이모티콘 선택`}
-                          >
-                            <img src={item.imageUrl} alt={item.label} className="w-full h-full object-contain drop-shadow-sm" />
-                            {usedCount > 0 && (
-                              <span className="absolute -top-1 -right-1 bg-emerald-500 text-white text-[11px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-md ring-2 ring-white">
-                                {usedCount}
-                              </span>
-                            )}
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-                    <p className="mt-3 text-center text-[11px] font-bold text-slate-400">
-                      {maxed ? '꽉 찼어요. 이모티콘을 빼면 더 담을 수 있어요.' : '글 없이 이모티콘만 보내도 알림에 마음이 같이 전해져요.'}
-                    </p>
-                  </div>
-                );
-              })()}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {/* 큰 이모티콘·움직이는 포차코 고르는 창 — Gemini 시안(src/components/letter, 2026-11-07). 예전 초록·보라 창을 바꿈 */}
+      <LetterEmoticonSheet
+        open={showEmoticonSheet}
+        sets={sheetSets}
+        activeSetId={activeSheetSetId}
+        onSetChange={setActiveEmoticonSetId}
+        selected={selectedEmoticons.map((e) => ({ id: e.id, label: e.label, thumbUrl: e.thumbUrl ?? e.imageUrl }))}
+        max={MAX_EMOTICONS_PER_LETTER}
+        onAdd={addEmoticon}
+        onRemove={removeSelectedEmoticon}
+        onClose={() => setShowEmoticonSheet(false)}
+        sign={mySign}
+      />
+      <LetterAnimSheet
+        open={showAnimSheet}
+        items={ANIMATED_STICKERS}
+        selectedId={animatedSticker}
+        onPick={(id) => {
+          import('@/lib/feedback').then(({ haptic }) => haptic(20)).catch(() => {});
+          setAnimatedSticker(id);
+          setShowAnimSheet(false);
+        }}
+        onClose={() => setShowAnimSheet(false)}
+      />
     </>
   );
 }

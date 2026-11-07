@@ -15,6 +15,7 @@ import { miniToPlain, splitMini, miniItemsFor, insertMiniToken } from '@/lib/min
 import { LetterPaper } from '@/components/letter/LetterPaper';
 import { LetterReadSheet } from '@/components/letter/LetterReadSheet';
 import { LetterEnclosures } from '@/components/letter/LetterEnclosures';
+import { signFor } from '@/lib/letterSign';
 import { LetterEditor } from '@/components/letter/LetterEditor';
 import { MiniEmoticonSheet } from '@/components/letter/MiniEmoticonSheet';
 
@@ -528,6 +529,7 @@ function LetterModal({
               animated={animated ? { label: animated.label, posterUrl: animated.posterUrl, videoUrl: animated.videoUrl } : null}
               voice={letter.voice ? <VoicePlayer src={letter.voice.src} mime={letter.voice.mime} durationHint={letter.voice.duration} /> : null}
               doodle={letter.doodle ? <DoodlePad mode="play" data={letter.doodle} autoPlay /> : null}
+              sign={signFor(letter.from)}
             />
           ) : undefined}
           canEdit={isMine && !!onEdit}
