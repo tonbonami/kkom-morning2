@@ -1,3 +1,4 @@
+import { DEFAULT_PAPER_ID } from './letterPapers';
 import { db, storage } from './firebase';
 import {
   collection,
@@ -70,6 +71,8 @@ export type Letter = {
   emoticonIds?: string[];
   // 움직이는 포차코 스티커 — animatedStickers.ts의 id 하나. (에셋 URL 대신 안정적 id 저장)
   animatedSticker?: string | null;
+  // 편지지 — letterPapers.ts 의 id 하나(우댕 「편지지 2탄」 2026-11-07). 없으면 기본 살구. 예약편지는 letterVault 에 같이 넣어 승격 때 따라온다.
+  paper?: string | null;
   hearts?: number;           // 무한 카운터
   commentCount?: number;     // 댓글 수 캐시
 };
@@ -198,6 +201,7 @@ export type InboxLetter = {
   doodle?: Doodle | null;
   emoticonIds?: string[];
   animatedSticker?: string | null;
+  paper?: string | null;
   hearts?: number;
   commentCount?: number;
 };
@@ -237,6 +241,7 @@ export function toInboxLetter(l: Letter): InboxLetter {
     doodle,
     emoticonIds: Array.isArray(l.emoticonIds) ? l.emoticonIds.filter((id) => typeof id === 'string') : [],
     animatedSticker: typeof l.animatedSticker === 'string' ? l.animatedSticker : null,
+    paper: typeof l.paper === 'string' ? l.paper : null,
     hearts: l.hearts,
     commentCount: l.commentCount,
   };
@@ -251,7 +256,8 @@ export async function sendLetter(
   voice?: Voice | null,
   doodle?: Doodle | null,
   emoticonIds: string[] = [],
-  animatedSticker?: string | null
+  animatedSticker?: string | null,
+  paper?: string | null
 ): Promise<void> {
   const to = partnerOf(from);
   const cleanEmoticonIds = emoticonIds.filter((id) => typeof id === 'string' && id.trim().length > 0);
@@ -264,6 +270,8 @@ export async function sendLetter(
   if (doodle && doodle.strokes && doodle.strokes.length > 0) content.doodle = JSON.stringify(doodle);
   if (cleanEmoticonIds.length > 0) content.emoticonIds = cleanEmoticonIds;
   if (animatedSticker && typeof animatedSticker === 'string') content.animatedSticker = animatedSticker;
+  // 편지지 — 기본(살구)이면 안 넣는다(옛 편지와 똑같이 보이게). 예약편지면 content 째로 vault 로 가서 도착 때 같이 풀린다.
+  if (paper && typeof paper === 'string' && paper !== DEFAULT_PAPER_ID) content.paper = paper;
 
   let letterId: string;
 

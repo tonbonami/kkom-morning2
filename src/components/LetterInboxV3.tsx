@@ -16,6 +16,7 @@ import { LetterPaper } from '@/components/letter/LetterPaper';
 import { LetterReadSheet } from '@/components/letter/LetterReadSheet';
 import { LetterEnclosures } from '@/components/letter/LetterEnclosures';
 import { signFor } from '@/lib/letterSign';
+import { paperById } from '@/lib/letterPapers';
 import { LetterEditor } from '@/components/letter/LetterEditor';
 import { MiniEmoticonSheet } from '@/components/letter/MiniEmoticonSheet';
 
@@ -31,6 +32,7 @@ export type Letter = {
   doodle?: DoodleData | null;
   emoticonIds?: string[];
   animatedSticker?: string | null;
+  paper?: string | null;   // 편지지 id(letterPapers.ts) — 없으면 살구
   hearts?: number;
   commentCount?: number;
 };
@@ -523,6 +525,7 @@ function LetterModal({
           fromName={letter.from}
           dateText={stampOf(letter.createdAt)}
           parts={splitMini(shownBody, letter.from)}
+          paper={paperById(letter.paper)}
           enclosures={hasEnclosures ? (
             <LetterEnclosures
               emoticons={bigEmoticons.map((e) => ({ id: e.id, label: e.label, imageUrl: e.imageUrl }))}

@@ -17,6 +17,8 @@ import { LetterVoicePanel } from '@/components/letter/LetterVoicePanel';
 import { LetterSchedulePanel } from '@/components/letter/LetterSchedulePanel';
 import { LetterStickerPanel } from '@/components/letter/LetterStickerPanel';
 import { LetterPaper } from '@/components/letter/LetterPaper';
+import { LetterPaperPanel } from '@/components/letter/LetterPaperPanel';
+import { LETTER_PAPERS, DEFAULT_PAPER_ID, paperById } from '@/lib/letterPapers';
 import { LetterEmoticonSheet } from '@/components/letter/LetterEmoticonSheet';
 import { LetterAnimSheet } from '@/components/letter/LetterAnimSheet';
 import { LetterEnclosures } from '@/components/letter/LetterEnclosures';
@@ -57,6 +59,9 @@ export default function NewLetterPage() {
   // 움직이는 포차코 스티커 — 선택된 id 하나 (없으면 null) + 선택 시트
   const [animatedSticker, setAnimatedSticker] = useState<string | null>(null);
   const [showAnimSheet, setShowAnimSheet] = useState(false);
+  // 편지지 2탄 — 고른 편지지 id(기본 살구). 받는 사람도 이걸로 읽는다.
+  const [paperId, setPaperId] = useState<string>(DEFAULT_PAPER_ID);
+  const paper = paperById(paperId);
 
   useEffect(() => {
     const userStr = localStorage.getItem('kkom-user');
@@ -196,7 +201,8 @@ export default function NewLetterPage() {
         voicePayload,
         doodle as Doodle | null,
         selectedEmoticonIds,
-        animatedSticker
+        animatedSticker,
+        paperId
       );
       const partner = partnerOf(me);
       feedback(scheduled ? `⏳ ${partner}한테 예약 편지 보냈어` : `📨 ${partner}한테 편지 보냈어`);
@@ -283,6 +289,8 @@ export default function NewLetterPage() {
         onRemoveAnimated={() => setAnimatedSticker(null)}
         sign={mySign}
       />
+    ) : activeTool === 'paper' ? (
+      <LetterPaperPanel papers={LETTER_PAPERS} value={paperId} onChange={setPaperId} />
     ) : activeTool === 'schedule' ? (
       <LetterSchedulePanel enabled={scheduled} onEnabledChange={setScheduled} value={openAtStr} onChange={setOpenAtStr} toName={partner} />
     ) : null;
@@ -310,7 +318,7 @@ export default function NewLetterPage() {
         onToggleMini={() => (miniOpen ? closeMini() : openMini())}
         previewOpen={previewOpen}
         onTogglePreview={() => { rememberSel(); setPreviewOpen((v) => !v); }}
-        preview={<LetterPaper toName={partner} fromName={me} dateText={stamp} parts={bodyParts} preview
+        preview={<LetterPaper toName={partner} fromName={me} dateText={stamp} parts={bodyParts} preview paper={paper}
           enclosures={selectedEmoticons.length > 0 || animatedSt ? (
             <LetterEnclosures
               emoticons={selectedEmoticons.map((e) => ({ id: e.id, label: e.label, imageUrl: e.imageUrl }))}
@@ -331,6 +339,7 @@ export default function NewLetterPage() {
         scheduled={scheduled}
         onSend={handleSend}
         onBack={() => router.back()}
+        paper={paper}
       />
       {/* 큰 이모티콘·움직이는 포차코 고르는 창 — Gemini 시안(src/components/letter, 2026-11-07). 예전 초록·보라 창을 바꿈 */}
       <LetterEmoticonSheet

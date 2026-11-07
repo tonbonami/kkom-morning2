@@ -2,9 +2,11 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import type { MiniPart } from '@/lib/miniEmoticons';
 import { PencilLine, Check, XCircle, Smile, Keyboard } from 'lucide-react';
+import type { LetterPaperTheme } from '@/lib/letterPapers';
+import { paperById } from '@/lib/letterPapers';
 
 // 우댕 2026-11-06 흰 말티푸(꼼이미니)가 또렷하게 뜨면서도 코랄 테마와 어우러지는 은은한 살구 피치 그라디언트 적용
 //   ⚠️ `!` — 쓰기 화면 편지지는 `.sd-card`(background: 반투명 흰색, 층 밖 CSS)와 같이 붙어 !가 없으면 흰색이 이긴다.
@@ -13,7 +15,7 @@ import { PencilLine, Check, XCircle, Smile, Keyboard } from 'lucide-react';
 //   베이지          '!bg-[#EEE3D5] sd-card-paper' — 우댕 「베이지는 아니야」
 //   A 그라디언트    '!bg-[linear-gradient(180deg,#FDF3EE_0%,#F9E0D6_100%)] sd-card-paper' — Gemini 추천, 위쪽 미니가 흐림
 //   B 살구 단색(지금) — Gemini 대안
-export const LETTER_PAPER_CLASS = '!bg-[#F9E0D6] sd-card-paper';
+export const LETTER_PAPER_CLASS = '!bg-[#F9E0D6] sd-card-paper'; // Keep for backward compatibility
 
 export interface LetterPaperProps {
   toName: string;
@@ -33,6 +35,7 @@ export interface LetterPaperProps {
   savingEdit?: boolean;         // 저장 중이면 「저장 중…」
   miniOpen?: boolean;           // editing 중 미니 서랍이 열려 있나
   onToggleMini?: () => void;    // editing 중 「미니」 단추(쓰기 화면과 같은 모양) — 고칠 때도 글 속에 미니를 넣게
+  paper?: LetterPaperTheme;     // 새 편지지 테마
 }
 
 export function LetterPaper({
@@ -53,61 +56,79 @@ export function LetterPaper({
   savingEdit,
   miniOpen,
   onToggleMini,
+  paper,
 }: LetterPaperProps) {
+  const prefersReducedMotion = useReducedMotion();
+  const currentPaper = paper || paperById();
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       className={`
-        relative w-full ${LETTER_PAPER_CLASS} text-[var(--sd-ink)]
+        relative w-full ${currentPaper.className}
         rounded-[28px] ${preview ? 'shadow-sm' : 'shadow-[var(--sd-shadow-card)]'}
         overflow-hidden
       `}
+      style={{
+        ...currentPaper.style,
+        color: currentPaper.ink,
+      }}
     >
       {/* Header with To. Name and Action Button */}
       <div className="flex items-center justify-between pt-6 pb-4 px-6 relative z-10">
-        <h2 className="font-['Dongle'] text-2xl font-bold text-[var(--sd-ink)] whitespace-nowrap leading-none mb-1">
+        <h2
+          className="font-['Dongle'] text-3xl font-bold whitespace-nowrap leading-none mb-1"
+          style={{ color: currentPaper.ink }}
+        >
           To. {toName}
         </h2>
         <div className="flex items-center gap-2">
           {headerAction}
           {canEdit && !editing && (
             <motion.button
-              whileTap={{ scale: 0.95 }}
+              type="button"
+              whileTap={{ scale: prefersReducedMotion ? 1 : 0.95 }}
               onClick={onStartEdit}
-              className="flex items-center gap-1 text-[var(--sd-muted)] text-sm px-3 py-2 rounded-full border border-[var(--sd-line)] bg-[var(--sd-card-solid)] min-h-[44px]"
+              className="flex items-center gap-1 text-sm px-3 py-2 rounded-full border border-[var(--sd-line)] bg-[var(--sd-card-solid)] min-h-[44px]"
+              style={{ color: currentPaper.muted }}
             >
-              <PencilLine size={20} />
+              <PencilLine size={18} />
               <span>수정</span>
             </motion.button>
           )}
           {editing && (
             <div className="flex items-center gap-2">
               <motion.button
-                whileTap={{ scale: 0.95 }}
+                type="button"
+                whileTap={{ scale: prefersReducedMotion ? 1 : 0.95 }}
                 onClick={onCancelEdit}
-                className="flex items-center gap-1 text-[var(--sd-muted)] text-sm px-3 py-2 rounded-full border border-[var(--sd-line)] bg-[var(--sd-card-solid)] min-h-[44px]"
+                className="flex items-center gap-1 text-sm px-3 py-2 rounded-full border border-[var(--sd-line)] bg-[var(--sd-card-solid)] min-h-[44px]"
+                style={{ color: currentPaper.muted }}
               >
-                <XCircle size={20} />
+                <XCircle size={18} />
                 <span>취소</span>
               </motion.button>
               <motion.button
-                whileTap={{ scale: 0.95 }}
+                type="button"
+                whileTap={{ scale: prefersReducedMotion ? 1 : 0.95 }}
                 onClick={onSaveEdit}
                 disabled={savingEdit}
                 className={`flex items-center gap-1 text-white text-sm px-3 py-2 rounded-full shadow-[var(--sd-shadow-btn)] min-h-[44px]
                             ${savingEdit ? 'bg-[var(--sd-faint)]' : 'bg-[var(--sd-rel)]'}`}
               >
                 {savingEdit ? '저장 중...' : '저장'}
-                <Check size={20} />
+                <Check size={18} />
               </motion.button>
               <motion.button
-                whileTap={{ scale: 0.95 }}
+                type="button"
+                whileTap={{ scale: prefersReducedMotion ? 1 : 0.95 }}
                 onClick={onToggleMini}
-                className="flex items-center gap-1 text-[var(--sd-muted)] text-sm px-3 py-2 rounded-full border border-[var(--sd-line)] bg-[var(--sd-card-solid)] min-h-[44px]"
+                className="flex items-center gap-1 text-sm px-3 py-2 rounded-full border border-[var(--sd-line)] bg-[var(--sd-card-solid)] min-h-[44px]"
+                style={{ color: currentPaper.muted }}
               >
-                {miniOpen ? <Keyboard size={20} /> : <Smile size={20} />}
+                {miniOpen ? <Keyboard size={18} /> : <Smile size={18} />}
                 <span>{miniOpen ? '키보드로' : '미니'}</span>
               </motion.button>
             </div>
@@ -118,23 +139,27 @@ export function LetterPaper({
       {/* Main Content Area */}
       <div className={`px-6 text-[16px] leading-[1.8] ${preview ? 'py-2' : 'py-4'}`}>
         {editing ? (
-          <div className="min-h-[100px]">{editorSlot}</div> // Placeholder for editor slot
+          <div className="min-h-[100px]">{editorSlot}</div>
         ) : parts.length === 0 ? (
-          <p className="text-[var(--sd-muted)] text-center py-8">
+          <p className="text-center py-8" style={{ color: currentPaper.muted }}>
             {emptyText}
           </p>
         ) : (
           <p className="whitespace-pre-wrap">
             {parts.map((part, index) => {
               if (part.kind === 'text') {
-                return <span key={index}>{part.text}</span>;
+                return (
+                  <span key={index} style={{ color: currentPaper.ink }}>
+                    {part.text}
+                  </span>
+                );
               } else {
                 return (
                   <img
                     key={index}
                     src={part.src}
                     alt={part.word}
-                    className="inline-block h-7 align-text-bottom mx-[1px]" // 28px height
+                    className="inline-block h-7 align-text-bottom mx-[1px]"
                   />
                 );
               }
@@ -147,10 +172,15 @@ export function LetterPaper({
       <div className={`flex justify-end pr-6 pb-6 pt-4 ${preview ? 'pt-2 pb-4' : ''}`}>
         <div
           className={`
-            font-['Dongle'] text-lg text-[var(--sd-rel)] bg-[var(--sd-rel-soft)]
-            border border-[var(--sd-rel)]/20 px-3 py-1 rounded-lg shadow-sm whitespace-nowrap tabular-nums
-            ${preview ? 'text-base px-2 py-0.5' : ''}
+            font-['Dongle'] text-2xl shadow-sm whitespace-nowrap tabular-nums
+            ${preview ? 'text-xl px-2 py-0.5' : 'px-3 py-1'}
+            border rounded-lg
           `}
+          style={{
+            backgroundColor: currentPaper.stamp.bg,
+            borderColor: currentPaper.stamp.border,
+            color: currentPaper.stamp.fg,
+          }}
         >
           From. {fromName} {dateText}
         </div>

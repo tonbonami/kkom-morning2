@@ -1,4 +1,5 @@
 // src/components/letter/LetterComposeScreen.tsx
+// (2026-11-07 편지지 2탄 — Antigravity 답이 도구줄 단추 줄에서 끊겨, 그 뒤 도구줄·보내기 단추·미니 서랍은 바로 전 코드 그대로 이어 붙임)
 'use client';
 
 import React from 'react';
@@ -13,10 +14,12 @@ import {
   Keyboard,
   Eye,
   EyeOff,
+  Palette,
 } from 'lucide-react';
 import { LETTER_PAPER_CLASS } from './LetterPaper';
+import type { LetterPaperTheme } from '@/lib/letterPapers';
 
-export type LetterTool = 'voice' | 'doodle' | 'sticker' | 'schedule';
+export type LetterTool = 'voice' | 'doodle' | 'sticker' | 'schedule' | 'paper';
 
 export interface LetterComposeScreenProps {
   toName: string;
@@ -39,6 +42,7 @@ export interface LetterComposeScreenProps {
   scheduled: boolean;
   onSend: () => void;
   onBack: () => void;
+  paper: LetterPaperTheme;
 }
 
 export function LetterComposeScreen({
@@ -62,6 +66,7 @@ export function LetterComposeScreen({
   scheduled,
   onSend,
   onBack,
+  paper,
 }: LetterComposeScreenProps) {
   const prefersReducedMotion = useReducedMotion();
 
@@ -69,6 +74,7 @@ export function LetterComposeScreen({
     { icon: Mic, label: '음성', tool: 'voice' },
     { icon: PenLine, label: '손글씨', tool: 'doodle' },
     { icon: Sticker, label: '스티커', tool: 'sticker' },
+    { icon: Palette, label: '편지지', tool: 'paper' },
     { icon: Clock, label: '예약', tool: 'schedule' },
   ];
 
@@ -77,10 +83,11 @@ export function LetterComposeScreen({
       {/* Top Bar */}
       <div className="flex items-center justify-between p-4">
         <motion.button
-          whileTap={{ scale: 0.95 }}
+          type="button"
+          whileTap={{ scale: prefersReducedMotion ? 1 : 0.95 }}
           onClick={onBack}
           aria-label="뒤로"
-          className="min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full"
         >
           <ArrowLeft size={24} className="text-[var(--sd-ink)]" />
         </motion.button>
@@ -95,25 +102,40 @@ export function LetterComposeScreen({
             {preview}
           </div>
         ) : (
-          <div className={`sd-card w-full p-6 pb-2 rounded-[28px] relative ${LETTER_PAPER_CLASS}`}>
+          <div
+            className={`sd-card w-full p-6 pb-4 rounded-[28px] relative ${paper.className}`}
+            style={{
+              ...paper.style,
+              color: paper.ink,
+            }}
+          >
             {/* To/Date */}
             <div className="text-center mb-6">
-              <p className="font-['Dongle'] text-2xl font-bold text-[var(--sd-ink)] leading-none mb-1">
+              <p
+                className="font-['Dongle'] text-3xl font-bold leading-none mb-1"
+                style={{ color: paper.ink }}
+              >
                 To. {toName}
               </p>
-              <p className="font-['Dongle'] text-lg text-[var(--sd-muted)] leading-none">
+              <p
+                className="font-['Dongle'] text-2xl leading-none"
+                style={{ color: paper.muted }}
+              >
                 {dateText}
               </p>
             </div>
 
-            {/* Editor */}
-            <div className="flex-1 min-h-[160px]">
+            {/* Editor Slot */}
+            <div className="flex-1 min-h-[160px] text-[16px] leading-[1.8]">
               {editor}
             </div>
 
             {/* From */}
-            <div className="text-right mt-6 pr-[24px]">
-              <p className="font-['Dongle'] text-2xl font-bold text-[var(--sd-ink)]">
+            <div className="text-right mt-6 pr-4">
+              <p
+                className="font-['Dongle'] text-3xl font-bold leading-none"
+                style={{ color: paper.ink }}
+              >
                 From. {fromName}
               </p>
             </div>
@@ -124,18 +146,20 @@ export function LetterComposeScreen({
         <div className="flex justify-center gap-4 mt-4 mb-4">
           {!previewOpen && (
             <motion.button
-              whileTap={{ scale: 0.95 }}
+              type="button"
+              whileTap={{ scale: prefersReducedMotion ? 1 : 0.95 }}
               onClick={onToggleMini}
-              className="flex items-center gap-1 text-[var(--sd-muted)] text-sm px-3 py-2 rounded-full border border-[var(--sd-line)] bg-[var(--sd-card-solid)] min-h-[44px]"
+              className="flex items-center gap-1 text-[var(--sd-muted)] text-sm px-4 py-2 rounded-full border border-[var(--sd-line)] bg-[var(--sd-card-solid)] min-h-[44px] shadow-sm"
             >
               {miniOpen ? <Keyboard size={20} /> : <Smile size={20} />}
               <span>{miniOpen ? '키보드로' : '미니'}</span>
             </motion.button>
           )}
           <motion.button
-            whileTap={{ scale: 0.95 }}
+            type="button"
+            whileTap={{ scale: prefersReducedMotion ? 1 : 0.95 }}
             onClick={onTogglePreview}
-            className="flex items-center gap-1 text-[var(--sd-muted)] text-sm px-3 py-2 rounded-full border border-[var(--sd-line)] bg-[var(--sd-card-solid)] min-h-[44px]"
+            className="flex items-center gap-1 text-[var(--sd-muted)] text-sm px-4 py-2 rounded-full border border-[var(--sd-line)] bg-[var(--sd-card-solid)] min-h-[44px] shadow-sm"
           >
             {previewOpen ? <EyeOff size={20} /> : <Eye size={20} />}
             <span>{previewOpen ? '다시 쓰기' : '편지로 보기'}</span>
@@ -146,9 +170,9 @@ export function LetterComposeScreen({
       {/* Tool Panel */}
       {activeTool && (
         <motion.div
-          initial={{ opacity: 0, height: 0 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
+          exit={prefersReducedMotion ? undefined : { opacity: 0, height: 0 }}
           transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
           className="bg-[var(--sd-surface-2)] p-4 border-t border-[var(--sd-line)] overflow-hidden"
         >
