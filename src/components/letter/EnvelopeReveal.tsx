@@ -38,7 +38,9 @@ export function EnvelopeReveal({
   onSkip,
   onComplete,
 }: EnvelopeRevealProps) {
-  const prefersReduced = reducedMotion || Boolean(useReducedMotion());
+  // 훅은 늘 같은 순서로 — `reducedMotion || useReducedMotion()` 이면 reducedMotion 이 true 일 때 훅이 안 불려 순서가 바뀐다(eslint rules-of-hooks)
+  const systemReduced = useReducedMotion();
+  const prefersReduced = reducedMotion || Boolean(systemReduced);
 
   useEffect(() => {
     if (phase !== 'opening') return;
