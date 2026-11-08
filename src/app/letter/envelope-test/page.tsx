@@ -43,9 +43,6 @@ export default function EnvelopeTestPage() {
   const [run, setRun] = useState(0);
   const [stats, setStats] = useState<{ max: number; janky: number; frames: number } | null>(null);
   const [reduced, setReduced] = useState(false);
-  const [hold, setHold] = useState(false);   // 닫힌 봉투에서 멈추기(모양 보기용)
-  const holdRef = useRef(false);
-  holdRef.current = hold;
   // ?slow=5 — 여는 순서를 5배 느리게(중간 장면 확인용, 화면엔 안 보이는 옵션)
   const [slow, setSlow] = useState(1);
   const deltas = useRef<number[]>([]);
@@ -57,14 +54,15 @@ export default function EnvelopeTestPage() {
     if (v > 1) setSlow(v);
   }, []);
 
-  // 한 번 열기: 그림을 다 불러 둔 뒤 닫힌 봉투 → 잠깐 → 열기
+  // 닫힌 봉투로 되돌리기(우댕 2026-11-08 「클릭하면 봉투 열리게」 — 봉투를 눌러야 열린다)
   const start = useCallback(async () => {
     setStats(null);
     setPhase('closed');
     setRun((n) => n + 1);
     await Promise.all([preload(KKUL), preload(KKOM)]);
-    await new Promise((r) => setTimeout(r, 450));
-    if (holdRef.current) return;
+  }, []);
+  // 봉투를 누르면 열기 — 재는 것도 이때부터
+  const openIt = useCallback(() => {
     deltas.current = [];
     measuring.current = true;
     let last = performance.now();
@@ -120,8 +118,7 @@ export default function EnvelopeTestPage() {
           ))}
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={start} className="flex-1 min-h-[48px] rounded-full bg-[var(--sd-rel)] text-white font-semibold">다시 열어 보기</button>
-          <button type="button" className={chip(hold)} onClick={() => { setHold((h) => !h); setPhase('closed'); setRun((n) => n + 1); }}>{hold ? '멈춤 풀기' : '닫힌 봉투에서 멈추기'}</button>
+          <button type="button" onClick={start} className="flex-1 min-h-[48px] rounded-full bg-[var(--sd-rel)] text-white font-semibold">닫힌 봉투로 되돌리기</button>
         </div>
       </div>
 
@@ -142,6 +139,7 @@ export default function EnvelopeTestPage() {
             reducedMotion={reduced}
             durationMs={duration * slow}
             bubbles="opening"
+            onOpen={openIt}
             onSkip={onComplete}
             onComplete={onComplete}
           />
@@ -171,7 +169,7 @@ export default function EnvelopeTestPage() {
       <p className="mt-3 text-[13px] tabular-nums text-[var(--sd-muted)]">
         {stats
           ? `장면 ${stats.frames}개 · 가장 오래 걸린 장면 ${stats.max}ms · 끊긴 장면(34ms 넘음) ${stats.janky}개${reduced ? ' · 동작 줄이기 켜짐' : ''}`
-          : '재는 중…'}
+          : phase === 'closed' ? '봉투를 누르면 열리고, 여는 동안 장면 시간을 재요' : '재는 중…'}
       </p>
     </div>
   );

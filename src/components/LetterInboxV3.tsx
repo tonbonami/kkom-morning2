@@ -516,25 +516,30 @@ function LetterModal({
 
   // ── 편지 3탄(2026-11-07): 처음 열 때 봉투 ──
   //   열 때 한 번만 판단(편지 목록이 새로 들어와도 바뀌지 않게). 받은 사람 + revealVersion 1 + 아직 안 연 편지만.
-  //   트랜잭션을 이긴 기기만 봉투 재생, 지거나·오프라인·3초 넘으면 바로 편지. 봉투가 다 열린 뒤에야 실제 편지·움짤을 그린다.
+  //   우댕 2026-11-08 「열자마자 바로 열리네. 클릭하면 봉투 열리게」 → 닫힌 봉투에서 기다렸다가 **봉투를 눌러야** 열린다.
+  //   「처음 열었음」(firstOpenedAt)도 누른 순간에 남긴다 — 안 누르고 닫으면 다음에 다시 닫힌 봉투.
+  //   봉투가 다 열린 뒤에야 실제 편지·움짤을 그린다.
   const reduceMotion = useReducedMotion();
   const [needsEnvelope] = useState(() => letter.to === me && letter.revealVersion === 1 && !letter.firstOpenedAt && letter.sealed !== true);
   const [gate, setGate] = useState<OpeningPhase>(needsEnvelope ? 'closed' : 'opened');
   useEffect(() => {
     if (!needsEnvelope) return;
-    let alive = true;
-    const preload = (src: string) => new Promise<void>((resolve) => {
-      const img = new Image(); img.src = src;
-      const done = () => resolve();
-      if (img.decode) img.decode().then(done, done); else { img.onload = done; img.onerror = done; }
-    });
-    const timeout = new Promise<boolean>((r) => setTimeout(() => r(false), 3000));
-    Promise.all([Promise.race([claimFirstOpen(letter.id, me), timeout]), preload(BUBBLE_KKUL), preload(BUBBLE_KKOM)])
-      .then(([won]) => { if (alive) setGate(won ? 'opening' : 'opened'); });
-    return () => { alive = false; };
+    // 생각풍선 그림을 미리 풀어 둔다(누르는 순간 바로 움직이게)
+    for (const src of [BUBBLE_KKUL, BUBBLE_KKOM]) { const img = new Image(); img.src = src; img.decode?.().catch(() => {}); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const openEnvelope = useCallback(() => {
+    setGate((g) => (g === 'closed' ? 'opening' : g));
+    void claimFirstOpen(letter.id, me);   // 기록은 뒤에서 — 이미 다른 기기에서 열었어도 여기선 누른 대로 연다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const openNow = useCallback(() => setGate('opened'), []);   // ⚠️ 매번 새 함수면 봉투 타이머가 다시 시작된다
+  // 「바로 열기」(건너뛰기) — 닫힌 채로 건너뛰어도 처음 연 것으로 남긴다(이미 남았으면 아무 일 없음)
+  const skipEnvelope = useCallback(() => {
+    setGate('opened');
+    void claimFirstOpen(letter.id, me);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── 편지 새 단장 1차(2026-11-06): 편지지(LetterPaper) + 읽기 판(LetterReadSheet) — 제미나이 시안 그대로, 여기는 연결만 ──
   const stampOf = (d: Date) => { const p = kstParts(d); return `${p.year}. ${p.month}. ${p.day}`; };
@@ -586,7 +591,8 @@ function LetterModal({
           reducedMotion={!!reduceMotion}
           durationMs={ENVELOPE_MS}
           bubbles="opening"
-          onSkip={openNow}
+          onOpen={openEnvelope}
+          onSkip={skipEnvelope}
           onComplete={openNow}
         />
       ) : (
