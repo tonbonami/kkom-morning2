@@ -24,6 +24,7 @@ import StickerTextStack from './StickerTextStack';
 import ChatEffectLayer, { type ChatEffect } from '@/components/ChatEffectLayer';
 import { SAIDAMI_STICKERS, MINI_BY_WORD, TEXT_STICKER_BY_SENDER, senderSticker } from '@/lib/miniEmoticons';
 import { ANIM_STICKERS, DANG_STICKERS, KKOM_STICKERS, KKUL_STICKERS, KKUL_ANIM, URI_STICKERS, SAI_STICKERS } from '@/lib/stickerPacks';
+import ZoomableImage from '@/components/ZoomableImage';
 
 // 메시지 효과 키워드 → 이모지
 function effectFor(text: string): string[] | null {
@@ -2586,14 +2587,14 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 <button
                   onClick={(e) => { e.stopPropagation(); handleSave(viewerImage!, 'image'); }}
                   aria-label="사진 원본 저장"
-                  className="absolute top-12 left-4 flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-2 text-[13px] font-semibold text-white backdrop-blur-sm transition-transform active:scale-95"
+                  className="absolute top-12 left-4 z-10 flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-2 text-[13px] font-semibold text-white backdrop-blur-sm transition-transform active:scale-95"
                 >
                   {savingUrl === viewerImage ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} strokeWidth={2.2} />}
                   저장
                 </button>
-                <button onClick={() => setViewerImage(null)} aria-label="닫기" className="absolute top-12 right-4 text-white/80 p-2"><X size={26} /></button>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={viewerImage} alt="사진" className="max-w-full max-h-full object-contain" onClick={(e) => e.stopPropagation()} />
+                <button onClick={() => setViewerImage(null)} aria-label="닫기" className="absolute top-12 right-4 z-10 text-white/80 p-2"><X size={26} /></button>
+                {/* 두 손가락 벌리기·두 번 톡으로 확대(앱 웹뷰는 화면 확대가 꺼져 있어 직접 처리 — ZoomableImage). 빈 곳 톡 = 닫기 */}
+                <ZoomableImage src={viewerImage} alt="사진" onBackgroundTap={() => setViewerImage(null)} />
               </motion.div>
             )}
           </AnimatePresence>

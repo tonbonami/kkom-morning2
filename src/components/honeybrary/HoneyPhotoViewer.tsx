@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { PhotoVM } from '@/lib/honeybraryTypes';
+import ZoomableImage from '@/components/ZoomableImage';
 
 export interface HoneyPhotoViewerProps {
   open: boolean;
@@ -62,35 +63,21 @@ export function HoneyPhotoViewer({
         </button>
 
         <div className="flex-1 w-full h-full flex items-center justify-center overflow-hidden">
+          {/* 넘기기·확대는 ZoomableImage 한 곳에서(1배일 때 옆으로 밀면 넘김, 두 손가락·두 번 톡이면 확대) —
+              예전 framer drag 넘기기는 두 손가락 확대와 손짓이 겹쳐서 뺐다. */}
           <motion.div
             key={index}
-            drag={photos.length > 1 ? 'x' : false}
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.25}
-            onDragEnd={(_e, info) => {
-              if (info.offset.x < -60 || info.velocity.x < -300) {
-                if (index < photos.length - 1) setIndex(index + 1);
-              } else if (info.offset.x > 60 || info.velocity.x > 300) {
-                if (index > 0) setIndex(index - 1);
-              }
-            }}
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
             animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.16 }}
-            className="w-full h-full flex items-center justify-center p-4 touch-none"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) onClose();
-            }}
+            className="w-full h-full p-4"
           >
             {currentPhoto && (
-              <img
+              <ZoomableImage
                 src={currentPhoto.url}
-                alt=""
-                decoding="async"
-                draggable={false}
-                className="max-w-full max-h-full object-contain pointer-events-auto"
-                onClick={(e) => e.stopPropagation()}
+                onBackgroundTap={onClose}
+                onSwipe={photos.length > 1 ? (dir) => setIndex((i) => (dir === 'next' ? Math.min(photos.length - 1, i + 1) : Math.max(0, i - 1))) : undefined}
               />
             )}
           </motion.div>

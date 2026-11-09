@@ -4,7 +4,8 @@
 // 단순 단일 컴포넌트, 외부 lib 없음 (Framer Motion swipe만).
 
 import { useEffect, useState } from 'react';
-import { AnimatePresence, motion, type PanInfo } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import ZoomableImage from '@/components/ZoomableImage';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface Props {
@@ -39,9 +40,9 @@ export default function PhotoGalleryModal({ open, photos, startIndex = 0, title,
   const safeIdx = Math.max(0, Math.min(index, total - 1));
   const current = photos[safeIdx];
 
-  const handleSwipe = (_: unknown, info: PanInfo) => {
-    if (info.offset.x < -60 && safeIdx < total - 1) setIndex(safeIdx + 1);
-    else if (info.offset.x > 60 && safeIdx > 0) setIndex(safeIdx - 1);
+  const handleSwipe = (dir: 'next' | 'prev') => {
+    if (dir === 'next' && safeIdx < total - 1) setIndex(safeIdx + 1);
+    else if (dir === 'prev' && safeIdx > 0) setIndex(safeIdx - 1);
   };
 
   return (
@@ -70,20 +71,20 @@ export default function PhotoGalleryModal({ open, photos, startIndex = 0, title,
 
         {/* 사진 */}
         <div className="flex-1 flex items-center justify-center px-4 relative" onClick={(e) => e.stopPropagation()}>
-          <motion.img
+          {/* 넘기기·확대는 ZoomableImage 한 곳에서(1배일 때 옆으로 밀면 넘김, 두 손가락·두 번 톡이면 확대 — 앱 웹뷰는 화면 확대가 꺼져 있다) */}
+          <motion.div
             key={current}
-            src={current}
-            alt=""
-            draggable={false}
-            drag={total > 1 ? 'x' : false}
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.3}
-            onDragEnd={handleSwipe}
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.2 }}
-            className="max-h-full max-w-full object-contain select-none"
-          />
+            className="w-full h-full"
+          >
+            <ZoomableImage
+              src={current}
+              onBackgroundTap={onClose}
+              onSwipe={total > 1 ? (dir) => handleSwipe(dir) : undefined}
+            />
+          </motion.div>
 
           {/* 좌우 화살표 (사진 2장 이상일 때) */}
           {total > 1 && safeIdx > 0 && (
