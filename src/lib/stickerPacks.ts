@@ -103,6 +103,9 @@ export const KKUL_ANIM: { word: string; image: string }[] = [
   { word: '의기냥냥!', image: '/emo/sai-anim/kkul-nyang.webp' },
   // 꼼이 「좋은 아침」(수평선 위로 꼼이 얼굴이 해처럼)의 짝 — 더듬이 방울이 먼저 빼꼼 → 멍하게 떠오름 → 해 뜨며 쏙 숨었다 뿌듯 → 다시 밤으로(art/kkuldaeng/morning, Kling 21, 우댕 「넣어」 2026-11-02)
   { word: '좋은 아침', image: '/emo/sai-anim/kkul-morning.webp' },
+  // 꼼이 「추워」(사이 팩)의 짝 — 덜덜 → 날개로 데우려다 찬바람 역풍 → 딱 얼어 더듬이 띠용 → 콧물 고드름 달고 멍
+  //   (art/kkuldaeng/cold: GPT 회의 1순위 「자가 냉풍기」 → Codex 키프레임 → Kling 24 → make_cold.py, 우댕 「올려」 2026-11-10)
+  { word: '추워', image: '/emo/sai-anim/kkul-cold.webp' },
 ];
 // 우리 탭 — 꿀됑+꼼이가 같이 나오는 커플 16종(정지, 글씨 배지). GPT 회의(후보 20 → 16, 순서 = 자주 쓸 것 앞) + 우댕 OK(2026-10-27).
 //   원본·회의 원문·지시문·만든 스크립트는 art/couple16 (make_couple.py: 투명 그림 → 배지 webp 320).
