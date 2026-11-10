@@ -3,10 +3,12 @@
 
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { Lock } from 'lucide-react';
 import { PEOPLE, type BookVM } from '@/lib/honeybraryTypes';
 import { HONEY } from '@/lib/honeybraryTheme';
 import { HoneyBookCover } from './HoneyBookCover';
 import { ReaderProgressLine } from './ReaderProgressLine';
+import { BookVisibilityBadge } from './BookVisibilityBadge';
 
 export interface HoneyBookCardProps {
   book: BookVM;
@@ -25,9 +27,12 @@ export function HoneyBookCard({
     return (
       <button
         onClick={onClick}
-        className="flex items-center gap-3 py-2 px-1 text-left w-full min-h-[44px] active:opacity-75 transition-opacity"
+        className="flex items-center gap-2 py-2 px-1 text-left w-full min-h-[44px] active:opacity-75 transition-opacity"
       >
         <HoneyBookCover title={book.title} src={book.coverThumb} width={26} rounded={5} />
+        {book.visibility === 'private' && (
+          <Lock size={13} className="shrink-0" style={{ color: HONEY.faint }} />
+        )}
         <span
           className="text-[13.5px] truncate font-medium flex-1"
           style={{ color: HONEY.muted }}
@@ -50,12 +55,19 @@ export function HoneyBookCard({
     >
       <HoneyBookCover title={book.title} src={book.coverThumb} width={58} />
       <div className="min-w-0 flex-1 flex flex-col justify-center gap-1.5">
-        <p
-          className="text-[15px] font-bold leading-snug line-clamp-2"
-          style={{ color: HONEY.ink }}
-        >
-          {book.title}
-        </p>
+        <div className="flex items-start justify-between gap-1.5">
+          <p
+            className="text-[15px] font-bold leading-snug line-clamp-2 flex-1"
+            style={{ color: HONEY.ink }}
+          >
+            {book.title}
+          </p>
+          {book.visibility === 'private' && (
+            <span className="shrink-0 mt-0.5">
+              <BookVisibilityBadge compact />
+            </span>
+          )}
+        </div>
         <div className="flex flex-col gap-1">
           {PEOPLE.map((p) => {
             const r = book.readers[p];

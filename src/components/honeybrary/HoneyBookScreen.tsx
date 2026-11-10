@@ -10,6 +10,7 @@ import { HoneyBookCover } from '@/components/honeybrary/HoneyBookCover';
 import { ReadingProgressPanel } from '@/components/honeybrary/ReadingProgressPanel';
 import { ReadingTimeline } from '@/components/honeybrary/ReadingTimeline';
 import { HoneyConfirmSheet } from '@/components/honeybrary/HoneyConfirmSheet';
+import { BookVisibilityBadge } from '@/components/honeybrary/BookVisibilityBadge';
 
 export interface HoneyBookScreenProps {
   book: BookVM;
@@ -20,6 +21,8 @@ export interface HoneyBookScreenProps {
   onLoadOlderNotes: () => void;
   reviewsSlot: React.ReactNode;
   hasMyReview: boolean;
+  canChangeVisibility: boolean;
+  onRequestVisibilityChange: () => void;
   toast?: string | null;
   onBack: () => void;
   onSaveMyReading: (r: ReadingVM) => void;
@@ -43,6 +46,8 @@ export function HoneyBookScreen({
   onLoadOlderNotes,
   reviewsSlot,
   hasMyReview,
+  canChangeVisibility,
+  onRequestVisibilityChange,
   toast,
   onBack,
   onSaveMyReading,
@@ -136,13 +141,27 @@ export function HoneyBookScreen({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-full mt-1 w-44 rounded-2xl overflow-hidden z-30 text-[14px]"
+                      className="absolute right-0 top-full mt-1 w-52 rounded-2xl overflow-hidden z-30 text-[14px]"
                       style={{
                         background: HONEY.card,
                         boxShadow: '0 12px 30px -12px rgba(40,20,30,.25)',
                         border: `1px solid ${HONEY.line}`,
                       }}
                     >
+                      {canChangeVisibility && (
+                        <button
+                          className="w-full text-left px-4 py-3 min-h-[44px]"
+                          style={{ color: HONEY.ink, borderBottom: `1px solid ${HONEY.line}` }}
+                          onClick={() => {
+                            setMenuOpen(false);
+                            onRequestVisibilityChange();
+                          }}
+                        >
+                          {book.visibility === 'shared'
+                            ? '혼자 보는 책으로 바꾸기'
+                            : '같이 보는 책으로 바꾸기'}
+                        </button>
+                      )}
                       <button
                         className="w-full text-left px-4 py-3 min-h-[44px]"
                         style={{ color: HONEY.ink }}
@@ -226,9 +245,13 @@ export function HoneyBookScreen({
                 >
                   {book.title}
                 </h1>
-                <span className="text-[12.5px] font-medium" style={{ color: HONEY.faint }}>
-                  {placedByText}
-                </span>
+                {book.visibility === 'private' ? (
+                  <BookVisibilityBadge />
+                ) : (
+                  <span className="text-[12.5px] font-medium" style={{ color: HONEY.faint }}>
+                    {placedByText}
+                  </span>
+                )}
               </div>
             )}
           </section>
@@ -267,19 +290,18 @@ export function HoneyBookScreen({
             />
           </section>
 
-          {/* 감상이 하나도 없으면 칸째 안 그린다(빈 제목만 남으면 「아직 없음」처럼 보인다) */}
           {(reviewsSlot || (!hasMyReview && isMyReadingDone)) && (
-          <section className="flex flex-col gap-3">
-            <h2 className="text-[15px] font-bold" style={{ color: HONEY.ink }}>
-              둘의 감상
-            </h2>
-            {!hasMyReview && isMyReadingDone && (
-              <p className="text-[13px]" style={{ color: HONEY.muted }}>
-                다 읽었다면, 이번 독서 경험을 남겨 봐요
-              </p>
-            )}
-            {reviewsSlot}
-          </section>
+            <section className="flex flex-col gap-3">
+              <h2 className="text-[15px] font-bold" style={{ color: HONEY.ink }}>
+                {book.visibility === 'private' ? '내 감상' : '둘의 감상'}
+              </h2>
+              {!hasMyReview && isMyReadingDone && (
+                <p className="text-[13px]" style={{ color: HONEY.muted }}>
+                  다 읽었다면, 이번 독서 경험을 남겨 봐요
+                </p>
+              )}
+              {reviewsSlot}
+            </section>
           )}
         </main>
 

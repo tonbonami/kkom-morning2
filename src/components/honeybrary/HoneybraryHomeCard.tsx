@@ -2,6 +2,7 @@
 'use client';
 
 import React from 'react';
+import { Lock } from 'lucide-react';
 import { PEOPLE, type BookVM } from '@/lib/honeybraryTypes';
 import { HONEY } from '@/lib/honeybraryTheme';
 import HoneybraryLogo from '@/components/honeybrary/HoneybraryLogo';
@@ -32,9 +33,14 @@ export function HoneybraryHomeCard({ book, onOpen }: HoneybraryHomeCardProps) {
         <div className="flex items-center gap-3 mt-3 pt-1">
           <HoneyBookCover title={book.title} src={book.coverThumb} width={34} rounded={6} />
           <div className="min-w-0 flex-1 flex flex-col justify-center gap-1">
-            <p className="text-[13.5px] font-bold truncate" style={{ color: HONEY.ink }}>
-              {book.title}
-            </p>
+            <div className="flex items-center gap-1 truncate">
+              {book.visibility === 'private' && (
+                <Lock size={13} className="shrink-0" style={{ color: HONEY.faint }} />
+              )}
+              <p className="text-[13.5px] font-bold truncate" style={{ color: HONEY.ink }}>
+                {book.title}
+              </p>
+            </div>
             {activeReaders.map((p) => {
               const r = book.readers[p];
               if (!r) return null;

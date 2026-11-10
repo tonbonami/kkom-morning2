@@ -60,7 +60,7 @@ import ChatPanel, { preview } from '@/components/ChatPanel';
 import { subscribeMessages, sendMessage, sendCapsule, type ChatMessage } from '@/lib/chat';
 import type { WeatherData, OutfitGuide } from '@/types';
 import { HoneybraryHomeCard } from '@/components/honeybrary/HoneybraryHomeCard';
-import { subscribeHoneyBooks, type HoneyBook } from '@/lib/honeybrary';
+import { subscribeHoneyBooks, backfillHoneyVisibility, type HoneyBook } from '@/lib/honeybrary';
 
 // 등급별 테마 (배경 그라데이션·텍스트·막대 색을 한 색으로 통일)
 const getAirTheme = (grade?: string) => {
@@ -325,7 +325,10 @@ export default function KkomMorningHome() {
     // 시집 — 새 시 배지. lastSeen은 /poems를 열 때 갱신되므로, 볼 때까지 배지가 남음
     setPoemsLastSeen(readPoemsLastSeen());
     const unsubPoems = subscribePoems(setPoems);
-    const unsubHoney = subscribeHoneyBooks(10, (b) => setHoneyBooks(b));
+    // 허니브러리 — 내 화면에 보이는 책만(상대의 혼자 보는 책은 안 내려온다). 옛 책 채우기는 한 번만.
+    const honeyMe = (me === '우댕' || me === '꼼이') ? me : null;
+    if (honeyMe) void backfillHoneyVisibility();
+    const unsubHoney = honeyMe ? subscribeHoneyBooks(honeyMe, 10, (b) => setHoneyBooks(b)) : () => {};
 
     // 칭찬 — 오늘 partner가 준 칭찬(스티커+졸랐어)을 실시간 구독. 안읽음 숫자 배지용.
     // (지역변수 me 사용 — userName은 setUserName 직후라 클로저에서 초기값 고정되는 이슈 회피)

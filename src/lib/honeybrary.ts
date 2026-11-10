@@ -13,17 +13,23 @@
  * ⚠️⚠️ 장부가 되면 안 된다 — 진행 문서에 **시각을 안 남긴다**(「어제 이후 안 읽었네」 금지). 권수·평균·연속은 셈하지 않는다.
  * ⚠️ 신원은 이름 문자열(우댕·꼼이). 규칙이 열려 있어(firestore.rules) 위조를 막지는 못한다 — 둘만 쓰는 앱 전제.
  * ⚠️ 연습 모드(?practice=1)에서는 쓰기를 전부 막는다(practice.ts) — 검수자가 눌러 봐도 실제 책장이 안 바뀐다.
+ *
+ * 같이 보기 / 혼자 보기(2026-11-10, GPT 회의 docs/gpt-honeybrary-private-answer.md):
+ *   책 문서에 `visibility`·`privateOwner`·`visibleAt.{udaeng|kkomi}`(=createdAt). 책장은 **내 열쇠로 정렬**
+ *   `orderBy('visibleAt.<나>')` — 상대의 혼자 보는 책엔 내 열쇠가 없어서 **아예 내려오지 않는다**(복합 색인 불필요).
+ *   ⚠️ 그래서 visibleAt 이 없는 옛 책은 책장에서 빠진다 → backfillHoneyVisibility 가 한 번 채운다.
+ *   ⚠️ 보안이 아니다 — 책 id 를 알면 읽힌다(규칙이 열려 있음). 「비밀」이라고 약속하지 말 것.
  */
 import {
   collection, doc, query, orderBy, limit, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, getDocs,
-  serverTimestamp, deleteField, writeBatch, FieldPath, type DocumentData,
+  serverTimestamp, deleteField, writeBatch, FieldPath, where, getDoc, Timestamp, type DocumentData,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject, listAll, type StorageReference } from 'firebase/storage';
 import { db, storage } from './firebase';
 import { nameFromCode } from './letters';
 import { isPractice, practiceBlocked } from './practice';
 import {
-  LIMITS, type BookVM, type NoteVM, type Person, type PhotoVM, type Rating, type ReadingVM, type ReviewDraft, type ReviewVM,
+  LIMITS, partnerOf, type BookVM, type NoteVM, type Person, type PhotoVM, type Rating, type ReadingVM, type ReviewDraft, type ReviewVM, type Visibility,
 } from './honeybraryTypes';
 
 const BOOKS = 'honeyBooks';
@@ -123,8 +129,7 @@ function readStored(v: unknown): StoredPhoto | null {
 }
 
 // ── 책 ───────────────────────────────────────────────────────────────────
-interface BookDoc { title: string; placedBy: Person; readers: Partial<Record<Person, ReadingVM>>; cover?: StoredPhoto | null }
-export type HoneyBook = BookVM & { cover?: StoredPhoto | null };
+export type HoneyBook = BookVM & { cover?: StoredPhoto | null; createdAtTs?: Timestamp | null; privateOwner?: Person | null };
 
 function readReading(v: unknown): ReadingVM | null {
   const o = v as Partial<ReadingVM> | null;
@@ -138,11 +143,17 @@ function readBook(id: string, d: DocumentData): HoneyBook {
     if (p && r) readers[p] = r;
   }
   const cover = readStored(d.cover);
+  const placedBy: Person = isPerson(d.placedBy) ? d.placedBy : '우댕';
+  const visibility: Visibility = d.visibility === 'private' ? 'private' : 'shared';
   return {
-    id, title: String(d.title ?? ''), placedBy: isPerson(d.placedBy) ? d.placedBy : '우댕', readers,
+    id, title: String(d.title ?? ''), placedBy, readers, visibility,
+    privateOwner: visibility === 'private' ? (isPerson(d.privateOwner) ? d.privateOwner : placedBy) : null,
     coverUrl: cover?.url, coverThumb: cover?.thumbUrl, cover,
+    createdAtTs: d.createdAt instanceof Timestamp ? d.createdAt : null,
   };
 }
+/** 이 책이 이 사람 화면에 보이나 — 혼자 보는 책은 주인만. */
+export const canSeeHoneyBook = (b: Pick<HoneyBook, 'visibility' | 'privateOwner'>, me: Person) => b.visibility !== 'private' || b.privateOwner === me;
 function cleanReading(r: ReadingVM): DocumentData {
   const out: DocumentData = { status: r.status };
   if (r.status === 'reading') {
@@ -153,29 +164,66 @@ function cleanReading(r: ReadingVM): DocumentData {
   return out;
 }
 
-/** 책장 — 놓은 순(최근 먼저) n권. */
-export function subscribeHoneyBooks(n: number, cb: (books: HoneyBook[], full: boolean) => void, onErr?: (e: unknown) => void) {
-  const q = query(collection(db, BOOKS), orderBy('createdAt', 'desc'), limit(n));
-  return onSnapshot(q, (s) => cb(s.docs.map((x) => readBook(x.id, x.data())), s.size >= n), (e) => onErr?.(e));
+/** 책장 — **내 화면에 보이는 책만**, 놓은 순(최근 먼저) n권. 상대의 혼자 보는 책은 질의에서부터 빠진다(visibleAt.<나> 가 없다). */
+export function subscribeHoneyBooks(me: Person, n: number, cb: (books: HoneyBook[], full: boolean) => void, onErr?: (e: unknown) => void) {
+  const q = query(collection(db, BOOKS), orderBy(`visibleAt.${PERSON_KEY[me]}`, 'desc'), limit(n));
+  return onSnapshot(q, (s) => cb(s.docs.map((x) => readBook(x.id, x.data())).filter((b) => canSeeHoneyBook(b, me)), s.size >= n), (e) => onErr?.(e));
 }
 export const HONEY_PAGE = PAGE;
 
-export function subscribeHoneyBook(id: string, cb: (b: HoneyBook | null) => void, onErr?: (e: unknown) => void) {
-  return onSnapshot(doc(db, BOOKS, id), (s) => cb(s.exists() ? readBook(s.id, s.data()) : null), (e) => onErr?.(e));
+/** 책 한 권 — 상대의 혼자 보는 책이면 **없는 책(null)** 으로(주소를 알아도 화면엔 안 띄운다). */
+export function subscribeHoneyBook(id: string, me: Person, cb: (b: HoneyBook | null) => void, onErr?: (e: unknown) => void) {
+  return onSnapshot(doc(db, BOOKS, id), (s) => {
+    const b = s.exists() ? readBook(s.id, s.data()) : null;
+    cb(b && canSeeHoneyBook(b, me) ? b : null);
+  }, (e) => onErr?.(e));
+}
+
+/** 옛 책(같이 보기 전에 놓은 것)에 visibility·visibleAt 을 한 번 채운다. 다 끝나면 settings/honeybrary 에 적어 다시 안 돈다.
+ *  ⚠️ 새 책장 질의(visibleAt 정렬)는 이 필드가 없는 책을 못 본다 — 그래서 책장·홈이 열릴 때 먼저 부른다. */
+let backfillRun: Promise<void> | null = null;
+export function backfillHoneyVisibility(): Promise<void> {
+  if (isPractice()) return Promise.resolve();
+  backfillRun ??= (async () => {
+    const flag = doc(db, 'settings', 'honeybrary');
+    const f = await getDoc(flag);
+    if (f.exists() && f.data()?.visibilityBackfilled === true) return;
+    const snap = await getDocs(query(collection(db, BOOKS), orderBy('createdAt', 'desc'), limit(500)));
+    const todo = snap.docs.filter((d) => !d.data().visibleAt);
+    for (let i = 0; i < todo.length; i += 450) {
+      const b = writeBatch(db);
+      todo.slice(i, i + 450).forEach((d) => {
+        const at = d.data().createdAt instanceof Timestamp ? d.data().createdAt : Timestamp.now();
+        b.update(d.ref, { visibility: 'shared', visibleAt: { udaeng: at, kkomi: at } });
+      });
+      await b.commit();
+    }
+    await setDoc(flag, { visibilityBackfilled: true }, { merge: true });
+  })().catch((e) => { backfillRun = null; console.error('허니브러리 옛 책 채우기 실패:', e); });
+  return backfillRun;
 }
 
 /** 책 놓기 — 표지는 문서를 만든 뒤 올린다(경로에 책 id 가 필요하다). 표지 올리기가 실패해도 책은 남는다. */
 export async function addHoneyBook(input: {
   title: string; by: Person; readerMode: 'me' | 'partner' | 'both'; current?: number; total?: number; cover?: File | null;
+  visibility?: Visibility;
 }): Promise<string> {
   if (blocked('책 놓기')) throw new PracticeBlocked();
   const title = input.title.trim().slice(0, LIMITS.title);
   if (!title) throw new Error('제목이 비었어요');
-  const partner: Person = input.by === '우댕' ? '꼼이' : '우댕';
-  const first: Person = input.readerMode === 'partner' ? partner : input.by;
+  const partner: Person = partnerOf(input.by);
+  const visibility: Visibility = input.visibility === 'private' ? 'private' : 'shared';
+  const mode = visibility === 'private' ? 'me' : input.readerMode;                  // 혼자 보기면 읽는 사람은 나로 고정
+  const first: Person = mode === 'partner' ? partner : input.by;
   const readers: DocumentData = { [PERSON_KEY[first]]: cleanReading({ status: 'reading', current: input.current, total: input.total }) };
-  if (input.readerMode === 'both') readers[PERSON_KEY[partner]] = { status: 'reading' };   // 쪽수는 각자 판본이 달라 내 것만
-  const ref = await addDoc(collection(db, BOOKS), { title, placedBy: input.by, readers, createdAt: serverTimestamp() });
+  if (mode === 'both') readers[PERSON_KEY[partner]] = { status: 'reading' };   // 쪽수는 각자 판본이 달라 내 것만
+  // createdAt 과 visibleAt 을 **같은 시각**으로(바꾸기 때 상대 열쇠를 그 시각으로 되살려 책장 순서가 안 흔들리게)
+  const at = Timestamp.now();
+  const visibleAt: DocumentData = { [PERSON_KEY[input.by]]: at };
+  if (visibility === 'shared') visibleAt[PERSON_KEY[partner]] = at;
+  const data: DocumentData = { title, placedBy: input.by, readers, visibility, visibleAt, createdAt: at };
+  if (visibility === 'private') data.privateOwner = input.by;
+  const ref = await addDoc(collection(db, BOOKS), data);
   if (input.cover) {
     try {
       const cover = await uploadPhoto(`${photoBase(ref.id)}/cover_${stamp()}`, input.cover);
@@ -198,6 +246,39 @@ export async function setHoneyCover(book: HoneyBook, file: File): Promise<void> 
   try { await updateDoc(doc(db, BOOKS, book.id), { cover: next }); }
   catch (e) { await removePhoto(next).catch(() => {}); throw e; }
   await removePhoto(book.cover).catch((e) => console.warn('옛 표지 지우기 실패:', e));
+}
+
+/** 혼자 보기로 못 바꾸는 이유 — 상대가 이 책에 남긴 게 있으면(진행·기록·한 줄 잇기·감상·한마디) 막는다. 없으면 null.
+ *  ⚠️ 상대 것을 몰래 숨기거나 지우면 안 된다(GPT 회의 2번) — 그래서 「막기」. */
+export async function honeyPrivateBlock(book: HoneyBook, me: Person): Promise<string | null> {
+  const partner = partnerOf(me);
+  const why = `${partner}${partner === '꼼이' ? '가' : '이'} 남긴 내용이 있어 혼자 보는 책으로 바꿀 수 없어요.`;
+  if (book.readers[partner]) return why;
+  const notes = await getDocs(query(collection(db, BOOKS, book.id, 'notes'), where('by', '==', partner), limit(1)));
+  if (!notes.empty) return why;
+  const [theirs, mine] = await Promise.all([
+    getDoc(doc(db, BOOKS, book.id, 'reviews', PERSON_KEY[partner])),
+    getDoc(doc(db, BOOKS, book.id, 'reviews', PERSON_KEY[me])),
+  ]);
+  if (theirs.exists() || (mine.exists() && mine.data()?.reply)) return why;
+  return null;
+}
+
+/** 같이 보기 ↔ 혼자 보기 — **놓은 사람만**. 혼자로 바꾸면 상대 열쇠를 지워 상대 책장에서 빠지고, 같이로 바꾸면 놓은 시각으로 되살린다. */
+export async function setHoneyVisibility(book: HoneyBook, me: Person, next: Visibility): Promise<void> {
+  if (blocked('같이·혼자 보기 바꾸기')) throw new PracticeBlocked();
+  if (book.placedBy !== me) throw new Error('놓은 사람만 바꿀 수 있어요');
+  const partnerKey = PERSON_KEY[partnerOf(me)];
+  const ref = doc(db, BOOKS, book.id);
+  if (next === 'private') {
+    const why = await honeyPrivateBlock(book, me);
+    if (why) throw new Error(why);
+    await updateDoc(ref, 'visibility', 'private', 'privateOwner', me, new FieldPath('visibleAt', partnerKey), deleteField());
+  } else {
+    await updateDoc(ref, 'visibility', 'shared', 'privateOwner', deleteField(),
+      new FieldPath('visibleAt', partnerKey), book.createdAtTs ?? Timestamp.now(),
+      new FieldPath('visibleAt', PERSON_KEY[me]), book.createdAtTs ?? Timestamp.now());
+  }
 }
 
 /** 내 진행 — 나만 고친다(남의 줄엔 고치기 단추가 없다). ⚠️ 시각을 남기지 않는다. */

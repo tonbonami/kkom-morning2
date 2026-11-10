@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { HoneybraryShelfScreen } from '@/components/honeybrary/HoneybraryShelfScreen';
 import { BookPlacementSheet } from '@/components/honeybrary/BookPlacementSheet';
-import { subscribeHoneyBooks, addHoneyBook, honeyMe, HONEY_PAGE, PracticeBlocked, type HoneyBook } from '@/lib/honeybrary';
+import { subscribeHoneyBooks, addHoneyBook, honeyMe, backfillHoneyVisibility, HONEY_PAGE, PracticeBlocked, type HoneyBook } from '@/lib/honeybrary';
 import type { Person } from '@/lib/honeybraryTypes';
 
 const HINT_KEY = 'honeybrary-hint-seen';
@@ -32,9 +32,14 @@ export default function HoneybraryPage() {
     try { if (!localStorage.getItem(HINT_KEY)) { setHint(true); localStorage.setItem(HINT_KEY, '1'); } } catch { /* 저장 막힘 */ }
   }, [router]);
 
-  useEffect(() => subscribeHoneyBooks(n,
-    (b, f) => { setBooks(b); setFull(f); setLoaded(true); },
-    (e) => { console.error('허니브러리 불러오기 실패:', e); setLoaded(true); }), [n]);
+  // 내 화면에 보이는 책만(상대의 혼자 보는 책은 질의에서부터 빠진다). 옛 책 채우기는 한 번만 돈다.
+  useEffect(() => {
+    if (!me) return;
+    void backfillHoneyVisibility();
+    return subscribeHoneyBooks(me, n,
+      (b, f) => { setBooks(b); setFull(f); setLoaded(true); },
+      (e) => { console.error('허니브러리 불러오기 실패:', e); setLoaded(true); });
+  }, [me, n]);
 
   if (!me) return null;
 

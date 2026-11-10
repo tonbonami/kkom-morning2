@@ -11,15 +11,17 @@ import { useParams, useRouter } from 'next/navigation';
 import { HoneyBookScreen } from '@/components/honeybrary/HoneyBookScreen';
 import { NoteComposerSheet } from '@/components/honeybrary/NoteComposerSheet';
 import { HoneyPhotoViewer } from '@/components/honeybrary/HoneyPhotoViewer';
+import { VisibilityChangeSheet } from '@/components/honeybrary/VisibilityChangeSheet';
 import { HoneyReviewComposer } from '@/components/honeybrary/HoneyReviewComposer';
 import { HoneyReviewCard } from '@/components/honeybrary/HoneyReviewCard';
 import { HONEY } from '@/lib/honeybraryTheme';
 import {
   honeyMe, subscribeHoneyBook, subscribeHoneyNotes, subscribeHoneyReviews, setMyHoneyReading, addHoneyNote, deleteHoneyNote,
   renameHoneyBook, setHoneyCover, deleteHoneyBook, saveHoneyReview, deleteHoneyReview, setHoneyReply, HONEY_PAGE, PracticeBlocked,
+  honeyPrivateBlock, setHoneyVisibility,
   type HoneyBook, type HoneyNote, type HoneyReview, type StoredPhoto,
 } from '@/lib/honeybrary';
-import { LIMITS, REVIEW_KEYWORDS, type Person, type PhotoVM, type ReviewDraft } from '@/lib/honeybraryTypes';
+import { LIMITS, REVIEW_KEYWORDS, partnerOf, type Person, type PhotoVM, type ReviewDraft } from '@/lib/honeybraryTypes';
 
 const CHAR_SRC: Record<Person, string> = { '우댕': '/emo/kkuldaeng/mood/calm.png', '꼼이': '/emo/saidami/calm.webp' };
 
@@ -50,24 +52,34 @@ export default function HoneyBookPage() {
   const [revProgress, setRevProgress] = useState<string | null>(null);
   const [revPhotos, setRevPhotos] = useState<DraftPhoto[]>([]);
 
+  // 같이 보기 ↔ 혼자 보기 — 놓은 사람만. 혼자로 바꿀 땐 상대가 남긴 게 있는지 먼저 본다(있으면 막음).
+  const [visOpen, setVisOpen] = useState(false);
+  const [visChecking, setVisChecking] = useState(false);
+  const [visBlocked, setVisBlocked] = useState<string | null>(null);
+  const [visBusy, setVisBusy] = useState(false);
+
   useEffect(() => {
     const who = honeyMe();
     if (!who) { router.replace('/'); return; }
     setMe(who);
   }, [router]);
 
+  // 책 먼저 — 상대의 혼자 보는 책이면 null(「책장에 없어요」). 기록·감상은 **보이는 책일 때만** 구독한다
+  // (혼자로 바뀌는 순간 상대 화면은 책장으로 나가고 하위 구독도 끊긴다 — GPT 회의 2번).
   useEffect(() => {
-    if (!bookId) return;
-    const onErr = (e: unknown) => { console.error('허니브러리 책 불러오기 실패:', e); setFailed(true); };
-    const a = subscribeHoneyBook(bookId, setBook, onErr);
-    const c = subscribeHoneyReviews(bookId, setReviews, onErr);
-    return () => { a(); c(); };
-  }, [bookId]);
+    if (!bookId || !me) return;
+    return subscribeHoneyBook(bookId, me, setBook, (e) => { console.error('허니브러리 책 불러오기 실패:', e); setFailed(true); });
+  }, [bookId, me]);
+  const visibleId = book ? book.id : null;
   useEffect(() => {
-    if (!bookId) return;
-    return subscribeHoneyNotes(bookId, notesN, (n, full) => { setNotes(n); setNotesFull(full); },
+    if (!visibleId) { setReviews([]); return; }
+    return subscribeHoneyReviews(visibleId, setReviews, (e) => { console.error('감상 불러오기 실패:', e); setFailed(true); });
+  }, [visibleId]);
+  useEffect(() => {
+    if (!visibleId) { setNotes([]); return; }
+    return subscribeHoneyNotes(visibleId, notesN, (n, full) => { setNotes(n); setNotesFull(full); },
       (e) => { console.error('기록 불러오기 실패:', e); setFailed(true); });
-  }, [bookId, notesN]);
+  }, [visibleId, notesN]);
 
   const flash = useCallback((m: string) => { setToast(m); setTimeout(() => setToast(null), 2200); }, []);
   const fail = useCallback((e: unknown, m: string) => {
@@ -125,6 +137,15 @@ export default function HoneyBookPage() {
         loadingOlderNotes={false}
         onLoadOlderNotes={() => setNotesN((v) => v + HONEY_PAGE)}
         hasMyReview={!!myReview}
+        canChangeVisibility={book.placedBy === me}
+        onRequestVisibilityChange={async () => {
+          setVisBlocked(null); setVisOpen(true);
+          if (book.visibility !== 'shared') return;
+          setVisChecking(true);
+          try { setVisBlocked(await honeyPrivateBlock(book, me)); }
+          catch (e) { console.error('바꿀 수 있는지 확인 실패:', e); setVisBlocked('지금은 확인하지 못했어요. 잠시 뒤 다시 해 주세요.'); }
+          finally { setVisChecking(false); }
+        }}
         toast={toast}
         reviewsSlot={orderedReviews.length ? (
           <div className="flex flex-col gap-4">
@@ -224,6 +245,29 @@ export default function HoneyBookPage() {
           catch (e) { fail(e, '감상을 못 지웠어요'); }
           finally { setRevBusy(false); }
         } : undefined}
+      />
+
+      <VisibilityChangeSheet
+        open={visOpen}
+        current={book.visibility}
+        partnerName={partnerOf(me)}
+        checking={visChecking}
+        blockedReason={visBlocked}
+        busy={visBusy}
+        onClose={() => { if (!visBusy) setVisOpen(false); }}
+        onConfirm={async () => {
+          if (visBusy || visChecking || visBlocked) return;
+          setVisBusy(true);
+          try {
+            const next = book.visibility === 'shared' ? 'private' : 'shared';
+            await setHoneyVisibility(book, me, next);
+            setVisOpen(false);
+            flash(next === 'private' ? '혼자 보는 책으로 바꿨어요' : '같이 보는 책으로 바꿨어요');
+          } catch (e) {
+            if (e instanceof PracticeBlocked) { setVisOpen(false); flash('연습 모드라 바꾸지 않았어요'); }
+            else { console.error('같이·혼자 보기 바꾸기 실패:', e); setVisBlocked(e instanceof Error && e.message ? e.message : '바꾸지 못했어요. 다시 해 주세요.'); }
+          } finally { setVisBusy(false); }
+        }}
       />
 
       <HoneyPhotoViewer

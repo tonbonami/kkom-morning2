@@ -4,9 +4,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ImagePlus } from 'lucide-react';
-import { partnerOf, type Person } from '@/lib/honeybraryTypes';
+import { partnerOf, type Person, type Visibility } from '@/lib/honeybraryTypes';
 import { HONEY } from '@/lib/honeybraryTheme';
 import { HoneySheet } from './HoneySheet';
+import { BookVisibilityChoice } from './BookVisibilityChoice';
 
 export interface BookPlacementSheetProps {
   open: boolean;
@@ -19,6 +20,7 @@ export interface BookPlacementSheetProps {
     current?: number;
     total?: number;
     cover: File | null;
+    visibility: Visibility;
   }) => void;
   onClose: () => void;
 }
@@ -35,6 +37,7 @@ export function BookPlacementSheet({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState('');
+  const [visibility, setVisibility] = useState<Visibility>('shared');
   const [readerMode, setReaderMode] = useState<'me' | 'partner' | 'both'>('me');
   const [current, setCurrent] = useState('');
   const [total, setTotal] = useState('');
@@ -44,6 +47,7 @@ export function BookPlacementSheet({
   useEffect(() => {
     if (!open) return;
     setTitle('');
+    setVisibility('shared');
     setReaderMode('me');
     setCurrent('');
     setTotal('');
@@ -69,10 +73,11 @@ export function BookPlacementSheet({
     if (!title.trim() || busy || tooFar) return;
     onSubmit({
       title: title.trim(),
-      readerMode,
+      readerMode: visibility === 'private' ? 'me' : readerMode,
       current: c,
       total: t,
       cover,
+      visibility,
     });
   };
 
@@ -137,40 +142,53 @@ export function BookPlacementSheet({
           </label>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[12.5px] font-bold" style={{ color: HONEY.muted }}>
-            누가 읽어요?
-          </span>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { mode: 'me' as const, label: '나' },
-              { mode: 'partner' as const, label: partnerOf(me) },
-              { mode: 'both' as const, label: '같이' },
-            ].map((opt) => {
-              const active = readerMode === opt.mode;
-              return (
-                <button
-                  key={opt.mode}
-                  type="button"
-                  onClick={() => setReaderMode(opt.mode)}
-                  aria-pressed={active}
-                  className="h-[44px] rounded-xl text-[14px] font-bold transition-colors"
-                  style={
-                    active
-                      ? { background: HONEY.accent, color: HONEY.accentInk }
-                      : {
-                          background: HONEY.card,
-                          color: HONEY.muted,
-                          border: `1px solid ${HONEY.line}`,
-                        }
-                  }
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
+        <BookVisibilityChoice
+          value={visibility}
+          partnerName={partnerOf(me)}
+          onChange={(v) => {
+            setVisibility(v);
+            if (v === 'private') {
+              setReaderMode('me');
+            }
+          }}
+        />
+
+        {visibility === 'shared' && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[12.5px] font-bold" style={{ color: HONEY.muted }}>
+              누가 읽어요?
+            </span>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { mode: 'me' as const, label: '나' },
+                { mode: 'partner' as const, label: partnerOf(me) },
+                { mode: 'both' as const, label: '같이' },
+              ].map((opt) => {
+                const active = readerMode === opt.mode;
+                return (
+                  <button
+                    key={opt.mode}
+                    type="button"
+                    onClick={() => setReaderMode(opt.mode)}
+                    aria-pressed={active}
+                    className="h-[44px] rounded-xl text-[14px] font-bold transition-colors"
+                    style={
+                      active
+                        ? { background: HONEY.accent, color: HONEY.accentInk }
+                        : {
+                            background: HONEY.card,
+                            color: HONEY.muted,
+                            border: `1px solid ${HONEY.line}`,
+                          }
+                    }
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <span className="text-[12.5px] font-bold" style={{ color: HONEY.muted }}>
@@ -229,7 +247,7 @@ export function BookPlacementSheet({
           whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
           onClick={handleSave}
           disabled={!title.trim() || busy || tooFar}
-          className="w-full h-[50px] rounded-[18px] text-[15px] font-bold text-white disabled:opacity-50 flex items-center justify-center transition-opacity mt-2"
+          className="w-full h-[50px] rounded-[18px] text-[15px] font-bold text-white disabled:opacity-50 flex items-center justify-center transition-opacity mt-2 min-h-[44px]"
           style={{ background: HONEY.accent, color: HONEY.accentInk }}
         >
           {busy ? '놓는 중…' : '책장에 놓기'}

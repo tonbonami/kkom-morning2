@@ -1,7 +1,7 @@
 'use client';
 
 // 허니브러리 시험 화면 — 가짜 책·기록·감상으로 화면만 본다. **데이터를 읽지도 쓰지도 않는다**(누르는 건 전부 빈 동작).
-//   /library/test?v=shelf|empty|book|write|home  (편지 /letter/envelope-test 와 같은 목적)
+//   /library/test?v=shelf|empty|book|write|note|place|vis|home  (&me=꼼이, &blocked=1)  (편지 /letter/envelope-test 와 같은 목적)
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
@@ -13,17 +13,18 @@ import { NoteComposerSheet } from '@/components/honeybrary/NoteComposerSheet';
 import { HoneyReviewComposer } from '@/components/honeybrary/HoneyReviewComposer';
 import { HoneyReviewCard } from '@/components/honeybrary/HoneyReviewCard';
 import { HoneyPhotoViewer } from '@/components/honeybrary/HoneyPhotoViewer';
+import { VisibilityChangeSheet } from '@/components/honeybrary/VisibilityChangeSheet';
 import { REVIEW_KEYWORDS, type BookVM, type NoteVM, type Person, type PhotoVM, type ReviewVM } from '@/lib/honeybraryTypes';
 
 const CHAR: Record<Person, string> = { '우댕': '/emo/kkuldaeng/mood/calm.png', '꼼이': '/emo/saidami/calm.webp' };
 const P = (id: string, w = 480, h = 640): PhotoVM => ({ id, url: '/emo/kkuldaeng/library/reader.webp', thumbUrl: '/emo/kkuldaeng/library/reader.webp', width: w, height: h });
 
 const BOOKS: BookVM[] = [
-  { id: 'b1', title: '소년이 온다', placedBy: '꼼이', readers: { '꼼이': { status: 'reading', current: 182, total: 216 }, '우댕': { status: 'reading', current: 40 } } },
-  { id: 'b2', title: '아주 긴 제목의 책이 두 줄로 넘어가면 어떻게 보이는지 확인하는 책', placedBy: '우댕', readers: { '우댕': { status: 'reading' } } },
-  { id: 'b3', title: '작별하지 않는다', placedBy: '우댕', readers: { '우댕': { status: 'done' }, '꼼이': { status: 'done' } } },
-  { id: 'b4', title: '불편한 편의점', placedBy: '꼼이', readers: { '꼼이': { status: 'shelved' } } },
-  { id: 'b5', title: '데미안', placedBy: '우댕', readers: { '우댕': { status: 'shelved' } } },
+  { id: 'b1', title: '소년이 온다', placedBy: '꼼이', visibility: 'shared', readers: { '꼼이': { status: 'reading', current: 182, total: 216 }, '우댕': { status: 'reading', current: 40 } } },
+  { id: 'b2', title: '아주 긴 제목의 책이 두 줄로 넘어가면 어떻게 보이는지 확인하는 책', placedBy: '우댕', visibility: 'private', readers: { '우댕': { status: 'reading' } } },
+  { id: 'b3', title: '작별하지 않는다', placedBy: '우댕', visibility: 'shared', readers: { '우댕': { status: 'done' }, '꼼이': { status: 'done' } } },
+  { id: 'b4', title: '불편한 편의점', placedBy: '꼼이', visibility: 'shared', readers: { '꼼이': { status: 'shelved' } } },
+  { id: 'b5', title: '데미안', placedBy: '우댕', visibility: 'private', readers: { '우댕': { status: 'shelved' } } },
 ];
 const NOTES: NoteVM[] = [
   { id: 'n1', by: '꼼이', page: 34, text: '밑줄 친 문장을 옮겨 적는 자리(시험용 글).\n여기서 한참 멈췄어.' },
@@ -43,6 +44,7 @@ function Test() {
   const [note, setNote] = useState(v === 'note');
   const [write, setWrite] = useState(v === 'write');
   const [viewer, setViewer] = useState<{ photos: PhotoVM[]; index: number } | null>(null);
+  const [vis, setVis] = useState(v === 'vis');
   const noop = () => {};
   const anoop = async () => {};
 
@@ -71,6 +73,7 @@ function Test() {
           <HoneyReviewCard key={r.id} review={r} me={me} charSrc={CHAR} onEdit={r.by === me ? () => setWrite(true) : undefined}
             onOpenPhoto={(i) => setViewer({ photos: r.photos, index: i })} onSaveReply={r.by !== me ? anoop : undefined} />
         ))}</div>}
+        canChangeVisibility={BOOKS[0].placedBy === me} onRequestVisibilityChange={() => setVis(true)}
         onBack={noop} onSaveMyReading={noop} onJoinReading={noop} onAddNote={() => setNote(true)} onWriteReview={() => setWrite(true)}
         onReplyNote={anoop} onDeleteNote={noop} onOpenPhoto={(photos, index) => setViewer({ photos, index })}
         onRename={noop} onChangeCover={noop} onDeleteBook={noop}
@@ -78,6 +81,7 @@ function Test() {
       <NoteComposerSheet open={note} busy={false} onSubmit={noop} onClose={() => setNote(false)} />
       <HoneyReviewComposer open={write} mode="create" bookTitle={BOOKS[0].title} keywordOptions={REVIEW_KEYWORDS}
         photos={[P('w1'), P('w2')]} onAddPhotos={noop} onRemovePhoto={noop} busy={false} onSubmit={noop} onClose={() => setWrite(false)} />
+      <VisibilityChangeSheet open={vis} current={BOOKS[0].visibility} partnerName={me === '우댕' ? '꼼이' : '우댕'} blockedReason={useSearchParams().get('blocked') ? '우댕이 남긴 내용이 있어 혼자 보는 책으로 바꿀 수 없어요.' : null} onConfirm={() => setVis(false)} onClose={() => setVis(false)} />
       <HoneyPhotoViewer open={!!viewer} photos={viewer?.photos ?? []} initialIndex={viewer?.index ?? 0} onClose={() => setViewer(null)} />
     </>
   );

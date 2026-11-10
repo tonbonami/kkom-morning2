@@ -26,6 +26,10 @@ export interface ReadingVM { status: ReadStatus; current?: number; total?: numbe
 /** 사진 한 장 — 목록·카드엔 thumbUrl(긴 변 480), 크게 볼 때만 url(긴 변 1600). pending = 올리는 중. */
 export interface PhotoVM { id: string; url: string; thumbUrl: string; width?: number; height?: number; pending?: boolean }
 
+/** 같이 보기 / 혼자 보기(우댕 2026-11-10, GPT 회의 docs/gpt-honeybrary-private-answer.md).
+ *  ⚠️ 혼자 보기는 **상대 화면에 안 띄우는 것**이지 보안이 아니다(규칙이 열려 있다) — 「비밀」이라고 약속하지 말 것. */
+export type Visibility = 'shared' | 'private';
+
 export interface BookVM {
   id: string;
   title: string;
@@ -33,6 +37,7 @@ export interface BookVM {
   coverThumb?: string;
   placedBy: Person;                                // 책을 놓은 사람(「추천」이라 부르지 않는다)
   readers: Partial<Record<Person, ReadingVM>>;
+  visibility: Visibility;                          // 혼자 보기면 놓은 사람 화면에만
 }
 
 /** 읽는 중 남긴 기록. parentNoteId 가 있으면 그 기록에 「한 줄 잇기」(한 단계만). */
