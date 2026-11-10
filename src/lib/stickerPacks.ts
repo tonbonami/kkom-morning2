@@ -147,4 +147,5 @@ export const SAI_STICKERS: { word: string; image: string }[] = [
   { word: '헤헤', image: '/emo/sai/hehe.webp' },   // 꼼이 말버릇 헤헤(73번, 전부 꼼이) — A안: 두 앞발로 입 가리고 눈웃음(우댕 OK 2026-10-19)
   { word: '약속!', image: '/emo/sai/yaksok.webp' }, // 하트 카드에 발바닥 도장 — 글 속 (약속)과 같은 그림(art/yaksok)
   { word: '꼼돌아', image: '/emo/sai/kkomdol.webp' }, // 꼼이가 우댕을 부름 — 꿀됑 「꼼슌아」를 좌우로 뒤집은 짝(art/kkom-call A안, 우댕 OK 2026-10-30)
+  { word: '추워', image: '/emo/sai/cold.webp' },   // 웅크려 떠는 꼼이(파란 반다나) — 사이담 sai_cold 그림 그대로(우댕 「사이담에 있는 추워, 꼼모닝에도」 2026-11-10)
 ];
