@@ -326,16 +326,19 @@ export default function SkinChat({
             </div>
           </div>
         )}
-        {/* 대화가 있어도 질문 단추를 맨 아래에 작게 — 예전엔 대화가 0개일 때만 떠서, 지난 대화를 불러오는 0.1초만 보였다
-            (우댕 2026-11-14 「0.1초 안에 사라져버려. 슈퍼맨 아니면」). 빈 화면 단추와 같은 모양, 가로로 밀어 본다. */}
+        {/* 원래 있던 질문 단추(빈 화면과 같은 모양 — 제목 + 세로 단추)를 **마지막 대화 다음에 늘** 둔다.
+            예전엔 대화가 0개일 때만 떠서, 상담을 시작한 뒤로는 지난 대화를 불러오는 0.1초만 보였다
+            (우댕 2026-11-14 「0.1초 안에 사라져버려」 → 「요약해주기 그런 기능은 상담실 들어가면 항시 보여야지 마지막 대화 다음에. 가로 줄 말고 원래 기능」).
+            보내는 중·답 쓰는 중엔 숨긴다(두 번 보내지 않게). */}
         {!readOnly && loaded && messages.length > 0 && !streamingText && !sending && suggestions.length > 0 && (
-          <div className="-mx-4 px-4 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+          <div className="flex flex-col items-center space-y-4 pt-6 pb-2">
+            <p className="text-sm text-[var(--sd-muted)] mb-2">어떤 것이 궁금한가요?</p>
             {suggestions.map((sug, i) => (
               <motion.button
                 key={i}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onSend(sug)}
-                className="shrink-0 whitespace-nowrap bg-[var(--sd-card-solid)] border border-[var(--sd-line)] px-4 py-2.5 min-h-[44px] rounded-full text-[13.5px] shadow-sm"
+                className="bg-[var(--sd-card-solid)] border border-[var(--sd-line)] px-5 py-2.5 rounded-full text-[14px] shadow-sm"
               >
                 {sug}
               </motion.button>
