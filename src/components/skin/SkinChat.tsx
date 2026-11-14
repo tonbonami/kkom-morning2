@@ -25,6 +25,7 @@ export default function SkinChat({
   sending,
   onBack,
   suggestions,
+  loaded = true,
   readOnly = false,
   usage = null,
   summary = null,
@@ -36,6 +37,8 @@ export default function SkinChat({
   sending: boolean;
   onBack: () => void;
   suggestions: string[];
+  /** 지난 대화를 다 불러왔나 — 불러오기 전엔 빈 화면 질문 단추를 안 띄운다(0.1초 떴다 사라지던 것) */
+  loaded?: boolean;
   readOnly?: boolean;
   usage?: {
     today: { count: number; won: number };
@@ -245,7 +248,7 @@ export default function SkinChat({
         style={{ paddingBottom: `${inputBarHeight + (summary ? 64 : 20)}px` }}
         className="flex-1 overflow-y-auto p-4 space-y-6"
       >
-        {messages.length === 0 && !streamingText && (
+        {loaded && messages.length === 0 && !streamingText && (
           <div className="flex flex-col items-center justify-center min-h-[300px] space-y-4">
             {readOnly ? (
               <p className="text-[14px] text-[var(--sd-muted)]">아직 꼼이가 상담한 내용이 없어요</p>
@@ -323,6 +326,23 @@ export default function SkinChat({
             </div>
           </div>
         )}
+        {/* 대화가 있어도 질문 단추를 맨 아래에 작게 — 예전엔 대화가 0개일 때만 떠서, 지난 대화를 불러오는 0.1초만 보였다
+            (우댕 2026-11-14 「0.1초 안에 사라져버려. 슈퍼맨 아니면」). 빈 화면 단추와 같은 모양, 가로로 밀어 본다. */}
+        {!readOnly && loaded && messages.length > 0 && !streamingText && !sending && suggestions.length > 0 && (
+          <div className="-mx-4 px-4 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            {suggestions.map((sug, i) => (
+              <motion.button
+                key={i}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => onSend(sug)}
+                className="shrink-0 whitespace-nowrap bg-[var(--sd-card-solid)] border border-[var(--sd-line)] px-4 py-2.5 min-h-[44px] rounded-full text-[13.5px] shadow-sm"
+              >
+                {sug}
+              </motion.button>
+            ))}
+          </div>
+        )}
+
         <div ref={endRef} />
       </div>
 

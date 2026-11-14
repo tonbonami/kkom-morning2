@@ -33,6 +33,7 @@ const timeText = (iso: string) =>
 export default function SkinChatPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [loaded, setLoaded] = useState(false);   // 지난 대화를 다 불러왔나(질문 단추 깜빡임 막기)
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const busy = useRef(false);
@@ -48,14 +49,15 @@ export default function SkinChatPage() {
   }, []);
 
   useEffect(() => {
-    if (isPractice()) return; // 연습 모드: 저장된 대화 안 불러옴
+    if (isPractice()) { setLoaded(true); return; } // 연습 모드: 저장된 대화 안 불러옴
     fetch('/api/skin/chat', { cache: 'no-store' })
       .then((r) => {
         if (r.status === 401) { router.replace('/skin'); return null; }
         return r.ok ? r.json() : null;
       })
       .then((j) => { if (j?.messages) setMessages(j.messages); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoaded(true));
   }, [router]);
 
   // ── 사진 보내기 ──
@@ -168,6 +170,7 @@ export default function SkinChatPage() {
       sending={sending}
       onBack={() => router.push('/skin')} // 늘 기록 화면으로(뒤로 가기로 하면 정리 화면과 서로 오가며 갇혔다 — Aside 3차)
       suggestions={readOnly ? [] : SUGGESTIONS}
+      loaded={loaded}
       readOnly={readOnly}
       attach={readOnly ? null : {
         pending: pending.map(({ key, url, uploading }) => ({ key, url, uploading })),
