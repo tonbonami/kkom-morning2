@@ -1739,6 +1739,39 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   // 말풍선 탭 — 한 번이면 0.26초 뒤 메뉴, 그 안에 한 번 더 누르면(두 번 톡) 바로 ❤️ 반응 + 하트 팝(인스타·아이메시지식).
   //   반응이 메뉴 안에만 있어 두 달 반 동안 10번밖에 안 쓰였다(우댕 선택 2026-10-19). 이미 ❤️면 그대로 둔다(두 번 톡으로 지워지지 않게).
   const tapRef = useRef<{ id: string; t: ReturnType<typeof setTimeout> } | null>(null);
+  /** 사진 **톡 = 크게 보기(누른 그 장부터), 꾹(450ms) = 동작 줄(답장·지우기·반응)** — 사이담 a0778b4 와 같게.
+   *  우댕 2026-11-15 실기기 「꾹 눌러야만 창이 뜨네, 그것도 영어로. 탭하면 저장 가능하고, 핀치 줌인/아웃도 돼야지」.
+   *  ⚠️ 영어 창은 iOS 웹뷰가 그림에 띄우는 기본 미리보기다 — -webkit-touch-callout:none·contextmenu 막기로 끄고 우리 동작 줄을 연다.
+   *  ⚠️ 톡이 크게 보기라 꾹이 없으면 아이폰에서 사진을 지울 길이 없다.
+   *  ⚠️ 누른 채 10px 넘게 움직이면(대화 스크롤) 꾹을 취소한다 — 스크롤하다 메뉴가 열리면 안 된다. */
+  const press = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean; x: number; y: number }>({ timer: null, fired: false, x: 0, y: 0 });
+  const cancelPress = () => { if (press.current.timer) { clearTimeout(press.current.timer); press.current.timer = null; } };
+  const photoProps = (m: ChatMessage, i: number) => ({
+    draggable: false,
+    style: { WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' } as React.CSSProperties,
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+    onPointerDown: (e: React.PointerEvent) => {
+      press.current.fired = false;
+      press.current.x = e.clientX; press.current.y = e.clientY;
+      cancelPress();
+      press.current.timer = setTimeout(() => {
+        press.current.timer = null; press.current.fired = true;
+        setStickerOpen(false); setActionMsg(m);
+      }, 450);
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      if (press.current.timer && Math.hypot(e.clientX - press.current.x, e.clientY - press.current.y) > 10) cancelPress();
+    },
+    onPointerUp: cancelPress,
+    onPointerCancel: cancelPress,
+    onPointerLeave: cancelPress,
+    onClick: (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (press.current.fired) { press.current.fired = false; return; }   // 꾹 누른 뒤 손을 뗀 것 — 동작 줄은 이미 열었다
+      setActionMsg(null);
+      setGallery({ urls: photosOf(m), i });
+    },
+  });
   const [heartPop, setHeartPop] = useState<string | null>(null);
   const onBubbleTap = (m: ChatMessage) => {
     const prev = tapRef.current;
@@ -1987,7 +2020,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
                         ) : stickerArt(m.sticker)
                       ) : m.imageUrl && photosOf(m).length > 1 ? (
                         // 묶음 — 카카오톡처럼 2열 격자. 작은 판(imageThumbs)을 건다. 셋이면 첫 장 크게, 넷 넘으면 넷째 칸에 「+N」.
-                        //   칸을 톡 → 그 장부터 크게 보기(좌우로 넘김).
+                        //   칸을 톡 → 그 장부터 크게 보기(좌우로 넘김), 꾹 → 동작 줄(photoProps).
                         (() => {
                           const all = photosOf(m);
                           const cells = all.slice(0, 4);
@@ -1996,13 +2029,13 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
                             <div className="grid w-[220px] max-w-full grid-cols-2 gap-[3px] overflow-hidden rounded-2xl shadow-sm"
                               role="group" aria-label={`사진 ${all.length}장`}>
                               {cells.map((u, i) => (
-                                <button key={i} type="button"
-                                  onClick={(e) => { e.stopPropagation(); setGallery({ urls: all, i }); }}
+                                <button key={i} type="button" {...photoProps(m, i)}
                                   aria-label={`사진 ${i + 1} / ${all.length} 크게 보기`}
                                   className={`relative block bg-black/5 ${cells.length === 3 && i === 0 ? 'col-span-2 aspect-[2/1]' : 'aspect-square'}`}>
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={m.imageThumbs?.[i] || u} alt="" loading="lazy" decoding="async"
-                                    className="absolute inset-0 h-full w-full object-cover" />
+                                  <img src={m.imageThumbs?.[i] || u} alt="" loading="lazy" decoding="async" draggable={false}
+                                    className="absolute inset-0 h-full w-full object-cover"
+                                    style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }} />
                                   {i === 3 && more > 0 && (
                                     <span className="absolute inset-0 grid place-items-center bg-black/45 text-[18px] font-extrabold text-white">+{more}</span>
                                   )}
@@ -2014,10 +2047,9 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
                       ) : m.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={m.imageUrl} alt="사진"
-                          onClick={(e) => { e.stopPropagation(); setViewerImage(m.imageUrl!); }}
+                          src={m.imageUrl} alt="사진" {...photoProps(m, 0)}
                           className="max-w-[68%] rounded-2xl shadow-sm object-cover cursor-pointer"
-                          style={{ maxHeight: 280 }}
+                          style={{ ...photoProps(m, 0).style, maxHeight: 280 }}
                         />
                       ) : m.videoUrl ? (
                         // 자동재생 X — 스크롤마다 재다운로드 방지(대역폭). 탭해서 재생.
