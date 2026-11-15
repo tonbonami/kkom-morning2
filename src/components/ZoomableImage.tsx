@@ -139,9 +139,12 @@ export default function ZoomableImage({ src, alt = '', imgClassName = 'max-w-ful
       return;
     }
     if (pts.current.size > 0) return;
+    // ⚠️ st 는 g.current 와 같은 객체다 — 'none' 으로 바꾸기 전에 종류를 잡아 둔다.
+    //    예전엔 바꾼 뒤에 st.kind === 'swipe' 를 봐서 넘기기(onSwipe)가 한 번도 안 불렸다(묶음 사진 넘겨 보기에서 발견).
+    const kind = st.kind;
     g.current.kind = 'none';
 
-    if (st.kind === 'swipe' && onSwipe && st.moved > TAP_MOVE) {
+    if (kind === 'swipe' && onSwipe && st.moved > TAP_MOVE) {
       const dx = e.clientX - st.p0.x, dy = e.clientY - st.p0.y;
       if (Math.abs(dx) > SWIPE && Math.abs(dx) > Math.abs(dy)) { reset(false); onSwipe(dx < 0 ? 'next' : 'prev'); return; }
       reset(true);

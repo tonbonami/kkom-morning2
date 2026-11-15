@@ -3,7 +3,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard, Search } from 'lucide-react';
+import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { saveMedia } from '@/lib/saveMedia';
 import { firstUrl, youTubeId } from '@/lib/links';
 import { igPost } from '@/lib/instagram';
@@ -15,6 +15,7 @@ import {
   type ChatMessage, type ReplyRef,
   subscribeTyping, setTyping, markRead, subscribeRead, uploadChatImage, uploadChatAudio, uploadChatVideo,
   toggleReaction, deleteMessage, editMessage, toggleStar, fetchRecentMessages,
+  uploadPhotoBatch, sendPhotos, photosOf, MAX_CHAT_PHOTOS,
 } from '@/lib/chat';
 import { MOOD_OPTIONS } from '@/lib/moods';
 import { normForMatch, toJamo, prepareAlias, matchTier, isConsonantsOnly, type PreparedAlias } from '@/lib/hangulMatch';
@@ -724,6 +725,7 @@ function LinkPreview({ url, mine }: { url: string; mine: boolean }) {
 export function preview(m: ChatMessage): string {
   if (m.sticker) return m.text?.trim() ? `이모티콘 ${m.text.trim().slice(0, 40)}` : '이모티콘';
   if (m.videoUrl) return '동영상';
+  if (m.imageUrls && m.imageUrls.length > 1) return `사진 ${m.imageUrls.length}장`;
   if (m.imageUrl) return '사진';
   if (m.audioUrl) return '음성 메시지';
   // 링크는 주소 그대로 노출하지 않고 종류 라벨로 — 홈 꼼톡 미리보기/답장 미리보기 공통.
@@ -764,17 +766,17 @@ function hexA(hex: string, a: number): string {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
 
-// clipboardData / dataTransfer 어디에 담겨도 첫 이미지 파일 하나를 집어낸다.
-//   ⚠️ 브라우저마다 items/files 중 어디에 담기는지 달라 '둘 다' 본다(중복이면 하나만).
-function pickImageFile(dt: DataTransfer | null): File | null {
-  if (!dt) return null;
+// clipboardData / dataTransfer 어디에 담겨도 이미지 파일을 집어낸다.
+//   ⚠️ 브라우저마다 items/files 중 어디에 담기는지 달라 '둘 다' 본다.
+// 이미지 파일 전부(여러 장 붙여넣기·드래그). items 에서 나오면 files 는 안 본다 — 같은 파일이 두 번 담겨 오는 브라우저가 있다.
+function pickImageFiles(dt: DataTransfer | null): File[] {
+  if (!dt) return [];
+  const fromItems: File[] = [];
   for (const it of Array.from(dt.items || [])) {
-    if (it.kind === 'file' && it.type.startsWith('image/')) { const f = it.getAsFile(); if (f) return f; }
+    if (it.kind === 'file' && it.type.startsWith('image/')) { const f = it.getAsFile(); if (f) fromItems.push(f); }
   }
-  for (const f of Array.from(dt.files || [])) {
-    if (f.type.startsWith('image/')) return f;
-  }
-  return null;
+  if (fromItems.length) return fromItems;
+  return Array.from(dt.files || []).filter((f) => f.type.startsWith('image/'));
 }
 // 스티커 버튼의 읽어 주는 이름 — 감정 스티커 키는 영어 id(happy·missing…)라 한국어 이름으로 바꿔 준다(Aside 1부).
 const stickerName = (key: string) => MOOD_OPTIONS.find((o) => o.id === key)?.label ?? key;
@@ -838,8 +840,11 @@ function MenuAction({ onClick, label, icon, tone }: { onClick: () => void; label
 // 드래그 중 데이터에 '파일'이 실려 있나(내용은 drop 전까지 못 읽으니 종류만 본다).
 const dtHasFile = (dt: DataTransfer | null) => !!dt && Array.from(dt.types || []).includes('Files');
 
-export default function ChatPanel({ me, partner, messages, open, onClose, onSend, partnerOnline, partnerOnWatch, onLoadMore, hasMore, onSendCapsule }: Props) {
+export default function ChatPanel({ me, partner, messages: messagesIn, open, onClose, onSend, partnerOnline, partnerOnWatch, onLoadMore, hasMore, onSendCapsule }: Props) {
   const [draft, setDraft] = useState('');
+  // 연습 모드(?practice=1)에서 보낸 묶음 사진 — 내 화면에만 잠깐 보인다(격자·넘겨 보기·지우기를 진짜 대화방 없이 확인).
+  const [practiceEcho, setPracticeEcho] = useState<ChatMessage[]>([]);
+  const messages = useMemo(() => (practiceEcho.length ? [...messagesIn, ...practiceEcho] : messagesIn), [messagesIn, practiceEcho]);
   const [stickerOpen, setStickerOpen] = useState(false);
   // 챗 테마(기기별) — 라이트/다크 팔레트를 따로 고른다(모드별 선택 기억). [[feedback-design-workflow]] 팔레트는 제미나이.
   const [lightThemeId, setLightThemeId] = useState('saidam');
@@ -960,6 +965,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const [partnerLastRead, setPartnerLastRead] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadKind, setUploadKind] = useState<'image' | 'video' | 'audio' | null>(null);
+  const [uploadCount, setUploadCount] = useState(0);   // 묶음 사진 올리는 중이면 몇 장인지
   const [uploadPct, setUploadPct] = useState(0); // 0~1 (동영상 업로드 진행률)
   const [actionMsg, setActionMsg] = useState<ChatMessage | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
@@ -983,7 +989,15 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     setFlashId(id);
     window.setTimeout(() => setFlashId((cur) => (cur === id ? null : cur)), 1400);
   };
-  const [viewerImage, setViewerImage] = useState<string | null>(null);
+  /** 크게 보기 — 묶음 사진이면 좌우로 넘겨 본다(i 번째). */
+  const [gallery, setGallery] = useState<{ urls: string[]; i: number } | null>(null);
+  const viewerImage = gallery ? gallery.urls[gallery.i] ?? null : null;
+  const setViewerImage = (url: string | null) => setGallery(url ? { urls: [url], i: 0 } : null);
+  const stepGallery = (d: number) => setGallery((g) => g && ({ ...g, i: Math.min(g.urls.length - 1, Math.max(0, g.i + d)) }));
+  /** 크게 보기 안에서 확대 중인가 — 확대 중엔 넘기기 단추를 숨긴다(끌기는 그림 이동). */
+  const [viewerZoomed, setViewerZoomed] = useState(false);
+  /** 보내기 전에 붙잡아 둔 사진들(고르기·여러 장 붙여넣기). ⚠️ 고르자마자 보내면 되돌릴 수 없다. */
+  const [photoAsk, setPhotoAsk] = useState<{ files: File[]; urls: string[] } | null>(null);
   const [savingUrl, setSavingUrl] = useState<string | null>(null); // 원본 저장 중인 미디어 URL
   const [recording, setRecording] = useState(false);
   const [recSec, setRecSec] = useState(0);
@@ -1282,12 +1296,31 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       return { file, url: URL.createObjectURL(file) };
     });
   }, []);
+  // 고른 사진들을 확인 창(격자 미리보기)에 올린다. 열 장이 넘으면 앞 열 장만 + 안내.
+  const askPhotos = useCallback((list: File[]) => {
+    const files = list.filter((f) => f.type.startsWith('image/'));
+    if (!files.length) return;
+    if (files.length > MAX_CHAT_PHOTOS) {
+      setToast(`한 번에 ${MAX_CHAT_PHOTOS}장까지 보낼 수 있어. 앞의 ${MAX_CHAT_PHOTOS}장만 골랐어`);
+      setTimeout(() => setToast(''), 3200);
+    }
+    const pick = files.slice(0, MAX_CHAT_PHOTOS);
+    setPhotoAsk((prev) => {
+      prev?.urls.forEach((u) => { try { URL.revokeObjectURL(u); } catch { /* noop */ } });
+      return { files: pick, urls: pick.map((f) => URL.createObjectURL(f)) };
+    });
+  }, []);
+  // 붙여넣기·드래그로 들어온 사진 — 한 장은 예전처럼 입력줄 위 띠, 여러 장은 확인 창(묶어 보내기).
+  const stageImages = useCallback((files: File[]) => {
+    if (files.length > 1) askPhotos(files);
+    else if (files[0]) stageImage(files[0]);
+  }, [askPhotos, stageImage]);
   // 붙여넣기(textarea 포커스 시) — ⚠️ preventDefault는 '이미지가 있을 때만'(아니면 글자 붙여넣기가 깨짐, 사이담 교훈).
   const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const file = pickImageFile(e.clipboardData);
-    if (!file) return;     // 이미지 없음 → 글자 붙여넣기는 막지 않는다
+    const files = pickImageFiles(e.clipboardData);
+    if (!files.length) return;     // 이미지 없음 → 글자 붙여넣기는 막지 않는다
     e.preventDefault();
-    stageImage(file);
+    stageImages(files);
   };
   const closePaste = () => {
     setPastePreview((prev) => {
@@ -1314,17 +1347,17 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       if (!dtHasFile(e.dataTransfer)) return;
       e.preventDefault();                              // 이미지든 아니든 '새 탭 열기' 차단
       setDragActive(false);
-      const file = pickImageFile(e.dataTransfer);
-      if (file) stageImage(file);
+      const files = pickImageFiles(e.dataTransfer);
+      if (files.length) stageImages(files);
       else { setToast('이미지 파일만 보낼 수 있어'); setTimeout(() => setToast(''), 2400); }
     };
     const onDocPaste = (e: ClipboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')) return; // 입력칸 포커스 시엔 각자 onPaste가 담당
-      const file = pickImageFile(e.clipboardData);
-      if (!file) return;
+      const files = pickImageFiles(e.clipboardData);
+      if (!files.length) return;
       e.preventDefault();
-      stageImage(file);
+      stageImages(files);
     };
     window.addEventListener('dragover', onDragOver);
     window.addEventListener('dragleave', onDragLeave);
@@ -1337,7 +1370,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       window.removeEventListener('paste', onDocPaste);
       setDragActive(false);
     };
-  }, [open, stageImage]);
+  }, [open, stageImages]);
   const sendPasted = async () => {
     if (!pastePreview || uploading) return;
     const file = pastePreview.file;
@@ -1555,9 +1588,48 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
     try { await saveMedia(url, kind); } finally { setSavingUrl(null); }
   };
 
+  // 확인 창에서 「보내기」 — 한 장은 예전처럼 원본 그대로 메시지 하나, 여러 장은 묶음 메시지 하나(chat.ts sendPhotos).
+  const sendPhotoBatch = async (files: File[]) => {
+    if (uploading || !files.length) return;
+    setUploadKind('image'); setUploadCount(files.length); setUploading(true);
+    try {
+      if (files.length === 1) {
+        const url = await uploadChatImage(files[0]);
+        await onSend('', url, undefined, replyTo ?? undefined);
+      } else {
+        const out = await uploadPhotoBatch(files);
+        await sendPhotos(me, out, replyTo ?? undefined);
+        if (isPractice()) {
+          // 연습 모드 — 진짜로는 안 보냈다. 내 화면에만 묶음 말풍선을 띄워 격자·넘겨 보기·지우기를 확인하게.
+          setPracticeEcho((p) => [...p, {
+            id: `practice-${Date.now()}`, from: me, text: '', createdAt: new Date(),
+            imageUrl: out[0].url, imageUrls: out.map((x) => x.url), imageThumbs: out.map((x) => x.thumbUrl),
+          }]);
+        }
+      }
+      setReplyTo(null);
+    } catch {
+      flashToast('사진을 못 보냈어 — 한 장도 안 갔으니 다시 시도해줘', 3200);
+    }
+    setUploading(false); setUploadKind(null); setUploadCount(0);
+  };
+  const closePhotoAsk = () => {
+    setPhotoAsk((prev) => { prev?.urls.forEach((u) => { try { URL.revokeObjectURL(u); } catch { /* noop */ } }); return null; });
+  };
+
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+    const picked = Array.from(e.target.files ?? []);
+    e.target.value = '';   // 같은 사진을 다시 골라도 onChange 가 오게
+    if (!picked.length) return;
+    const videos = picked.filter((f) => f.type.startsWith('video/'));
+    const images = picked.filter((f) => f.type.startsWith('image/'));
+    // 동영상은 예전처럼 한 번에 하나만. 사진과 섞어 고르면 사진만 묶고 알려 준다.
+    if (videos.length && (images.length || videos.length > 1)) {
+      flashToast(images.length ? '동영상은 따로 하나씩 보내 줘 — 사진만 골랐어 🎬' : '동영상은 한 번에 하나씩 보내 줘 🎬', 3200);
+      if (!images.length) return;
+    }
+    if (images.length) { askPhotos(images); return; }   // ⚠️ 바로 보내지 않는다. 미리 보여주고 한 번 묻는다.
+    const file = videos[0];
     if (!file) return;
 
     // 동영상 — 라이브러리에서 고른 파일. 상한: 30초 · 30MB.
@@ -1583,11 +1655,6 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
       return;
     }
 
-    // 사진
-    setUploadKind('image'); setUploading(true);
-    try { const url = await uploadChatImage(file); onSend('', url, undefined, replyTo ?? undefined); setReplyTo(null); }
-    catch { /* 무시 */ }
-    setUploading(false); setUploadKind(null);
   };
 
   // ── 음성 메시지 녹음 ──
@@ -1688,7 +1755,14 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
   const doReact = (emoji: string) => { if (actionMsg) toggleReaction(actionMsg.id, meKey, emoji); setActionMsg(null); };
   const doReply = () => { if (actionMsg) setReplyTo({ id: actionMsg.id, from: actionMsg.from, text: preview(actionMsg) }); setActionMsg(null); taRef.current?.focus(); };
   const doCopy = () => { if (actionMsg?.text) navigator.clipboard?.writeText(actionMsg.text).catch(() => {}); setActionMsg(null); };
-  const doDelete = () => { if (actionMsg) deleteMessage(actionMsg.id); setActionMsg(null); };
+  const doDelete = () => {
+    if (actionMsg?.id.startsWith('practice-')) {   // 연습 모드 묶음 — 내 화면에서만 걷는다
+      const id = actionMsg.id;
+      setPracticeEcho((p) => p.filter((x) => x.id !== id));
+      practiceBlocked('삭제');
+    } else if (actionMsg) deleteMessage(actionMsg.id);
+    setActionMsg(null);
+  };
   // 수정 — 내 텍스트 메시지만. 입력창에 본문을 넣고 '수정 중' 상태로. 전송하면 editMessage로 감.
   const doEdit = () => { if (actionMsg?.text) { setEditing({ id: actionMsg.id, text: actionMsg.text }); setReplyTo(null); setDraft(actionMsg.text); } setActionMsg(null); taRef.current?.focus(); };
 
@@ -1712,7 +1786,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
           transition={{ type: 'spring', stiffness: 380, damping: 40 }}
           // 넓은 화면(768px↑)에선 끌어서 닫기를 끈다 — 손가락 기기가 아니고, 드래그 제한값이 닫힘 애니메이션과 부딪혀
           //   채팅이 화면 밖에 남고 어두운 배경도 안 걷혔다(Aside 3부 'B1 걸려 남음'의 실체).
-          drag={(isWide || memoryOpen || viewerImage || actionMsg || capsuleOpen || stickerOpen) ? false : 'x'}
+          drag={(isWide || memoryOpen || viewerImage || photoAsk || actionMsg || capsuleOpen || stickerOpen) ? false : 'x'}
           dragDirectionLock
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={{ left: 0, right: 0.9 }}
@@ -1911,6 +1985,32 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                             </div>
                           </StickerTextStack>
                         ) : stickerArt(m.sticker)
+                      ) : m.imageUrl && photosOf(m).length > 1 ? (
+                        // 묶음 — 카카오톡처럼 2열 격자. 작은 판(imageThumbs)을 건다. 셋이면 첫 장 크게, 넷 넘으면 넷째 칸에 「+N」.
+                        //   칸을 톡 → 그 장부터 크게 보기(좌우로 넘김).
+                        (() => {
+                          const all = photosOf(m);
+                          const cells = all.slice(0, 4);
+                          const more = all.length - 4;
+                          return (
+                            <div className="grid w-[220px] max-w-full grid-cols-2 gap-[3px] overflow-hidden rounded-2xl shadow-sm"
+                              role="group" aria-label={`사진 ${all.length}장`}>
+                              {cells.map((u, i) => (
+                                <button key={i} type="button"
+                                  onClick={(e) => { e.stopPropagation(); setGallery({ urls: all, i }); }}
+                                  aria-label={`사진 ${i + 1} / ${all.length} 크게 보기`}
+                                  className={`relative block bg-black/5 ${cells.length === 3 && i === 0 ? 'col-span-2 aspect-[2/1]' : 'aspect-square'}`}>
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={m.imageThumbs?.[i] || u} alt="" loading="lazy" decoding="async"
+                                    className="absolute inset-0 h-full w-full object-cover" />
+                                  {i === 3 && more > 0 && (
+                                    <span className="absolute inset-0 grid place-items-center bg-black/45 text-[18px] font-extrabold text-white">+{more}</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })()
                       ) : m.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -2097,7 +2197,7 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 >
                   <div className="mb-1.5 flex items-center justify-between">
                     <span className="text-[12.5px] font-semibold text-slate-600">
-                      {uploadKind === 'video' ? '🎬 동영상 올리는 중…' : uploadKind === 'audio' ? '🎤 음성 올리는 중…' : '📷 사진 올리는 중…'}
+                      {uploadKind === 'video' ? '🎬 동영상 올리는 중…' : uploadKind === 'audio' ? '🎤 음성 올리는 중…' : uploadCount > 1 ? `📷 사진 ${uploadCount}장 올리는 중…` : '📷 사진 올리는 중…'}
                     </span>
                     {uploadKind === 'video' && (
                       <span className="text-[12px] font-bold tabular-nums text-[#FB7BA8]">{Math.round(uploadPct * 100)}%</span>
@@ -2231,7 +2331,8 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
               // 입력줄 = 하나의 둥근 알약(사이담 참고). 버튼은 알약 안에 얹혀 입력칸이 넓게 숨쉰다.
               <div ref={pillRef} className="flex items-end gap-1 rounded-[26px] p-1.5 ring-1 ring-black/[0.06] shadow-sm transition focus-within:ring-2 focus-within:ring-[#FB7BA8]/35"
                 style={{ background: 'var(--ct-chip)' }}>
-                <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={onFile} />
+                {/* multiple — 사진은 최대 10장 묶어 보낸다(아이폰 사진첩에서 여러 장 고르기). ⚠️ capture 를 안 붙인다(붙이면 카메라만 열린다). */}
+                <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={onFile} />
                 {/* 왼쪽 ＋ — 사진·음성·타임캡슐 접기(카톡식). 이모티콘은 오른쪽으로 옮겨 입력칸을 넓혔다. */}
                 <button onClick={() => { setAttachOpen((v) => !v); setStickerOpen(false); }} aria-label="첨부"
                   className="grid h-10 w-10 shrink-0 self-end place-items-center rounded-full active:scale-90 transition"
@@ -2549,8 +2650,13 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img src={m.sticker} alt="" className="w-16 h-16 object-contain mt-1" />
                                 ) : m.imageUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={m.imageUrl} alt="" onClick={() => setViewerImage(m.imageUrl!)} className="max-w-[60%] rounded-xl mt-1 cursor-pointer" />
+                                  <span className="relative mt-1 inline-block max-w-[60%]">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={m.imageThumbs?.[0] || m.imageUrl} alt="" onClick={() => setGallery({ urls: photosOf(m), i: 0 })} className="w-full rounded-xl cursor-pointer" />
+                                    {photosOf(m).length > 1 && (
+                                      <span className="pointer-events-none absolute bottom-1.5 right-1.5 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-bold text-white">{photosOf(m).length}장</span>
+                                    )}
+                                  </span>
                                 ) : m.audioUrl ? (
                                   <div className="text-[14px] text-slate-600 mt-0.5">🎤 음성 메시지</div>
                                 ) : (
@@ -2564,19 +2670,65 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                     })()
                   ) : (
                     (() => {
-                      const photos = memories.filter((m) => m.imageUrl && !m.deleted);
+                      // 묶음 사진은 한 장씩 펼쳐 모은다(톡 → 그 묶음 안에서 넘겨 보기).
+                      const photos = memories.filter((m) => m.imageUrl && !m.deleted)
+                        .flatMap((m) => photosOf(m).map((u, i) => ({ m, u, i, thumb: m.imageThumbs?.[i] || u })));
                       if (!photos.length) return <div className="h-40 flex flex-col items-center justify-center text-slate-400 gap-2"><span className="text-3xl">📷</span><p className="text-sm font-semibold">주고받은 사진이 여기 모여</p></div>;
                       return (
                         <div className="grid grid-cols-3 gap-1 pt-1">
-                          {photos.map((m) => (
+                          {photos.map(({ m, u, i, thumb }) => (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img key={m.id} src={m.imageUrl} alt="" onClick={() => setViewerImage(m.imageUrl!)} className="aspect-square w-full object-cover rounded-lg cursor-pointer" />
+                            <img key={`${m.id}-${i}`} src={thumb} alt="" loading="lazy" onClick={() => setGallery({ urls: photosOf(m), i })} className="aspect-square w-full object-cover rounded-lg cursor-pointer" />
                           ))}
                         </div>
                       );
                     })()
                   )}
                 </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* 사진 보내기 전 확인 — 고른 사진(최대 10장)을 격자로 보여 주고 한 번 묻는다. 묶음은 메시지 하나·알림 하나로 간다. */}
+          <AnimatePresence>
+            {photoAsk && (
+              <motion.div className="absolute inset-0 z-[75] flex items-end justify-center bg-black/55"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={closePhotoAsk} role="dialog" aria-modal="true"
+                aria-label={photoAsk.files.length > 1 ? `사진 ${photoAsk.files.length}장을 보낼까요` : '이 사진을 보낼까요'}>
+                <motion.div className="m-3 w-full max-w-[440px] rounded-[26px] bg-white p-4 shadow-xl dark:bg-[#2A2622]"
+                  style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}
+                  initial={{ y: 24 }} animate={{ y: 0 }} exit={{ y: 24 }}
+                  onClick={(e) => e.stopPropagation()}>
+                  <p className="mb-3 text-[15px] font-extrabold text-slate-700 dark:text-[#E8E2D8]">
+                    {photoAsk.files.length > 1 ? `사진 ${photoAsk.files.length}장을 보낼까요?` : '이 사진을 보낼까요?'}
+                  </p>
+                  {photoAsk.urls.length === 1 ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoAsk.urls[0]} alt="보낼 사진" className="mb-3 max-h-[46vh] w-full rounded-2xl bg-black/5 object-contain" />
+                  ) : (
+                    <div className="mb-3 grid max-h-[46vh] grid-cols-3 gap-1.5 overflow-y-auto">
+                      {photoAsk.urls.map((u, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={u} src={u} alt={`보낼 사진 ${i + 1}`} className="aspect-square w-full rounded-xl object-cover" />
+                      ))}
+                    </div>
+                  )}
+                  {replyTo && (
+                    <p className="mb-3 truncate text-[12px] font-semibold text-slate-400">↪ {replyTo.from}에게 답장 · {replyTo.text}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <button onClick={closePhotoAsk}
+                      className="min-h-11 flex-1 rounded-[14px] bg-black/5 text-[14px] font-extrabold text-slate-500 active:scale-95 transition dark:bg-white/10 dark:text-[#B4AA9A]">
+                      취소
+                    </button>
+                    <button onClick={() => { const fs = photoAsk.files; closePhotoAsk(); void sendPhotoBatch(fs); }}
+                      disabled={uploading}
+                      className="min-h-11 flex-1 rounded-[14px] bg-[#FB7BA8] text-[14px] font-extrabold text-white shadow-[0_4px_14px_rgba(251,123,168,0.35)] active:scale-95 transition disabled:opacity-50">
+                      보내기
+                    </button>
+                  </div>
+                </motion.div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -2596,7 +2748,30 @@ export default function ChatPanel({ me, partner, messages, open, onClose, onSend
                 </button>
                 <button onClick={() => setViewerImage(null)} aria-label="닫기" className="absolute top-12 right-4 z-10 text-white/80 p-2"><X size={26} /></button>
                 {/* 두 손가락 벌리기·두 번 톡으로 확대(앱 웹뷰는 화면 확대가 꺼져 있어 직접 처리 — ZoomableImage). 빈 곳 톡 = 닫기 */}
-                <ZoomableImage src={viewerImage} alt="사진" onBackgroundTap={() => setViewerImage(null)} />
+                {/* 묶음이면 1배일 때 옆으로 밀어 넘긴다(ZoomableImage onSwipe — 확대 중엔 끌기가 그림 이동이라 넘기지 않는다). */}
+                <ZoomableImage src={viewerImage} alt="사진" onBackgroundTap={() => setViewerImage(null)}
+                  onZoomChange={setViewerZoomed}
+                  onSwipe={gallery && gallery.urls.length > 1 ? (dir) => stepGallery(dir === 'next' ? 1 : -1) : undefined} />
+                {gallery && gallery.urls.length > 1 && (
+                  <>
+                    {!viewerZoomed && gallery.i > 0 && (
+                      <button onClick={(e) => { e.stopPropagation(); stepGallery(-1); }} aria-label="이전 사진"
+                        className="absolute left-2 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white/15 text-white backdrop-blur-sm active:scale-90 transition">
+                        <ChevronLeft size={22} />
+                      </button>
+                    )}
+                    {!viewerZoomed && gallery.i < gallery.urls.length - 1 && (
+                      <button onClick={(e) => { e.stopPropagation(); stepGallery(1); }} aria-label="다음 사진"
+                        className="absolute right-2 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white/15 text-white backdrop-blur-sm active:scale-90 transition">
+                        <ChevronRight size={22} />
+                      </button>
+                    )}
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 z-10 text-center text-[13px] font-bold tabular-nums text-white/85"
+                      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1.25rem)' }}>
+                      {gallery.i + 1} / {gallery.urls.length}
+                    </span>
+                  </>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
