@@ -60,6 +60,8 @@ import ChatPanel, { preview } from '@/components/ChatPanel';
 import { subscribeMessages, sendMessage, sendCapsule, type ChatMessage } from '@/lib/chat';
 import type { WeatherData, OutfitGuide } from '@/types';
 import { HoneybraryHomeCard } from '@/components/honeybrary/HoneybraryHomeCard';
+import { DiaryHomeCard } from '@/components/diary/DiaryHomeCard';
+import { subscribeDiaryMonthMeta, diaryPageId, type DiaryMeta } from '@/lib/diary';
 import { subscribeHoneyBooks, backfillHoneyVisibility, type HoneyBook } from '@/lib/honeybrary';
 
 // 등급별 테마 (배경 그라데이션·텍스트·막대 색을 한 색으로 통일)
@@ -95,6 +97,7 @@ const MODULES: ModuleDef[] = [
   { id: 'letter',   name: '편지' },
   { id: 'memories', name: '추억' },
   { id: 'library',  name: '허니브러리' }, // 둘의 책장(사이담 사이브러리를 옮김, /library) — 2x1, 로고+요즘 읽는 책
+  { id: 'diary',    name: '다이어리' },  // 다꾸 다이어리(/diary) — 2x1, 오늘 내 장 한 줄 + 상대가 썼는지
   { id: 'praise',   name: '칭찬' },
   { id: 'share',    name: '공유 리스트' },
   { id: 'wishlist', name: '위시리스트' },
@@ -104,7 +107,7 @@ const MODULES: ModuleDef[] = [
 ];
 // ⚠️ 2x1 이 1x1 보다 높다(핵심). 풀폭 카드 = 2x1, 짝지은 1칸 = 1x1.
 const DEFAULT_SIZE: Record<string, CardSize> = {
-  doodle: '2x1', chat: '2x1', air: '2x1', weather: '2x1', memories: '2x1', skin: '2x1', sleep: '2x1', library: '2x1',
+  doodle: '2x1', chat: '2x1', air: '2x1', weather: '2x1', memories: '2x1', skin: '2x1', sleep: '2x1', library: '2x1', diary: '2x1',
   mood: '1x1', dday: '1x1', calendar: '1x1', letter: '1x1',
   praise: '1x1', share: '1x1', wishlist: '1x1', again: '1x1', recipes: '1x1', poems: '1x1',
 };
@@ -118,7 +121,7 @@ const SIZE_CYCLE: CardSize[] = ['1x1', '2x1', '2x2'];
 const WHITE_CARDS = new Set(['chat', 'weather', 'mood', 'air', 'letter']);
 // enabledModules 저장 뒤 '나중에' 추가할 모듈 id를 여기 넣으면 기존 사용자도 기본 켬(사이담 함정 대응).
 // 지금은 첫 배포라 저장된 배치가 없음(=전부 켬) → 비워둠. 향후 카드 추가 시 그 id를 넣을 것.
-const ADDED_LATER: string[] = ['skin', 'sleep', 'library'];
+const ADDED_LATER: string[] = ['skin', 'sleep', 'library', 'diary'];
 // 저장된 순서를 적용하되 그 뒤 추가된 모듈은 기본 순서상 '제자리'에 끼운다(맨 밑 밀림 방지).
 function applyModuleOrder(order: string[] | undefined): ModuleDef[] {
   if (!order?.length) return MODULES;
@@ -246,6 +249,8 @@ export default function KkomMorningHome() {
   const [poems, setPoems] = useState<PoemItemView[]>([]);
   // 허니브러리 — 최근 놓은 책 10권만 받아 「요즘 읽는 책」 하나를 카드에(권수는 안 센다)
   const [honeyBooks, setHoneyBooks] = useState<HoneyBook[]>([]);
+  // 다이어리 — 이번 달 표지(가벼운 문서)만 받아 오늘 두 사람 장을 카드에
+  const [diaryMetas, setDiaryMetas] = useState<Record<string, DiaryMeta>>({});
   // 피부 일지 카드 한 줄 — PIN 쿠키가 있으면 오늘 기록 요약, 없으면 빈칸 안내
   const [skinToday, setSkinToday] = useState('');
   useEffect(() => {
@@ -329,6 +334,7 @@ export default function KkomMorningHome() {
     const honeyMe = (me === '우댕' || me === '꼼이') ? me : null;
     if (honeyMe) void backfillHoneyVisibility();
     const unsubHoney = honeyMe ? subscribeHoneyBooks(honeyMe, 10, (b) => setHoneyBooks(b)) : () => {};
+    const unsubDiary = honeyMe ? subscribeDiaryMonthMeta(todayYmd().slice(0, 7), setDiaryMetas) : () => {};
 
     // 칭찬 — 오늘 partner가 준 칭찬(스티커+졸랐어)을 실시간 구독. 안읽음 숫자 배지용.
     // (지역변수 me 사용 — userName은 setUserName 직후라 클로저에서 초기값 고정되는 이슈 회피)
@@ -369,7 +375,7 @@ export default function KkomMorningHome() {
     return () => {
       if (hintTimer) clearTimeout(hintTimer);
       unsubLetter(); unsubLetterRead(); unsubMoods(); unsubMemories(); unsubShares();
-      unsubWishes(); unsubAgains(); unsubRecipes(); unsubPoems(); unsubHoney(); unsubPraise();
+      unsubWishes(); unsubAgains(); unsubRecipes(); unsubPoems(); unsubHoney(); unsubDiary(); unsubPraise();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
@@ -1051,6 +1057,21 @@ export default function KkomMorningHome() {
         onOpen={() => router.push('/library')}
       />
     ),
+    // 다이어리 — 오늘 내 장의 첫 줄·그림, 상대가 오늘 썼는지만(횟수·연속 기록은 안 센다).
+    diary: (() => {
+      const t = todayYmd(), dt = new Date(t + 'T00:00:00');
+      const who = userName === '꼼이' ? '꼼이' : '우댕';
+      const mineToday = diaryMetas[diaryPageId(t, who)];
+      return (
+        <DiaryHomeCard
+          dateLabel={`${dt.getMonth() + 1}월 ${dt.getDate()}일 ${['일', '월', '화', '수', '목', '금', '토'][dt.getDay()]}요일`}
+          excerpt={mineToday ? (mineToday.excerpt || '오늘 한 장 꾸몄어요') : undefined}
+          thumbSrc={mineToday?.thumb}
+          partnerWroteToday={!!diaryMetas[diaryPageId(t, who === '우댕' ? '꼼이' : '우댕')]}
+          onOpen={() => router.push('/diary')}
+        />
+      );
+    })(),
     poems: renderListCard({
       Icon: BookText, name: '시집', onClick: () => router.push('/poems'),
       bg: 'var(--m-poems)', ac: 'var(--m-poems-ac)',

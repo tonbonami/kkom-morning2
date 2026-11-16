@@ -1,0 +1,344 @@
+/**
+ * 다꾸 다이어리 — 저장(Firestore · Storage). 화면이 쓰는 모양은 diaryTypes.ts.
+ * 설계: docs/gpt-diary-answer.md 6번 · docs/gpt-diary-calendar-answer.md 6번.
+ *
+ *   diaryPages/{날짜_사람}                가벼운 표지(달력 점·홈 카드용) — 한 달에 많아야 62개
+ *   diaryPages/{날짜_사람}/content/main   그 장의 글·물건(하루를 열 때만 읽는다)
+ *   diaryMonths/{연-월_주인}              월간 꾸미기(주인 = together | udaeng | kkomi)
+ *   specialDates/{id}                     생일·기념일(매년 되풀이)
+ *   Storage diary/{사람}/{연}/{월}/{장 id}/{사진 id}.jpg
+ *
+ * ⚠️ 하루 장은 주인만 고친다(쓰는 사람이 하나) → 장 전체를 한 번에 덮어쓴다.
+ * ⚠️ 「같이」 달력은 둘이 동시에 만질 수 있다 → 문서 전체를 덮지 않고 **만진 칸만** merge 로 쓴다.
+ * ⚠️ 연습 모드(?practice=1)에서는 아무것도 쓰지 않는다(PracticeBlocked).
+ * ⚠️ 장부·감시 금지 — 연속 기록·작성 횟수 같은 필드를 만들지 않는다.
+ */
+import { db, storage } from './firebase';
+import {
+  collection, doc, getDoc, setDoc, deleteDoc, onSnapshot, query, where, writeBatch,
+  serverTimestamp, deleteField, type DocumentData,
+} from 'firebase/firestore';
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { isPractice, practiceBlocked } from './practice';
+import { PERSON_KEY, PracticeBlocked } from './honeybrary';
+import {
+  DIARY_LIMITS, MONTH_LIMITS, type DiaryItemVM, type DiaryPageVM, type DiaryPaperTheme, type MonthOwner, type MonthSpanVM,
+  type MonthStickerVM, type MonthTitleStyle, type Person, type SpecialDateVM,
+} from './diaryTypes';
+
+export { PracticeBlocked };
+
+const blocked = (what: string): boolean => { if (!isPractice()) return false; practiceBlocked(what); return true; };
+/** undefined 를 걷어 낸다 — Firestore 는 undefined 값을 거절한다(스티커의 src·decorId 가 선택 필드). */
+const clean = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+const THEMES: DiaryPaperTheme[] = ['cream', 'plain', 'lined', 'grid'];
+const num = (v: unknown, d: number, lo: number, hi: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
+
+// ── 하루 장 ──────────────────────────────────────────────────────────────
+export const diaryPageId = (date: string, owner: Person) => `${date}_${PERSON_KEY[owner]}`;
+export const blankDiaryPage = (date: string, owner: Person): DiaryPageVM => ({ date, owner, theme: 'cream', text: '', items: [] });
+export const diaryPageHasContent = (p: Pick<DiaryPageVM, 'text' | 'items'>) => p.text.trim().length > 0 || p.items.length > 0;
+
+/** 달력 점·홈 카드가 읽는 가벼운 표지. */
+export interface DiaryMeta { id: string; date: string; owner: Person; excerpt: string; thumb?: string; itemCount: number; hasPhoto: boolean }
+
+function toItems(raw: unknown): DiaryItemVM[] {
+  if (!Array.isArray(raw)) return [];
+  const out: DiaryItemVM[] = [];
+  for (const r of raw as DocumentData[]) {
+    if (!r || typeof r.id !== 'string') continue;
+    const type = r.type === 'photo' || r.type === 'tape' || r.type === 'stamp' ? r.type : 'sticker';
+    out.push({
+      id: r.id, type,
+      ...(typeof r.src === 'string' ? { src: r.src } : {}),
+      ...(typeof r.decorId === 'string' ? { decorId: r.decorId } : {}),
+      ...(typeof r.path === 'string' ? { path: r.path } : {}),
+      x: num(r.x, 0.5, 0, 1), y: num(r.y, 0.5, 0, 1), w: num(r.w, 0.3, 0.05, 1), ratio: num(r.ratio, 1, 0.05, 10),
+      rotation: num(r.rotation, 0, -3600, 3600), z: num(r.z, 1, 0, 100000),
+    });
+  }
+  return out.slice(0, DIARY_LIMITS.items);
+}
+function toPage(date: string, owner: Person, d: DocumentData | undefined): DiaryPageVM {
+  return {
+    date, owner,
+    theme: THEMES.includes(d?.theme) ? d!.theme : 'cream',
+    text: typeof d?.text === 'string' ? d.text.slice(0, DIARY_LIMITS.text) : '',
+    items: toItems(d?.items),
+  };
+}
+const contentRef = (id: string) => doc(db, 'diaryPages', id, 'content', 'main');
+
+/** 한 장 읽기(내 장을 열 때 한 번). 없으면 null. 못 읽으면(오프라인) 던진다 — 빈 장으로 착각해 덮어쓰면 안 되니까. */
+export async function loadDiaryPage(date: string, owner: Person): Promise<{ page: DiaryPageVM; revision: number } | null> {
+  const snap = await getDoc(contentRef(diaryPageId(date, owner)));
+  if (!snap.exists()) return null;
+  const d = snap.data();
+  return { page: toPage(date, owner, d), revision: num(d.revision, 0, 0, 1e9) };
+}
+
+/** 상대 장은 켜 둔 채로 본다(상대가 고치면 바로 바뀐다). 없으면 null. */
+export function subscribeDiaryPage(date: string, owner: Person, cb: (p: DiaryPageVM | null) => void): () => void {
+  return onSnapshot(contentRef(diaryPageId(date, owner)),
+    (s) => cb(s.exists() ? toPage(date, owner, s.data()) : null),
+    (e) => { console.error('diary page 구독 오류:', e); cb(null); });
+}
+
+/** 한 달의 표지들(두 사람 것 다) — id → 표지. */
+export function subscribeDiaryMonthMeta(ym: string, cb: (m: Record<string, DiaryMeta>) => void): () => void {
+  return onSnapshot(query(collection(db, 'diaryPages'), where('ym', '==', ym)),
+    (snap) => {
+      const out: Record<string, DiaryMeta> = {};
+      snap.forEach((s) => {
+        const d = s.data();
+        if (d.owner !== '우댕' && d.owner !== '꼼이') return;
+        out[s.id] = {
+          id: s.id, date: String(d.date || ''), owner: d.owner, excerpt: typeof d.excerpt === 'string' ? d.excerpt : '',
+          ...(typeof d.thumb === 'string' && d.thumb ? { thumb: d.thumb } : {}),
+          itemCount: num(d.itemCount, 0, 0, 1000), hasPhoto: !!d.hasPhoto,
+        };
+      });
+      cb(out);
+    },
+    (e) => { console.error('diary 표지 구독 오류:', e); cb({}); });
+}
+
+/** 저장할 수 있는 물건만 — 아직 올리는 중인 사진(blob:)은 뺀다(다 올라오면 다시 저장된다). */
+export const storableItems = (items: DiaryItemVM[]) => items.filter((i) => !(i.src ?? '').startsWith('blob:')).slice(0, DIARY_LIMITS.items);
+
+/**
+ * 한 장 저장(전체 덮어쓰기). 글도 물건도 없으면 장을 지운다(빈 장이 달력에 점으로 남지 않게).
+ * @returns 새 revision
+ */
+export async function saveDiaryPage(page: DiaryPageVM, baseRevision: number): Promise<number> {
+  if (blocked('다이어리 저장')) throw new PracticeBlocked();
+  const id = diaryPageId(page.date, page.owner);
+  const items = clean(storableItems(page.items));
+  const text = page.text.slice(0, DIARY_LIMITS.text);
+  const revision = baseRevision + 1;
+  const batch = writeBatch(db);
+  if (!text.trim() && items.length === 0) {
+    batch.delete(contentRef(id));
+    batch.delete(doc(db, 'diaryPages', id));
+    await batch.commit();
+    return revision;
+  }
+  const firstLine = text.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
+  const thumb = items.find((i) => i.type === 'photo' && i.src)?.src ?? items.find((i) => i.type === 'sticker' && i.src)?.src;
+  batch.set(contentRef(id), { text, items, theme: page.theme, revision, updatedAt: serverTimestamp() });
+  batch.set(doc(db, 'diaryPages', id), {
+    date: page.date, ym: page.date.slice(0, 7), owner: page.owner, theme: page.theme,
+    itemCount: items.length, hasPhoto: items.some((i) => i.type === 'photo'),
+    excerpt: firstLine.slice(0, 40), thumb: thumb ?? deleteField(),
+    schemaVersion: 1, revision, updatedAt: serverTimestamp(),
+    ...(baseRevision === 0 ? { createdAt: serverTimestamp() } : {}),
+  }, { merge: true });
+  await batch.commit();
+  return revision;
+}
+
+// ── 사진 ─────────────────────────────────────────────────────────────────
+/** 고른 사진을 종이에 올릴 크기(긴 변 1280, JPEG)로 줄인다 — 올리기 전에 화면에 먼저 보여 주려고 따로 뺐다. */
+export async function prepareDiaryPhoto(file: File): Promise<{ blob: Blob; ratio: number }> {
+  if (!file.type.startsWith('image/')) throw new Error('이미지 파일만 올릴 수 있어요.');
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = () => rej(new Error('이미지를 읽지 못했어요.'));
+      i.src = url;
+    });
+    let w = img.naturalWidth, h = img.naturalHeight;
+    const long = Math.max(w, h);
+    if (long > 1280) { const r = 1280 / long; w = Math.round(w * r); h = Math.round(h * r); }
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    if (!ctx) throw new Error('canvas');
+    ctx.drawImage(img, 0, 0, w, h);
+    const blob = await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('toBlob'))), 'image/jpeg', 0.8));
+    return { blob, ratio: h / w };
+  } finally { URL.revokeObjectURL(url); }
+}
+
+export async function uploadDiaryPhoto(date: string, owner: Person, blob: Blob): Promise<{ src: string; path: string }> {
+  if (blocked('다이어리 사진 올리기')) throw new PracticeBlocked();
+  const photoId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+  const path = `diary/${PERSON_KEY[owner]}/${date.slice(0, 4)}/${date.slice(5, 7)}/${diaryPageId(date, owner)}/${photoId}.jpg`;
+  const r = storageRef(storage, path);
+  await uploadBytes(r, blob, { contentType: 'image/jpeg' });
+  return { src: await getDownloadURL(r), path };
+}
+
+/** 장에서 빠진 사진 파일 지우기 — 「이미 없음」은 성공으로 본다. 실패해도 장 저장은 이미 끝난 뒤라 조용히 넘긴다. */
+export async function deleteDiaryPhotos(paths: string[]): Promise<void> {
+  if (isPractice()) return;
+  await Promise.all(paths.filter((p) => p.startsWith('diary/')).map((p) => deleteObject(storageRef(storage, p)).catch(() => {})));
+}
+
+// ── 꺼져도 되살리기(이 폰에만) ────────────────────────────────────────────
+// 편집할 때마다 여기에 먼저 적어 두고, 서버 저장이 끝나면 지운다. 앱이 꺼졌다 켜지면 남아 있는 것을 되살려 다시 저장한다.
+const DRAFT = 'kk-diary-draft:';
+export function saveDiaryDraft(page: DiaryPageVM, baseRevision: number): void {
+  try { localStorage.setItem(DRAFT + diaryPageId(page.date, page.owner), JSON.stringify({ page: { ...page, items: storableItems(page.items) }, baseRevision })); } catch { /* 가득 참 */ }
+}
+export function readDiaryDraft(date: string, owner: Person): { page: DiaryPageVM; baseRevision: number } | null {
+  try {
+    const raw = localStorage.getItem(DRAFT + diaryPageId(date, owner));
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    return { page: toPage(date, owner, d.page), baseRevision: num(d.baseRevision, 0, 0, 1e9) };
+  } catch { return null; }
+}
+export function clearDiaryDraft(date: string, owner: Person): void {
+  try { localStorage.removeItem(DRAFT + diaryPageId(date, owner)); } catch { /* */ }
+}
+
+// ── 월간 꾸미기 ──────────────────────────────────────────────────────────
+export interface MonthDeco {
+  stickers: Record<string, MonthStickerVM[]>; memos: Record<string, string>; spans: MonthSpanVM[];
+  hero: MonthStickerVM | null; margin: MonthStickerVM[]; title: MonthTitleStyle;
+}
+export const emptyMonthDeco = (): MonthDeco => ({ stickers: {}, memos: {}, spans: [], hero: null, margin: [], title: 'plain' });
+/** 한 번 만진 것 — 화면 상태에도, 저장에도, 되돌리기에도 같은 모양을 쓴다. */
+export type MonthPatch =
+  | { kind: 'stickers'; date: string; list: MonthStickerVM[] }
+  | { kind: 'memo'; date: string; text: string | null }
+  | { kind: 'span'; id: string; span: MonthSpanVM | null }
+  | { kind: 'hero'; hero: MonthStickerVM | null }
+  | { kind: 'margin'; list: MonthStickerVM[] }
+  | { kind: 'title'; title: MonthTitleStyle };
+
+export function applyMonthPatch(d: MonthDeco, p: MonthPatch): MonthDeco {
+  switch (p.kind) {
+    case 'stickers': { const s = { ...d.stickers }; if (p.list.length) s[p.date] = p.list.slice(0, MONTH_LIMITS.cellStickers); else delete s[p.date]; return { ...d, stickers: s }; }
+    case 'memo': { const m = { ...d.memos }; if (p.text) m[p.date] = p.text.slice(0, MONTH_LIMITS.memo); else delete m[p.date]; return { ...d, memos: m }; }
+    case 'span': { const rest = d.spans.filter((k) => k.id !== p.id); return { ...d, spans: p.span ? [...rest, p.span].sort((a, b) => a.startDate.localeCompare(b.startDate)) : rest }; }
+    case 'hero': return { ...d, hero: p.hero };
+    case 'margin': return { ...d, margin: p.list.slice(0, MONTH_LIMITS.margin) };
+    case 'title': return { ...d, title: p.title };
+  }
+}
+/** 그 변경을 되돌리는 변경(바꾸기 **전** 상태에서 만든다). */
+export function invertMonthPatch(d: MonthDeco, p: MonthPatch): MonthPatch {
+  switch (p.kind) {
+    case 'stickers': return { kind: 'stickers', date: p.date, list: d.stickers[p.date] ?? [] };
+    case 'memo': return { kind: 'memo', date: p.date, text: d.memos[p.date] ?? null };
+    case 'span': return { kind: 'span', id: p.id, span: d.spans.find((k) => k.id === p.id) ?? null };
+    case 'hero': return { kind: 'hero', hero: d.hero };
+    case 'margin': return { kind: 'margin', list: d.margin };
+    case 'title': return { kind: 'title', title: d.title };
+  }
+}
+
+const OWNER_KEY: Record<MonthOwner, string> = { together: 'together', '우댕': 'udaeng', '꼼이': 'kkomi' };
+const monthRef = (ym: string, owner: MonthOwner) => doc(db, 'diaryMonths', `${ym}_${OWNER_KEY[owner]}`);
+const toSticker = (r: DocumentData | null | undefined): MonthStickerVM | null => {
+  if (!r || typeof r.id !== 'string') return null;
+  return {
+    id: r.id,
+    ...(typeof r.src === 'string' ? { src: r.src } : {}),
+    ...(typeof r.decorId === 'string' ? { decorId: r.decorId } : {}),
+    ...(r.by === '우댕' || r.by === '꼼이' ? { by: r.by as Person } : {}),
+  };
+};
+const toStickers = (raw: unknown, max: number): MonthStickerVM[] =>
+  (Array.isArray(raw) ? raw.map(toSticker).filter((s): s is MonthStickerVM => !!s) : []).slice(0, max);
+
+function toDeco(d: DocumentData | undefined): MonthDeco {
+  const out = emptyMonthDeco();
+  if (!d) return out;
+  for (const [date, list] of Object.entries((d.stickers ?? {}) as Record<string, unknown>)) {
+    const l = toStickers(list, MONTH_LIMITS.cellStickers);
+    if (l.length) out.stickers[date] = l;
+  }
+  for (const [date, t] of Object.entries((d.memos ?? {}) as Record<string, unknown>)) if (typeof t === 'string' && t) out.memos[date] = t.slice(0, MONTH_LIMITS.memo);
+  for (const [id, s] of Object.entries((d.spans ?? {}) as Record<string, DocumentData>)) {
+    if (!s || typeof s.startDate !== 'string' || typeof s.endDate !== 'string') continue;
+    out.spans.push({ id, startDate: s.startDate, endDate: s.endDate, label: typeof s.label === 'string' ? s.label : '', decorId: typeof s.decorId === 'string' ? s.decorId : 'tape-honey' });
+  }
+  out.spans.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  out.hero = toSticker(d.hero);
+  out.margin = toStickers(d.margin, MONTH_LIMITS.margin);
+  out.title = d.title === 'brush' || d.title === 'round' ? d.title : 'plain';
+  return out;
+}
+
+export function subscribeDiaryMonth(ym: string, owner: MonthOwner, cb: (d: MonthDeco) => void): () => void {
+  return onSnapshot(monthRef(ym, owner), (s) => cb(toDeco(s.data())), (e) => { console.error('diary 달력 구독 오류:', e); });
+}
+
+/** 만진 칸만 쓴다(merge) — 「같이」 달력을 둘이 동시에 만져도 서로의 다른 칸을 덮지 않는다. */
+export async function writeDiaryMonthPatch(ym: string, owner: MonthOwner, p: MonthPatch): Promise<void> {
+  if (blocked('달력 꾸미기 저장')) throw new PracticeBlocked();
+  let body: DocumentData;
+  switch (p.kind) {
+    case 'stickers': body = { stickers: { [p.date]: p.list.length ? clean(p.list.slice(0, MONTH_LIMITS.cellStickers)) : deleteField() } }; break;
+    case 'memo': body = { memos: { [p.date]: p.text ? p.text.slice(0, MONTH_LIMITS.memo) : deleteField() } }; break;
+    case 'span': body = { spans: { [p.id]: p.span ? { startDate: p.span.startDate, endDate: p.span.endDate, label: p.span.label, decorId: p.span.decorId } : deleteField() } }; break;
+    case 'hero': body = { hero: p.hero ? clean(p.hero) : null }; break;
+    case 'margin': body = { margin: clean(p.list.slice(0, MONTH_LIMITS.margin)) }; break;
+    case 'title': body = { title: p.title }; break;
+  }
+  await setDoc(monthRef(ym, owner), { ...body, ym, owner: OWNER_KEY[owner], updatedAt: serverTimestamp() }, { merge: true });
+}
+
+// ── 생일·기념일 ──────────────────────────────────────────────────────────
+function toSpecial(id: string, d: DocumentData): SpecialDateVM | null {
+  if (typeof d.label !== 'string' || !/^\d\d-\d\d$/.test(String(d.monthDay))) return null;
+  const sticker = toSticker(d.sticker);
+  return {
+    id, label: d.label, monthDay: d.monthDay,
+    kind: d.kind === 'birthday' || d.kind === 'anniversary' ? d.kind : 'custom',
+    owner: d.owner === '우댕' || d.owner === '꼼이' ? d.owner : 'together',
+    ...(typeof d.startYear === 'number' ? { startYear: d.startYear } : {}),
+    ...(sticker ? { sticker } : {}),
+  };
+}
+export function subscribeSpecialDates(cb: (list: SpecialDateVM[]) => void): () => void {
+  return onSnapshot(collection(db, 'specialDates'),
+    (snap) => {
+      const out: SpecialDateVM[] = [];
+      snap.forEach((s) => { const v = toSpecial(s.id, s.data()); if (v) out.push(v); });
+      out.sort((a, b) => a.monthDay.localeCompare(b.monthDay) || a.label.localeCompare(b.label));
+      cb(out);
+    },
+    (e) => { console.error('기념일 구독 오류:', e); cb([]); });
+}
+export async function addSpecialDate(v: Omit<SpecialDateVM, 'id'>): Promise<void> {
+  if (blocked('기념일 추가')) throw new PracticeBlocked();
+  const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+  await setDoc(doc(db, 'specialDates', id), { ...clean(v), repeat: 'yearly', createdAt: serverTimestamp() });
+}
+export async function deleteSpecialDate(id: string): Promise<void> {
+  if (blocked('기념일 지우기')) throw new PracticeBlocked();
+  await deleteDoc(doc(db, 'specialDates', id));
+}
+
+/** 처음부터 들어 있는 날 — 두 사람 생일과 처음 만난 날(코드에 박혀 있던 것: birthday.ts · 홈의 2023-09-28). */
+export const BUILTIN_SPECIALS: SpecialDateVM[] = [
+  { id: 'builtin-udaeng-birthday', label: '우댕 생일', kind: 'birthday', monthDay: '03-19', owner: '우댕' },
+  { id: 'builtin-kkomi-birthday', label: '꼼이 생일', kind: 'birthday', monthDay: '09-28', owner: '꼼이' },
+  { id: 'builtin-first-day', label: '우리 처음 만난 날', kind: 'anniversary', monthDay: '09-28', startYear: 2023, owner: 'together' },
+];
+/** 한 번만 심는다(settings/diary.specialSeeded) — 그 뒤로는 지워도 다시 안 생긴다. id 가 고정이라 두 폰이 동시에 해도 같은 문서. */
+export async function seedSpecialDates(): Promise<void> {
+  if (isPractice()) return;
+  const flag = doc(db, 'settings', 'diary');
+  const cur = await getDoc(flag);
+  if (cur.exists() && cur.data().specialSeeded) return;
+  const batch = writeBatch(db);
+  for (const { id, ...rest } of BUILTIN_SPECIALS) batch.set(doc(db, 'specialDates', id), { ...rest, repeat: 'yearly', createdAt: serverTimestamp() });
+  batch.set(flag, { specialSeeded: true }, { merge: true });
+  await batch.commit();
+}
+
+/** 그 날짜의 기념일을 달력 칸 모양으로(「3주년」의 3 포함). */
+export function specialsOn(date: string, specials: SpecialDateVM[]) {
+  const md = date.slice(5), year = Number(date.slice(0, 4));
+  return specials.filter((s) => s.monthDay === md && (!s.startYear || year >= s.startYear)).map((s) => ({
+    id: s.id, label: s.label, kind: s.kind, sticker: s.sticker,
+    years: s.startYear && year > s.startYear ? year - s.startYear : undefined,
+  }));
+}

@@ -1,0 +1,54 @@
+/**
+ * 다꾸 다이어리 — 화면이 쓰는 모양과 상수(파이어베이스 없음).
+ * 기획: docs/gpt-diary-ask.md · docs/gpt-diary-answer.md (GPT 회의 2026-11-15), 시안 의뢰 docs/gemini-diary-ask.md.
+ *
+ * 우댕 2026-11-15: 「지금 같은 캘린더가 아니라 실제로 꾸밀 수 있는 다꾸 가능한 다이어리. 스티커도 붙일 수 있고,
+ *   주로 폰으로 쓰니까 간단하게. 생일 같은 거 표시할 수 있고, 일기 같은 거 적을 수 있고.」
+ *
+ * ⚠️ 장부·감시 금지 — 「며칠째 안 씀」·연속 기록·작성 횟수·비교 통계를 만들지 않는다.
+ * ⚠️ 좌표는 종이에 대한 0~1(폰마다 종이 크기가 달라도 같은 자리). 낙서장(canvasBoard.ts)과 같은 방식.
+ */
+export type Person = '우댕' | '꼼이';
+export type DiaryPaperTheme = 'cream' | 'plain' | 'lined' | 'grid';
+export type DiaryItemType = 'sticker' | 'photo' | 'tape' | 'stamp';
+
+/** 종이 위 물건 하나. x·y = 물건 **가운데**의 자리(종이 폭·높이에 대한 0~1), w = 종이 폭에 대한 폭(0~1), ratio = 높이/폭. */
+export interface DiaryItemVM {
+  id: string; type: DiaryItemType;
+  src?: string;        // sticker·photo 그림 주소(정지 그림)
+  decorId?: string;    // tape·stamp — 그림 파일이 아니라 CSS 로 그리는 꾸미기(components/diary/DiaryDecor)의 id
+  path?: string;       // photo — Storage 경로(장에서 빠지면 파일도 지우려고 같이 적어 둔다)
+  x: number; y: number; w: number; ratio: number; rotation: number; z: number;
+}
+export interface DiaryChipVM { id: string; kind: 'mood' | 'weather' | 'event' | 'special'; label: string; iconSrc?: string }
+export interface DiaryPageVM { date: string; owner: Person; theme: DiaryPaperTheme; text: string; items: DiaryItemVM[] }
+export interface DiaryAssetVM { id: string; kind: 'sticker' | 'tape' | 'stamp'; src?: string; decorId?: string; label?: string; favorite?: boolean }
+export interface DiaryMaterialVM { id: string; kind: 'mood' | 'weather' | 'photo' | 'prompt' | 'special'; label: string; thumbSrc?: string }
+export interface DiaryMonthDayVM { date: string; day: number; inMonth: boolean; isToday: boolean; mine: boolean; partner: boolean; special?: string; holiday?: boolean }
+/** 생일·기념일. sticker = 전용 스티커(등록할 때 고름) — 매년 그 날짜 칸에 저절로 붙는다(월간 장식 개수에 안 센다). */
+export interface SpecialDateVM { id: string; label: string; kind: 'birthday' | 'anniversary' | 'custom'; monthDay: string; startYear?: number; owner: Person | 'together'; sticker?: MonthStickerVM }
+export type DiaryItemAction = 'smaller' | 'larger' | 'rotateLeft' | 'rotateRight' | 'front' | 'duplicate' | 'delete';
+
+/** 한 장에 물건 30개·사진 4장·글 1000자(GPT 회의 7번 — 실기기 검수 뒤에 늘린다). */
+export const DIARY_LIMITS = { items: 30, photos: 4, text: 1000 } as const;
+
+// ── 월간 꾸미기 달력(GPT 회의 2: docs/gpt-diary-calendar-answer.md, 우댕 2026-11-17 「다꾸하는 사람들은 달력 꾸미는 것도 좋아하잖아」) ──
+/** 달력 주인 — 같이 꾸미는 한 장 / 각자 한 장(우댕 「둘이 공동 + 각자 한 장 선택하게」). 하루 장은 각자뿐. */
+export type MonthOwner = 'together' | Person;
+/** 달력에 붙는 작은 스티커(자유 배치 아님 — 칸의 정해진 자리). by = 붙인 사람(같이 달력에서 고를 때만 보여 줌). */
+export interface MonthStickerVM { id: string; src?: string; decorId?: string; by?: Person }
+/** 그 날의 기념일 한 개 — years 는 시작 연도가 있을 때 「3주년」의 3. */
+export interface MonthSpecialVM { id: string; label: string; kind: 'birthday' | 'anniversary' | 'custom'; years?: number; sticker?: MonthStickerVM }
+export interface DiaryMonthCellVM {
+  date: string; day: number; inMonth: boolean; isToday: boolean; holiday?: boolean;
+  stickers: MonthStickerVM[];          // 최대 2개(왼쪽·오른쪽 자리)
+  memo?: string;                       // 한 줄 메모, 최대 7자
+  specials: MonthSpecialVM[];          // 그 날의 생일·기념일(여러 개일 수 있다)
+  mine: boolean; partner: boolean;     // 하루 장을 쓴 날(작은 점)
+}
+/** 여러 날을 잇는 기간 테이프(여행·시험 등) — 주가 바뀌면 화면에서 조각으로 나눠 그린다. */
+export interface MonthSpanVM { id: string; startDate: string; endDate: string; label: string; decorId: string }
+export type MonthTitleStyle = 'plain' | 'brush' | 'round';
+export type MonthTool = 'sticker' | 'span' | 'memo' | 'erase';
+/** 날짜당 스티커 2 · 메모 7자 · 기간 테이프 8 · 여백 스티커 6 (GPT 회의 2의 안전선). */
+export const MONTH_LIMITS = { cellStickers: 2, memo: 7, spans: 8, margin: 6 } as const;
