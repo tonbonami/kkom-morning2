@@ -1,7 +1,8 @@
 'use client';
 
 // 다꾸 다이어리 — /diary. 화면·저장은 components/diary/DiaryApp, 여기선 누가 열었는지만 본다.
-//   /diary            오늘 내 장 · /diary?d=2026-11-17 그 날짜 · /diary?view=month 월간 달력(일정)
+//   /diary            오늘 내 장 · /diary?d=2026-11-17 그 날짜
+//   /diary?view=month 월간 달력(일정) · &date=2026-11-21 그날 시트까지 · &event=일정id (알림·꼼톡 카드가 이렇게 온다 — src/lib/calendarLink.ts)
 //   ?practice=1       연습 모드(아무것도 저장하지 않음)
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -12,7 +13,7 @@ import type { Person } from '@/lib/diaryTypes';
 function Diary() {
   const router = useRouter();
   const sp = useSearchParams();
-  const d = sp.get('d') ?? undefined;
+  const d = sp.get('date') ?? sp.get('d') ?? undefined;
   const [me, setMe] = useState<Person | null>(null);
   useEffect(() => {
     const who = honeyMe();
@@ -20,7 +21,7 @@ function Diary() {
     setMe(who);
   }, [router]);
   if (!me) return null;
-  return <DiaryApp me={me} initialDate={d} initialView={sp.get('view') === 'month' ? 'month' : 'day'} onExit={() => router.push('/')} />;
+  return <DiaryApp me={me} initialDate={d} initialView={sp.get('view') === 'month' ? 'month' : 'day'} openAgenda={sp.get('view') === 'month' && !!sp.get('date')} initialEventId={sp.get('event') ?? undefined} onExit={() => router.push('/')} />;
 }
 
 export default function DiaryPage() {

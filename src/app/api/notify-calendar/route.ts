@@ -1,5 +1,6 @@
 // 캘린더 일정 추가 시 상대에게 즉시 알림.
 import { NextRequest, NextResponse } from 'next/server';
+import { calendarHref } from '@/lib/calendarLink';
 import webpush from 'web-push';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
@@ -19,7 +20,7 @@ function withSubjectParticle(name: string): string {
 function clip(t: string, max = 50): string { const s = t.trim(); return s.length > max ? s.slice(0, max) + '...' : s; }
 
 export async function POST(req: NextRequest) {
-  let body: { from?: string; to?: string; title?: string; owner?: string };
+  let body: { from?: string; to?: string; title?: string; owner?: string; date?: string; id?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }); }
   const { from, to, title = '' } = body;
   if (!to || !from) return NextResponse.json({ error: 'to/from required' }, { status: 400 });
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   const payload = JSON.stringify({
     title: `📅 ${withSubjectParticle(from)} 일정을 추가했어`,
     body: clip(title, 60) || '캘린더에서 확인해줘 ✨',
-    url: '/calendar',
+    url: calendarHref(typeof body.date === 'string' ? body.date : null, typeof body.id === 'string' ? body.id : null),
   });
   try {
     await webpush.sendNotification(s as any, payload);

@@ -116,7 +116,7 @@ export async function addCalendarEvent(input: {
   if (!usingEmulator) fetch('/api/notify-calendar', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ kind: 'new', from: input.createdBy, to, title: input.title.trim(), owner: input.owner }),
+    body: JSON.stringify({ kind: 'new', from: input.createdBy, to, title: input.title.trim(), owner: input.owner, date: input.startDate, id: ref.id }),
   }).catch(() => {});
 
   return ref.id;

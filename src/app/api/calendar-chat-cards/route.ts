@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
   const today = dry && /^\d{4}-\d{2}-\d{2}$/.test(sp.get('today') || '') ? (sp.get('today') as string) : kstToday();
 
   const snap = await getDocs(collection(db, 'calendarEvents'));
-  const cards: { id: string; text: string; title: string; body: string }[] = [];
+  const cards: { id: string; text: string; title: string; body: string; eventId: string; date: string }[] = [];
   snap.forEach((s) => {
     const e = s.data() as Ev;
     if (!e.startDate) return;
@@ -59,6 +59,7 @@ export async function GET(req: NextRequest) {
       text: `📅 ${when} · ${named}${extra ? ` (${extra})` : ''}`,
       title: `📅 ${when} 일정`,
       body: `${named}${extra ? ` · ${extra}` : ''}`,
+      eventId: s.id, date: e.startDate,
     });
   });
 
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
   for (const c of cards) {
     const ref = doc(db, 'messages', c.id);
     if ((await getDoc(ref)).exists()) { results.push({ id: c.id, written: false }); continue; }
-    await setDoc(ref, { from: '꼼모닝', kind: 'calendar', text: c.text, createdAt: serverTimestamp() });
+    await setDoc(ref, { from: '꼼모닝', kind: 'calendar', text: c.text, calendarEventId: c.eventId, calendarDate: c.date, createdAt: serverTimestamp() });
     const pushed = await Promise.all(['udaeng', 'kkomi'].map((k) => sendApns(k, c.title, c.body).catch(() => false)));
     results.push({ id: c.id, written: true, pushed });
   }

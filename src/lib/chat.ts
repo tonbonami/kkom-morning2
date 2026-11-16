@@ -34,6 +34,7 @@ export interface ChatMessage {
   starred?: boolean;  // 추억 보관함(별표)
   capsule?: boolean;  // 타임캡슐 (createdAt = 미래 도착 시각)
   kind?: 'calendar';  // 꼼모닝이 넣는 안내 카드(from '꼼모닝') — 달력 하루 전 알림 등. 가운데 작은 카드로 그린다
+  calendarDate?: string; calendarEventId?: string;  // 일정 카드가 가리키는 날짜·일정(2026-11-17 뒤 카드부터) — 있으면 눌러서 그 날짜의 달력으로
   createdAt: Date | null;
 }
 
@@ -333,6 +334,7 @@ export async function fetchRecentMessages(max = 300): Promise<ChatMessage[]> {
         replyTo: data.replyTo as ReplyRef | undefined, reactions: data.reactions as Record<string, string> | undefined,
         deleted: data.deleted as boolean | undefined, starred: data.starred as boolean | undefined,
         capsule: data.capsule as boolean | undefined, kind: data.kind as 'calendar' | undefined,
+        calendarDate: typeof data.calendarDate === 'string' ? data.calendarDate : undefined, calendarEventId: typeof data.calendarEventId === 'string' ? data.calendarEventId : undefined,
         createdAt: data.createdAt?.toDate?.() ?? null,
       } as ChatMessage;
     })
@@ -350,7 +352,7 @@ export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): 
           const data = d.data() as {
             from?: string; text?: string; imageUrl?: string; imageUrls?: string[]; imageThumbs?: string[]; sticker?: string;
             audioUrl?: string; audioDur?: number; videoUrl?: string; videoDur?: number;
-            replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; starred?: boolean; capsule?: boolean; kind?: 'calendar'; createdAt?: Timestamp; editedAt?: Timestamp;
+            replyTo?: ReplyRef; reactions?: Record<string, string>; deleted?: boolean; starred?: boolean; capsule?: boolean; kind?: 'calendar'; calendarDate?: unknown; calendarEventId?: unknown; createdAt?: Timestamp; editedAt?: Timestamp;
           };
           return {
             id: d.id, from: data.from ?? '', text: data.text ?? '',
@@ -360,6 +362,7 @@ export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): 
             audioUrl: data.audioUrl, audioDur: data.audioDur,
             videoUrl: data.videoUrl, videoDur: data.videoDur, replyTo: data.replyTo,
             reactions: data.reactions, deleted: data.deleted, starred: data.starred, capsule: data.capsule, kind: data.kind,
+            calendarDate: typeof data.calendarDate === 'string' ? data.calendarDate : undefined, calendarEventId: typeof data.calendarEventId === 'string' ? data.calendarEventId : undefined,
             createdAt: data.createdAt?.toDate?.() ?? null,
             editedAt: data.editedAt?.toDate?.() ?? null,
           };

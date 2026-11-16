@@ -6,6 +6,7 @@
 //   ?v=drawer 스티커 서랍 · ?v=special 기념일 관리 · ?v=home 홈 카드
 //   ?v=cal 월간 꾸미기 달력(같이|우댕|꼼이) · ?v=caldeco 꾸미기 모드로 시작 — 하루 장의 날짜를 눌러도 달력으로 간다
 //   ?v=real&practice=1 진짜 화면(DiaryApp)을 로그인 없이 — 연습 모드(저장 안 함)나 에뮬레이터(&emu=1)일 때만 열린다 · &as=꼼이
+//     &view=month&date=2026-11-21&event=… 알림·꼼톡 카드가 여는 주소 흉내
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DiaryDayScreen } from '@/components/diary/DiaryDayScreen';
@@ -69,7 +70,13 @@ function Real() {
   useEffect(() => setOk(isPractice() || usingEmulator), []);
   if (ok === null) return null;
   if (!ok) return <div className="sd-app min-h-screen p-6 text-sm">주소에 <b>&practice=1</b>(저장 안 함) 또는 <b>&emu=1</b>(에뮬레이터)을 붙여야 열려요.</div>;
-  return <DiaryApp me={sp.get('as') === '꼼이' ? '꼼이' : '우댕'} initialDate={sp.get('d') ?? undefined} onExit={() => {}} />;
+  return (
+    <DiaryApp
+      me={sp.get('as') === '꼼이' ? '꼼이' : '우댕'} initialDate={sp.get('date') ?? sp.get('d') ?? undefined}
+      initialView={sp.get('view') === 'month' ? 'month' : 'day'} openAgenda={sp.get('view') === 'month' && !!sp.get('date')}
+      initialEventId={sp.get('event') ?? undefined} onExit={() => {}}
+    />
+  );
 }
 
 // 가짜 일정 — 일정 띠(여러 날)·점(하루)·「+N」이 어떻게 그려지는지 보려고

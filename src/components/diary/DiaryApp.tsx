@@ -68,7 +68,12 @@ const LS_RECENT = 'kk-diary-recent', LS_FAV = 'kk-diary-fav';
 const readIds = (k: string): string[] => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch { return []; } };
 const writeIds = (k: string, ids: string[]) => { try { localStorage.setItem(k, JSON.stringify(ids)); } catch { /* */ } };
 
-export function DiaryApp({ me, initialDate, initialView, onExit }: { me: Person; initialDate?: string; initialView?: 'day' | 'month'; onExit: () => void }) {
+export function DiaryApp({ me, initialDate, initialView, openAgenda, initialEventId, onExit }: {
+  me: Person; initialDate?: string; initialView?: 'day' | 'month';
+  openAgenda?: boolean;        // 월간으로 들어오면서 그날 시트까지 연다(알림·꼼톡 일정 카드에서 올 때)
+  initialEventId?: string;     // 보러 온 일정 — 날짜가 안 왔으면 이 일정의 시작 날로 찾아간다
+  onExit: () => void;
+}) {
   const TODAY = useMemo(() => todayYmd(), []);
   const partner: Person = me === '우댕' ? '꼼이' : '우댕';
   const practice = useMemo(() => isPractice(), []);
@@ -295,7 +300,16 @@ export function DiaryApp({ me, initialDate, initialView, onExit }: { me: Person;
   const monthEvents = useMemo(() => eventsForOwner(events, mOwner), [events, mOwner]);
   const { bands, cellEvents } = useMemo(() => buildMonthBands(mYm, monthEvents, deco.spans), [mYm, monthEvents, deco.spans]);
   const upcomingList = useMemo(() => buildUpcoming(TODAY, monthEvents, specials), [TODAY, monthEvents, specials]);
-  const [agendaDate, setAgendaDate] = useState<string | null>(null);      // 날짜를 눌러 연 그날 시트
+  const [agendaDate, setAgendaDate] = useState<string | null>(openAgenda && initialView === 'month' ? date : null);      // 날짜를 눌러 연 그날 시트
+  // 일정 id 만 달고 온 경우(날짜 없음) — 일정이 내려오면 그 달·그날로 한 번만 찾아간다
+  const soughtRef = useRef(!initialEventId || !!openAgenda);
+  useEffect(() => {
+    if (soughtRef.current) return;
+    const e = events.find((k) => k.id === initialEventId);
+    if (!e) return;
+    soughtRef.current = true;
+    setView('month'); setMYm(e.startDate.slice(0, 7)); setAgendaDate(e.startDate);
+  }, [events, initialEventId]);
   const [upOpen, setUpOpen] = useState(false);
   const [evEdit, setEvEdit] = useState<{ id?: string; draft: DiaryEventDraft; backTo: string | null } | null>(null);
   const [evSaving, setEvSaving] = useState(false);

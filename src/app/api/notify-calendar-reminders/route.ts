@@ -4,6 +4,7 @@
 // Vercel cron: 매일 23:00 UTC = KST 08:00.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { calendarHref } from '@/lib/calendarLink';
 import webpush from 'web-push';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, getDoc, deleteDoc } from 'firebase/firestore';
@@ -52,13 +53,13 @@ async function run(req: NextRequest) {
   const snap = await getDocs(collection(db, 'calendarEvents'));
 
   // 오늘로부터 1일 뒤 / 7일 뒤에 시작하는 일정 찾기
-  const targets: { title: string; owner: string; when: string; daysBefore: number }[] = [];
+  const targets: { id: string; startDate: string; title: string; owner: string; when: string; daysBefore: number }[] = [];
   snap.forEach((docSnap) => {
     const e = docSnap.data() as { title?: string; owner?: string; startDate?: string; remindDaysBefore?: number[] };
     if (!e.startDate || !Array.isArray(e.remindDaysBefore)) return;
     for (const d of e.remindDaysBefore) {
       if (addDays(today, d) === e.startDate) {
-        targets.push({ title: e.title || '일정', owner: e.owner || 'together', when: d === 1 ? '내일' : `${d}일 뒤`, daysBefore: d });
+        targets.push({ id: docSnap.id, startDate: e.startDate, title: e.title || '일정', owner: e.owner || 'together', when: d === 1 ? '내일' : `${d}일 뒤`, daysBefore: d });
       }
     }
   });
@@ -75,7 +76,7 @@ async function run(req: NextRequest) {
       const payload = JSON.stringify({
         title: `🔔 ${t.when} 일정 있어`,
         body: `${OWNER_LABEL[t.owner] || ''} · ${t.title}`,
-        url: '/calendar',
+        url: calendarHref(t.startDate, t.id),
       });
       try {
         await webpush.sendNotification(s as any, payload);

@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { calendarHref } from '@/lib/calendarLink';
 import { flushSync } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard, Search, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -841,6 +843,7 @@ function MenuAction({ onClick, label, icon, tone }: { onClick: () => void; label
 const dtHasFile = (dt: DataTransfer | null) => !!dt && Array.from(dt.types || []).includes('Files');
 
 export default function ChatPanel({ me, partner, messages: messagesIn, open, onClose, onSend, partnerOnline, partnerOnWatch, onLoadMore, hasMore, onSendCapsule }: Props) {
+  const router = useRouter();   // 일정 카드를 누르면 그 날짜의 달력으로
   const [draft, setDraft] = useState('');
   // 연습 모드(?practice=1)에서 보낸 묶음 사진 — 내 화면에만 잠깐 보인다(격자·넘겨 보기·지우기를 진짜 대화방 없이 확인).
   const [practiceEcho, setPracticeEcho] = useState<ChatMessage[]>([]);
@@ -1936,6 +1939,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
             )}
             {withDays.map(({ m, showDay, day, showAvatar }) => {
               // 꼼모닝이 넣는 안내 카드(달력 하루 전 등) — 누구 말풍선도 아니라 가운데 작은 카드. 눌러도 메뉴 없음.
+              //   날짜가 적힌 카드(새 카드)는 누르면 그 날짜의 달력으로 간다. 옛 카드는 그대로 읽기만.
               if (m.kind === 'calendar') return (
                 <div key={m.id} id={`cmsg-${m.id}`}>
                   {showDay && (
@@ -1944,7 +1948,9 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
                     </div>
                   )}
                   <div className="my-3 flex justify-center">
-                    <div className="max-w-[86%] rounded-2xl px-4 py-2 text-center text-[13px] font-bold leading-snug shadow-sm ring-1 ring-black/[0.04] break-keep"
+                    <div className={`max-w-[86%] rounded-2xl px-4 py-2 text-center text-[13px] font-bold leading-snug shadow-sm ring-1 ring-black/[0.04] break-keep ${m.calendarDate ? 'cursor-pointer active:opacity-80' : ''}`}
+                      role={m.calendarDate ? 'button' : undefined}
+                      onClick={m.calendarDate ? () => router.push(calendarHref(m.calendarDate, m.calendarEventId)) : undefined}
                       style={{ background: 'var(--ct-partner-bg)', color: 'var(--ct-chip-text)' }}>
                       {m.text}
                     </div>
