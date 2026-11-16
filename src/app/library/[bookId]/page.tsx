@@ -58,6 +58,13 @@ export default function HoneyBookPage() {
   const [visBlocked, setVisBlocked] = useState<string | null>(null);
   const [visBusy, setVisBusy] = useState(false);
 
+  // 책 지우는 중 — 사진 폴더·기록·감상을 같이 지우느라 몇 초 걸린다. 그동안 화면이 그대로면 「안 눌렸나」가 된다
+  // (사이담에서 발견, 946aa3c 와 같은 고침) → 누르자마자 「책을 지우는 중…」, 책이 사라지면 곧장 책장으로.
+  const [deleting, setDeleting] = useState(false);
+  useEffect(() => {
+    if (deleting && book === null) router.replace('/library');
+  }, [deleting, book, router]);
+
   useEffect(() => {
     const who = honeyMe();
     if (!who) { router.replace('/'); return; }
@@ -70,7 +77,7 @@ export default function HoneyBookPage() {
     if (!bookId || !me) return;
     return subscribeHoneyBook(bookId, me, setBook, (e) => { console.error('허니브러리 책 불러오기 실패:', e); setFailed(true); });
   }, [bookId, me]);
-  const visibleId = book ? book.id : null;
+  const visibleId = book && !deleting ? book.id : null;
   useEffect(() => {
     if (!visibleId) { setReviews([]); return; }
     return subscribeHoneyReviews(visibleId, setReviews, (e) => { console.error('감상 불러오기 실패:', e); setFailed(true); });
@@ -105,6 +112,9 @@ export default function HoneyBookPage() {
     : { id: p.id, url: p.preview!, thumbUrl: p.preview!, pending: revBusy });
 
   if (!me) return null;
+  if (deleting) {
+    return <div className="min-h-app flex items-center justify-center text-[13px]" style={{ background: HONEY.ground, color: HONEY.faint }}>책을 지우는 중…</div>;
+  }
   if (failed) {
     return (
       <div className="min-h-app flex flex-col items-center justify-center gap-3 px-6 text-center" style={{ background: HONEY.ground }}>
@@ -182,7 +192,9 @@ export default function HoneyBookPage() {
         onRename={async (t) => { try { await renameHoneyBook(book.id, t); } catch (e) { fail(e, '제목을 못 고쳤어요'); } }}
         onChangeCover={async (f) => { try { await setHoneyCover(book, f); flash('표지를 바꿨어요'); } catch (e) { fail(e, '표지를 바꾸지 못했어요'); } }}
         onDeleteBook={async () => {
-          try { await deleteHoneyBook(book.id); router.replace('/library'); } catch (e) { fail(e, '책을 지우지 못했어요. 다시 해 주세요'); }
+          setDeleting(true);
+          try { await deleteHoneyBook(book.id); router.replace('/library'); }
+          catch (e) { setDeleting(false); fail(e, '책을 지우지 못했어요. 다시 해 주세요'); }
         }}
       />
 
