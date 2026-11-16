@@ -45,6 +45,7 @@ export interface DiaryMonthCellVM {
   memo?: string;                       // 한 줄 메모, 최대 7자
   specials: MonthSpecialVM[];          // 그 날의 생일·기념일(여러 개일 수 있다)
   mine: boolean; partner: boolean;     // 하루 장을 쓴 날(작은 점)
+  events?: MonthCellEventsVM;          // 그날 일정 요약(달력 합치기) — 제목은 칸에 안 쓴다
 }
 /** 여러 날을 잇는 기간 테이프(여행·시험 등) — 주가 바뀌면 화면에서 조각으로 나눠 그린다. */
 export interface MonthSpanVM { id: string; startDate: string; endDate: string; label: string; decorId: string }
@@ -52,3 +53,36 @@ export type MonthTitleStyle = 'plain' | 'brush' | 'round';
 export type MonthTool = 'sticker' | 'span' | 'memo' | 'erase';
 /** 날짜당 스티커 2 · 메모 7자 · 기간 테이프 8 · 여백 스티커 6 (GPT 회의 2의 안전선). */
 export const MONTH_LIMITS = { cellStickers: 2, memo: 7, spans: 8, margin: 6 } as const;
+
+// ── 달력 합치기(GPT 회의 3: docs/gpt-diary-merge-answer.md · 우댕 2026-11-17 「합치는 쪽으로」「추천대로 해봐」) ──
+// 일정의 원본은 계속 calendarEvents(src/lib/calendar.ts) 하나 — 알림·꼼톡 카드가 거기에 물려 있다. 여기는 화면이 쓰는 모양뿐.
+/** 일정의 주인 — calendarEvents.owner 그대로. */
+export type EventOwnerKey = 'kkomi' | 'udaeng' | 'together';
+/** 달력 칸의 일정 요약: owners = 칸에 점으로 그릴 하루짜리 일정의 주인(최대 2), more = 칸에 못 그린 일정 수(「+N」). */
+export interface MonthCellEventsVM { owners: EventOwnerKey[]; more: number }
+/**
+ * 한 주 안에 그리는 띠 조각 — 자리는 lib/diaryCalendar.ts 가 미리 계산해서 준다(화면은 그리기만).
+ * kind 'event' = 진짜 일정(알림이 걸려 있을 수 있다 — 지우개로 못 지움), 'decor' = 꾸미기 띠(diaryMonths.spans).
+ * row 0 = 일정 줄, 1 = 장식 줄(그 주에 일정 띠가 없으면 장식 띠가 0 으로 올라온다).
+ */
+export interface MonthBandSegVM {
+  key: string; id: string; kind: 'event' | 'decor';
+  week: number; col: number; span: number; row: 0 | 1;
+  label: string; showLabel: boolean; continuesLeft: boolean; continuesRight: boolean;
+  owner?: EventOwnerKey; decorId?: string;
+}
+/** 날짜 시트·다가오는 목록의 일정 한 줄. */
+export interface DiaryEventVM {
+  id: string; title: string; owner: EventOwnerKey; startDate: string; endDate: string;
+  allDay: boolean; startTime?: string; location?: string; memo?: string; remindDaysBefore: number[]; decorId?: string;
+}
+/** 일정 추가·수정 창이 다루는 값(창은 값을 받아 그리고, 바뀐 것만 알려 준다). decorId null = 주인 색 기본 띠. */
+export interface DiaryEventDraft {
+  title: string; owner: EventOwnerKey; startDate: string; endDate: string;
+  allDay: boolean; startTime: string; location: string; memo: string; remindDaysBefore: number[]; decorId: string | null;
+}
+/** 다가오는 것 한 줄(일정·기념일 같이). whenLabel 은 '오늘'·'내일'·'3일 뒤'·'진행 중' 처럼 미리 만든 말. */
+export interface UpcomingItemVM {
+  id: string; kind: 'event' | 'special'; title: string; whenLabel: string; dateLabel: string;
+  owner?: EventOwnerKey; timeLabel?: string; date: string;
+}

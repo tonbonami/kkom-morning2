@@ -15,20 +15,24 @@ import { DiaryMonthScreen } from './DiaryMonthScreen';
 import { DiaryMonthMemoSheet } from './DiaryMonthMemoSheet';
 import { DiaryMonthSpanSheet } from './DiaryMonthSpanSheet';
 import { DiarySpecialDatesSheet } from './DiarySpecialDatesSheet';
+import { DiaryDayAgendaSheet } from './DiaryDayAgendaSheet';
+import { DiaryEventSheet } from './DiaryEventSheet';
+import { DiaryUpcomingSheet } from './DiaryUpcomingSheet';
 import { DECOR_ASSETS } from './DiaryDecor';
 import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS } from '@/lib/stickerPacks';
 import { subscribeCalendar, type CalendarEvent } from '@/lib/calendar';
 import { addDaysYmd, eventsOnDate, todayYmd } from '@/lib/calendarLayout';
 import { holidayName } from '@/lib/holidays';
+import { blankEventDraft, buildMonthBands, buildUpcoming, draftOfEvent, eventsForOwner, normalizeEventDraft, toEventVM } from '@/lib/diaryCalendar';
 import { isPractice } from '@/lib/practice';
 import {
   BUILTIN_SPECIALS, PracticeBlocked, addSpecialDate, applyMonthPatch, blankDiaryPage, clearDiaryDraft, deleteDiaryPhotos, deleteSpecialDate,
   diaryPageHasContent, diaryPageId, emptyMonthDeco, invertMonthPatch, loadDiaryPage, prepareDiaryPhoto, readDiaryDraft, saveDiaryDraft, saveDiaryPage,
-  seedSpecialDates, specialsOn, subscribeDiaryMonth, subscribeDiaryMonthMeta, subscribeDiaryPage, subscribeSpecialDates, uploadDiaryPhoto,
+  removeDiaryEvent, saveDiaryEvent, seedSpecialDates, specialsOn, subscribeDiaryMonth, subscribeDiaryMonthMeta, subscribeDiaryPage, subscribeSpecialDates, uploadDiaryPhoto,
   writeDiaryMonthPatch, type DiaryMeta, type MonthDeco, type MonthPatch,
 } from '@/lib/diary';
 import {
-  DIARY_LIMITS, MONTH_LIMITS, type DiaryAssetVM, type DiaryChipVM, type DiaryItemAction, type DiaryItemVM, type DiaryMonthCellVM, type DiaryPageVM,
+  DIARY_LIMITS, MONTH_LIMITS, type DiaryAssetVM, type DiaryChipVM, type DiaryEventDraft, type DiaryItemAction, type DiaryItemVM, type DiaryMonthCellVM, type DiaryPageVM,
   type DiaryPaperTheme, type MonthOwner, type MonthStickerVM, type MonthTool, type Person, type SpecialDateVM,
 } from '@/lib/diaryTypes';
 
@@ -64,14 +68,14 @@ const LS_RECENT = 'kk-diary-recent', LS_FAV = 'kk-diary-fav';
 const readIds = (k: string): string[] => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch { return []; } };
 const writeIds = (k: string, ids: string[]) => { try { localStorage.setItem(k, JSON.stringify(ids)); } catch { /* */ } };
 
-export function DiaryApp({ me, initialDate, onExit }: { me: Person; initialDate?: string; onExit: () => void }) {
+export function DiaryApp({ me, initialDate, initialView, onExit }: { me: Person; initialDate?: string; initialView?: 'day' | 'month'; onExit: () => void }) {
   const TODAY = useMemo(() => todayYmd(), []);
   const partner: Person = me === '우댕' ? '꼼이' : '우댕';
   const practice = useMemo(() => isPractice(), []);
 
   const [date, setDate] = useState(initialDate && /^\d{4}-\d\d-\d\d$/.test(initialDate) ? initialDate : TODAY);
   const [owner, setOwner] = useState<Person>(me);
-  const [view, setView] = useState<'day' | 'month'>('day');
+  const [view, setView] = useState<'day' | 'month'>(initialView ?? 'day');
   const [mYm, setMYm] = useState(date.slice(0, 7));
   const [sel, setSel] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
@@ -287,6 +291,37 @@ export function DiaryApp({ me, initialDate, onExit }: { me: Person; initialDate?
   const pickedNow = picked ?? ALL_ASSETS.find((x) => x.id === recentIds[0]) ?? ASSETS.kkul[1] ?? null;
   const stickerOf = (a: DiaryAssetVM): MonthStickerVM => ({ id: newId('ms'), src: a.src, decorId: a.decorId, by: me });
 
+  // ── 일정(달력 합치기) — 원본은 calendarEvents. 「같이」 = 전부, 각자 달력 = 자기 것 + 함께 ──
+  const monthEvents = useMemo(() => eventsForOwner(events, mOwner), [events, mOwner]);
+  const { bands, cellEvents } = useMemo(() => buildMonthBands(mYm, monthEvents, deco.spans), [mYm, monthEvents, deco.spans]);
+  const upcomingList = useMemo(() => buildUpcoming(TODAY, monthEvents, specials), [TODAY, monthEvents, specials]);
+  const [agendaDate, setAgendaDate] = useState<string | null>(null);      // 날짜를 눌러 연 그날 시트
+  const [upOpen, setUpOpen] = useState(false);
+  const [evEdit, setEvEdit] = useState<{ id?: string; draft: DiaryEventDraft; backTo: string | null } | null>(null);
+  const [evSaving, setEvSaving] = useState(false);
+  const openNewEvent = (d: string, backTo: string | null) => { setAgendaDate(null); setEvEdit({ draft: blankEventDraft(d, mOwner), backTo }); };
+  const openEvent = (id: string, backTo: string | null) => {
+    const e = events.find((k) => k.id === id); if (!e) return;
+    setAgendaDate(null); setUpOpen(false); setEvEdit({ id, draft: draftOfEvent(e), backTo });
+  };
+  const closeEvent = (text?: string) => { const back = evEdit?.backTo ?? null; setEvEdit(null); setEvSaving(false); if (back) setAgendaDate(back); if (text) say(text); };
+  const saveEvent = () => {
+    if (!evEdit || evSaving) return;
+    const norm = normalizeEventDraft(evEdit.draft);
+    if (!norm) { say('제목을 적어 주세요'); return; }
+    setEvSaving(true);
+    saveDiaryEvent(norm, me, evEdit.id)
+      .then(() => closeEvent(evEdit.id ? '일정을 고쳤어요' : '일정을 넣었어요'))
+      .catch((e) => { if (e instanceof PracticeBlocked) closeEvent('연습 모드라 저장하지 않았어요'); else { setEvSaving(false); say('저장하지 못했어요. 잠시 뒤에 다시 해 주세요'); } });
+  };
+  const deleteEvent = () => {
+    if (!evEdit?.id || evSaving) return;
+    setEvSaving(true);
+    removeDiaryEvent(evEdit.id)
+      .then(() => closeEvent('일정을 지웠어요'))
+      .catch((e) => { if (e instanceof PracticeBlocked) closeEvent('연습 모드라 지우지 않았어요'); else { setEvSaving(false); say('지우지 못했어요. 잠시 뒤에 다시 해 주세요'); } });
+  };
+
   const patchMonth = (p: MonthPatch, undoText?: string) => {
     if (!canEditMonth) return;
     const inverse = invertMonthPatch(decoRef.current, p);
@@ -307,20 +342,13 @@ export function DiaryApp({ me, initialDate, onExit }: { me: Person; initialDate?
       const d = addDaysYmd(start, i);
       return {
         date: d, day: Number(d.slice(8)), inMonth: d.slice(0, 7) === mYm, isToday: d === TODAY, holiday: !!holidayName(d),
-        stickers: deco.stickers[d] ?? [], memo: deco.memos[d], specials: specialsOn(d, specials),
+        stickers: deco.stickers[d] ?? [], memo: deco.memos[d], specials: specialsOn(d, specials), events: cellEvents[d],
         mine: d === mine.date ? diaryPageHasContent(mine) : !!metas[diaryPageId(d, me)],
         partner: !!metas[diaryPageId(d, partner)],
       };
     });
-  }, [mYm, TODAY, deco, specials, metas, mine, me, partner]);
-  const upcoming = useMemo(() => {
-    if (mYm !== TODAY.slice(0, 7)) return null;
-    for (let n = 0; n <= 7; n++) {
-      const sp = specialsOn(addDaysYmd(TODAY, n), specials)[0];
-      if (sp) return { label: sp.years ? `${sp.label} ${sp.years}주년` : sp.label, daysLeft: n };
-    }
-    return null;
-  }, [mYm, TODAY, specials]);
+  }, [mYm, TODAY, deco, specials, metas, mine, me, partner, cellEvents]);
+  const upcoming = mYm === TODAY.slice(0, 7) ? upcomingList[0] ?? null : null;
 
   const chips = useMemo<DiaryChipVM[]>(() => {
     const hol = holidayName(date);
@@ -330,6 +358,7 @@ export function DiaryApp({ me, initialDate, onExit }: { me: Person; initialDate?
       ...eventsOnDate(date, events).slice(0, 3).map((e) => ({ id: `e-${e.id}`, kind: 'event' as const, label: e.title })),
     ];
   }, [date, specials, events]);
+  const pageInfo = (d: string | null, who: Person) => { const m = d ? metas[diaryPageId(d, who)] : undefined; return { has: !!m, excerpt: m?.excerpt || undefined, thumbSrc: m?.thumb }; };
   const promptOfDay = PROMPTS[Math.abs(Math.floor(new Date(date + 'T00:00:00').getTime() / 86400000)) % PROMPTS.length];
 
   const specialSheet = (
@@ -354,8 +383,9 @@ export function DiaryApp({ me, initialDate, onExit }: { me: Person; initialDate?
         <DiaryMonthScreen
           me={me} owner={mOwner} canEdit={canEditMonth}
           monthLabel={`${mYm.slice(0, 4)}년 ${Number(mYm.slice(5, 7))}월`} monthNumber={Number(mYm.slice(5, 7))}
-          titleStyle={deco.title} hero={deco.hero} cells={cells} spans={deco.spans} margin={deco.margin}
-          upcoming={upcoming}
+          titleStyle={deco.title} hero={deco.hero} cells={cells} bands={bands} margin={deco.margin}
+          upcoming={upcoming} onOpenUpcoming={() => setUpOpen(true)}
+          onAddEvent={() => openNewEvent(mYm === TODAY.slice(0, 7) ? TODAY : `${mYm}-01`, null)}
           mode={canEditMonth ? mMode : 'view'} tool={tool} selectedAsset={pickedNow} spanStart={spanStart}
           undoText={undo?.text ?? null} saveState={mOffline ? 'offline' : mPending > 0 ? 'saving' : 'saved'}
           onBack={() => setView('day')}
@@ -367,7 +397,7 @@ export function DiaryApp({ me, initialDate, onExit }: { me: Person; initialDate?
           onPickTool={(t) => { setTool(t); setSpanStart(null); }}
           onOpenAssets={() => setDrawer(true)}
           onTapDay={(d) => {
-            if (mMode === 'view' || !canEditMonth) { goDate(d); setView('day'); return; }
+            if (mMode === 'view' || !canEditMonth) { setAgendaDate(d); return; }
             if (tool === 'sticker' && pickedNow) {
               const cur = deco.stickers[d] ?? [];
               if (cur.length >= MONTH_LIMITS.cellStickers) { say(`한 칸에 ${MONTH_LIMITS.cellStickers}개까지 붙일 수 있어요`); return; }
@@ -379,9 +409,10 @@ export function DiaryApp({ me, initialDate, onExit }: { me: Person; initialDate?
           }}
           onRemoveSticker={(d, id) => patchMonth({ kind: 'stickers', date: d, list: (deco.stickers[d] ?? []).filter((k) => k.id !== id) }, '스티커를 지웠어요')}
           onRemoveMemo={(d) => patchMonth({ kind: 'memo', date: d, text: null }, '메모를 지웠어요')}
-          onTapSpan={(id) => {
+          onTapBand={(id, kind) => {
+            if (kind === 'event') { openEvent(id, null); return; }          // 일정 띠 — 지우개로는 절대 안 지운다(알림까지 사라진다)
             const sp = deco.spans.find((k) => k.id === id); if (!sp || !canEditMonth) return;
-            if (tool === 'erase') patchMonth({ kind: 'span', id, span: null }, '기간 테이프를 뗐어요');
+            if (tool === 'erase') patchMonth({ kind: 'span', id, span: null }, '장식 띠를 뗐어요');
             else setSpanEdit({ id, start: sp.startDate, end: sp.endDate, label: sp.label, decorId: sp.decorId });
           }}
           onTapHero={() => {
@@ -417,12 +448,38 @@ export function DiaryApp({ me, initialDate, onExit }: { me: Person; initialDate?
           tapeIds={DECOR_ASSETS.filter((k) => k.kind === 'tape').map((k) => k.id)} canDelete={!!spanEdit?.id}
           onSave={(val) => {
             const e = spanEdit!;
-            if (!e.id && deco.spans.length >= MONTH_LIMITS.spans) say(`기간 테이프는 한 달에 ${MONTH_LIMITS.spans}개까지예요`);
+            if (!e.id && deco.spans.length >= MONTH_LIMITS.spans) say(`장식 띠는 한 달에 ${MONTH_LIMITS.spans}개까지예요`);
             else { const id = e.id ?? newId('sp'); patchMonth({ kind: 'span', id, span: { id, startDate: e.start, endDate: e.end, label: val.label, decorId: val.decorId } }); }
             setSpanEdit(null);
           }}
-          onDelete={() => { const e = spanEdit!; if (e.id) patchMonth({ kind: 'span', id: e.id, span: null }, '기간 테이프를 뗐어요'); setSpanEdit(null); }}
+          onDelete={() => { const e = spanEdit!; if (e.id) patchMonth({ kind: 'span', id: e.id, span: null }, '장식 띠를 뗐어요'); setSpanEdit(null); }}
           onClose={() => setSpanEdit(null)}
+        />
+        <DiaryDayAgendaSheet
+          open={!!agendaDate} dateLabel={agendaDate ? labelOf(agendaDate) : ''} holiday={agendaDate ? holidayName(agendaDate) : null}
+          specials={agendaDate ? specialsOn(agendaDate, specials) : []}
+          events={agendaDate ? eventsOnDate(agendaDate, monthEvents).map(toEventVM) : []}
+          me={me}
+          pages={{
+            [me]: agendaDate === mine.date ? { has: diaryPageHasContent(mine), excerpt: mine.text.split('\n').find((l) => l.trim())?.trim() } : pageInfo(agendaDate, me),
+            [partner]: pageInfo(agendaDate, partner),
+          } as Record<Person, { has: boolean; excerpt?: string; thumbSrc?: string }>}
+          onAddEvent={() => { if (agendaDate) openNewEvent(agendaDate, agendaDate); }}
+          onOpenEvent={(id) => openEvent(id, agendaDate)}
+          onOpenPage={(o) => { const d = agendaDate; if (!d) return; setAgendaDate(null); setOwner(o); goDate(d); setView('day'); }}
+          onClose={() => setAgendaDate(null)}
+        />
+        <DiaryUpcomingSheet
+          open={upOpen} items={upcomingList}
+          onOpenItem={(it) => { setUpOpen(false); setMYm(it.date.slice(0, 7)); setAgendaDate(it.date); }}
+          onClose={() => setUpOpen(false)}
+        />
+        <DiaryEventSheet
+          open={!!evEdit} mode={evEdit?.id ? 'edit' : 'create'} value={evEdit?.draft ?? blankEventDraft(TODAY, mOwner)} saving={evSaving}
+          tapeIds={DECOR_ASSETS.filter((k) => k.kind === 'tape').map((k) => k.id)}
+          onChange={(patch) => setEvEdit((cur) => (cur ? { ...cur, draft: { ...cur.draft, ...patch } } : cur))}
+          onSave={saveEvent} onDelete={evEdit?.id ? deleteEvent : undefined}
+          onClose={() => { if (!evSaving) closeEvent(); }}
         />
         {specialSheet}
         {toast}

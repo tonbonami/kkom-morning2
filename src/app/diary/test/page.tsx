@@ -18,6 +18,8 @@ import { DiaryHomeCard } from '@/components/diary/DiaryHomeCard';
 import { DiaryApp } from '@/components/diary/DiaryApp';
 import { isPractice } from '@/lib/practice';
 import { usingEmulator } from '@/lib/firebase';
+import { buildMonthBands, buildUpcoming } from '@/lib/diaryCalendar';
+import type { CalendarEvent } from '@/lib/calendar';
 import { DECOR_ASSETS } from '@/components/diary/DiaryDecor';
 import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS } from '@/lib/stickerPacks';
 import {
@@ -69,6 +71,15 @@ function Real() {
   if (!ok) return <div className="sd-app min-h-screen p-6 text-sm">주소에 <b>&practice=1</b>(저장 안 함) 또는 <b>&emu=1</b>(에뮬레이터)을 붙여야 열려요.</div>;
   return <DiaryApp me={sp.get('as') === '꼼이' ? '꼼이' : '우댕'} initialDate={sp.get('d') ?? undefined} onExit={() => {}} />;
 }
+
+// 가짜 일정 — 일정 띠(여러 날)·점(하루)·「+N」이 어떻게 그려지는지 보려고
+const EV = (id: string, title: string, owner: CalendarEvent['owner'], startDate: string, endDate = startDate, startTime?: string): CalendarEvent =>
+  ({ id, title, owner, startDate, endDate, allDay: !startTime, startTime, remindDaysBefore: [], createdBy: '우댕', createdAt: null });
+const FAKE_EVENTS: CalendarEvent[] = [
+  EV('e1', '부산 출장', 'udaeng', '2026-11-10', '2026-11-12'), EV('e2', '꼼이 워크숍', 'kkomi', '2026-11-11', '2026-11-13'),
+  EV('e3', '병원', 'kkomi', '2026-11-19', '2026-11-19', '10:30'), EV('e4', '저녁 약속', 'together', '2026-11-19', '2026-11-19', '19:00'),
+  EV('e5', '택배', 'udaeng', '2026-11-19'), EV('e6', '제주 여행', 'together', '2026-11-21', '2026-11-23'), EV('e7', '미용실', 'kkomi', '2026-11-27', '2026-11-27', '14:00'),
+];
 
 function Test() {
   const v = useSearchParams().get('v') ?? '';
@@ -156,6 +167,7 @@ function Test() {
     return base.map((x) => ({ ...x, favorite: fav.has(x.id) }));
   }, [tab, recent, fav]);
 
+  const monthBands = useMemo(() => buildMonthBands(date.slice(0, 7), FAKE_EVENTS, deco.spans), [date, deco.spans]);
   const cells = useMemo<DiaryMonthCellVM[]>(() => {
     const first = new Date(date.slice(0, 7) + '-01T00:00:00');
     const start = shift(date.slice(0, 7) + '-01', -first.getDay());
@@ -166,18 +178,19 @@ function Test() {
         date: d, day: Number(d.slice(8)), inMonth: d.slice(0, 7) === date.slice(0, 7), isToday: d === TODAY, holiday: false,
         stickers: deco.stickers[d] ?? [], memo: deco.memos[d],
         specials: specials.filter((sp) => sp.monthDay === md).map((sp) => ({ id: sp.id, label: sp.label, kind: sp.kind, years: sp.startYear ? Number(d.slice(0, 4)) - sp.startYear : undefined, sticker: sp.sticker })),
+        events: monthBands.cellEvents[d],
         mine: !!pages[`${d}_${ME}`] || ['2026-11-03', '2026-11-08', '2026-11-12'].includes(d),
         partner: !!pages[`${d}_꼼이`] || ['2026-11-08', '2026-11-14'].includes(d),
       };
     });
-  }, [date, deco, pages, specials]);
+  }, [date, deco, pages, specials, monthBands]);
   const dayLabelShort = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8))}일`;
 
   if (v === 'home') {
     return (
       <div className="sd-app min-h-screen p-4 grid grid-cols-2 gap-3 max-w-md mx-auto content-start">
-        <div className="col-span-2 min-h-[140px]"><DiaryHomeCard dateLabel={labelOf(TODAY)} excerpt="퇴근하고 꼼이랑 칼국수 먹은 날." thumbSrc="/emo/uri/04-mukbang.webp" partnerWroteToday onOpen={() => {}} /></div>
-        <div className="col-span-2 min-h-[140px]"><DiaryHomeCard dateLabel={labelOf(TODAY)} onOpen={() => {}} /></div>
+        <div className="col-span-2 min-h-[140px]"><DiaryHomeCard dateLabel={labelOf(TODAY)} excerpt="퇴근하고 꼼이랑 칼국수 먹은 날." thumbSrc="/emo/uri/04-mukbang.webp" partnerWroteToday nextEvent={{ title: '병원', whenLabel: '모레', owner: 'kkomi' }} onOpen={() => {}} onOpenMonth={() => {}} /></div>
+        <div className="col-span-2 min-h-[140px]"><DiaryHomeCard dateLabel={labelOf(TODAY)} onOpen={() => {}} onOpenMonth={() => {}} /></div>
       </div>
     );
   }
@@ -189,8 +202,9 @@ function Test() {
         <DiaryMonthScreen
           me={ME} owner={mOwner} canEdit={canEditMonth}
           monthLabel={`${date.slice(0, 4)}년 ${Number(date.slice(5, 7))}월`} monthNumber={Number(date.slice(5, 7))}
-          titleStyle={deco.title} hero={deco.hero} cells={cells} spans={deco.spans} margin={deco.margin}
-          upcoming={date.slice(0, 7) === TODAY.slice(0, 7) ? { label: '첫 여행 간 날', daysLeft: 8 } : null}
+          titleStyle={deco.title} hero={deco.hero} cells={cells} bands={monthBands.bands} margin={deco.margin}
+          upcoming={date.slice(0, 7) === TODAY.slice(0, 7) ? buildUpcoming(TODAY, FAKE_EVENTS, specials)[0] ?? null : null}
+          onOpenUpcoming={() => {}} onAddEvent={() => {}}
           mode={canEditMonth ? mMode : 'view'} tool={tool} selectedAsset={picked} spanStart={spanStart}
           undoText={undo?.text ?? null} saveState="saved"
           onBack={() => setView('day')}
@@ -211,9 +225,10 @@ function Test() {
           }}
           onRemoveSticker={(d, id) => setDeco((x) => ({ ...x, stickers: { ...x.stickers, [d]: (x.stickers[d] ?? []).filter((k) => k.id !== id) } }), '스티커를 지웠어요')}
           onRemoveMemo={(d) => setDeco((x) => { const m = { ...x.memos }; delete m[d]; return { ...x, memos: m }; }, '메모를 지웠어요')}
-          onTapSpan={(id) => {
+          onTapBand={(id, kind) => {
+            if (kind === 'event') return;
             const sp = deco.spans.find((k) => k.id === id); if (!sp) return;
-            if (tool === 'erase') setDeco((x) => ({ ...x, spans: x.spans.filter((k) => k.id !== id) }), '기간 테이프를 뗐어요');
+            if (tool === 'erase') setDeco((x) => ({ ...x, spans: x.spans.filter((k) => k.id !== id) }), '장식 띠를 뗐어요');
             else setSpanEdit({ id, start: sp.startDate, end: sp.endDate, label: sp.label, decorId: sp.decorId });
           }}
           onTapHero={() => (tool === 'erase' ? setDeco((x) => ({ ...x, hero: null }), '머리 그림을 뺐어요') : picked && setDeco((x) => ({ ...x, hero: stickerOf(picked) })))}

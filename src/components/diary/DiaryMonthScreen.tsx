@@ -11,24 +11,26 @@ import {
   Check,
   Undo2,
   Cake,
-  Heart,
   Smile,
   Layers,
   FileText,
   Eraser,
+  CalendarPlus,
 } from 'lucide-react';
 import {
   Person,
   MonthOwner,
   MonthStickerVM,
   DiaryMonthCellVM,
-  MonthSpanVM,
+  MonthBandSegVM,
   MonthTitleStyle,
   MonthTool,
   DiaryAssetVM,
+  UpcomingItemVM,
 } from '@/lib/diaryTypes';
 import { DiaryMonthCell } from './DiaryMonthCell';
 import { DiaryDecor } from './DiaryDecor';
+import { EVENT_OWNER_STYLE } from './DiaryEventStyle';
 
 export interface DiaryMonthScreenProps {
   me: Person;
@@ -39,9 +41,9 @@ export interface DiaryMonthScreenProps {
   titleStyle: MonthTitleStyle;
   hero?: MonthStickerVM | null;
   cells: DiaryMonthCellVM[];
-  spans: MonthSpanVM[];
+  bands: MonthBandSegVM[];
   margin: MonthStickerVM[];
-  upcoming?: { label: string; daysLeft: number } | null;
+  upcoming?: UpcomingItemVM | null;
   mode: 'view' | 'decorate';
   tool: MonthTool | null;
   selectedAsset?: DiaryAssetVM | null;
@@ -59,20 +61,14 @@ export interface DiaryMonthScreenProps {
   onTapDay: (date: string) => void;
   onRemoveSticker: (date: string, stickerId: string) => void;
   onRemoveMemo: (date: string) => void;
-  onTapSpan: (spanId: string) => void;
+  onTapBand: (id: string, kind: 'event' | 'decor') => void;
   onTapHero: () => void;
   onTapMargin: (index: number) => void;
   onCycleTitleStyle: () => void;
   onUndo: () => void;
   onOpenSpecialDates: () => void;
-}
-
-interface SpanPiece {
-  span: MonthSpanVM;
-  startCol: number;
-  colSpan: number;
-  track: number;
-  isFirst: boolean;
+  onOpenUpcoming: () => void;
+  onAddEvent: () => void;
 }
 
 export function DiaryMonthScreen({
@@ -84,7 +80,7 @@ export function DiaryMonthScreen({
   titleStyle,
   hero,
   cells,
-  spans,
+  bands,
   margin,
   upcoming,
   mode,
@@ -104,62 +100,31 @@ export function DiaryMonthScreen({
   onTapDay,
   onRemoveSticker,
   onRemoveMemo,
-  onTapSpan,
+  onTapBand,
   onTapHero,
   onTapMargin,
   onCycleTitleStyle,
   onUndo,
   onOpenSpecialDates,
+  onOpenUpcoming,
+  onAddEvent,
 }: DiaryMonthScreenProps): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false);
   const isDecorate = mode === 'decorate';
 
   const cellSpansAbove: number[] = new Array(cells.length).fill(0);
-  const weekSpanPieces: SpanPiece[][] = Array.from({ length: 6 }, () => []);
-
-  for (let w = 0; w < 6; w++) {
-    const wStart = cells[w * 7]?.date;
-    const wEnd = cells[w * 7 + 6]?.date;
-    if (!wStart || !wEnd) continue;
-
-    const currentSpans = spans.filter((s) => s.startDate <= wEnd && s.endDate >= wStart);
-    const tracks: (string | null)[] = [null, null];
-
-    currentSpans.forEach((s) => {
-      let startCol = 0;
-      let endCol = 6;
-      for (let c = 0; c < 7; c++) {
-        const d = cells[w * 7 + c].date;
-        if (d === s.startDate) startCol = c;
-        if (d === s.endDate) endCol = c;
+  bands.forEach((b) => {
+    for (let c = b.col; c < b.col + b.span && c < 7; c++) {
+      const idx = b.week * 7 + c;
+      if (idx < cellSpansAbove.length) {
+        cellSpansAbove[idx] = Math.max(cellSpansAbove[idx], b.row + 1);
       }
-      if (s.startDate < wStart) startCol = 0;
-      if (s.endDate > wEnd) endCol = 6;
-
-      let chosenTrack = 0;
-      if (tracks[0] !== null) chosenTrack = 1;
-      tracks[chosenTrack] = s.id;
-
-      const isFirst = s.startDate >= wStart && s.startDate <= wEnd;
-      weekSpanPieces[w].push({
-        span: s,
-        startCol,
-        colSpan: endCol - startCol + 1,
-        track: chosenTrack,
-        isFirst,
-      });
-
-      for (let c = startCol; c <= endCol; c++) {
-        const cellIdx = w * 7 + c;
-        cellSpansAbove[cellIdx] = Math.min(2, (cellSpansAbove[cellIdx] || 0) + 1);
-      }
-    });
-  }
+    }
+  });
 
   return (
     <div className="w-full max-w-md mx-auto min-h-screen bg-[#FCFAF7] flex flex-col justify-between select-none">
       <div className="p-4 space-y-3">
-        {/* 상단 바 */}
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -280,7 +245,6 @@ export function DiaryMonthScreen({
           </div>
         </div>
 
-        {/* 주인 전환 알약 */}
         <div className="flex items-center justify-between">
           <div className="flex p-0.5 rounded-full bg-[var(--sd-surface-2)] border border-[color:color-mix(in_srgb,var(--sd-line)_60%,transparent)]">
             {(['together', '우댕', '꼼이'] as MonthOwner[]).map((tab) => (
@@ -306,19 +270,39 @@ export function DiaryMonthScreen({
           )}
         </div>
 
-        {/* 기념일 알림 한 줄 */}
         {upcoming && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--sd-rel-soft)] text-[var(--sd-rel)] text-xs font-medium">
-            <Cake className="w-3.5 h-3.5 shrink-0" />
-            <span>
-              {upcoming.daysLeft === 0 ? `오늘은 ${upcoming.label}` : `곧 ${upcoming.label} · ${upcoming.daysLeft}일`}
-            </span>
-          </div>
+          <button
+            type="button"
+            onClick={onOpenUpcoming}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-[var(--sd-surface-2)] border border-[color:color-mix(in_srgb,var(--sd-line)_60%,transparent)] text-xs text-[var(--sd-ink)] active:opacity-80"
+          >
+            <div className="flex items-center gap-1.5 min-w-0">
+              {upcoming.kind === 'event' ? (
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{
+                    backgroundColor: upcoming.owner
+                      ? EVENT_OWNER_STYLE[upcoming.owner].dot
+                      : 'var(--sd-rel)',
+                  }}
+                />
+              ) : (
+                <Cake className="w-3.5 h-3.5 text-[var(--sd-rel)] shrink-0" />
+              )}
+              <span className="font-semibold shrink-0">{upcoming.whenLabel}</span>
+              <span className="text-[var(--sd-muted)] shrink-0">·</span>
+              <span className="truncate font-medium">{upcoming.title}</span>
+              {upcoming.timeLabel && (
+                <span className="text-[var(--sd-faint)] font-normal shrink-0">
+                  {upcoming.timeLabel}
+                </span>
+              )}
+            </div>
+            <ChevronRight className="w-4 h-4 text-[var(--sd-muted)] shrink-0 ml-1" />
+          </button>
         )}
 
-        {/* 달력 종이 */}
         <div className="relative rounded-2xl bg-[var(--sd-card-solid)] border border-[var(--sd-line)] shadow-sm overflow-hidden p-2">
-          {/* 바인더 구멍 */}
           <div className="absolute left-1 top-4 bottom-4 flex flex-col justify-between pointer-events-none z-10">
             {[0, 1, 2, 3].map((i) => (
               <span
@@ -340,65 +324,108 @@ export function DiaryMonthScreen({
             </div>
 
             <div className="flex flex-col border-t border-l border-[color:color-mix(in_srgb,var(--sd-line)_40%,transparent)]">
-              {Array.from({ length: 6 }, (_, w) => (
-                <div key={w} className="relative grid grid-cols-7">
-                  {weekSpanPieces[w].map((piece) => {
-                    const leftPct = (piece.startCol / 7) * 100;
-                    const widthPct = (piece.colSpan / 7) * 100;
-                    const topPx = 18 + piece.track * 13;
+              {Array.from({ length: 6 }, (_, w) => {
+                const weekBands = bands.filter((b) => b.week === w);
 
-                    return (
-                      <div
-                        key={`${piece.span.id}-${w}`}
-                        onClick={(e) => {
-                          if (isDecorate) {
-                            e.stopPropagation();
-                            onTapSpan(piece.span.id);
-                          }
-                        }}
-                        style={{
-                          left: `${leftPct}%`,
-                          width: `${widthPct}%`,
-                          top: `${topPx}px`,
-                        }}
-                        className={`absolute h-[11px] z-10 rounded-sm overflow-hidden px-1 flex items-center select-none ${
-                          isDecorate ? 'cursor-pointer active:opacity-75' : 'pointer-events-none'
-                        }`}
-                      >
-                        {/* DiaryDecor 뿌리가 relative 라 absolute 를 직접 주면 안 먹는다(띠가 줄어들고 이름이 밖으로 밀림) → 감싸서 깐다 */}
-                        <div className="absolute inset-0 opacity-80">
-                          <DiaryDecor decorId={piece.span.decorId} />
+                return (
+                  <div key={w} className="relative grid grid-cols-7">
+                    {weekBands.map((b) => {
+                      const leftCalc = `calc(${(b.col / 7) * 100}% + 2px)`;
+                      const widthCalc = `calc(${(b.span / 7) * 100}% - 4px)`;
+                      const topPx = 18 + b.row * 13;
+                      const isEvent = b.kind === 'event';
+                      const ownerStyle = isEvent
+                        ? EVENT_OWNER_STYLE[b.owner || 'together']
+                        : null;
+
+                      const cornerClasses = `${
+                        b.continuesLeft || b.kind === 'event' ? 'rounded-l-none' : 'rounded-l-sm'
+                      } ${b.continuesRight ? 'rounded-r-none' : 'rounded-r-sm'}`;
+
+                      return (
+                        <div
+                          key={b.key}
+                          onClick={(e) => {
+                            if (!isDecorate && isEvent) {
+                              e.stopPropagation();
+                              onTapBand(b.id, 'event');
+                            } else if (isDecorate && !isEvent) {
+                              e.stopPropagation();
+                              onTapBand(b.id, 'decor');
+                            }
+                          }}
+                          style={{
+                            left: leftCalc,
+                            width: widthCalc,
+                            top: `${topPx}px`,
+                            backgroundColor: ownerStyle ? ownerStyle.band : undefined,
+                            borderLeftColor: ownerStyle ? ownerStyle.dot : undefined,
+                          }}
+                          className={`absolute h-[11px] overflow-hidden px-1 flex items-center select-none ${cornerClasses} ${
+                            isEvent
+                              ? `border-l-[2.5px] ${
+                                  isDecorate
+                                    ? 'opacity-40 pointer-events-none'
+                                    : 'cursor-pointer active:opacity-80 z-20'
+                                }`
+                              : isDecorate
+                              ? 'cursor-pointer active:opacity-75 z-20'
+                              : 'pointer-events-none'
+                          }`}
+                        >
+                          {isEvent ? (
+                            <>
+                              {b.decorId && (
+                                <div className="absolute inset-0 opacity-40 overflow-hidden pointer-events-none">
+                                  <DiaryDecor decorId={b.decorId} />
+                                </div>
+                              )}
+                              {b.showLabel && b.label && (
+                                <span
+                                  style={{ color: ownerStyle?.text }}
+                                  className="relative z-10 text-[8.5px] font-medium truncate leading-none"
+                                >
+                                  {b.label}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <div className="absolute inset-0 opacity-80 pointer-events-none">
+                                <DiaryDecor decorId={b.decorId ?? 'tape-honey'} />
+                              </div>
+                              {b.showLabel && b.label && (
+                                <span className="relative z-10 text-[9px] text-[var(--sd-ink)] font-medium truncate leading-none">
+                                  {b.label}
+                                </span>
+                              )}
+                            </>
+                          )}
                         </div>
-                        {piece.isFirst && (
-                          <span className="relative z-10 text-[9px] text-[var(--sd-ink)] font-medium truncate leading-none">
-                            {piece.span.label}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
 
-                  {cells.slice(w * 7, w * 7 + 7).map((cell, cIdx) => {
-                    const globalIdx = w * 7 + cIdx;
-                    return (
-                      <DiaryMonthCell
-                        key={cell.date}
-                        cell={cell}
-                        mode={mode}
-                        tool={tool}
-                        marked={spanStart === cell.date}
-                        hasSpanAbove={cellSpansAbove[globalIdx]}
-                        onTap={() => onTapDay(cell.date)}
-                        onRemoveSticker={(sId) => onRemoveSticker(cell.date, sId)}
-                        onRemoveMemo={() => onRemoveMemo(cell.date)}
-                      />
-                    );
-                  })}
-                </div>
-              ))}
+                    {cells.slice(w * 7, w * 7 + 7).map((cell, cIdx) => {
+                      const globalIdx = w * 7 + cIdx;
+                      return (
+                        <DiaryMonthCell
+                          key={cell.date}
+                          cell={cell}
+                          mode={mode}
+                          tool={tool}
+                          marked={spanStart === cell.date}
+                          hasSpanAbove={cellSpansAbove[globalIdx]}
+                          onTap={() => onTapDay(cell.date)}
+                          onRemoveSticker={(sId) => onRemoveSticker(cell.date, sId)}
+                          onRemoveMemo={() => onRemoveMemo(cell.date)}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
 
-            {/* 아래 여백 줄 (스티커 최대 6) */}
             <div className="mt-2 pt-2 border-t border-[color:color-mix(in_srgb,var(--sd-line)_50%,transparent)] flex items-center justify-between px-1">
               {Array.from({ length: 6 }, (_, idx) => {
                 const item = margin[idx];
@@ -438,7 +465,6 @@ export function DiaryMonthScreen({
         </div>
       </div>
 
-      {/* 하단 제어 줄 */}
       <div
         className="w-full border-t border-[var(--sd-line)] bg-[var(--sd-card-solid)]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
@@ -458,12 +484,20 @@ export function DiaryMonthScreen({
         )}
 
         {!isDecorate ? (
-          <div className="p-3 flex justify-center">
+          <div className="p-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onAddEvent}
+              className="flex-1 min-h-[44px] rounded-2xl bg-[var(--sd-ink)] text-white text-sm font-medium flex items-center justify-center gap-1.5 active:opacity-90"
+            >
+              <CalendarPlus className="w-4 h-4 text-white" />
+              일정 추가
+            </button>
             {canEdit && (
               <button
                 type="button"
                 onClick={onToggleMode}
-                className="w-full min-h-[44px] rounded-2xl bg-[var(--sd-surface-2)] border border-[var(--sd-line)] text-[var(--sd-ink)] text-sm font-medium flex items-center justify-center gap-1.5 active:bg-[color:color-mix(in_srgb,var(--sd-line)_50%,transparent)]"
+                className="flex-1 min-h-[44px] rounded-2xl bg-[var(--sd-surface-2)] border border-[var(--sd-line)] text-[var(--sd-ink)] text-sm font-medium flex items-center justify-center gap-1.5 active:bg-[color:color-mix(in_srgb,var(--sd-line)_50%,transparent)]"
               >
                 <Paintbrush className="w-4 h-4 text-[var(--sd-rel)]" />
                 달력 꾸미기
@@ -504,10 +538,12 @@ export function DiaryMonthScreen({
                 </div>
               )}
               {tool === 'span' && (
-                <span>{spanStart ? '끝나는 날을 톡' : '시작하는 날을 톡'}</span>
+                <span>
+                  꾸미기용 띠예요 · 알림이 필요하면 일정으로 · {spanStart ? '끝나는 날을 톡' : '시작하는 날을 톡'}
+                </span>
               )}
               {tool === 'memo' && <span>메모할 날짜를 톡</span>}
-              {tool === 'erase' && <span>지울 것을 톡</span>}
+              {tool === 'erase' && <span>스티커·메모·장식 띠를 톡 (일정은 안 지워져요)</span>}
             </div>
 
             <div className="flex items-center justify-between gap-1">
@@ -515,7 +551,7 @@ export function DiaryMonthScreen({
                 {(
                   [
                     { id: 'sticker', label: '스티커', icon: Smile },
-                    { id: 'span', label: '기간 띠', icon: Layers },
+                    { id: 'span', label: '장식 띠', icon: Layers },
                     { id: 'memo', label: '메모', icon: FileText },
                     { id: 'erase', label: '지우개', icon: Eraser },
                   ] as { id: MonthTool; label: string; icon: any }[]

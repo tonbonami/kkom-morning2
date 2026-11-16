@@ -1,7 +1,7 @@
 'use client';
 
 // 다꾸 다이어리 — /diary. 화면·저장은 components/diary/DiaryApp, 여기선 누가 열었는지만 본다.
-//   /diary            오늘 내 장 · /diary?d=2026-11-17 그 날짜
+//   /diary            오늘 내 장 · /diary?d=2026-11-17 그 날짜 · /diary?view=month 월간 달력(일정)
 //   ?practice=1       연습 모드(아무것도 저장하지 않음)
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -11,7 +11,8 @@ import type { Person } from '@/lib/diaryTypes';
 
 function Diary() {
   const router = useRouter();
-  const d = useSearchParams().get('d') ?? undefined;
+  const sp = useSearchParams();
+  const d = sp.get('d') ?? undefined;
   const [me, setMe] = useState<Person | null>(null);
   useEffect(() => {
     const who = honeyMe();
@@ -19,7 +20,7 @@ function Diary() {
     setMe(who);
   }, [router]);
   if (!me) return null;
-  return <DiaryApp me={me} initialDate={d} onExit={() => router.push('/')} />;
+  return <DiaryApp me={me} initialDate={d} initialView={sp.get('view') === 'month' ? 'month' : 'day'} onExit={() => router.push('/')} />;
 }
 
 export default function DiaryPage() {

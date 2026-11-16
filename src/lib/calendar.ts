@@ -3,7 +3,7 @@
 // 멀티데이 일정(여행 등)은 startDate~endDate로 저장, 캘린더에서 선형 바로 렌더.
 // 알림: remindDaysBefore(예: [1,7]) — cron이 매일 아침 08:00 KST에 해당 일정 push.
 
-import { db } from './firebase';
+import { db, usingEmulator } from './firebase';
 import {
   collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot,
   serverTimestamp, Timestamp, type DocumentData,
@@ -22,6 +22,7 @@ export interface CalendarEventDoc {
   memo?: string;
   location?: string;
   remindDaysBefore?: number[]; // [1] / [1,7] / [] (알림 없음)
+  decorId?: string;     // 다이어리 월간 달력에서 그릴 띠 무늬(선택) — 없으면 주인 색 기본 띠. 알림·꼼톡은 이 값을 몰라도 된다.
   createdBy: '우댕' | '꼼이';
   createdAt?: Timestamp | null;
 }
@@ -37,6 +38,7 @@ export interface CalendarEvent {
   memo?: string;
   location?: string;
   remindDaysBefore: number[];
+  decorId?: string;
   createdBy: '우댕' | '꼼이';
   createdAt: Date | null;
 }
@@ -61,6 +63,7 @@ function toEvent(id: string, d: CalendarEventDoc): CalendarEvent {
     memo: d.memo,
     location: d.location,
     remindDaysBefore: Array.isArray(d.remindDaysBefore) ? d.remindDaysBefore : [],
+    ...(typeof d.decorId === 'string' && d.decorId ? { decorId: d.decorId } : {}),
     createdBy: d.createdBy,
     createdAt: d.createdAt?.toDate?.() ?? null,
   };
@@ -88,6 +91,7 @@ export async function addCalendarEvent(input: {
   memo?: string;
   location?: string;
   remindDaysBefore?: number[];
+  decorId?: string | null;
   createdBy: '우댕' | '꼼이';
 }): Promise<string> {
   const payload: DocumentData = {
@@ -103,12 +107,13 @@ export async function addCalendarEvent(input: {
   if (input.memo?.trim()) payload.memo = input.memo.trim();
   if (input.location?.trim()) payload.location = input.location.trim();
   if (input.remindDaysBefore && input.remindDaysBefore.length > 0) payload.remindDaysBefore = input.remindDaysBefore;
+  if (input.decorId) payload.decorId = input.decorId;
 
   const ref = await addDoc(collection(db, 'calendarEvents'), payload);
 
-  // 상대에게 '일정 추가됨' 알림 (즉시 push)
+  // 상대에게 '일정 추가됨' 알림 (즉시 push) — 로컬 에뮬레이터 시험(?emu=1) 중에는 진짜 푸시를 보내지 않는다.
   const to = partnerOf(input.createdBy) as '우댕' | '꼼이';
-  fetch('/api/notify-calendar', {
+  if (!usingEmulator) fetch('/api/notify-calendar', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ kind: 'new', from: input.createdBy, to, title: input.title.trim(), owner: input.owner }),

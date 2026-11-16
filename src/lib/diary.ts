@@ -15,14 +15,15 @@
  */
 import { db, storage } from './firebase';
 import {
-  collection, doc, getDoc, setDoc, deleteDoc, onSnapshot, query, where, writeBatch,
+  collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, writeBatch,
   serverTimestamp, deleteField, type DocumentData,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { isPractice, practiceBlocked } from './practice';
 import { PERSON_KEY, PracticeBlocked } from './honeybrary';
+import { addCalendarEvent, deleteCalendarEvent } from './calendar';
 import {
-  DIARY_LIMITS, MONTH_LIMITS, type DiaryItemVM, type DiaryPageVM, type DiaryPaperTheme, type MonthOwner, type MonthSpanVM,
+  DIARY_LIMITS, MONTH_LIMITS, type DiaryEventDraft, type DiaryItemVM, type DiaryPageVM, type DiaryPaperTheme, type MonthOwner, type MonthSpanVM,
   type MonthStickerVM, type MonthTitleStyle, type Person, type SpecialDateVM,
 } from './diaryTypes';
 
@@ -334,11 +335,29 @@ export async function seedSpecialDates(): Promise<void> {
   await batch.commit();
 }
 
-/** 그 날짜의 기념일을 달력 칸 모양으로(「3주년」의 3 포함). */
-export function specialsOn(date: string, specials: SpecialDateVM[]) {
-  const md = date.slice(5), year = Number(date.slice(0, 4));
-  return specials.filter((s) => s.monthDay === md && (!s.startYear || year >= s.startYear)).map((s) => ({
-    id: s.id, label: s.label, kind: s.kind, sticker: s.sticker,
-    years: s.startYear && year > s.startYear ? year - s.startYear : undefined,
-  }));
+export { specialsOn } from './diaryCalendar';
+
+// ── 일정(달력 합치기) — 원본은 calendarEvents(src/lib/calendar.ts) 그대로, 여기선 연습 모드만 막고 넘긴다 ──
+/** 일정 추가(id 없음)·수정(id 있음). 값은 normalizeEventDraft 를 거친 것. 수정에서 비운 칸은 필드를 지운다. */
+export async function saveDiaryEvent(d: DiaryEventDraft, me: Person, id?: string): Promise<string> {
+  if (blocked(id ? '일정 고치기' : '일정 추가')) throw new PracticeBlocked();
+  if (!id) {
+    return addCalendarEvent({
+      title: d.title, owner: d.owner, startDate: d.startDate, endDate: d.endDate, allDay: d.allDay,
+      startTime: d.startTime || undefined, memo: d.memo, location: d.location, remindDaysBefore: d.remindDaysBefore, decorId: d.decorId, createdBy: me,
+    });
+  }
+  await updateDoc(doc(db, 'calendarEvents', id), {
+    title: d.title, owner: d.owner, startDate: d.startDate, endDate: d.endDate, allDay: d.allDay,
+    startTime: !d.allDay && d.startTime ? d.startTime : deleteField(),
+    location: d.location || deleteField(), memo: d.memo || deleteField(),
+    remindDaysBefore: d.remindDaysBefore.length ? d.remindDaysBefore : deleteField(),
+    decorId: d.decorId || deleteField(), updatedAt: serverTimestamp(),
+  });
+  return id;
+}
+/** 일정 지우기 — 알림도 같이 없어진다(크론이 이 문서를 보고 보낸다). 일정 창 안에서 한 번 더 확인한 뒤에만 부른다. */
+export async function removeDiaryEvent(id: string): Promise<void> {
+  if (blocked('일정 지우기')) throw new PracticeBlocked();
+  await deleteCalendarEvent(id);
 }

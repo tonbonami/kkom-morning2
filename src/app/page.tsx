@@ -236,7 +236,7 @@ export default function KkomMorningHome() {
   const [msgLimit, setMsgLimit] = useState(40);
   const homeTouch = useRef<{ x: number; y: number } | null>(null);
   const lastReadIdRef = useRef<string | null>(null);
-  const [nextEvent, setNextEvent] = useState<{ title: string; date: string } | null>(null); // 위젯용 다음 일정
+  const [nextEvent, setNextEvent] = useState<{ title: string; date: string; owner?: 'kkomi' | 'udaeng' | 'together' } | null>(null); // 위젯용 다음 일정
   const [heroStrokes, setHeroStrokes] = useState<BoardStroke[]>([]); // 홈 히어로 미니 썸네일용 현재 페이지 획
   const [presenceTick, setPresenceTick] = useState(0); // 매분 재계산용
   const [pushState, setPushState] = useState<PushState>('unknown');
@@ -424,7 +424,7 @@ export default function KkomMorningHome() {
       const up = events
         .filter((e) => e.endDate >= today)
         .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
-      setNextEvent(up ? { title: up.title, date: up.startDate } : null);
+      setNextEvent(up ? { title: up.title, date: up.startDate, owner: up.owner } : null);
     });
     return () => unsub();
   }, []);
@@ -1068,7 +1068,12 @@ export default function KkomMorningHome() {
           excerpt={mineToday ? (mineToday.excerpt || '오늘 한 장 꾸몄어요') : undefined}
           thumbSrc={mineToday?.thumb}
           partnerWroteToday={!!diaryMetas[diaryPageId(t, who === '우댕' ? '꼼이' : '우댕')]}
+          nextEvent={nextEvent ? {
+            title: nextEvent.title, owner: nextEvent.owner ?? 'together',
+            whenLabel: (() => { const n = Math.round((new Date(nextEvent.date + 'T00:00:00').getTime() - dt.getTime()) / 86400000); return n < 0 ? '진행 중' : n === 0 ? '오늘' : n === 1 ? '내일' : `${n}일 뒤`; })(),
+          } : null}
           onOpen={() => router.push('/diary')}
+          onOpenMonth={() => router.push('/diary?view=month')}
         />
       );
     })(),
