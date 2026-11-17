@@ -290,6 +290,8 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const [spanStart, setSpanStart] = useState<string | null>(null);
   const [spanEdit, setSpanEdit] = useState<{ id?: string; start: string; end: string; label: string; decorId: string } | null>(null);
   const [memoDate, setMemoDate] = useState<string | null>(null);
+  const [memoBack, setMemoBack] = useState<string | null>(null);   // 날짜 시트에서 「고치기」로 왔으면 닫을 때 그 시트로 돌아간다
+  const closeMemo = () => { const back = memoBack; setMemoDate(null); setMemoBack(null); if (back) setAgendaDate(back); };
   const [deco, setDeco] = useState<MonthDeco>(emptyMonthDeco);
   const decoRef = useRef(deco);
   decoRef.current = deco;
@@ -421,6 +423,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
           onPrevMonth={() => setMYm((m) => shiftMonth(m, -1))}
           onNextMonth={() => setMYm((m) => shiftMonth(m, 1))}
           onGoThisMonth={() => setMYm(TODAY.slice(0, 7))}
+          isCurrentMonth={mYm === TODAY.slice(0, 7)}
           onChangeOwner={(o) => { setMOwner(o); setSpanStart(null); setUndo(null); }}
           onToggleMode={() => { setMMode((m) => (m === 'view' ? 'decorate' : 'view')); setTool((t) => t ?? 'sticker'); setSpanStart(null); }}
           onPickTool={(t) => { setTool(t); setSpanStart(null); }}
@@ -468,8 +471,8 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         />
         <DiaryMonthMemoSheet
           open={!!memoDate} dateLabel={memoDate ? dayLabelShort(memoDate) : ''} value={memoDate ? deco.memos[memoDate] ?? '' : ''}
-          onSave={(t) => { const d = memoDate!; const text = t.trim().slice(0, MONTH_LIMITS.memo); if (text !== (deco.memos[d] ?? '')) patchMonth({ kind: 'memo', date: d, text: text || null }); setMemoDate(null); }}
-          onClose={() => setMemoDate(null)}
+          onSave={(t) => { const d = memoDate!; const text = t.trim().slice(0, MONTH_LIMITS.memo); if (text !== (deco.memos[d] ?? '')) patchMonth({ kind: 'memo', date: d, text: text || null }); closeMemo(); }}
+          onClose={closeMemo}
         />
         <DiaryMonthSpanSheet
           open={!!spanEdit} rangeLabel={spanEdit ? `${dayLabelShort(spanEdit.start)} ~ ${Number(spanEdit.end.slice(8))}일` : ''}
@@ -502,6 +505,8 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
           onOpenEvent={(id) => openEvent(id, agendaDate)}
           onOpenPage={(o) => { const d = agendaDate; if (!d) return; setAgendaDate(null); setOwner(o); goDate(d); setView('day'); }}
           onClose={() => setAgendaDate(null)}
+          decor={agendaDate ? { stickers: deco.stickers[agendaDate] ?? [], memo: deco.memos[agendaDate] } : undefined}
+          onEditMemo={canEditMonth ? () => { const d = agendaDate; if (!d) return; setAgendaDate(null); setMemoBack(d); setMemoDate(d); } : undefined}
         />
         <DiaryUpcomingSheet
           open={upOpen} items={upcomingList}

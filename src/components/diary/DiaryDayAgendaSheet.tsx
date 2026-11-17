@@ -2,9 +2,10 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { X, CalendarPlus, Bell, MapPin, Sparkles } from 'lucide-react';
+import { X, CalendarPlus, Bell, MapPin, Sparkles, PenLine } from 'lucide-react';
 import type { DiaryEventVM, MonthSpecialVM, Person } from '@/lib/diaryTypes';
 import { EVENT_OWNER_STYLE } from './DiaryEventStyle';
+import { DiaryDecor } from './DiaryDecor';
 
 export interface DiaryDayAgendaSheetProps {
   open: boolean;
@@ -18,6 +19,13 @@ export interface DiaryDayAgendaSheetProps {
   onOpenEvent: (id: string) => void;
   onOpenPage: (owner: Person) => void;
   onClose: () => void;
+  /**
+   * 그날 달력에 붙인 스티커·메모를 크게(달력 칸에선 작아서 — 우댕 2026-11-18 「이게 보일까? 확대 기능 넣어야 하는거 아냐?」,
+   * GPT 회의: 핀치 확대 대신 「월간 = 훑어보기, 날짜 시트 = 읽기」). 보고 있는 달력(같이·우댕·꼼이)의 꾸미기.
+   */
+  decor?: { stickers: { id: string; src?: string; decorId?: string }[]; memo?: string };
+  /** 메모 고치기(그 달력을 고칠 수 있을 때만) */
+  onEditMemo?: () => void;
 }
 
 export function DiaryDayAgendaSheet({
@@ -32,6 +40,8 @@ export function DiaryDayAgendaSheet({
   onOpenEvent,
   onOpenPage,
   onClose,
+  decor,
+  onEditMemo,
 }: DiaryDayAgendaSheetProps): React.JSX.Element | null {
   useEffect(() => {
     if (!open) return;
@@ -89,6 +99,42 @@ export function DiaryDayAgendaSheet({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {decor && (decor.stickers.length > 0 || !!decor.memo) && (
+            <section className="space-y-3">
+              <h4 className="text-xs font-semibold text-[var(--sd-faint)]">꾸미기</h4>
+              {decor.stickers.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3">
+                  {decor.stickers.map((s) => (
+                    <div key={s.id} className="w-[72px] h-[72px] flex items-center justify-center">
+                      {s.src ? (
+                        <img src={s.src} alt="" loading="lazy" decoding="async" draggable={false} className="w-full h-full object-contain" />
+                      ) : s.decorId ? (
+                        <DiaryDecor decorId={s.decorId} className="w-full h-full" />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {decor.memo && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-[var(--sd-surface-2)]">
+                  <p className="flex-1 min-w-0 text-[15px] leading-relaxed text-[var(--sd-ink)] whitespace-pre-wrap break-words select-text">
+                    {decor.memo}
+                  </p>
+                  {onEditMemo && (
+                    <button
+                      type="button"
+                      onClick={onEditMemo}
+                      className="shrink-0 min-h-[32px] -my-1 px-2.5 rounded-full text-xs font-medium text-[var(--sd-muted)] bg-[var(--sd-card-solid)] border border-[var(--sd-line)] flex items-center gap-1 active:scale-95"
+                    >
+                      <PenLine className="w-3.5 h-3.5" />
+                      고치기
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
           <section className="space-y-3">
             <h4 className="text-xs font-semibold text-[var(--sd-faint)]">일정</h4>
             {events.length === 0 ? (

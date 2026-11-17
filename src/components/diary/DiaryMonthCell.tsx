@@ -31,26 +31,20 @@ export function DiaryMonthCell({
   const isErase = mode === 'decorate' && tool === 'erase';
   const special = cell.specials[0];
 
-  // 스티커 크기(우댕 2026-11-17 「스티커 키워줘」) — 16px 고정이던 것을 칸에 맞춰 키운다. 칸 안쪽이 39x58px 라서
-  //   한 개 26 · 긴 메모(두 줄)와 같이 22 · 띠 한 줄 밑 20 · 두 개 19 · 띠 두 줄 밑 16(이때 메모는 숨김).
+  // 크기(우댕 2026-11-18 「스티커도 너무 작고 메시지 너무 작은데....이게 보일까?」 + GPT 회의) — 칸 74 높이, 안쪽 폭 약 38.
+  //   날짜 줄 20 아래 남는 높이 = 46 · 띠 한 줄 31 · 띠 두 줄 16. 그 안에서 메모(10.5px, 줄 12)와 스티커를 나눈다.
+  //   스티커가 있으면 메모는 한 줄까지, 자리가 없으면 메모는 접고 날짜 줄에 「✎」(전체는 날짜를 눌러 시트에서 크게).
+  //   스티커 두 개는 옆으로 겹쳐 붙인다(나란히 놓으면 폭 38에 19px밖에 안 된다).
   // 기념일 전용 스티커는 자리가 있으면(붙인 스티커 0~1개) 가운데 줄에 같은 크기로, 없으면 날짜 옆에 작게.
-  // 일정 점·「+N」은 날짜 줄 오른쪽, 하루 장을 쓴 날의 점은 칸 오른쪽 아래(둘이 헷갈리지 않게 떨어뜨림).
+  // 「+N」(띠로 못 그린 일정)은 날짜 줄 오른쪽, 하루 장을 쓴 날의 점은 칸 오른쪽 아래.
   const userStickers = cell.stickers.slice(0, 2);
   const specialBig = !!special?.sticker && userStickers.length < 2;
   const shown = (specialBig ? 1 : 0) + userStickers.length;
 
-  const px =
-    hasSpanAbove === 2
-      ? 16
-      : shown >= 2
-      ? 19
-      : hasSpanAbove > 0
-      ? 20
-      : cell.memo && cell.memo.length > 4
-      ? 22
-      : 26;
-
-  const hideMemo = hasSpanAbove === 2 && shown > 0;
+  const avail = 46 - Math.min(2, hasSpanAbove) * 15;
+  const memoLines = !cell.memo ? 0 : shown === 0 ? (avail >= 26 ? 2 : avail >= 13 ? 1 : 0) : avail >= 40 ? 1 : 0;
+  const px = Math.max(14, Math.min(shown >= 2 ? 24 : 30, avail - memoLines * 12 - 2));
+  const hideMemo = !!cell.memo && memoLines === 0;
 
   const drawSticker = (st: { src?: string; decorId?: string }) =>
     st.src ? (
@@ -69,7 +63,7 @@ export function DiaryMonthCell({
   return (
     <div
       onClick={cell.inMonth ? onTap : undefined}
-      className={`relative w-full h-[66px] p-1 flex flex-col justify-between border-b border-r border-[color:color-mix(in_srgb,var(--sd-line)_40%,transparent)] select-none ${
+      className={`relative w-full h-[74px] p-1 flex flex-col justify-between overflow-hidden border-b border-r border-[color:color-mix(in_srgb,var(--sd-line)_40%,transparent)] select-none ${
         !cell.inMonth
           ? 'opacity-25 bg-[color:color-mix(in_srgb,var(--sd-surface-2)_30%,transparent)]'
           : marked
@@ -81,15 +75,15 @@ export function DiaryMonthCell({
           : ''
       }`}
     >
-      <div className="flex items-center justify-between w-full h-4">
+      <div className="flex items-center justify-between w-full h-5 shrink-0">
         <div className="flex items-center gap-0.5 min-w-0">
           {cell.isToday ? (
-            <span className="w-4 h-4 rounded-full bg-[var(--sd-rel)] text-white text-[10px] font-bold flex items-center justify-center leading-none shrink-0">
+            <span className="w-5 h-5 rounded-full bg-[var(--sd-rel)] text-white text-[11.5px] font-bold flex items-center justify-center leading-none shrink-0">
               {cell.day}
             </span>
           ) : (
             <span
-              className={`text-[11px] font-medium leading-none shrink-0 ${
+              className={`text-[12.5px] font-medium leading-none shrink-0 ${
                 cell.holiday ? 'text-[var(--sd-rel)]' : 'text-[var(--sd-ink)]'
               }`}
             >
@@ -121,21 +115,24 @@ export function DiaryMonthCell({
           )}
         </div>
 
-        {cell.events && (cell.events.owners.length > 0 || cell.events.more > 0) && (
+        {((cell.events && (cell.events.owners.length > 0 || cell.events.more > 0)) || hideMemo) && (
           <div
-            className={`flex items-center gap-0.5 shrink-0 ml-1 ${
-              mode === 'decorate' ? 'opacity-40' : ''
+            className={`flex items-center gap-0.5 shrink-0 ml-0.5 ${
+              mode === 'decorate' ? 'opacity-60' : ''
             }`}
           >
-            {cell.events.owners.slice(0, 2).map((owner, idx) => (
+            {hideMemo && (
+              <span className="text-[10px] leading-none text-[var(--sd-muted)]" aria-label="메모 있음">✎</span>
+            )}
+            {cell.events?.owners.slice(0, 2).map((owner, idx) => (
               <span
                 key={idx}
                 className="w-[5px] h-[5px] rounded-full shrink-0"
                 style={{ backgroundColor: EVENT_OWNER_STYLE[owner].dot }}
               />
             ))}
-            {cell.events.more > 0 && (
-              <span className="text-[8px] font-medium leading-none text-[var(--sd-muted)]">
+            {cell.events && cell.events.more > 0 && (
+              <span className="text-[9.5px] font-medium leading-none text-[var(--sd-muted)]">
                 +{cell.events.more}
               </span>
             )}
@@ -144,7 +141,7 @@ export function DiaryMonthCell({
       </div>
 
       {hasSpanAbove > 0 && (
-        <div style={{ height: `${hasSpanAbove * 13}px` }} className="shrink-0" />
+        <div style={{ height: `${Math.min(2, hasSpanAbove) * 15}px` }} className="shrink-0" />
       )}
 
       <div
@@ -159,7 +156,7 @@ export function DiaryMonthCell({
             {drawSticker(special.sticker)}
           </div>
         )}
-        {userStickers.map((s) => (
+        {userStickers.map((s, i) => (
           <div
             key={s.id}
             onClick={(e) => {
@@ -168,7 +165,7 @@ export function DiaryMonthCell({
                 onRemoveSticker(s.id);
               }
             }}
-            style={{ width: px, height: px }}
+            style={{ width: px, height: px, ...(shown >= 2 && (i > 0 || specialBig) ? { marginLeft: -Math.round(px * 0.42), position: 'relative' as const } : {}) }}
             className={`flex items-center justify-center shrink-0 ${
               isErase
                 ? 'rounded border border-[color:color-mix(in_srgb,var(--sd-crit)_60%,transparent)] bg-[color:color-mix(in_srgb,var(--sd-crit)_10%,transparent)] cursor-pointer'
@@ -188,8 +185,8 @@ export function DiaryMonthCell({
               onRemoveMemo();
             }
           }}
-          className={`w-full text-center break-all text-[9px] leading-[10px] text-[var(--sd-muted)] font-normal px-1.5 ${
-            hasSpanAbove > 0 && cell.stickers.length > 0 ? 'line-clamp-1' : 'line-clamp-2'
+          className={`w-full shrink-0 text-center break-all text-[10.5px] leading-[12px] text-[var(--sd-ink)] opacity-80 font-normal px-0.5 ${
+            memoLines >= 2 ? 'line-clamp-2' : 'line-clamp-1'
           } ${
             isErase
               ? 'rounded border border-[color:color-mix(in_srgb,var(--sd-crit)_60%,transparent)] bg-[color:color-mix(in_srgb,var(--sd-crit)_10%,transparent)] cursor-pointer'
@@ -202,8 +199,8 @@ export function DiaryMonthCell({
 
       {(cell.mine || cell.partner) && (
         <div className="absolute right-1 bottom-1 flex items-center gap-0.5 pointer-events-none z-10">
-          {cell.mine && <span className="w-1 h-1 rounded-full bg-[var(--sd-ink)]" />}
-          {cell.partner && <span className="w-1 h-1 rounded-full bg-[var(--sd-line)]" />}
+          {cell.mine && <span className="w-1.5 h-1.5 rounded-full bg-[var(--sd-ink)]" />}
+          {cell.partner && <span className="w-1.5 h-1.5 rounded-full bg-[color:color-mix(in_srgb,var(--sd-ink)_35%,transparent)]" />}
         </div>
       )}
     </div>
