@@ -23,7 +23,7 @@ import { isPractice, practiceBlocked } from './practice';
 import { PERSON_KEY, PracticeBlocked } from './honeybrary';
 import { addCalendarEvent, deleteCalendarEvent } from './calendar';
 import {
-  DIARY_LIMITS, MONTH_LIMITS, type DiaryEventDraft, type DiaryItemVM, type DiaryPageVM, type DiaryPaperTheme, type MonthOwner, type MonthSpanVM,
+  DIARY_LIMITS, DIARY_PROMPTS, MONTH_LIMITS, type DiaryEventDraft, type DiaryItemVM, type DiaryPageVM, type DiaryPaperTheme, type MonthOwner, type MonthSpanVM,
   type MonthStickerVM, type MonthTitleStyle, type Person, type SpecialDateVM,
 } from './diaryTypes';
 
@@ -61,11 +61,18 @@ function toItems(raw: unknown): DiaryItemVM[] {
   return out.slice(0, DIARY_LIMITS.items);
 }
 function toPage(date: string, owner: Person, d: DocumentData | undefined): DiaryPageVM {
+  let text = typeof d?.text === 'string' ? d.text.slice(0, DIARY_LIMITS.text) : '';
+  let question = typeof d?.question === 'string' && d.question.trim() ? d.question.trim().slice(0, 60) : undefined;
+  if (!question) {
+    // 처음엔 질문을 누르면 글 맨 앞에 그냥 섞여 들어갔다 — 그런 장은 맨 앞 질문을 알아봐서 따로 뗀다(주인이 다음에 고칠 때 그렇게 저장된다).
+    const hit = DIARY_PROMPTS.find((q) => text.startsWith(q));
+    if (hit) { question = hit; text = text.slice(hit.length).replace(/^[ \t]*\n?/, ''); }
+  }
   return {
     date, owner,
     theme: THEMES.includes(d?.theme) ? d!.theme : 'cream',
-    text: typeof d?.text === 'string' ? d.text.slice(0, DIARY_LIMITS.text) : '',
-    items: toItems(d?.items),
+    text, items: toItems(d?.items),
+    ...(question ? { question } : {}),
   };
 }
 const contentRef = (id: string) => doc(db, 'diaryPages', id, 'content', 'main');
@@ -126,7 +133,7 @@ export async function saveDiaryPage(page: DiaryPageVM, baseRevision: number): Pr
   }
   const firstLine = text.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
   const thumb = items.find((i) => i.type === 'photo' && i.src)?.src ?? items.find((i) => i.type === 'sticker' && i.src)?.src;
-  batch.set(contentRef(id), { text, items, theme: page.theme, revision, updatedAt: serverTimestamp() });
+  batch.set(contentRef(id), { text, items, theme: page.theme, ...(page.question ? { question: page.question.slice(0, 60) } : {}), revision, updatedAt: serverTimestamp() });
   batch.set(doc(db, 'diaryPages', id), {
     date: page.date, ym: page.date.slice(0, 7), owner: page.owner, theme: page.theme,
     itemCount: items.length, hasPhoto: items.some((i) => i.type === 'photo'),

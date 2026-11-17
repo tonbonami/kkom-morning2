@@ -21,13 +21,20 @@ export interface DiaryItemVM {
   x: number; y: number; w: number; ratio: number; rotation: number; z: number;
 }
 export interface DiaryChipVM { id: string; kind: 'mood' | 'weather' | 'event' | 'special'; label: string; iconSrc?: string }
-export interface DiaryPageVM { date: string; owner: Person; theme: DiaryPaperTheme; text: string; items: DiaryItemVM[] }
+/** question = 그 장에 고른 「오늘의 질문」 — 글과 따로 두고 다른 색으로 그린다(꼼이 2026-11-17 「이 글씨 색을 밑에 글씨와 구분할 수 있게」). */
+export interface DiaryPageVM { date: string; owner: Person; theme: DiaryPaperTheme; text: string; items: DiaryItemVM[]; question?: string }
 export interface DiaryAssetVM { id: string; kind: 'sticker' | 'tape' | 'stamp'; src?: string; decorId?: string; label?: string; favorite?: boolean }
 export interface DiaryMaterialVM { id: string; kind: 'mood' | 'weather' | 'photo' | 'prompt' | 'special'; label: string; thumbSrc?: string }
 export interface DiaryMonthDayVM { date: string; day: number; inMonth: boolean; isToday: boolean; mine: boolean; partner: boolean; special?: string; holiday?: boolean }
 /** 생일·기념일. sticker = 전용 스티커(등록할 때 고름) — 매년 그 날짜 칸에 저절로 붙는다(월간 장식 개수에 안 센다). */
 export interface SpecialDateVM { id: string; label: string; kind: 'birthday' | 'anniversary' | 'custom'; monthDay: string; startYear?: number; owner: Person | 'together'; sticker?: MonthStickerVM }
 export type DiaryItemAction = 'smaller' | 'larger' | 'rotateLeft' | 'rotateRight' | 'front' | 'duplicate' | 'delete';
+
+/** 빈 장 질문 한 줄(GPT 회의: AI 호출 없이 로컬 문구) — 날마다 하나씩 돌아간다. 문구를 고치면 옛 장의 질문 알아보기(diary.ts toPage)가 그 문구를 놓친다 — 빼지 말고 뒤에 더할 것. */
+export const DIARY_PROMPTS = [
+  '오늘 둘이 가장 웃었던 일은?', '오늘 제일 맛있었던 건?', '오늘 고마웠던 순간은?', '오늘을 한 단어로 하면?',
+  '오늘 나를 칭찬한다면?', '내일 하고 싶은 일 하나는?', '오늘 들은 말 중에 기억에 남는 건?',
+] as const;
 
 /** 한 장에 물건 30개·사진 4장·글 1000자(GPT 회의 7번 — 실기기 검수 뒤에 늘린다). */
 export const DIARY_LIMITS = { items: 30, photos: 4, text: 1000 } as const;

@@ -51,6 +51,7 @@ export interface DiaryDayScreenProps {
   onChangeTheme: (t: DiaryPaperTheme) => void;
   onAddMaterial: (m: DiaryMaterialVM) => void;
   onOpenSpecialDates: () => void;
+  onClearQuestion?: () => void;
 }
 
 export function DiaryDayScreen({
@@ -79,6 +80,7 @@ export function DiaryDayScreen({
   onChangeTheme,
   onAddMaterial,
   onOpenSpecialDates,
+  onClearQuestion,
 }: DiaryDayScreenProps): React.JSX.Element {
   const [showMenu, setShowMenu] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -228,6 +230,7 @@ export function DiaryDayScreen({
           onMoveItem={onMoveItem}
           onTextChange={onTextChange}
           onSwipe={(dir) => (dir === 'prev' ? onPrevDate() : onNextDate())}
+          onClearQuestion={isEditable ? onClearQuestion : undefined}
         />
       </main>
 

@@ -32,7 +32,7 @@ import {
   writeDiaryMonthPatch, type DiaryMeta, type MonthDeco, type MonthPatch,
 } from '@/lib/diary';
 import {
-  DIARY_LIMITS, MONTH_LIMITS, type DiaryAssetVM, type DiaryChipVM, type DiaryEventDraft, type DiaryItemAction, type DiaryItemVM, type DiaryMonthCellVM, type DiaryPageVM,
+  DIARY_LIMITS, DIARY_PROMPTS, MONTH_LIMITS, type DiaryAssetVM, type DiaryChipVM, type DiaryEventDraft, type DiaryItemAction, type DiaryItemVM, type DiaryMonthCellVM, type DiaryPageVM,
   type DiaryPaperTheme, type MonthOwner, type MonthStickerVM, type MonthTool, type Person, type SpecialDateVM,
 } from '@/lib/diaryTypes';
 
@@ -58,11 +58,6 @@ const TABS = [
 ];
 const SPECIAL_STICKERS = [...ASSETS.uri.slice(0, 6), ...ASSETS.kkul.slice(0, 4), ...ASSETS.kkom.slice(0, 2)];
 const ratioOfDecor = (id?: string) => DECOR_ASSETS.find((d) => d.id === id)?.ratio ?? 1;
-// 빈 장 질문 한 줄(GPT 회의: AI 호출 없이 로컬 문구) — 날마다 하나씩 돌아간다.
-const PROMPTS = [
-  '오늘 둘이 가장 웃었던 일은?', '오늘 제일 맛있었던 건?', '오늘 고마웠던 순간은?', '오늘을 한 단어로 하면?',
-  '오늘 나를 칭찬한다면?', '내일 하고 싶은 일 하나는?', '오늘 들은 말 중에 기억에 남는 건?',
-];
 // 최근·즐겨찾기 스티커는 이 폰에만 둔다.
 const LS_RECENT = 'kk-diary-recent', LS_FAV = 'kk-diary-fav';
 const readIds = (k: string): string[] => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch { return []; } };
@@ -373,7 +368,7 @@ export function DiaryApp({ me, initialDate, initialView, openAgenda, initialEven
     ];
   }, [date, specials, events]);
   const pageInfo = (d: string | null, who: Person) => { const m = d ? metas[diaryPageId(d, who)] : undefined; return { has: !!m, excerpt: m?.excerpt || undefined, thumbSrc: m?.thumb }; };
-  const promptOfDay = PROMPTS[Math.abs(Math.floor(new Date(date + 'T00:00:00').getTime() / 86400000)) % PROMPTS.length];
+  const promptOfDay = DIARY_PROMPTS[Math.abs(Math.floor(new Date(date + 'T00:00:00').getTime() / 86400000)) % DIARY_PROMPTS.length];
 
   const specialSheet = (
     <DiarySpecialDatesSheet
@@ -506,7 +501,7 @@ export function DiaryApp({ me, initialDate, initialView, openAgenda, initialEven
       <DiaryDayScreen
         me={me} pageOwner={owner} page={page} dateLabel={labelOf(date)}
         chips={chips}
-        materials={isMine && ready && date === TODAY ? [{ id: 'q', kind: 'prompt', label: promptOfDay }] : []}
+        materials={isMine && ready && date === TODAY && !mine.question ? [{ id: 'q', kind: 'prompt', label: promptOfDay }] : []}
         hasPage={{ [me]: diaryPageHasContent(mine), [partner]: !!theirs || !!metas[diaryPageId(date, partner)] } as Record<Person, boolean>}
         saveState={saveState} isToday={date === TODAY} selectedItemId={isMine ? sel : null}
         onBack={() => { void flush(); onExit(); }}
@@ -520,7 +515,8 @@ export function DiaryApp({ me, initialDate, initialView, openAgenda, initialEven
         onOpenAssets={() => setDrawer(true)}
         onPickPhotos={(files) => void pickPhotos(files)}
         onChangeTheme={(t: DiaryPaperTheme) => { if (isMine) put((p) => ({ ...p, theme: t })); }}
-        onAddMaterial={(m) => { if (isMine && m.kind === 'prompt') put((p) => ({ ...p, text: ((p.text ? p.text + '\n' : '') + m.label + ' ').slice(0, DIARY_LIMITS.text) })); }}
+        onAddMaterial={(m) => { if (isMine && m.kind === 'prompt') put((p) => ({ ...p, question: m.label })); }}
+        onClearQuestion={() => { if (isMine) put((p) => { const { question: _q, ...rest } = p; return rest; }); }}
         onOpenSpecialDates={() => setSpecial(true)}
       />
       <DiaryAssetDrawer

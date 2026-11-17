@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import { DiaryPageVM, DiaryChipVM, DiaryItemVM } from '@/lib/diaryTypes';
 import { DiaryDecor } from './DiaryDecor';
 
@@ -15,6 +16,7 @@ export interface DiaryPaperProps {
   onMoveItem: (id: string, x: number, y: number) => void;
   onTextChange: (text: string) => void;
   onSwipe?: (dir: 'prev' | 'next') => void;
+  onClearQuestion?: () => void;   // 고른 질문 빼기(내 장일 때만)
 }
 
 export function DiaryPaper({
@@ -26,6 +28,7 @@ export function DiaryPaper({
   onSelectItem,
   onMoveItem,
   onTextChange,
+  onClearQuestion,
   onSwipe,
 }: DiaryPaperProps): React.JSX.Element {
   const paperRef = useRef<HTMLDivElement>(null);
@@ -199,8 +202,23 @@ export function DiaryPaper({
         )}
       </div>
 
-      {/* 일기 본문 영역 */}
-      <div className="relative flex-1 pl-4 z-10">
+      {/* 일기 본문 영역 — 고른 질문은 글과 따로, 다른 색 한 줄로(줄 높이는 본문과 같게 맞춰 줄 노트 선에 얹힌다) */}
+      <div className="relative flex-1 min-h-0 pl-4 z-10 flex flex-col">
+        {page.question && (
+          <div className="flex items-start gap-1 shrink-0 pr-1" style={{ lineHeight: '32px' }}>
+            <span className="text-[16px] font-medium text-[var(--sd-rel)] break-keep">{page.question}</span>
+            {editable && onClearQuestion && (
+              <button
+                type="button"
+                aria-label="질문 빼기"
+                onClick={onClearQuestion}
+                className="w-8 h-8 shrink-0 flex items-center justify-center text-[var(--sd-faint)] active:opacity-60"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
         {editable ? (
           <textarea
             value={page.text}
@@ -208,14 +226,14 @@ export function DiaryPaper({
             maxLength={1000}
             placeholder="오늘 하루는 어땠나요?"
             style={{ lineHeight: '32px' }}
-            className="w-full h-full bg-transparent resize-none outline-none text-[16px] text-[var(--sd-ink)] placeholder-[var(--sd-faint)] font-sans"
+            className="w-full flex-1 min-h-0 bg-transparent resize-none outline-none text-[16px] text-[var(--sd-ink)] placeholder-[var(--sd-faint)] font-sans"
           />
         ) : (
           <p
             style={{ lineHeight: '32px' }}
-            className="w-full h-full whitespace-pre-wrap text-[16px] text-[var(--sd-ink)] font-sans"
+            className="w-full flex-1 min-h-0 whitespace-pre-wrap text-[16px] text-[var(--sd-ink)] font-sans"
           >
-            {page.text || '아직 적힌 일기가 없어요.'}
+            {page.text || (page.question ? '' : '아직 적힌 일기가 없어요.')}
           </p>
         )}
       </div>
