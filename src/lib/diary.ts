@@ -15,8 +15,8 @@
  */
 import { db, storage, usingEmulator } from './firebase';
 import {
-  collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, writeBatch,
-  serverTimestamp, deleteField, type DocumentData,
+  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, startAfter, writeBatch,
+  serverTimestamp, deleteField, type DocumentData, type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { isPractice, practiceBlocked } from './practice';
@@ -54,6 +54,9 @@ function toItems(raw: unknown): DiaryItemVM[] {
       ...(typeof r.src === 'string' ? { src: r.src } : {}),
       ...(typeof r.decorId === 'string' ? { decorId: r.decorId } : {}),
       ...(typeof r.path === 'string' ? { path: r.path } : {}),
+      ...(type === 'photo' && (r.frame === 'none' || r.frame === 'polaroid' || r.frame === 'circle' || r.frame === 'white') ? { frame: r.frame } : {}),
+      ...(type === 'photo' && typeof r.caption === 'string' && r.caption.trim() ? { caption: r.caption.slice(0, DIARY_LIMITS.caption) } : {}),
+      ...(type === 'photo' && (r.source === 'library' || r.source === 'chat' || r.source === 'memories') ? { source: r.source } : {}),
       x: num(r.x, 0.5, 0, 1), y: num(r.y, 0.5, 0, 1), w: num(r.w, 0.3, 0.05, 1), ratio: num(r.ratio, 1, 0.05, 10),
       rotation: num(r.rotation, 0, -3600, 3600), z: num(r.z, 1, 0, 100000),
     });
@@ -224,6 +227,9 @@ export async function prepareDiaryPhoto(file: File): Promise<{ blob: Blob; ratio
     c.width = w; c.height = h;
     const ctx = c.getContext('2d');
     if (!ctx) throw new Error('canvas');
+    // JPEG 는 투명을 못 담는다 — 흰 바탕을 먼저 깔아야 투명 PNG·WebP 가 검은 바탕이 되지 않는다.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
     ctx.drawImage(img, 0, 0, w, h);
     const blob = await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('toBlob'))), 'image/jpeg', 0.8));
     return { blob, ratio: h / w };
@@ -237,6 +243,67 @@ export async function uploadDiaryPhoto(date: string, owner: Person, blob: Blob):
   const r = storageRef(storage, path);
   await uploadBytes(r, blob, { contentType: 'image/jpeg' });
   return { src: await getDownloadURL(r), path };
+}
+
+// ── 앱 안 사진 가져오기(꼼톡·추억) ──────────────────────────────────────────
+// 우댕 2026-11-18 「사진 먼저 하고, 다음 1까지 하자」 — 회의록의 「다음 ①: 꼼톡·추억에서 사진 가져오기(복사본)」.
+// ⚠️ 원본 주소를 그대로 걸지 않는다 — 꼼톡 메시지를 지우면 그 사진 파일도 지워져서(chat.ts deleteMessage) 장이 깨진다.
+//    골라 온 사진은 받아서(fetch → 줄이기) 다이어리 자리에 새로 올린다. Storage 다운로드 주소는 CORS(*)라 받을 수 있다(saveMedia.ts).
+export interface AppPhotoVM { id: string; url: string; thumb: string; at: number; source: 'chat' | 'memories' }
+
+let chatPhotoCache: { list: AppPhotoVM[]; cursor: QueryDocumentSnapshot | null; done: boolean } | null = null;
+/**
+ * 꼼톡에서 주고받은 사진(최근순). 한 번에 메시지 200개씩 거슬러 올라가며 사진만 모은다 — 사진만 따로 묻는 색인이 없어서.
+ * more=true 면 이어서 더 오래된 것. 지운 메시지·타임캡슐(아직 안 온 것)은 뺀다.
+ */
+export async function fetchChatPhotos(more = false): Promise<{ list: AppPhotoVM[]; done: boolean }> {
+  if (chatPhotoCache && !more) return { list: chatPhotoCache.list, done: chatPhotoCache.done };
+  const cache = chatPhotoCache ?? { list: [], cursor: null, done: false };
+  const want = cache.list.length + 30;
+  let scanned = 0;
+  while (!cache.done && cache.list.length < want && scanned < 800) {
+    const q = cache.cursor
+      ? query(collection(db, 'messages'), orderBy('createdAt', 'desc'), startAfter(cache.cursor), limit(200))
+      : query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(200));
+    const snap = await getDocs(q);
+    scanned += snap.size;
+    if (snap.size < 200) cache.done = true;
+    if (snap.size) cache.cursor = snap.docs[snap.docs.length - 1];
+    snap.forEach((s) => {
+      const d = s.data();
+      if (d.deleted || d.capsule) return;
+      const at = d.createdAt?.toMillis?.() ?? 0;
+      const urls: string[] = Array.isArray(d.imageUrls) && d.imageUrls.length ? d.imageUrls : typeof d.imageUrl === 'string' && d.imageUrl ? [d.imageUrl] : [];
+      const thumbs: unknown[] = Array.isArray(d.imageThumbs) ? d.imageThumbs : [];
+      urls.forEach((u, i) => {
+        if (typeof u !== 'string' || !u) return;
+        cache.list.push({ id: `chat-${s.id}-${i}`, url: u, thumb: typeof thumbs[i] === 'string' ? (thumbs[i] as string) : u, at, source: 'chat' });
+      });
+    });
+  }
+  chatPhotoCache = cache;
+  return { list: cache.list, done: cache.done };
+}
+
+/** 추억(사진 모음)에 올린 사진(최근순). 추억은 수가 적어서 한 번에 다 읽는다. */
+export async function fetchMemoryPhotos(): Promise<AppPhotoVM[]> {
+  const snap = await getDocs(collection(db, 'memories'));
+  const out: AppPhotoVM[] = [];
+  snap.forEach((s) => {
+    const d = s.data();
+    if (typeof d.imageUrl !== 'string' || !d.imageUrl) return;
+    const at = d.createdAt?.toMillis?.() ?? (Date.parse(String(d.date || '')) || 0);
+    out.push({ id: `mem-${s.id}`, url: d.imageUrl, thumb: d.imageUrl, at, source: 'memories' });
+  });
+  return out.sort((a, b) => b.at - a.at);
+}
+
+/** 앱 안 사진 주소 → 파일(다이어리 자리로 복사해 올리려고). data: 주소·같은 사이트 주소·Storage 주소 모두. */
+export async function appPhotoFile(p: AppPhotoVM): Promise<File> {
+  const res = await fetch(p.url);
+  if (!res.ok) throw new Error(`사진을 받지 못했어요 (${res.status})`);
+  const blob = await res.blob();
+  return new File([blob], `${p.id}.jpg`, { type: blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg' });
 }
 
 /** 장에서 빠진 사진 파일 지우기 — 「이미 없음」은 성공으로 본다. 실패해도 장 저장은 이미 끝난 뒤라 조용히 넘긴다. */

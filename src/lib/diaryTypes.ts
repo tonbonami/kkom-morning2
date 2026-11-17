@@ -12,13 +12,46 @@ export type Person = '우댕' | '꼼이';
 export type DiaryPaperTheme = 'cream' | 'plain' | 'lined' | 'grid';
 export type DiaryItemType = 'sticker' | 'photo' | 'tape' | 'stamp';
 
+/**
+ * 사진 모양(GPT 회의 2026-11-18 「다이어리 꾸미기 회의」 — 새 그림 없이 CSS 로 되는 넷만. 필름·찢은 종이는 그림이 필요해서 나중에).
+ * 없으면 'white'(처음부터 있던 흰 테두리) — 옛 장은 고칠 것 없이 그대로 보인다.
+ */
+export type DiaryPhotoFrame = 'white' | 'none' | 'polaroid' | 'circle';
+export const DIARY_PHOTO_FRAMES: { id: DiaryPhotoFrame; label: string }[] = [
+  { id: 'white', label: '기본' }, { id: 'none', label: '없음' }, { id: 'polaroid', label: '폴라로이드' }, { id: 'circle', label: '동그라미' },
+];
+/** 사진을 어디서 가져왔나 — 사진 앱 / 꼼톡 / 추억. 가져온 사진도 다이어리 쪽에 복사본을 올린다(원본이 지워져도 장이 안 깨지게). */
+export type DiaryPhotoSource = 'library' | 'chat' | 'memories';
+
 /** 종이 위 물건 하나. x·y = 물건 **가운데**의 자리(종이 폭·높이에 대한 0~1), w = 종이 폭에 대한 폭(0~1), ratio = 높이/폭. */
 export interface DiaryItemVM {
   id: string; type: DiaryItemType;
   src?: string;        // sticker·photo 그림 주소(정지 그림)
   decorId?: string;    // tape·stamp — 그림 파일이 아니라 CSS 로 그리는 꾸미기(components/diary/DiaryDecor)의 id
   path?: string;       // photo — Storage 경로(장에서 빠지면 파일도 지우려고 같이 적어 둔다)
+  /** photo — ratio 는 **사진 자체**의 높이/폭이다. 테두리·글귀 자리까지 넣은 물건 상자 비율은 photoBoxRatio 로 그때 계산. */
+  frame?: DiaryPhotoFrame;
+  caption?: string;    // photo — 사진 아래 글귀(40자). 기본·폴라로이드에서만 보이고, 없음·동그라미에선 숨기기만 한다(안 지움).
+  source?: DiaryPhotoSource;
   x: number; y: number; w: number; ratio: number; rotation: number; z: number;
+}
+
+/**
+ * 사진 물건 상자의 높이/폭 — 테두리 모양마다 다르다(폭 W 에 대한 비율).
+ *   기본: 글귀 없으면 사진 비율 그대로(안쪽 4px 흰 테두리 — 처음 모양), 글귀 있으면 둘레 4% + 아래 22%.
+ *   폴라로이드: 둘레 5.5% + 아래 25%(인스탁스 비율쯤). 동그라미: 1:1. 없음: 사진 비율.
+ */
+export const PHOTO_PAD = { white: { side: 0.04, bottom: 0.22 }, polaroid: { side: 0.055, bottom: 0.25 } } as const;
+export function photoShowsCaption(it: Pick<DiaryItemVM, 'frame' | 'caption'>): boolean {
+  const f = it.frame ?? 'white';
+  return !!it.caption?.trim() && (f === 'white' || f === 'polaroid');
+}
+export function photoBoxRatio(it: Pick<DiaryItemVM, 'frame' | 'caption' | 'ratio'>): number {
+  const f = it.frame ?? 'white';
+  if (f === 'circle') return 1;
+  if (f === 'polaroid') { const p = PHOTO_PAD.polaroid; return p.side + (1 - 2 * p.side) * it.ratio + p.bottom; }
+  if (f === 'white' && photoShowsCaption(it)) { const p = PHOTO_PAD.white; return p.side + (1 - 2 * p.side) * it.ratio + p.bottom; }
+  return it.ratio;
 }
 export interface DiaryChipVM { id: string; kind: 'mood' | 'weather' | 'event' | 'special'; label: string; iconSrc?: string }
 /** question = 그 장에 고른 「오늘의 질문」 — 글과 따로 두고 다른 색으로 그린다(꼼이 2026-11-17 「이 글씨 색을 밑에 글씨와 구분할 수 있게」). */
@@ -37,7 +70,7 @@ export const DIARY_PROMPTS = [
 ] as const;
 
 /** 한 장에 물건 30개·사진 4장·글 1000자(GPT 회의 7번 — 실기기 검수 뒤에 늘린다). */
-export const DIARY_LIMITS = { items: 30, photos: 4, text: 1000 } as const;
+export const DIARY_LIMITS = { items: 30, photos: 4, text: 1000, caption: 40 } as const;
 
 // ── 월간 꾸미기 달력(GPT 회의 2: docs/gpt-diary-calendar-answer.md, 우댕 2026-11-17 「다꾸하는 사람들은 달력 꾸미는 것도 좋아하잖아」) ──
 /** 달력 주인 — 같이 꾸미는 한 장 / 각자 한 장(우댕 「둘이 공동 + 각자 한 장 선택하게」). 하루 장은 각자뿐. */

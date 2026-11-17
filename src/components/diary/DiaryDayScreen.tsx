@@ -1,7 +1,7 @@
 // src/components/diary/DiaryDayScreen.tsx
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,6 +12,9 @@ import {
   PenLine,
   Calendar,
   Sparkles,
+  Type,
+  X,
+  Check,
 } from 'lucide-react';
 import {
   Person,
@@ -20,12 +23,17 @@ import {
   DiaryChipVM,
   DiaryMaterialVM,
   DiaryItemAction,
+  DiaryItemVM,
+  DiaryPhotoFrame,
+  DIARY_PHOTO_FRAMES,
+  DIARY_LIMITS,
 } from '@/lib/diaryTypes';
 import { DiaryPaper } from './DiaryPaper';
 import { DiaryObjectToolbar } from './DiaryObjectToolbar';
 import { DiaryMaterialTray } from './DiaryMaterialTray';
 import { DiaryNotes } from './DiaryNotes';
-import type { DiaryNoteVM } from '@/lib/diary';
+import { DiaryPhotoSheet } from './DiaryPhotoSheet';
+import type { AppPhotoVM, DiaryNoteVM } from '@/lib/diary';
 
 export interface DiaryDayScreenProps {
   me: Person;
@@ -60,6 +68,13 @@ export interface DiaryDayScreenProps {
   onToggleHeart?: () => void;
   onSendNote?: (text: string) => Promise<boolean>;
   onDeleteNote?: (id: string) => void;
+  /** 사진(GPT 회의 2026-11-18): 지금 몇 장인지 · 꼼톡·추억에서 고른 것 · 고른 사진의 모양·글귀 */
+  photoCount: number;
+  selectedItem?: DiaryItemVM | null;
+  onPickAppPhotos: (photos: AppPhotoVM[]) => void;
+  onPhotoFull: () => void;
+  onPhotoFrame: (f: DiaryPhotoFrame) => void;
+  onPhotoCaption: (text: string) => void;
 }
 
 export function DiaryDayScreen({
@@ -94,12 +109,26 @@ export function DiaryDayScreen({
   onToggleHeart,
   onSendNote,
   onDeleteNote,
+  photoCount,
+  selectedItem,
+  onPickAppPhotos,
+  onPhotoFull,
+  onPhotoFrame,
+  onPhotoCaption,
 }: DiaryDayScreenProps): React.JSX.Element {
   const [showMenu, setShowMenu] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [photoSheet, setPhotoSheet] = useState(false);
+  const [captionOpen, setCaptionOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
 
   const isEditable = me === pageOwner;
+  const photoRoom = Math.max(0, DIARY_LIMITS.photos - photoCount);
+  const selectedPhoto = selectedItem && selectedItem.type === 'photo' ? selectedItem : null;
+  // 사진 넣기: 다 찼으면 서랍 대신 안내(GPT: 단추는 감추지 않는다 — 기능이 사라진 것처럼 보이지 않게)
+  const openPhotos = () => { setShowThemePicker(false); if (photoRoom <= 0) onPhotoFull(); else setPhotoSheet(true); };
+  useEffect(() => { if (!selectedPhoto) setCaptionOpen(false); }, [selectedPhoto]);
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -244,6 +273,8 @@ export function DiaryDayScreen({
           onTextChange={onTextChange}
           onSwipe={(dir) => (dir === 'prev' ? onPrevDate() : onNextDate())}
           onClearQuestion={isEditable ? onClearQuestion : undefined}
+          onEmptyPhoto={isEditable ? openPhotos : undefined}
+          textRef={textRef}
         />
       </main>
 
@@ -256,17 +287,26 @@ export function DiaryDayScreen({
           />
         )}
 
-        {isEditable && isToday && (
+        {isEditable && isToday && !selectedItemId && (
           <DiaryMaterialTray materials={materials} onAdd={onAddMaterial} />
         )}
 
         {isEditable && (
           <>
             {selectedItemId ? (
-              <DiaryObjectToolbar
-                onAction={onItemAction}
-                onDone={() => onSelectItem(null)}
-              />
+              <>
+                {selectedPhoto && (
+                  <PhotoStyleRow
+                    item={selectedPhoto}
+                    onFrame={onPhotoFrame}
+                    onCaption={() => setCaptionOpen(true)}
+                  />
+                )}
+                <DiaryObjectToolbar
+                  onAction={onItemAction}
+                  onDone={() => onSelectItem(null)}
+                />
+              </>
             ) : (
               <div className="relative">
                 {showThemePicker && (
@@ -291,49 +331,42 @@ export function DiaryDayScreen({
                   </div>
                 )}
 
-                <div className="bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-2xl shadow-sm px-4 py-1 flex items-center justify-around">
+                {/* 순서·이름(GPT 회의 2026-11-18): 사진이 맨 앞 · 「종이」→「배경」 · 글씨 10→12px · 높이 56 */}
+                <div className="bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-2xl shadow-sm px-1 grid grid-cols-4">
                   <button
                     type="button"
-                    onClick={onOpenAssets}
-                    className="min-w-[44px] min-h-[44px] flex flex-col items-center justify-center text-[var(--sd-ink)] active:scale-95"
+                    onClick={openPhotos}
+                    className="min-h-[56px] flex flex-col items-center justify-center gap-[3px] rounded-xl text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)]"
                   >
-                    <Smile className="w-5 h-5" />
-                    <span className="text-[10px] mt-0.5">스티커</span>
+                    <ImageIcon className="w-[21px] h-[21px] stroke-[1.8]" />
+                    <span className="text-[12px] font-medium leading-none">{photoCount > 0 ? `사진 ${photoCount}/${DIARY_LIMITS.photos}` : '사진 넣기'}</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="min-w-[44px] min-h-[44px] flex flex-col items-center justify-center text-[var(--sd-ink)] active:scale-95"
+                    onClick={() => { setShowThemePicker(false); onOpenAssets(); }}
+                    className="min-h-[56px] flex flex-col items-center justify-center gap-[3px] rounded-xl text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)]"
                   >
-                    <ImageIcon className="w-5 h-5" />
-                    <span className="text-[10px] mt-0.5">사진</span>
+                    <Smile className="w-[21px] h-[21px] stroke-[1.8]" />
+                    <span className="text-[12px] font-medium leading-none">스티커</span>
                   </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={handlePhotoSelect}
-                  />
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowThemePicker(false); onSelectItem(null); textRef.current?.focus(); }}
+                    className="min-h-[56px] flex flex-col items-center justify-center gap-[3px] rounded-xl text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)]"
+                  >
+                    <PenLine className="w-[21px] h-[21px] stroke-[1.8]" />
+                    <span className="text-[12px] font-medium leading-none">글쓰기</span>
+                  </button>
 
                   <button
                     type="button"
                     onClick={() => setShowThemePicker((p) => !p)}
-                    className="min-w-[44px] min-h-[44px] flex flex-col items-center justify-center text-[var(--sd-ink)] active:scale-95"
+                    className={`min-h-[56px] flex flex-col items-center justify-center gap-[3px] rounded-xl text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)] ${showThemePicker ? 'bg-[var(--sd-surface-2)]' : ''}`}
                   >
-                    <Scroll className="w-5 h-5" />
-                    <span className="text-[10px] mt-0.5">종이</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => onSelectItem(null)}
-                    className="min-w-[44px] min-h-[44px] flex flex-col items-center justify-center text-[var(--sd-ink)] active:scale-95"
-                  >
-                    <PenLine className="w-5 h-5" />
-                    <span className="text-[10px] mt-0.5">글쓰기</span>
+                    <Scroll className="w-[21px] h-[21px] stroke-[1.8]" />
+                    <span className="text-[12px] font-medium leading-none">배경</span>
                   </button>
                 </div>
               </div>
@@ -341,6 +374,112 @@ export function DiaryDayScreen({
           </>
         )}
       </footer>
+
+      {/* 사진 앱 고르기 — 단추 줄 밖에 둔다(사진 서랍의 첫 칸에서도 누른다) */}
+      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoSelect} />
+      <DiaryPhotoSheet
+        open={photoSheet && isEditable}
+        room={photoRoom}
+        limit={DIARY_LIMITS.photos}
+        onPickLibrary={() => { setPhotoSheet(false); fileInputRef.current?.click(); }}
+        onPickApp={(list) => { setPhotoSheet(false); onPickAppPhotos(list); }}
+        onClose={() => setPhotoSheet(false)}
+      />
+      {captionOpen && selectedPhoto && (
+        <PhotoCaptionSheet
+          item={selectedPhoto}
+          onSave={(t) => { onPhotoCaption(t); setCaptionOpen(false); }}
+          onClose={() => setCaptionOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** 고른 사진의 모양 네 가지 + 글귀 — 작은 미리보기는 그 사진으로 그린다. */
+function PhotoStyleRow({ item, onFrame, onCaption }: { item: DiaryItemVM; onFrame: (f: DiaryPhotoFrame) => void; onCaption: () => void }): React.JSX.Element {
+  const cur = item.frame ?? 'white';
+  const thumb = (f: DiaryPhotoFrame) => {
+    const img = item.src ? <img src={item.src} alt="" draggable={false} className="w-full h-full object-cover" /> : null;
+    if (f === 'circle') return <span className="block w-[26px] h-[26px] rounded-full overflow-hidden bg-[var(--sd-surface-2)]">{img}</span>;
+    if (f === 'none') return <span className="block w-[26px] h-[26px] rounded-[3px] overflow-hidden bg-[var(--sd-surface-2)]">{img}</span>;
+    if (f === 'polaroid') return <span className="block w-[24px] h-[29px] bg-white border border-[var(--sd-line)] p-[2px] pb-[7px] shadow-sm"><span className="block w-full h-full overflow-hidden bg-[var(--sd-surface-2)]">{img}</span></span>;
+    return <span className="block w-[26px] h-[26px] bg-white border border-[var(--sd-line)] p-[2.5px] shadow-sm"><span className="block w-full h-full overflow-hidden bg-[var(--sd-surface-2)]">{img}</span></span>;
+  };
+  return (
+    <div className="w-full bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-2xl shadow-sm px-1.5 py-1 grid grid-cols-5" style={{ touchAction: 'none' }}>
+      {DIARY_PHOTO_FRAMES.map((f) => (
+        <button
+          key={f.id}
+          type="button"
+          onClick={() => onFrame(f.id)}
+          aria-pressed={cur === f.id}
+          className={`min-w-0 min-h-[56px] flex flex-col items-center justify-center gap-1 rounded-xl ${
+            cur === f.id ? 'bg-[var(--sd-rel-soft)] text-[var(--sd-rel)]' : 'text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)]'
+          }`}
+        >
+          <span className="h-[30px] flex items-center justify-center">{thumb(f.id)}</span>
+          <span className="text-[11px] font-medium leading-none whitespace-nowrap">{f.label}</span>
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={onCaption}
+        className="min-w-0 min-h-[56px] flex flex-col items-center justify-center gap-1 rounded-xl text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)]"
+      >
+        <span className="h-[30px] flex items-center justify-center"><Type className="w-5 h-5 stroke-[1.8]" /></span>
+        <span className="text-[11px] font-medium leading-none">{item.caption ? '글귀 고치기' : '글귀'}</span>
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 사진 아래 글귀(40자) — 화면 **위쪽**에 띄운다(아래에 두면 폰 키보드가 덮는다).
+ * 없음·동그라미 모양에 글귀를 넣으면 보이게 폴라로이드로 바꾼다(DiaryApp setPhotoCaption).
+ */
+function PhotoCaptionSheet({ item, onSave, onClose }: { item: DiaryItemVM; onSave: (t: string) => void; onClose: () => void }): React.JSX.Element {
+  const [text, setText] = useState(item.caption ?? '');
+  const max = DIARY_LIMITS.caption;
+  return (
+    <div onClick={onClose} className="fixed inset-0 z-[70] flex items-start justify-center bg-black/25 px-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}>
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => { e.preventDefault(); onSave(text.trim().slice(0, max)); }}
+        className="w-full max-w-md bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-3xl shadow-2xl p-4 flex flex-col gap-3"
+      >
+        <div className="flex items-center justify-between">
+          <span className="font-['Dongle'] text-2xl leading-none text-[var(--sd-ink)]">사진 아래 글귀</span>
+          <button type="button" onClick={onClose} aria-label="닫기" className="min-w-[44px] min-h-[44px] -m-2 flex items-center justify-center text-[var(--sd-muted)]">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="relative">
+          <input
+            type="text"
+            value={text}
+            maxLength={max}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="예: 첫눈 오던 날"
+            autoFocus
+            enterKeyHint="done"
+            className="w-full min-h-[48px] px-3.5 pr-14 rounded-xl bg-[var(--sd-surface-2)] border border-[var(--sd-line)] text-[16px] text-[var(--sd-ink)] outline-none"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--sd-faint)]">{text.length}/{max}</span>
+        </div>
+        <p className="text-[12px] text-[var(--sd-muted)] -mt-1">기본·폴라로이드 모양에서 사진 아래에 보여요</p>
+        <div className="flex gap-2">
+          {item.caption && (
+            <button type="button" onClick={() => onSave('')} className="min-h-[44px] px-4 rounded-xl border border-[var(--sd-line)] text-sm text-[var(--sd-muted)] active:bg-[var(--sd-surface-2)]">
+              글귀 빼기
+            </button>
+          )}
+          <button type="submit" className="flex-1 min-h-[44px] rounded-xl bg-[var(--sd-ink)] text-white text-sm font-medium flex items-center justify-center gap-1 active:opacity-90">
+            <Check className="w-4 h-4" />
+            넣기
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

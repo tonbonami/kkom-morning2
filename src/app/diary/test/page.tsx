@@ -313,6 +313,12 @@ function Test() {
           else if (m.thumbSrc) addItem({ type: m.kind === 'photo' ? 'photo' : 'sticker', src: m.thumbSrc, w: 0.3, ratio: 1 });
         }}
         onOpenSpecialDates={() => setSpecial(true)}
+        photoCount={page.items.filter((i) => i.type === 'photo').length}
+        selectedItem={sel ? page.items.find((i) => i.id === sel) ?? null : null}
+        onPickAppPhotos={(list) => list.forEach((p) => addItem({ type: 'photo', src: p.thumb, w: 0.42, ratio: 1, source: p.source }))}
+        onPhotoFull={() => {}}
+        onPhotoFrame={(frame) => put((p) => ({ ...p, items: p.items.map((i) => (i.id === sel ? { ...i, frame } : i)) }))}
+        onPhotoCaption={(caption) => put((p) => ({ ...p, items: p.items.map((i) => (i.id === sel ? { ...i, caption } : i)) }))}
       />
       <DiaryAssetDrawer
         open={drawer && mine} tabs={TABS} tab={tab} assets={assets} full={page.items.length >= DIARY_LIMITS.items}

@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { X } from 'lucide-react';
-import { DiaryPageVM, DiaryChipVM, DiaryItemVM } from '@/lib/diaryTypes';
+import { X, Image as ImageIcon } from 'lucide-react';
+import { DiaryPageVM, DiaryChipVM, DiaryItemVM, DIARY_LIMITS, PHOTO_PAD, photoBoxRatio, photoShowsCaption } from '@/lib/diaryTypes';
 import { DiaryDecor } from './DiaryDecor';
 
 export interface DiaryPaperProps {
@@ -17,6 +17,47 @@ export interface DiaryPaperProps {
   onTextChange: (text: string) => void;
   onSwipe?: (dir: 'prev' | 'next') => void;
   onClearQuestion?: () => void;   // 고른 질문 빼기(내 장일 때만)
+  /** 빈 내 장 가운데 「사진 넣기」(GPT 회의 2026-11-18: 사진 단추가 10px 글씨라 만든 사람도 못 찾았다 → 빈 장의 첫 행동으로) */
+  onEmptyPhoto?: () => void;
+  /** 글 칸 — 아래 「글쓰기」 단추·빈 장 「글부터 쓰기」가 여기에 초점을 준다 */
+  textRef?: React.RefObject<HTMLTextAreaElement | null>;
+}
+
+/** 사진 한 장 그리기 — 모양(frame)마다. 상자 크기는 바깥(물건 상자)이 photoBoxRatio 로 이미 맞춰 둔다. */
+function PhotoBody({ item }: { item: DiaryItemVM }): React.JSX.Element | null {
+  if (!item.src) return null;
+  const f = item.frame ?? 'white';
+  const img = (
+    <img src={item.src} alt="photo" className="w-full h-full object-cover pointer-events-none" loading="lazy" decoding="async" draggable={false} />
+  );
+  if (f === 'circle') return <div className="w-full h-full rounded-full overflow-hidden shadow-[0_2px_8px_rgba(46,29,38,0.18)]">{img}</div>;
+  if (f === 'none') return <div className="w-full h-full rounded-[3px] overflow-hidden shadow-[0_2px_8px_rgba(46,29,38,0.16)]">{img}</div>;
+  const cap = photoShowsCaption(item);
+  if (f === 'white' && !cap) {
+    return <div className="w-full h-full p-1 bg-white shadow-sm border border-[var(--sd-line)] rounded-sm">{img}</div>;
+  }
+  // 둘레를 폭에 대한 %로 — CSS padding 의 % 는 위·아래도 부모 **폭** 기준이라 W 에 맞춰 커지고 작아진다.
+  const pad = f === 'polaroid' ? PHOTO_PAD.polaroid : PHOTO_PAD.white;
+  return (
+    <div
+      className={`w-full h-full flex flex-col bg-white border border-[color:color-mix(in_srgb,var(--sd-line)_70%,transparent)] ${
+        f === 'polaroid' ? 'shadow-[0_3px_10px_rgba(46,29,38,0.16)]' : 'shadow-sm rounded-sm'
+      }`}
+      style={{ padding: `${pad.side * 100}% ${pad.side * 100}% 0`, containerType: 'inline-size' }}
+    >
+      <div className="w-full shrink-0 overflow-hidden bg-[#F1ECE8]" style={{ aspectRatio: `${1 / item.ratio}` }}>{img}</div>
+      <div className="flex-1 min-h-0 flex items-center justify-center px-[2%] overflow-hidden">
+        {cap && (
+          <span
+            className="font-['Dongle'] text-[#4A3A36] text-center break-keep line-clamp-2"
+            style={{ fontSize: f === 'polaroid' ? '15cqw' : '12.5cqw', lineHeight: 0.9 }}
+          >
+            {item.caption}
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function DiaryPaper({
@@ -30,8 +71,12 @@ export function DiaryPaper({
   onTextChange,
   onClearQuestion,
   onSwipe,
+  onEmptyPhoto,
+  textRef,
 }: DiaryPaperProps): React.JSX.Element {
   const paperRef = useRef<HTMLDivElement>(null);
+  const [textFocused, setTextFocused] = useState(false);
+  const blank = editable && page.items.length === 0 && !page.text.trim() && !page.question;
   const dragTargetRef = useRef<{
     id: string;
     el: HTMLElement;
@@ -221,8 +266,11 @@ export function DiaryPaper({
         )}
         {editable ? (
           <textarea
+            ref={textRef}
             value={page.text}
             onChange={(e) => onTextChange(e.target.value)}
+            onFocus={() => setTextFocused(true)}
+            onBlur={() => setTextFocused(false)}
             maxLength={1000}
             placeholder="오늘 하루는 어땠나요?"
             style={{ lineHeight: '32px' }}
@@ -238,11 +286,42 @@ export function DiaryPaper({
         )}
       </div>
 
+      {/* 빈 내 장 — 첫 행동 두 개. 글 칸에 초점이 가면(쓰기 시작) 바로 비켜 준다. 종이 내용이 아니라 저장되지 않는다. */}
+      {blank && !textFocused && onEmptyPhoto && (
+        <div className="absolute inset-x-0 top-[57%] -translate-y-1/2 z-30 flex flex-col items-center gap-2 pointer-events-none">
+          <div className="w-10 h-10 rounded-full bg-[var(--sd-rel-soft)] text-[var(--sd-rel)] flex items-center justify-center">
+            <ImageIcon className="w-[22px] h-[22px] stroke-[1.7]" />
+          </div>
+          <p className="text-[15px] font-medium text-[var(--sd-ink)] mb-1">오늘을 한 장 남겨 볼까요?</p>
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onClick={onEmptyPhoto}
+            className="pointer-events-auto w-[168px] h-12 rounded-full bg-[var(--sd-ink)] text-white text-[15px] font-medium flex items-center justify-center gap-1.5 shadow-sm active:opacity-85"
+          >
+            <ImageIcon className="w-[18px] h-[18px]" />
+            사진 넣기
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onClick={() => textRef?.current?.focus()}
+            className="pointer-events-auto w-[168px] h-11 rounded-full bg-[var(--sd-card-solid)] border border-[var(--sd-line)] text-[14px] font-medium text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)]"
+          >
+            글부터 쓰기
+          </button>
+          <p className="text-[12px] text-[var(--sd-faint)] mt-0.5">사진은 한 장에 {DIARY_LIMITS.photos}장까지 넣을 수 있어요</p>
+        </div>
+      )}
+
       {/* 종이 위 물건 레이어 */}
       <div className="absolute inset-0 pointer-events-none z-20">
         {page.items.map((item) => {
           const isSelected = selectedItemId === item.id;
           const isDragging = draggingId === item.id;
+          const boxRatio = item.type === 'photo' ? photoBoxRatio(item) : item.ratio;
 
           return (
             <div
@@ -252,7 +331,7 @@ export function DiaryPaper({
                 left: `${item.x * 100}%`,
                 top: `${item.y * 100}%`,
                 width: `${item.w * 100}%`,
-                aspectRatio: `${1 / item.ratio}`,
+                aspectRatio: `${1 / boxRatio}`,
                 zIndex: item.z,
                 transform: `translate(-50%, -50%) rotate(${item.rotation}deg)`,
                 willChange: isDragging ? 'transform' : 'auto',
@@ -272,18 +351,7 @@ export function DiaryPaper({
                   draggable={false}
                 />
               )}
-              {item.type === 'photo' && item.src && (
-                <div className="w-full h-full p-1 bg-white shadow-sm border border-[var(--sd-line)] rounded-sm">
-                  <img
-                    src={item.src}
-                    alt="photo"
-                    className="w-full h-full object-cover pointer-events-none"
-                    loading="lazy"
-                    decoding="async"
-                    draggable={false}
-                  />
-                </div>
-              )}
+              {item.type === 'photo' && <PhotoBody item={item} />}
               {(item.type === 'tape' || item.type === 'stamp') && item.decorId && (
                 <DiaryDecor decorId={item.decorId} />
               )}

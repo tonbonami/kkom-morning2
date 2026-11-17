@@ -29,11 +29,11 @@ import {
   BUILTIN_SPECIALS, PracticeBlocked, addSpecialDate, applyMonthPatch, blankDiaryPage, clearDiaryDraft, deleteDiaryPhotos, deleteSpecialDate,
   diaryPageHasContent, diaryPageId, emptyMonthDeco, invertMonthPatch, loadDiaryPage, prepareDiaryPhoto, readDiaryDraft, saveDiaryDraft, saveDiaryPage,
   removeDiaryEvent, saveDiaryEvent, seedSpecialDates, specialsOn, subscribeDiaryMonth, subscribeDiaryMonthMeta, subscribeDiaryPage, subscribeSpecialDates, uploadDiaryPhoto,
-  writeDiaryMonthPatch, addDiaryNote, deleteDiaryNote, setDiaryHeart, subscribeDiaryNotes, type DiaryMeta, type DiaryNoteVM, type MonthDeco, type MonthPatch,
+  writeDiaryMonthPatch, addDiaryNote, deleteDiaryNote, setDiaryHeart, subscribeDiaryNotes, appPhotoFile, type AppPhotoVM, type DiaryMeta, type DiaryNoteVM, type MonthDeco, type MonthPatch,
 } from '@/lib/diary';
 import {
   DIARY_LIMITS, DIARY_PROMPTS, MONTH_LIMITS, type DiaryAssetVM, type DiaryChipVM, type DiaryEventDraft, type DiaryItemAction, type DiaryItemVM, type DiaryMonthCellVM, type DiaryPageVM,
-  type DiaryPaperTheme, type MonthOwner, type MonthStickerVM, type MonthTool, type Person, type SpecialDateVM,
+  type DiaryPaperTheme, type DiaryPhotoFrame, type DiaryPhotoSource, type MonthOwner, type MonthStickerVM, type MonthTool, type Person, type SpecialDateVM,
 } from '@/lib/diaryTypes';
 
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
@@ -58,6 +58,11 @@ const TABS = [
 ];
 const SPECIAL_STICKERS = [...ASSETS.uri.slice(0, 6), ...ASSETS.kkul.slice(0, 4), ...ASSETS.kkom.slice(0, 2)];
 const ratioOfDecor = (id?: string) => DECOR_ASSETS.find((d) => d.id === id)?.ratio ?? 1;
+/** 사진 여러 장을 넣을 때 놓는 자리(가운데·기울기) — 글 칸 위쪽은 비워 두고 종이 아래쪽 반에 흩어 놓는다. */
+const PHOTO_SLOTS = [
+  { x: 0.34, y: 0.5, rotation: -4 }, { x: 0.67, y: 0.58, rotation: 3 },
+  { x: 0.36, y: 0.78, rotation: 2 }, { x: 0.66, y: 0.84, rotation: -3 },
+];
 // 최근·즐겨찾기 스티커는 이 폰에만 둔다.
 const LS_RECENT = 'kk-diary-recent', LS_FAV = 'kk-diary-fav';
 const readIds = (k: string): string[] => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch { return []; } };
@@ -213,10 +218,11 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const removeNote = (id: string) => { deleteDiaryNote(date, owner, id).catch((e) => noteFail(e, '지우지')); };
   const topZ = Math.max(0, ...mine.items.map((i) => i.z));
 
-  const addItem = (it: Omit<DiaryItemVM, 'id' | 'z' | 'x' | 'y' | 'rotation'>, id = newId('i')) => {
+  const addItem = (it: Omit<DiaryItemVM, 'id' | 'z' | 'x' | 'y' | 'rotation'>, id = newId('i'), at?: { x: number; y: number; rotation: number }) => {
     if (!isMine || !readyRef.current) return null;
     if (mineRef.current.items.length >= DIARY_LIMITS.items) { say(`한 장에 ${DIARY_LIMITS.items}개까지 붙일 수 있어요`); return null; }
-    put((p) => ({ ...p, items: [...p.items, { ...it, id, x: 0.5, y: 0.5, rotation: 0, z: Math.max(0, ...p.items.map((i) => i.z)) + 1 }] }));
+    const pos = at ?? { x: 0.5, y: 0.5, rotation: 0 };
+    put((p) => ({ ...p, items: [...p.items, { ...it, id, ...pos, z: Math.max(0, ...p.items.map((i) => i.z)) + 1 }] }));
     setSel(id);
     return id;
   };
@@ -244,18 +250,22 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   };
 
   // 사진: 줄인 그림을 먼저 종이에 올리고(blob), 다 올라가면 진짜 주소로 바꾼다.
-  const pickPhotos = async (files: File[]) => {
+  //   꼼톡·추억에서 고른 사진도 같은 길 — 받아서 파일로 만든 뒤 다이어리 자리에 복사본을 올린다(원본이 지워져도 안 깨지게).
+  const placePhotos = async (picks: { file: File; source: DiaryPhotoSource }[]) => {
     if (!isMine || !readyRef.current) return;
     const room = DIARY_LIMITS.photos - mineRef.current.items.filter((i) => i.type === 'photo').length;
     if (room <= 0) { say(`사진은 한 장에 ${DIARY_LIMITS.photos}장까지예요`); return; }
-    if (files.length > room) say(`사진은 한 장에 ${DIARY_LIMITS.photos}장까지라 ${room}장만 올려요`);
+    if (picks.length > room) say(`사진은 한 장에 ${DIARY_LIMITS.photos}장까지라 ${room}장만 넣어요`);
     const startDate = date;
-    for (const f of files.slice(0, room)) {
+    // 여러 장이면 한가운데 겹쳐 쌓지 않고 스크랩처럼 살짝 기울여 흩어 놓는다(사진 칸 번호 = 이미 있는 사진 수).
+    const lone = picks.length === 1 && room === DIARY_LIMITS.photos;
+    for (const { file: f, source } of picks.slice(0, room)) {
       let prep: Awaited<ReturnType<typeof prepareDiaryPhoto>>;
       try { prep = await prepareDiaryPhoto(f); } catch { say('사진을 읽지 못했어요'); continue; }
       if (mineRef.current.date !== startDate) return;
       const local = URL.createObjectURL(prep.blob);
-      const id = addItem({ type: 'photo', src: local, w: 0.42, ratio: prep.ratio });
+      const slot = mineRef.current.items.filter((i) => i.type === 'photo').length;
+      const id = addItem({ type: 'photo', src: local, w: 0.42, ratio: prep.ratio, source }, newId('i'), lone ? undefined : PHOTO_SLOTS[slot % PHOTO_SLOTS.length]);
       if (!id) { URL.revokeObjectURL(local); return; }
       uploadDiaryPhoto(startDate, me, prep.blob).then(({ src, path }) => {
         const here = mineRef.current.date === startDate && mineRef.current.items.some((i) => i.id === id);
@@ -268,6 +278,33 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         say('사진을 올리지 못했어요. 잠시 뒤에 다시 해 주세요');
       });
     }
+  };
+  const pickPhotos = (files: File[]) => placePhotos(files.map((file) => ({ file, source: 'library' as const })));
+  const pickAppPhotos = async (list: AppPhotoVM[]) => {
+    if (!isMine || !readyRef.current || list.length === 0) return;
+    say(list.length > 1 ? `사진 ${list.length}장을 가져오는 중이에요` : '사진을 가져오는 중이에요');
+    const got = await Promise.all(list.map((p) => appPhotoFile(p).then((file) => ({ file, source: p.source })).catch(() => null)));
+    const ok = got.filter((x): x is { file: File; source: 'chat' | 'memories' } => !!x);
+    if (ok.length < list.length) say(ok.length ? `${list.length - ok.length}장은 가져오지 못했어요` : '사진을 가져오지 못했어요. 잠시 뒤에 다시 해 주세요');
+    if (ok.length) await placePhotos(ok);
+  };
+  // 고른 사진의 모양·글귀. 없음·동그라미에 글귀를 넣으면 보이게 폴라로이드로 바꾼다.
+  const setPhotoFrame = (frame: DiaryPhotoFrame) => {
+    if (!sel || !isMine) return;
+    put((p) => ({ ...p, items: p.items.map((i) => (i.id === sel && i.type === 'photo' ? { ...i, frame } : i)) }));
+  };
+  const setPhotoCaption = (text: string) => {
+    if (!sel || !isMine) return;
+    const t = text.trim().slice(0, DIARY_LIMITS.caption);
+    put((p) => ({
+      ...p,
+      items: p.items.map((i) => {
+        if (i.id !== sel || i.type !== 'photo') return i;
+        if (!t) { const { caption: _c, ...rest } = i; return rest; }
+        const f = i.frame ?? 'white';
+        return { ...i, caption: t, frame: f === 'none' || f === 'circle' ? 'polaroid' : f };
+      }),
+    }));
   };
 
   // ── 스티커 서랍(최근·즐겨찾기는 이 폰에) ──
@@ -551,6 +588,12 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         notes={notes}
         pageExists={isMine ? diaryPageHasContent(mine) : !!theirs}
         onToggleHeart={toggleHeart} onSendNote={sendNote} onDeleteNote={removeNote}
+        photoCount={isMine ? mine.items.filter((i) => i.type === 'photo').length : 0}
+        selectedItem={isMine && sel ? mine.items.find((i) => i.id === sel) ?? null : null}
+        onPickAppPhotos={(list) => void pickAppPhotos(list)}
+        onPhotoFull={() => say(`사진은 한 장에 ${DIARY_LIMITS.photos}장까지 넣을 수 있어요`)}
+        onPhotoFrame={setPhotoFrame}
+        onPhotoCaption={setPhotoCaption}
       />
       <DiaryAssetDrawer
         open={drawer && isMine} tabs={TABS} tab={tab} assets={assets} full={mine.items.length >= DIARY_LIMITS.items}
