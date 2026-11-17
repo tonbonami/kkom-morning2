@@ -1249,12 +1249,19 @@ export default function KkomMorningHome() {
                 return [cell];
               })}
             </div>
-            {/* 카드 배치 바꾸기 — 사이담과 동일 위치(그리드 하단) */}
-            <button onClick={() => setEditing(true)}
-              className="mt-1 inline-flex items-center justify-center gap-2 self-center px-4 py-2.5 rounded-full text-[13px] font-bold active:scale-95 transition-transform"
-              style={{ background: 'var(--sd-surface-2)', color: 'var(--sd-muted)' }}>
-              <LayoutGrid size={15} strokeWidth={2.3} /> 카드 배치 바꾸기
-            </button>
+            {/* 카드 배치 바꾸기 — 사이담과 동일 위치(그리드 하단). 옆에 「이모티콘 관리」(꼼톡 서랍 「관리」와 같은 화면 — 서랍을 안 열어 본 사람용 입구) */}
+            <div className="mt-1 flex items-center justify-center gap-2 self-center">
+              <button onClick={() => setEditing(true)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-[13px] font-bold active:scale-95 transition-transform"
+                style={{ background: 'var(--sd-surface-2)', color: 'var(--sd-muted)' }}>
+                <LayoutGrid size={15} strokeWidth={2.3} /> 카드 배치 바꾸기
+              </button>
+              <button onClick={() => router.push('/settings/emoticons')}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-[13px] font-bold active:scale-95 transition-transform"
+                style={{ background: 'var(--sd-surface-2)', color: 'var(--sd-muted)' }}>
+                <Smile size={15} strokeWidth={2.3} /> 이모티콘 관리
+              </button>
+            </div>
           </>
         )}
 

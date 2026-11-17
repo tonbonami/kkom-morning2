@@ -3,6 +3,9 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { calendarHref } from '@/lib/calendarLink';
+import DraggableTabs from './DraggableTabs';
+import EmoticonManager from './EmoticonManager';
+import { useEmoPrefs, withOrder, withoutHidden, CHAT_PACKS, OWN_PACKS, defaultPacks } from '@/lib/emoPrefs';
 import { flushSync } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard, Search, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -385,7 +388,8 @@ const INTENT_BY_ID = new Map(INTENTS.map((it) => [it.id, it]));
 const PREPARED = INTENTS.map((it) => ({ it, aliases: it.aliases.map(prepareAlias) }));
 
 // 내 캐릭터 먼저 — 우댕은 꿀됑·우댕 포차코, 꼼이는 꼼이 움짤·꼼이 포차코·미니에 작은 가산점.
-const OWN_MODES: Record<string, StickerMode[]> = { '우댕': ['kkul', 'kkulgif', 'dang'], '꼼이': ['gif', 'kkom', 'mini'] };
+//   목록은 lib/emoPrefs.ts OWN_PACKS(서랍 탭 앞자리와 같이 쓴다).
+const OWN_MODES = OWN_PACKS as Record<string, StickerMode[]>;
 
 // 입력칸 글의 「뜻 있는 낱말」 — 꾸밈(~ ! ? . … ♥ ♡ 이모지, ㅋㅋ·ㅎㅎ·ㅠㅠ·ㅜㅜ 두 글자 이상)은 낱말 끝에서 떼고, 꾸밈만인 낱말은 뺀다.
 //   「사랑해~~」 → [사랑해] · 「배고파 ㅠㅠ」 → [배고파] · 「ㅋㅋㅋ」 → [] · 「내사랑 꼼슌이 보고싶어」 → 3개.
@@ -460,18 +464,10 @@ const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
 // 카톡식 탭 — 최근·자주(🕒) + 세트별 탭. 아이콘은 '실제 스티커 대표 그림'(썸네일)이라
 //   어떤 세트인지 한눈에 보인다(윈도우 이모지 X). 포차코는 한 탭에 몰지 않고 기본/우댕/꼼이/커플로 분리.
 type StickerMode = 'recent' | 'gif' | 'kkul' | 'kkulgif' | 'uri' | 'maltipoo' | 'basic' | 'dang' | 'kkom' | 'couple' | 'mini';
+//   팩 목록은 lib/emoPrefs.ts CHAT_PACKS(이모티콘 관리 화면과 같이 쓴다). 「최근·자주」만 여기서 맨 앞에.
 const STICKER_TABS: { id: StickerMode; name: string; thumb?: string; icon?: string }[] = [
   { id: 'recent',   name: '최근·자주', icon: '🕒' },
-  { id: 'gif',      name: '움짤',      thumb: '/emo/sai-anim/love-still.png' },
-  { id: 'maltipoo', name: '말티푸',    thumb: '/emo/sai/kkk.webp' },
-  { id: 'basic',    name: '기본',      thumb: '/pochacco/face_happy.png' },
-  { id: 'dang',     name: '우댕',      thumb: '/pochacco_dang/cutekkomi.png' },
-  { id: 'kkom',     name: '꼼이',      thumb: '/pochacco_kkom/kkomiyap.png' },
-  { id: 'couple',   name: '커플',      thumb: '/pochacco_couple/love.png' },
-  { id: 'mini',     name: '미니',      thumb: '/emo/saidami/love.webp' },
-  { id: 'kkul',     name: '꿀됑',      thumb: '/emo/kkuldaeng/01-ggomsyun.webp' },   // 우댕 지시: 탭 맨 끝
-  { id: 'kkulgif',  name: '꿀됑 움짤', thumb: '/emo/sai-anim/kkul-euak-still.png' },  // 우댕 지시: 움짤은 탭 따로
-  { id: 'uri',      name: '우리',      thumb: '/emo/uri/03-love.webp' },               // 꿀됑+꼼이 커플 16종 — 맨 끝(2026-10-27)
+  ...(CHAT_PACKS as readonly { id: StickerMode; name: string; thumb: string }[]),
 ];
 
 // 최근·자주 쓴 이모티콘(기기별 localStorage). pick 할 때마다 기록.
@@ -892,6 +888,13 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   } as React.CSSProperties;
   const reduceMotion = useReducedMotion();
   const [stickerMode, setStickerMode] = useState<StickerMode>('recent');
+  // 이모티콘 관리(사이담 이식 2026-11-17) — 숨긴 팩은 고르는 자리(서랍·찾기·추천·짝 답장·★·자주·최근)에서만 빠진다.
+  //   ⚠️ 받은 이모티콘·지난 대화·글 속 (단어) 미니 그림(renderRich)은 이 설정을 보지 않는다 — 보게 하면 지난 대화가 바뀐다.
+  const emo = useEmoPrefs(me);
+  const hiddenPacks = useMemo(() => new Set(emo.prefs.hiddenSetIds), [emo.prefs.hiddenSetIds]);
+  const packShown = useCallback((m: StickerMode) => m === 'recent' || !hiddenPacks.has(m), [hiddenPacks]);
+  const [emoManage, setEmoManage] = useState(false);    // 서랍 안 「관리」 화면
+  const tabRowRef = useRef<HTMLDivElement | null>(null);
   // 최근·자주 쓴 이모티콘(기기별). 첫 탭이 이걸 보여주고, pick 할 때마다 기록된다.
   const [recentPicks, setRecentPicks] = useState<EmoPick[]>([]);
   const [freqPicks, setFreqPicks] = useState<Record<string, EmoPick & { count: number }>>({});
@@ -900,7 +903,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   const favIds = useMemo(() => new Set(favPicks.map(emoId)), [favPicks]);
   // 서랍 검색어 — 서랍을 닫으면 비운다.
   const [emoQuery, setEmoQuery] = useState('');
-  useEffect(() => { if (!stickerOpen) { setEmoQuery(''); setKwWord(null); } }, [stickerOpen]);
+  useEffect(() => { if (!stickerOpen) { setEmoQuery(''); setKwWord(null); setEmoManage(false); } }, [stickerOpen]);   // 서랍을 닫으면 관리 화면도 닫는다(다시 열면 남아 있었다 — 사이담)
   useEffect(() => {
     if (!me) return;
     try {
@@ -939,12 +942,16 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
     flashToast(had ? '즐겨찾기에서 뺐어' : '★ 즐겨찾기에 담았어');
   };
   // 내 캐릭터 탭 먼저 — 우댕은 꿀됑·꿀됑 움짤·우댕, 꼼이는 움짤·꼼이·미니(OWN_MODES). 「최근·자주」는 늘 맨 앞, 나머지는 원래 순서.
-  const stickerTabs = useMemo(() => {
-    const own = OWN_MODES[me] ?? [];
-    const rank = (id: StickerMode) => (id === 'recent' ? -1 : own.includes(id) ? own.indexOf(id) : 100 + STICKER_TABS.findIndex((t) => t.id === id));
-    return [...STICKER_TABS].sort((a, b) => rank(a.id) - rank(b.id));
-  }, [me]);
-  const frequentList = Object.values(freqPicks).sort((a, b) => b.count - a.count).slice(0, 8);
+  //   그 위에 내가 끌어 옮긴 순서(withOrder)를 입히고, 숨긴 팩을 뺀다. 「최근·자주」는 맨 앞 고정(끌 수 없음).
+  const packTabs = useMemo(() => defaultPacks(me) as { id: StickerMode; name: string; thumb: string }[], [me]);
+  const dragTabs = useMemo(() => withoutHidden(withOrder(packTabs, emo.prefs), emo.prefs), [packTabs, emo.prefs]);
+  const stickerTabs = useMemo(() => [STICKER_TABS[0], ...dragTabs], [dragTabs]);
+  // ★·자주·최근 — 기록은 그대로 두고 숨긴 팩만 화면에서 뺀다(다시 표시하면 돌아온다).
+  const favShown = favPicks.filter((p) => packShown(p.mode));
+  const recentShown = recentPicks.filter((p) => packShown(p.mode));
+  const frequentList = Object.values(freqPicks).filter((p) => packShown(p.mode)).sort((a, b) => b.count - a.count).slice(0, 8);
+  // 보던 탭의 팩을 숨기면 맨 앞 팩(없으면 「최근·자주」)으로.
+  useEffect(() => { if (!packShown(stickerMode)) setStickerMode(dragTabs[0]?.id ?? 'recent'); }, [packShown, stickerMode, dragTabs]);
   // 카톡식 추천 — 입력할 때마다 갱신(freqPicks 선언 뒤에 둬야 한다: 위에 두면 TDZ로 렌더가 죽는다).
   //   지금 치는 단어(자모 앞부분·초성·한 글자 단축키) + 문맥 + 내가 자주 쓴 것. 같은 점수면 직전 순서를 유지해 깜빡임을 줄인다.
   //   ⚠️ 2026-10-28 우댕 「추천이 불편해」(카톡 화면 비교): 글을 칠 때마다 입력바 위에 큰 추천 줄(112px)이 떠서 대화를 가렸고,
@@ -956,10 +963,12 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   const lastWord = ((w) => (/[()]/.test(w) ? '' : w))(meaningWords(draft).pop() ?? draft.trim().split(/\s+/).pop() ?? '');
   const prevSugOrder = useRef<string[]>([]);
   const wordSugs = useMemo(() => {
-    const out = lastWord ? computeSuggestions(lastWord, me, freqPicks, prevSugOrder.current, favIds) : [];
+    // 「입력할 때 이모티콘 추천」을 끄면 마지막 낱말을 아예 안 찾는다(입력칸 그림·추천 서랍 둘 다 없음). 숨긴 팩 그림은 빠진다.
+    const out = lastWord && emo.prefs.suggestionsEnabled
+      ? computeSuggestions(lastWord, me, freqPicks, prevSugOrder.current, favIds).filter((x) => packShown(x.mode)) : [];
     prevSugOrder.current = out.map((x) => x.image);
     return out;
-  }, [lastWord, me, freqPicks, favIds]);
+  }, [lastWord, me, freqPicks, favIds, emo.prefs.suggestionsEnabled, packShown]);
   // 단어로 서랍을 연 동안(카톡 「검색」) — 고른 이모티콘이 그 단어를 대신하므로 입력칸에서 뺀다.
   //   검색칸이 그 단어 그대로일 때만(다른 탭·다른 검색어에서 고르면 글은 그대로 — GPT 상의 2026-10-28).
   const [kwWord, setKwWord] = useState<string | null>(null);
@@ -1444,9 +1453,9 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   const searchHits = useMemo(() => {
     if (!emoQuery.trim()) return [];
     // 글 속 미니(누르면 입력칸에 (단어)로 들어감)는 맨 뒤 따로 — 미리보기가 뜨는 보통 이모티콘과 섞여 헷갈렸다(Aside 2026-10-28).
-    const hits = searchStickers(emoQuery, me, rankSnap.freq, rankSnap.fav);
+    const hits = searchStickers(emoQuery, me, rankSnap.freq, rankSnap.fav).filter((h) => packShown(h.mode));   // 숨긴 팩은 찾기에서도 빠진다
     return [...hits.filter((h) => h.mode !== 'mini'), ...hits.filter((h) => h.mode === 'mini')];
-  }, [emoQuery, me, rankSnap]);
+  }, [emoQuery, me, rankSnap, packShown]);
   // 서랍 칸 하나 — 탭=전송, 꾹(0.45초)·우클릭=★ 담기/빼기. 꾹 누른 뒤 손 뗄 때 오는 click은 삼킨다.
   //   이미지 길게 누르기의 아이폰 저장 메뉴(callout)·끌기는 막는다.
   //   ⚠️ fired는 어느 버튼이든 누를 때마다 지운다 — 예전엔 오른쪽 버튼이면 지우기 전에 빠져나가, 우클릭 ★가 첫 번째만 되고
@@ -1529,6 +1538,8 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
     }
     setPendingSticker({ image, thumb: thumb ?? image, isVideo: isVideoSrc(image), label, pick });
   };
+  // 미리보기에 올린 그림의 팩을 숨기면 미리보기도 내린다(숨긴 팩 그림이 그대로 나갔다 — 사이담).
+  useEffect(() => { if (pendingSticker?.pick && !packShown(pendingSticker.pick.mode)) cancelPendingSticker(); }, [packShown, pendingSticker]); // eslint-disable-line react-hooks/exhaustive-deps
   const cancelPendingSticker = () => {
     setPendingSticker(null);
     if (kwUndo && draft === kwUndo.after) {
@@ -2132,7 +2143,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
                             <div className="flex items-start pt-1">
                               {/* 짝 답장 — 상대 이모티콘에만. 누르면 입력줄 위에 같은 뜻의 내 캐릭터 이모티콘이 뜬다. */}
                               {!mine && m.sticker && (() => {
-                                const pairs = pairCandidates(m.sticker, me);
+                                const pairs = pairCandidates(m.sticker, me).filter((x) => packShown(x.mode));   // 숨긴 팩은 짝 답장에서도 빠진다
                                 return pairs.length > 0 ? (
                                   <MenuAction onClick={() => { setPairFrom({ id: m.id, items: pairs }); setActionMsg(null); setStickerOpen(false); }}
                                     label="짝 답장" icon={<Sparkles size={16} className="text-[#FB7BA8]" />} />
@@ -2497,26 +2508,59 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
                   </div>
                 ) : (
                   <>
-                    {/* 탭 — 실제 스티커 대표 그림(썸네일) 정사각. 최근·자주만 🕒. 선택 시 로즈 배경. 내 캐릭터 탭이 앞(stickerTabs). */}
-                    <div className="flex shrink-0 gap-1 mb-1.5 overflow-x-auto pb-0.5">
-                      {/* 맨 앞 🔍 — 누를 때만 찾기 글칸이 열린다(평소 서랍엔 글칸 없음) */}
-                      <button type="button" onClick={startEmoSearch} aria-label="이모티콘 찾기"
-                        className="shrink-0 grid h-11 w-11 place-items-center rounded-xl active:bg-black/5" style={{ color: 'var(--ct-label)' }}>
-                        <Search size={20} />
+                    {/* 탭 — 실제 스티커 대표 그림(썸네일) 정사각. 최근·자주만 🕒. 선택 시 로즈 배경. 내 캐릭터 탭이 앞(stickerTabs).
+                        팩 탭은 꾹(0.4초) 눌러 좌우로 끌면 순서가 바뀐다(카톡 — DraggableTabs). 「최근·자주」는 맨 앞 고정.
+                        ⚠️ 탭 줄(tabRowRef)은 relative 여야 한다 — 끌 때 탭 자리를 offsetLeft 로 잰다(사이담에서 한 칸만 움직이던 원인).
+                        오른쪽 끝(스크롤 밖) 「관리」 — 글자를 꼭 붙인다(아이콘만이면 필터·정렬로 읽혔다 — 사이담 Aside). */}
+                    <div className="mb-1.5 flex shrink-0 items-center gap-1">
+                      <div ref={tabRowRef} className="relative flex min-w-0 flex-1 gap-1 overflow-x-auto pb-0.5">
+                        {/* 맨 앞 🔍 — 누를 때만 찾기 글칸이 열린다(평소 서랍엔 글칸 없음) */}
+                        <button type="button" onClick={() => { setEmoManage(false); startEmoSearch(); }} aria-label="이모티콘 찾기"
+                          className="shrink-0 grid h-11 w-11 place-items-center rounded-xl active:bg-black/5" style={{ color: 'var(--ct-label)' }}>
+                          <Search size={20} />
+                        </button>
+                        <button onClick={() => { setEmoManage(false); setStickerMode('recent'); }} aria-pressed={stickerMode === 'recent' && !emoManage} aria-label="최근·자주 이모티콘"
+                          className={`shrink-0 grid h-11 w-11 place-items-center rounded-xl transition-colors ${stickerMode === 'recent' && !emoManage ? '' : 'active:bg-black/5'}`}
+                          style={stickerMode === 'recent' && !emoManage ? { background: 'var(--ct-tab-active)' } : undefined}>
+                          <span className="text-[20px]">🕒</span>
+                        </button>
+                        <DraggableTabs
+                          items={dragTabs} scrollRef={tabRowRef}
+                          labelOf={(st) => `${st.name} 이모티콘`}
+                          pressedOf={(st) => st.id === stickerMode && !emoManage}
+                          onPick={(st) => { setEmoManage(false); setStickerMode(st.id); }}
+                          onReorder={(ids) => { void emo.setOrder(ids).then((ok) => { if (!ok) flashToast('순서를 저장하지 못했어요'); }); }}
+                          renderTab={(st, { dragging }) => {
+                            const on = st.id === stickerMode && !emoManage;
+                            return (
+                              <span className={`grid h-11 w-11 place-items-center rounded-xl transition-colors ${on || dragging ? '' : 'active:bg-black/5'}`}
+                                style={on || dragging ? { background: 'var(--ct-tab-active)' } : undefined}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={st.thumb} alt="" draggable={false} className="pointer-events-none h-7 w-7 object-contain" />
+                              </span>
+                            );
+                          }}
+                        />
+                      </div>
+                      <button type="button" onClick={() => setEmoManage((v) => !v)} aria-pressed={emoManage}
+                        className="shrink-0 h-9 rounded-full px-3 text-[12.5px] font-bold active:scale-95 transition"
+                        style={emoManage ? { background: '#FB7BA8', color: '#fff' } : { background: 'var(--ct-tab-active)', color: 'var(--ct-label)' }}>
+                        {emoManage ? '완료' : '관리'}
                       </button>
-                      {stickerTabs.map((st) => {
-                        const on = st.id === stickerMode;
-                        return (
-                          <button key={st.id} onClick={() => setStickerMode(st.id)} aria-pressed={on} aria-label={`${st.name} 이모티콘`}
-                            className={`shrink-0 grid h-11 w-11 place-items-center rounded-xl transition-colors ${on ? '' : 'active:bg-black/5'}`}
-                            style={on ? { background: 'var(--ct-tab-active)' } : undefined}>
-                            {st.thumb
-                              ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={st.thumb} alt="" className="h-7 w-7 object-contain" />
-                              : <span className="text-[20px]">{st.icon}</span>}
-                          </button>
-                        );
-                      })}
                     </div>
+                    {emoManage ? (
+                      // 이모티콘 관리 — 팩마다 「서랍에 표시」, 「입력할 때 이모티콘 추천」, 「탭 순서 처음대로」(lib/emoPrefs.ts)
+                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-0.5">
+                        <EmoticonManager compact sets={packTabs.map((t) => ({ id: t.id, title: t.name, thumbnailUrl: t.thumb }))}
+                          prefs={emo.prefs} onShown={emo.setShown} onSuggestions={emo.setSuggestions} onResetOrder={emo.resetOrder} />
+                      </div>
+                    ) : dragTabs.length === 0 ? (
+                      // 전부 숨겼을 때 — 다시 켤 길을 바로 준다
+                      <div className="min-h-0 flex-1 py-8 text-center text-[12.5px] leading-relaxed" style={{ color: 'var(--ct-label)' }}>
+                        서랍에 표시한 이모티콘이 없어요.<br />
+                        <button type="button" onClick={() => setEmoManage(true)} className="mt-2 font-bold text-[#FB7BA8] underline underline-offset-2">이모티콘 관리 열기</button>
+                      </div>
+                    ) : (<>
                     {/* 선택된 탭 이름(어느 탭인지 힌트) + 오른쪽에 ★ 방법 */}
                     <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2 px-0.5 text-[12px] font-bold text-[color:var(--ct-label)]">
                       <span>{STICKER_TABS.find((t) => t.id === stickerMode)?.name}</span>
@@ -2525,14 +2569,14 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
 
                     <div className={`overflow-y-auto overscroll-contain ${searchEditing ? '' : 'min-h-0 flex-1'}`} style={searchEditing ? { maxHeight: '22vh' } : undefined}>
                       {stickerMode === 'recent' ? (
-                        (recentPicks.length === 0 && frequentList.length === 0 && favPicks.length === 0) ? (
+                        (recentShown.length === 0 && frequentList.length === 0 && favShown.length === 0) ? (
                           <div className="py-8 text-center text-[12.5px] leading-relaxed text-[#94A3B8]">아직 쓴 이모티콘이 없어요.<br />다른 탭에서 골라 써보면 여기 모여요 🐾<br />꾹 누르면 ★ 즐겨찾기로 맨 위에 둘 수 있어요</div>
                         ) : (
                           <div className="flex flex-col gap-3.5">
-                            {favPicks.length > 0 && (
+                            {favShown.length > 0 && (
                               <div>
                                 <h3 className="mb-1.5 text-[11px] font-bold text-[#FB7BA8]">★ 즐겨찾기</h3>
-                                <div className="grid grid-cols-4 gap-1.5">{favPicks.map((p) => emoCell(p, 'aspect-square'))}</div>
+                                <div className="grid grid-cols-4 gap-1.5">{favShown.map((p) => emoCell(p, 'aspect-square'))}</div>
                               </div>
                             )}
                             {frequentList.length > 0 && (
@@ -2543,10 +2587,10 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
                                 </div>
                               </div>
                             )}
-                            {recentPicks.length > 0 && (
+                            {recentShown.length > 0 && (
                               <div>
                                 <h3 className="mb-1.5 text-[11px] font-bold text-[color:var(--ct-label)]">🕒 최근 사용</h3>
-                                <div className="grid grid-cols-4 gap-1.5">{recentPicks.map((p) => emoCell(p, 'aspect-square'))}</div>
+                                <div className="grid grid-cols-4 gap-1.5">{recentShown.map((p) => emoCell(p, 'aspect-square'))}</div>
                               </div>
                             )}
                           </div>
@@ -2566,6 +2610,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
                         ))
                       )}
                     </div>
+                    </>)}
                   </>
                 )}
               </div>

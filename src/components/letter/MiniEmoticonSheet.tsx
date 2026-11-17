@@ -10,9 +10,11 @@ export interface MiniEmoticonSheetProps {
   items: { word: string; src: string }[];
   onPick: (word: string) => void;
   onClose: () => void;
+  /** 서랍에 표시한 미니가 없을 때 「이모티콘 관리 열기」(lib/emoPrefs.ts) */
+  onOpenManager?: () => void;
 }
 
-export function MiniEmoticonSheet({ open, items, onPick, onClose }: MiniEmoticonSheetProps) {
+export function MiniEmoticonSheet({ open, items, onPick, onClose, onOpenManager }: MiniEmoticonSheetProps) {
   const prefersReducedMotion = useReducedMotion();
 
   const variants = {
@@ -48,6 +50,14 @@ export function MiniEmoticonSheet({ open, items, onPick, onClose }: MiniEmoticon
             </motion.button>
           </div>
 
+          {items.length === 0 && (
+            <div className="px-4 py-8 text-center text-[13px] leading-relaxed text-[var(--sd-muted)]">
+              서랍에 표시한 이모티콘이 없어요.<br />
+              {onOpenManager && (
+                <button type="button" onClick={onOpenManager} className="mt-2 min-h-[44px] font-bold text-[var(--sd-rel)] underline underline-offset-2">이모티콘 관리 열기</button>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-5 gap-2 p-4">
             {items.map((item) => (
               <motion.button

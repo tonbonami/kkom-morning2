@@ -8,7 +8,8 @@ import { emoticonSetsFor, getEmoticonsByIds } from '@/lib/emoticons';
 import { signFor } from '@/lib/letterSign';
 import { ANIMATED_STICKERS, getAnimatedSticker } from '@/lib/animatedStickers';
 import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
-import { splitMini, miniItemsFor, insertMiniToken } from '@/lib/miniEmoticons';
+import { splitMini, miniItemsFor, insertMiniToken, SAIDAMI_STICKERS } from '@/lib/miniEmoticons';
+import { useEmoPrefs, withOrder, LETTER_SET_TO_PACK } from '@/lib/emoPrefs';
 import { formatKstLocale, kstParts } from '@/lib/kst';
 import { LetterComposeScreen, type LetterTool } from '@/components/letter/LetterComposeScreen';
 import { LetterEditor } from '@/components/letter/LetterEditor';
@@ -155,11 +156,20 @@ export default function NewLetterPage() {
 
   const selectedEmoticons = getEmoticonsByIds(selectedEmoticonIds);
   // 팩 탭 — 내 캐릭터 팩 먼저(emoticonSetsFor). 탭을 아직 안 눌렀으면 첫 팩.
-  const sheetSets = useMemo(() => emoticonSetsFor(me).map((set) => ({
-    id: set.id, title: set.title, thumbUrl: set.thumbnailUrl, animated: set.animated,
-    items: getEmoticonsByIds(set.emoticonIds).map((e) => ({ id: e.id, label: e.label, thumbUrl: e.thumbUrl ?? e.imageUrl })),
-  })), [me]);
-  const activeSheetSetId = activeEmoticonSetId || sheetSets[0]?.id || '';
+  //   이모티콘 관리(lib/emoPrefs.ts, 꼼톡과 같은 설정) — 숨긴 팩은 빼고, 꼼톡 서랍에서 끌어 정한 탭 순서를 입힌다.
+  //   ⚠️ 이미 담은 이모티콘·받은 편지의 그림은 그대로(getEmoticonsByIds 는 설정을 안 본다).
+  const emo = useEmoPrefs(me);
+  const sheetSets = useMemo(() => {
+    const all = emoticonSetsFor(me).map((set) => ({
+      id: set.id, title: set.title, thumbUrl: set.thumbnailUrl, animated: set.animated,
+      items: getEmoticonsByIds(set.emoticonIds).map((e) => ({ id: e.id, label: e.label, thumbUrl: e.thumbUrl ?? e.imageUrl })),
+    }));
+    const packOf = (id: string) => LETTER_SET_TO_PACK[id] ?? `letter:${id}`;   // 꼼톡에 없는 편지 팩(사랑 빠샤)은 관리 대상이 아니다
+    const shown = all.filter((s) => !emo.prefs.hiddenSetIds.includes(packOf(s.id)));
+    const ordered = withOrder(shown.map((s) => ({ ...s, id: packOf(s.id), setId: s.id })), emo.prefs);
+    return ordered.map(({ setId, ...s }) => ({ ...s, id: setId }));
+  }, [me, emo.prefs]);
+  const activeSheetSetId = sheetSets.some((s) => s.id === activeEmoticonSetId) ? activeEmoticonSetId : sheetSets[0]?.id || '';
   const mySign = signFor(me);
 
   const addEmoticon = (id: string) => {
@@ -224,7 +234,13 @@ export default function NewLetterPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<LetterTool | null>(null);
   const bodyParts = useMemo(() => splitMini(body, me), [body, me]);
-  const miniItems = useMemo(() => miniItemsFor(me), [me]);
+  // 미니 팩을 숨기면 꼼이미니는 빠지고 내 글자 스티커만 남는다(글 속 (단어) 그림 표시는 그대로 — splitMini 는 설정을 안 본다).
+  const miniItems = useMemo(() => {
+    const items = miniItemsFor(me);
+    if (!emo.prefs.hiddenSetIds.includes('mini')) return items;
+    const sai = new Set(SAIDAMI_STICKERS.map((s) => s.image));
+    return items.filter((i) => !sai.has(i.src));
+  }, [me, emo.prefs.hiddenSetIds]);
   const rememberSel = () => {
     const ta = taRef.current;
     if (ta) selRef.current = { start: ta.selectionStart ?? ta.value.length, end: ta.selectionEnd ?? ta.value.length };
@@ -332,7 +348,7 @@ export default function NewLetterPage() {
         onToolChange={setActiveTool}
         toolBadges={toolBadges}
         toolPanel={toolPanel}
-        miniSheet={<MiniEmoticonSheet open={miniOpen} items={miniItems} onPick={pickMini} onClose={closeMini} />}
+        miniSheet={<MiniEmoticonSheet open={miniOpen} items={miniItems} onPick={pickMini} onClose={closeMini} onOpenManager={() => router.push('/settings/emoticons')} />}
         error={error}
         canSend={canSend}
         sending={sending}
