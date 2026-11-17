@@ -13,7 +13,7 @@
  * ⚠️ 연습 모드(?practice=1)에서는 아무것도 쓰지 않는다(PracticeBlocked).
  * ⚠️ 장부·감시 금지 — 연속 기록·작성 횟수 같은 필드를 만들지 않는다.
  */
-import { db, storage } from './firebase';
+import { db, storage, usingEmulator } from './firebase';
 import {
   collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, writeBatch,
   serverTimestamp, deleteField, type DocumentData,
@@ -143,6 +143,66 @@ export async function saveDiaryPage(page: DiaryPageVM, baseRevision: number): Pr
   }, { merge: true });
   await batch.commit();
   return revision;
+}
+
+// ── 마음(♥)·한마디 ─────────────────────────────────────────────────────────
+// 우댕 2026-11-17 (꼼이 장을 보며): 「이거 내가 답글 남기거나 하트는 못해?」
+//   diaryPages/{장 id}/notes/{id}   { by, kind: 'heart'|'text', text, at }
+//   ♥ 는 사람마다 하나(문서 id heart_{udaeng|kkomi}) — 눌렀다 떼면 지운다. 한마디는 여러 개.
+// ⚠️ 장 주인이 아니어도 쓴다 — 장(content/main)은 건드리지 않고 아래 notes 에만 쓴다(주인의 장 저장과 안 부딪힌다).
+// ⚠️ 주인이 장을 비워서 장이 지워져도 notes 는 남는다 — 다시 쓰면 그대로 돌아온다.
+export interface DiaryNoteVM { id: string; by: Person; kind: 'heart' | 'text'; text: string; at: number }
+export const DIARY_NOTE_MAX = 300;
+const notesCol = (pageId: string) => collection(db, 'diaryPages', pageId, 'notes');
+const otherOf = (p: Person): Person => (p === '우댕' ? '꼼이' : '우댕');
+
+/** 그 장의 ♥·한마디(오래된 것 먼저). */
+export function subscribeDiaryNotes(date: string, owner: Person, cb: (n: DiaryNoteVM[]) => void): () => void {
+  return onSnapshot(notesCol(diaryPageId(date, owner)),
+    (snap) => {
+      const out: DiaryNoteVM[] = [];
+      snap.forEach((s) => {
+        const d = s.data({ serverTimestamps: 'estimate' });
+        if (d.by !== '우댕' && d.by !== '꼼이') return;
+        const kind = d.kind === 'heart' ? 'heart' : 'text';
+        const text = typeof d.text === 'string' ? d.text.slice(0, DIARY_NOTE_MAX) : '';
+        if (kind === 'text' && !text.trim()) return;
+        const at = typeof d.at?.toMillis === 'function' ? d.at.toMillis() : 0;
+        out.push({ id: s.id, by: d.by, kind, text, at });
+      });
+      cb(out.sort((a, b) => a.at - b.at));
+    },
+    (e) => { console.error('diary notes 구독 오류:', e); cb([]); });
+}
+
+/** 상대에게 알림(진짜 앱에서만 — 에뮬레이터·연습 모드는 안 보낸다). */
+function notifyDiary(body: { kind: 'heart' | 'text'; from: Person; date: string; owner: Person; text?: string }) {
+  if (usingEmulator || isPractice()) return;
+  fetch('/api/notify-diary', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, to: otherOf(body.from) }),
+  }).catch(() => {});
+}
+
+export async function setDiaryHeart(date: string, owner: Person, me: Person, on: boolean): Promise<void> {
+  if (blocked('다이어리 마음')) throw new PracticeBlocked();
+  const ref = doc(notesCol(diaryPageId(date, owner)), `heart_${PERSON_KEY[me]}`);
+  if (!on) { await deleteDoc(ref); return; }
+  await setDoc(ref, { by: me, kind: 'heart', text: '', at: serverTimestamp() });
+  notifyDiary({ kind: 'heart', from: me, date, owner });
+}
+
+export async function addDiaryNote(date: string, owner: Person, me: Person, text: string): Promise<void> {
+  const t = text.trim().slice(0, DIARY_NOTE_MAX);
+  if (!t) return;
+  if (blocked('다이어리 한마디')) throw new PracticeBlocked();
+  await setDoc(doc(notesCol(diaryPageId(date, owner))), { by: me, kind: 'text', text: t, at: serverTimestamp() });
+  notifyDiary({ kind: 'text', from: me, date, owner, text: t });
+}
+
+export async function deleteDiaryNote(date: string, owner: Person, id: string): Promise<void> {
+  if (blocked('다이어리 한마디 지우기')) throw new PracticeBlocked();
+  await deleteDoc(doc(notesCol(diaryPageId(date, owner)), id));
 }
 
 // ── 사진 ─────────────────────────────────────────────────────────────────

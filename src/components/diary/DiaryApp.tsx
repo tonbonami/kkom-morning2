@@ -29,7 +29,7 @@ import {
   BUILTIN_SPECIALS, PracticeBlocked, addSpecialDate, applyMonthPatch, blankDiaryPage, clearDiaryDraft, deleteDiaryPhotos, deleteSpecialDate,
   diaryPageHasContent, diaryPageId, emptyMonthDeco, invertMonthPatch, loadDiaryPage, prepareDiaryPhoto, readDiaryDraft, saveDiaryDraft, saveDiaryPage,
   removeDiaryEvent, saveDiaryEvent, seedSpecialDates, specialsOn, subscribeDiaryMonth, subscribeDiaryMonthMeta, subscribeDiaryPage, subscribeSpecialDates, uploadDiaryPhoto,
-  writeDiaryMonthPatch, type DiaryMeta, type MonthDeco, type MonthPatch,
+  writeDiaryMonthPatch, addDiaryNote, deleteDiaryNote, setDiaryHeart, subscribeDiaryNotes, type DiaryMeta, type DiaryNoteVM, type MonthDeco, type MonthPatch,
 } from '@/lib/diary';
 import {
   DIARY_LIMITS, DIARY_PROMPTS, MONTH_LIMITS, type DiaryAssetVM, type DiaryChipVM, type DiaryEventDraft, type DiaryItemAction, type DiaryItemVM, type DiaryMonthCellVM, type DiaryPageVM,
@@ -63,8 +63,9 @@ const LS_RECENT = 'kk-diary-recent', LS_FAV = 'kk-diary-fav';
 const readIds = (k: string): string[] => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch { return []; } };
 const writeIds = (k: string, ids: string[]) => { try { localStorage.setItem(k, JSON.stringify(ids)); } catch { /* */ } };
 
-export function DiaryApp({ me, initialDate, initialView, openAgenda, initialEventId, onExit }: {
+export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgenda, initialEventId, onExit }: {
   me: Person; initialDate?: string; initialView?: 'day' | 'month';
+  initialOwner?: Person;       // 누구 장부터 열지(다이어리 ♥·한마디 알림에서 올 때)
   openAgenda?: boolean;        // 월간으로 들어오면서 그날 시트까지 연다(알림·꼼톡 일정 카드에서 올 때)
   initialEventId?: string;     // 보러 온 일정 — 날짜가 안 왔으면 이 일정의 시작 날로 찾아간다
   onExit: () => void;
@@ -74,7 +75,7 @@ export function DiaryApp({ me, initialDate, initialView, openAgenda, initialEven
   const practice = useMemo(() => isPractice(), []);
 
   const [date, setDate] = useState(initialDate && /^\d{4}-\d\d-\d\d$/.test(initialDate) ? initialDate : TODAY);
-  const [owner, setOwner] = useState<Person>(me);
+  const [owner, setOwner] = useState<Person>(initialOwner ?? me);
   const [view, setView] = useState<'day' | 'month'>(initialView ?? 'day');
   const [mYm, setMYm] = useState(date.slice(0, 7));
   const [sel, setSel] = useState<string | null>(null);
@@ -196,6 +197,20 @@ export function DiaryApp({ me, initialDate, initialView, openAgenda, initialEven
 
   const isMine = owner === me;
   const page = isMine ? mine : theirs ?? blankDiaryPage(date, partner);
+
+  // ── ♥·한마디(보고 있는 장 아래) ──
+  const [notes, setNotes] = useState<DiaryNoteVM[]>([]);
+  useEffect(() => { setNotes([]); return subscribeDiaryNotes(date, owner, setNotes); }, [date, owner]);
+  const noteFail = (e: unknown, what: string) => { if (!(e instanceof PracticeBlocked)) say(`${what} 못했어요. 잠시 뒤 다시 해 주세요`); };
+  const toggleHeart = () => {
+    if (isMine) return;
+    const on = !notes.some((n) => n.kind === 'heart' && n.by === me);
+    setDiaryHeart(date, owner, me, on).catch((e) => noteFail(e, '마음을 남기지'));
+  };
+  const sendNote = async (text: string): Promise<boolean> => {
+    try { await addDiaryNote(date, owner, me, text); return true; } catch (e) { noteFail(e, '한마디를 남기지'); return false; }
+  };
+  const removeNote = (id: string) => { deleteDiaryNote(date, owner, id).catch((e) => noteFail(e, '지우지')); };
   const topZ = Math.max(0, ...mine.items.map((i) => i.z));
 
   const addItem = (it: Omit<DiaryItemVM, 'id' | 'z' | 'x' | 'y' | 'rotation'>, id = newId('i')) => {
@@ -518,6 +533,9 @@ export function DiaryApp({ me, initialDate, initialView, openAgenda, initialEven
         onAddMaterial={(m) => { if (isMine && m.kind === 'prompt') put((p) => ({ ...p, question: m.label })); }}
         onClearQuestion={() => { if (isMine) put((p) => { const { question: _q, ...rest } = p; return rest; }); }}
         onOpenSpecialDates={() => setSpecial(true)}
+        notes={notes}
+        pageExists={isMine ? diaryPageHasContent(mine) : !!theirs}
+        onToggleHeart={toggleHeart} onSendNote={sendNote} onDeleteNote={removeNote}
       />
       <DiaryAssetDrawer
         open={drawer && isMine} tabs={TABS} tab={tab} assets={assets} full={mine.items.length >= DIARY_LIMITS.items}

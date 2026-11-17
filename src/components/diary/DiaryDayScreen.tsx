@@ -24,6 +24,8 @@ import {
 import { DiaryPaper } from './DiaryPaper';
 import { DiaryObjectToolbar } from './DiaryObjectToolbar';
 import { DiaryMaterialTray } from './DiaryMaterialTray';
+import { DiaryNotes } from './DiaryNotes';
+import type { DiaryNoteVM } from '@/lib/diary';
 
 export interface DiaryDayScreenProps {
   me: Person;
@@ -52,6 +54,12 @@ export interface DiaryDayScreenProps {
   onAddMaterial: (m: DiaryMaterialVM) => void;
   onOpenSpecialDates: () => void;
   onClearQuestion?: () => void;
+  /** 이 장의 ♥·한마디(DiaryNotes) */
+  notes?: DiaryNoteVM[];
+  pageExists?: boolean;
+  onToggleHeart?: () => void;
+  onSendNote?: (text: string) => Promise<boolean>;
+  onDeleteNote?: (id: string) => void;
 }
 
 export function DiaryDayScreen({
@@ -81,6 +89,11 @@ export function DiaryDayScreen({
   onAddMaterial,
   onOpenSpecialDates,
   onClearQuestion,
+  notes,
+  pageExists,
+  onToggleHeart,
+  onSendNote,
+  onDeleteNote,
 }: DiaryDayScreenProps): React.JSX.Element {
   const [showMenu, setShowMenu] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -213,7 +226,7 @@ export function DiaryDayScreen({
 
         {!isEditable && (
           <p className="text-[11px] text-[var(--sd-faint)] mt-1">
-            {pageOwner}의 장 — 보기만 할 수 있어요
+            {pageExists ? `${pageOwner}의 장 — 아래에 마음·한마디를 남길 수 있어요` : `${pageOwner}의 장 — 보기만 할 수 있어요`}
           </p>
         )}
       </div>
@@ -236,6 +249,13 @@ export function DiaryDayScreen({
 
       {/* 하단 제어부 (내 장일 때만 꾸미기 단추 노출) */}
       <footer className="px-4 pb-3 pt-1 space-y-2 z-30">
+        {notes && onToggleHeart && onSendNote && onDeleteNote && !selectedItemId && (
+          <DiaryNotes
+            me={me} pageOwner={pageOwner} notes={notes} pageExists={!!pageExists}
+            onToggleHeart={onToggleHeart} onSend={onSendNote} onDelete={onDeleteNote}
+          />
+        )}
+
         {isEditable && isToday && (
           <DiaryMaterialTray materials={materials} onAdd={onAddMaterial} />
         )}
