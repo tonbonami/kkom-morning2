@@ -321,7 +321,8 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     setView('month'); setMYm(e.startDate.slice(0, 7)); setAgendaDate(e.startDate);
   }, [events, initialEventId]);
   const [upOpen, setUpOpen] = useState(false);
-  const [evEdit, setEvEdit] = useState<{ id?: string; draft: DiaryEventDraft; backTo: string | null } | null>(null);
+  // fromSpanId — 장식 띠를 일정으로 바꾸는 중(일정이 저장되면 그 장식 띠를 뗀다. 취소하면 띠는 그대로)
+  const [evEdit, setEvEdit] = useState<{ id?: string; draft: DiaryEventDraft; backTo: string | null; fromSpanId?: string } | null>(null);
   const [evSaving, setEvSaving] = useState(false);
   const openNewEvent = (d: string, backTo: string | null) => { setAgendaDate(null); setEvEdit({ draft: blankEventDraft(d, mOwner), backTo }); };
   const openEvent = (id: string, backTo: string | null) => {
@@ -334,8 +335,12 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     const norm = normalizeEventDraft(evEdit.draft);
     if (!norm) { say('제목을 적어 주세요'); return; }
     setEvSaving(true);
+    const fromSpan = evEdit.fromSpanId;
     saveDiaryEvent(norm, me, evEdit.id)
-      .then(() => closeEvent(evEdit.id ? '일정을 고쳤어요' : '일정을 넣었어요'))
+      .then(() => {
+        if (fromSpan && deco.spans.some((k) => k.id === fromSpan)) patchMonth({ kind: 'span', id: fromSpan, span: null });
+        closeEvent(evEdit.id ? '일정을 고쳤어요' : fromSpan ? '장식 띠를 일정으로 바꿨어요' : '일정을 넣었어요');
+      })
       .catch((e) => { if (e instanceof PracticeBlocked) closeEvent('연습 모드라 저장하지 않았어요'); else { setEvSaving(false); say('저장하지 못했어요. 잠시 뒤에 다시 해 주세요'); } });
   };
   const deleteEvent = () => {
@@ -478,6 +483,11 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
           }}
           onDelete={() => { const e = spanEdit!; if (e.id) patchMonth({ kind: 'span', id: e.id, span: null }, '장식 띠를 뗐어요'); setSpanEdit(null); }}
           onClose={() => setSpanEdit(null)}
+          onMakeEvent={(val) => {
+            const e = spanEdit!;
+            setSpanEdit(null); setMMode('view'); setSpanStart(null);
+            setEvEdit({ draft: { ...blankEventDraft(e.start, mOwner, e.end), title: val.label, decorId: val.decorId }, backTo: null, ...(e.id ? { fromSpanId: e.id } : {}) });
+          }}
         />
         <DiaryDayAgendaSheet
           open={!!agendaDate} dateLabel={agendaDate ? labelOf(agendaDate) : ''} holiday={agendaDate ? holidayName(agendaDate) : null}

@@ -38,9 +38,9 @@ export function specialsOn(date: string, specials: SpecialDateVM[]): MonthSpecia
 
 /**
  * 한 달의 띠 조각과 칸별 일정 요약.
- *   · 여러 날 일정 = 일정 띠: 주마다 **윗줄 한 줄**만. 겹쳐서 못 그린 것은 그 날짜들의 「+N」으로.
- *   · 장식 띠: 빈 데로(윗줄 → 아랫줄). 두 줄이 다 차 있으면 안 그린다(꾸미기라 「+N」에 안 센다).
- *   · 하루짜리 일정 = 칸의 주인 색 점(최대 2) + 나머지는 「+N」.
+ *   · 일정은 전부 띠로 — 여러 날 일정이 먼저, 하루짜리(시간 순)가 다음. 두 줄(윗줄 → 아랫줄)까지, 못 그린 것은 그 날짜의 「+N」으로.
+ *     우댕 2026-11-18: 「이전에 등록해둔 일정은 점으로 보이잖아. 김희진 결혼식 들어가서 봐야하고」 → 하루짜리도 점 대신 제목이 보이는 한 칸 띠.
+ *   · 장식 띠: 일정이 쓰고 남은 줄에(윗줄 → 아랫줄). 자리가 없으면 안 그린다(꾸미기라 「+N」에 안 센다).
  *   · 제목은 띠의 첫 조각에만(첫 조각이 한 칸뿐이고 다음 주로 이어지면 다음 조각에).
  */
 export function buildMonthBands(ym: string, events: CalendarEvent[], spans: MonthSpanVM[]): { bands: MonthBandSegVM[]; cellEvents: Record<string, MonthCellEventsVM> } {
@@ -50,6 +50,10 @@ export function buildMonthBands(ym: string, events: CalendarEvent[], spans: Mont
   const multi: Raw[] = events
     .filter((e) => e.startDate !== e.endDate && inGrid(e.startDate, e.endDate))
     .sort((a, b) => a.startDate.localeCompare(b.startDate) || b.endDate.localeCompare(a.endDate))
+    .map((e) => ({ id: e.id, kind: 'event' as const, start: e.startDate, end: e.endDate, label: e.title, owner: e.owner, decorId: e.decorId }));
+  const single: Raw[] = events
+    .filter((e) => e.startDate === e.endDate && inGrid(e.startDate, e.endDate))
+    .sort((a, b) => a.startDate.localeCompare(b.startDate) || (a.startTime || '99').localeCompare(b.startTime || '99'))
     .map((e) => ({ id: e.id, kind: 'event' as const, start: e.startDate, end: e.endDate, label: e.title, owner: e.owner, decorId: e.decorId }));
   const decor: Raw[] = spans
     .filter((s) => s.startDate <= s.endDate && inGrid(s.startDate, s.endDate))
@@ -78,7 +82,8 @@ export function buildMonthBands(ym: string, events: CalendarEvent[], spans: Mont
       }
       if (r.kind === 'event') for (let c = col; c <= endCol; c++) { const d = addDaysYmd(ws, c); hidden[d] = (hidden[d] ?? 0) + 1; }
     };
-    for (const r of multi) place(r, [0]);
+    for (const r of multi) place(r, [0, 1]);
+    for (const r of single) place(r, [0, 1]);
     for (const r of decor) place(r, [0, 1]);
   }
   // 제목 자리
@@ -89,15 +94,9 @@ export function buildMonthBands(ym: string, events: CalendarEvent[], spans: Mont
     (segs[0].span === 1 && segs[1] && segs[1].span >= 2 ? segs[1] : segs[0]).showLabel = true;
   }
 
-  const singles: Record<string, CalendarEvent[]> = {};
-  for (const e of events) if (e.startDate === e.endDate && inGrid(e.startDate, e.endDate)) (singles[e.startDate] ??= []).push(e);
+  // 칸 머리에는 띠로 못 그린 일정 수(「+N」)만 — 점은 이제 안 찍는다(일정이 다 띠로 보인다).
   const cellEvents: Record<string, MonthCellEventsVM> = {};
-  for (let i = 0; i < 42; i++) {
-    const d = addDaysYmd(gridStart, i);
-    const list = (singles[d] ?? []).sort((a, b) => (a.startTime || '99').localeCompare(b.startTime || '99'));
-    const more = Math.max(0, list.length - 2) + (hidden[d] ?? 0);
-    if (list.length || more) cellEvents[d] = { owners: list.slice(0, 2).map((e) => e.owner), more };
-  }
+  for (const [d, n] of Object.entries(hidden)) if (n > 0) cellEvents[d] = { owners: [], more: n };
   return { bands, cellEvents };
 }
 

@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Check, Trash2 } from 'lucide-react';
+import { X, Check, Trash2, CalendarPlus } from 'lucide-react';
 import { DiaryDecor } from './DiaryDecor';
 
 export interface DiaryMonthSpanSheetProps {
@@ -14,6 +14,8 @@ export interface DiaryMonthSpanSheetProps {
   onSave: (v: { label: string; decorId: string }) => void;
   onDelete?: () => void;
   onClose: () => void;
+  /** 이 띠를 진짜 일정으로(알림·다가오는 일정에 나오게). 우댕 2026-11-18 「장식띠로 꾸며서 일정 적은것은 일정으로 기억 못하는거야?」 */
+  onMakeEvent?: (v: { label: string; decorId: string }) => void;
 }
 
 export function DiaryMonthSpanSheet({
@@ -25,6 +27,7 @@ export function DiaryMonthSpanSheet({
   onSave,
   onDelete,
   onClose,
+  onMakeEvent,
 }: DiaryMonthSpanSheetProps): React.JSX.Element | null {
   const [label, setLabel] = useState(value.label);
   const [decorId, setDecorId] = useState(value.decorId || tapeIds[0] || 'tape-honey');
@@ -135,9 +138,23 @@ export function DiaryMonthSpanSheet({
               className="flex-1 min-h-[44px] rounded-xl bg-[var(--sd-ink)] text-white text-sm font-medium flex items-center justify-center gap-1 active:opacity-90 disabled:opacity-40"
             >
               <Check className="w-4 h-4" />
-              붙이기
+              {canDelete ? '장식으로 두기' : '장식으로 붙이기'}
             </button>
           </div>
+
+          {onMakeEvent && (
+            <button
+              type="button"
+              onClick={() => onMakeEvent({ label: label.trim(), decorId })}
+              className="w-full min-h-[44px] rounded-xl border border-[var(--sd-line)] bg-[var(--sd-surface-2)] text-sm font-medium text-[var(--sd-ink)] flex flex-col items-center justify-center py-1.5 active:opacity-80"
+            >
+              <span className="flex items-center gap-1">
+                <CalendarPlus className="w-4 h-4" />
+                {canDelete ? '일정으로 바꾸기' : '일정으로 넣기'}
+              </span>
+              <span className="text-[11px] font-normal text-[var(--sd-muted)]">일정이 되면 알림·다가오는 일정에도 나와요</span>
+            </button>
+          )}
         </form>
       </div>
     </div>

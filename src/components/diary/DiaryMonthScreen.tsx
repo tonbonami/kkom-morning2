@@ -361,7 +361,7 @@ export function DiaryMonthScreen({
                             backgroundColor: ownerStyle ? ownerStyle.band : undefined,
                             borderLeftColor: ownerStyle ? ownerStyle.dot : undefined,
                           }}
-                          className={`absolute h-[11px] overflow-hidden px-1 flex items-center select-none ${cornerClasses} ${
+                          className={`absolute h-[11px] overflow-hidden ${b.span === 1 ? 'px-[3px]' : 'px-1'} flex items-center select-none ${cornerClasses} ${
                             isEvent
                               ? `border-l-[2.5px] ${
                                   isDecorate
