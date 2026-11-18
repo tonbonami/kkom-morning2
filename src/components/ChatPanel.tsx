@@ -10,6 +10,7 @@ import { flushSync } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard, Search, ChevronLeft, ChevronRight, History, ChevronDown } from 'lucide-react';
 import ChatHistorySheet from './ChatHistorySheet';
+import { linkKindOf, linkSubline, normalizePreview } from '@/lib/linkPreview';
 import { saveMedia } from '@/lib/saveMedia';
 import { firstUrl, youTubeId } from '@/lib/links';
 import { igPost } from '@/lib/instagram';
@@ -664,12 +665,13 @@ function BigMinis({ srcs }: { srcs: string[] }) {
 // 채팅 속 링크 인라인 미리보기 카드 — 유튜브·인스타 등. og-preview 결과를 모듈 캐시에 담아 재스크롤 시 재요청 X.
 //   인스타는 세로 사진(게시물 4:5, 릴스 9:16)이라 16:9로 자르면 반 넘게 잘린다 → 4:5 틀.
 //   인스타 썸네일은 서버가 미리보기 봇으로 받아와야 해서 1초쯤 걸린다 → 그동안 같은 크기 자리를 먼저 깔아 카드가 안 튄다.
-const ogCache = new Map<string, { title?: string; image?: string; site?: string }>();
+// 네이버 장소는 가게 카드처럼 「분류 · 동네 · 리뷰 n」 + 「네이버 지도」(lib/linkPreview — 우댕 11/18 공유 리스트와 같이). 긴 주소는 안 보인다.
+const ogCache = new Map<string, { title?: string; image?: string; site?: string; sub2?: string }>();
 function LinkPreview({ url, mine }: { url: string; mine: boolean }) {
   const ytId = youTubeId(url);
   const ig = igPost(url);
   const host = (() => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } })();
-  const [meta, setMeta] = useState<{ title?: string; image?: string; site?: string }>(() =>
+  const [meta, setMeta] = useState<{ title?: string; image?: string; site?: string; sub2?: string }>(() =>
     ogCache.get(url) ?? (ytId ? { image: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`, site: 'YouTube' } : {}));
   const [loading, setLoading] = useState(() => !ogCache.has(url));
   useEffect(() => {
@@ -679,12 +681,16 @@ function LinkPreview({ url, mine }: { url: string; mine: boolean }) {
       try {
         const r = await fetch(`/api/og-preview?url=${encodeURIComponent(url)}`);
         if (!r.ok) return;
-        const j = (await r.json()) as { title?: string; image?: string; siteName?: string; error?: string };
-        if (j.error) return;
+        const pv = normalizePreview(await r.json());
+        if (!pv) return;
+        const isPlace = linkKindOf(url, pv) === 'place';
         const m = {
-          title: j.title,
-          image: j.image || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined),
-          site: j.siteName || host,
+          title: pv.title || pv.place?.name,
+          image: pv.image || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined),
+          site: isPlace
+            ? [linkSubline(url, pv), typeof pv.place?.reviews === 'number' ? `리뷰 ${pv.place.reviews.toLocaleString('ko-KR')}` : ''].filter(Boolean).join(' · ')
+            : pv.siteName || host,
+          ...(isPlace ? { sub2: '네이버 지도' } : {}),
         };
         ogCache.set(url, m);
         if (alive) setMeta(m);
@@ -715,9 +721,10 @@ function LinkPreview({ url, mine }: { url: string; mine: boolean }) {
       <div className="px-3 py-2">
         <div className="text-[13px] font-bold text-slate-800 dark:text-[#E8E2D8] break-keep"
           style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {meta.title || (ig ? 'Instagram 게시물' : url)}
+          {meta.title || (ig ? 'Instagram 게시물' : host || '링크')}
         </div>
         <div className="mt-0.5 truncate text-[11px] text-slate-400">{meta.site || (ig ? 'Instagram' : host)}</div>
+        {meta.sub2 && <div className="truncate text-[10px] text-slate-300">{meta.sub2}</div>}
       </div>
     </a>
   );

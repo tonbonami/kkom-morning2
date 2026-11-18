@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { normalizePreview, hostOf, type LinkPreview } from '@/lib/linkPreview';
 
 function youTubeId(url: string): string | null {
   try {
@@ -32,39 +33,29 @@ export async function POST(req: NextRequest) {
 
   const from = body.from === '우댕' || body.from === '꼼이' ? body.from : '';
 
-  // 메타 — 같은 서버의 og-preview 재사용(유튜브 oEmbed 포함). 실패해도 URL은 저장.
-  const meta: { title?: string; image?: string; site?: string } = {};
-  const yt = youTubeId(url);
-  if (yt) meta.image = `https://img.youtube.com/vi/${yt}/hqdefault.jpg`; // 즉시 폴백 썸네일
+  // 메타 — 같은 서버의 og-preview 재사용(유튜브 oEmbed·네이버 장소 포함). 실패해도 URL은 저장.
+  //   예전엔 title·image·siteName 셋만 옮겨서 네이버 장소의 분류·동네·리뷰가 버려졌다 → 공통 normalizePreview 로 다 보존(11/18).
+  let preview: LinkPreview = { version: 2 };
   try {
     const r = await fetch(new URL(`/api/og-preview?url=${encodeURIComponent(url)}`, req.nextUrl.origin), {
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(9000),
     });
-    if (r.ok) {
-      const j = (await r.json()) as { title?: string; image?: string; siteName?: string; error?: string };
-      if (!j.error) {
-        if (j.title) meta.title = j.title;
-        if (j.image) meta.image = j.image;
-        if (j.siteName) meta.site = j.siteName;
-      }
-    }
+    if (r.ok) preview = normalizePreview(await r.json()) ?? preview;
   } catch { /* 메타 실패 무시 */ }
-  if (!meta.site) { try { meta.site = new URL(url).hostname.replace(/^www\./, ''); } catch {} }
+  const yt = youTubeId(url);
+  if (yt && !preview.image) preview.image = `https://img.youtube.com/vi/${yt}/hqdefault.jpg`; // 폴백 썸네일
+  if (!preview.siteName) { const h = hostOf(url); if (h) preview.siteName = h; }
 
-  // '공유 리스트'(shareList) 스키마로 저장 — preview{title,image,siteName} + by/seenBy.
+  // '공유 리스트'(shareList) 스키마로 저장 — preview(LinkPreview) + by/seenBy.
   // (예전엔 별도 'links'(이거봐봐)에 저장했는데, 공유 리스트와 이원화돼 헷갈려서 shareList로 통합.)
-  const preview: Record<string, unknown> = {};
-  if (meta.title) preview.title = meta.title;
-  if (meta.image) preview.image = meta.image;
-  if (meta.site) preview.siteName = meta.site;
   const payload: Record<string, unknown> = {
     url, by: from, seenBy: from ? [from] : [], createdAt: serverTimestamp(),
   };
-  if (Object.keys(preview).length) payload.preview = preview;
+  payload.preview = JSON.parse(JSON.stringify(preview));
 
   try {
     await addDoc(collection(db, 'shareList'), payload);
-    return NextResponse.json({ ok: true, saved: { url, title: meta.title ?? null } });
+    return NextResponse.json({ ok: true, saved: { url, title: preview.title ?? null } });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 200 });
   }

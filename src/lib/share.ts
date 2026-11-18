@@ -11,12 +11,12 @@ import {
   arrayUnion,
   type DocumentData,
 } from 'firebase/firestore';
-import { fetchOgPreview, type WishPreview } from './wishlist';
+import { fetchLinkPreview, LINK_PREVIEW_VERSION, type LinkPreview } from './linkPreview';
 
 // Firestore 스키마
 export interface ShareDoc {
   url: string;
-  preview?: WishPreview;
+  preview?: LinkPreview;
   memo?: string;
   by: '우댕' | '꼼이';
   seenBy: ('우댕' | '꼼이')[];
@@ -29,7 +29,7 @@ export interface ShareDoc {
 export interface ShareItemView {
   id: string;
   url: string;
-  preview?: WishPreview;
+  preview?: LinkPreview;
   memo?: string;
   by: '우댕' | '꼼이';
   seenBy: ('우댕' | '꼼이')[];
@@ -68,17 +68,19 @@ export function subscribeShareList(cb: (items: ShareItemView[]) => void): () => 
   );
 }
 
-// 추가 — URL OG 미리보기 같이 저장. 본인은 자동으로 seenBy에 포함.
+// 추가 — 미리보기 같이 저장(종류·장소 정보까지, version 2). 본인은 자동으로 seenBy에 포함.
+//   추가 시트가 이미 받은 미리보기를 넘기면 그걸 쓴다(같은 주소를 두 번 받지 않게 — GPT 회의 11/18).
 export async function addShare(input: {
   url: string;
   memo?: string;
   by: '우댕' | '꼼이';
+  preview?: LinkPreview | null;
 }): Promise<string> {
-  let preview: WishPreview | undefined;
-  try {
-    const og = await fetchOgPreview(input.url);
-    if (og) preview = og;
-  } catch {}
+  let preview: LinkPreview | undefined = input.preview ?? undefined;
+  if (!preview) {
+    try { preview = (await fetchLinkPreview(input.url)) ?? undefined; } catch {}
+  }
+  if (preview) preview = JSON.parse(JSON.stringify({ ...preview, version: LINK_PREVIEW_VERSION })) as LinkPreview;   // undefined 칸 걷기(Firestore)
 
   const payload: DocumentData = {
     url: input.url,

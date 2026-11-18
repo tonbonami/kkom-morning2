@@ -3,19 +3,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
-  ArrowLeft, Plus, Sparkles, X, Loader2, Trash2, Link as LinkIcon, ExternalLink, MessageCircle
+  ArrowLeft, Plus, Sparkles, X, Loader2, Trash2, ExternalLink, MessageCircle, MapPin, Play, Image as ImageIcon, FileText, Globe,
 } from 'lucide-react';
 import HeartButton from '@/components/HeartButton';
+import { LINK_ACTION, linkKindOf, linkSubline, linkTitle, type LinkKind, type LinkPreview } from '@/lib/linkPreview';
 
 export interface ShareItem {
   id: string;
   url: string;
-  preview?: {
-    title?: string;
-    description?: string;
-    image?: string;
-    siteName?: string;
-  };
+  preview?: LinkPreview;
   memo?: string;
   by: '우댕' | '꼼이';
   createdAt: Date;
@@ -28,12 +24,14 @@ interface Props {
   me: '우댕' | '꼼이';
   items: ShareItem[];
   onBack: () => void;
-  onAdd: (draft: { url: string; memo?: string }) => Promise<void>;
+  onAdd: (draft: { url: string; memo?: string; preview?: LinkPreview | null }) => Promise<void>;
   onOpen: (item: ShareItem) => void;
   onDelete: (id: string) => Promise<void>;
-  fetchPreview: (url: string) => Promise<{ title?: string; description?: string; image?: string; siteName?: string } | null>;
+  fetchPreview: (url: string) => Promise<LinkPreview | null>;
   onHeart?: (id: string) => void;
   onOpenComments?: (item: ShareItem) => void;
+  /** 바깥에서 열기 단추로 봤을 때(새로 왔어요 지우기) */
+  onSeen?: (item: ShareItem) => void;
 }
 
 // 상대시간 포맷팅 헬퍼
@@ -52,16 +50,43 @@ function formatRelativeTime(date: Date) {
   return `${date.getMonth() + 1}월 ${date.getDate()}일`;
 }
 
+// 그림이 없을 때 — 회색 사슬(「고장 난 링크」처럼 보임) 대신 종류 타일. 새 그림 없이 아이콘·색만(GPT 회의 11/18).
+//   ⚠️ 네이버 지도 로고·N 핀은 쓰지 않는다(우댕: 「사진도 네이버 지도 사진…」).
+const TILE: Record<LinkKind, { bg: string; fg: string; Icon: typeof MapPin }> = {
+  place: { bg: '#E6F7F1', fg: '#10B981', Icon: MapPin },
+  youtube: { bg: '#FDECEC', fg: '#EF4444', Icon: Play },
+  instagram: { bg: '#FCE7F3', fg: '#DB2777', Icon: ImageIcon },
+  blog: { bg: '#ECFDF5', fg: '#059669', Icon: FileText },
+  web: { bg: '#F1F5F9', fg: '#64748B', Icon: Globe },
+};
+function KindTile({ kind, label, className }: { kind: LinkKind; label?: string; className: string }) {
+  const t = TILE[kind];
+  return (
+    <div className={`${className} flex flex-col items-center justify-center gap-1.5 px-3`} style={{ background: t.bg, color: t.fg }}>
+      <t.Icon size={28} strokeWidth={1.8} />
+      {label && <span className="max-w-full text-[13px] font-bold text-center line-clamp-1">{label}</span>}
+    </div>
+  );
+}
+
 // 개별 카드 컴포넌트 (제스처, 힌트 로직 캡슐화)
 function ShareCard({
-  item, me, index, onOpen, onDelete, onHeart, onOpenComments
+  item, me, index, onOpen, onDelete, onHeart, onOpenComments, onSeen
 }: {
   item: ShareItem; me: '우댕' | '꼼이'; index: number;
   onOpen: (item: ShareItem) => void; onDelete: (id: string) => void;
   onHeart?: (id: string) => void; onOpenComments?: (item: ShareItem) => void;
+  onSeen?: (item: ShareItem) => void;
 }) {
   const isFirst = index === 0;
   const isNew = !item.seenBy.includes(me);
+  const p = item.preview;
+  const kind = linkKindOf(item.url, p);
+  const title = linkTitle(item.url, p);
+  const sub0 = linkSubline(item.url, p);
+  const sub = sub0 !== title ? sub0 : '';   // 제목이 없어 주소가 제목이 된 카드는 같은 줄을 두 번 안 쓴다
+  const [imgOk, setImgOk] = useState(true);
+  const img = imgOk && p?.image && !/og-map/i.test(p.image) ? p.image : undefined;   // 옛 문서의 지도 로고는 안 그린다
   const controls = useAnimation();
   const [showHint, setShowHint] = useState(isFirst);
 
@@ -114,39 +139,54 @@ function ShareCard({
           </motion.div>
         )}
 
-        {/* Thumbnail (OG Image) */}
-        {item.preview?.image ? (
-          <div className="w-full aspect-[2/1] relative overflow-hidden bg-slate-100">
-            <img
-              src={item.preview.image}
-              alt={item.preview.title || "Preview"}
-              className="w-full h-full object-cover"
-              draggable={false}
-            />
-          </div>
+        {/* 링크 종류별 카드(우댕 11/18 「긴 의미 없는 주소」「네이버 지도 사진」 → GPT 회의). 긴 주소는 어디에도 안 보인다. */}
+        {(kind === 'youtube' || kind === 'place') ? (
+          <>
+            {img ? (
+              <div className="w-full aspect-video relative overflow-hidden bg-slate-100">
+                <img src={img} alt="" className="w-full h-full object-cover" draggable={false} onError={() => setImgOk(false)} />
+                {kind === 'youtube' && (
+                  <span className="absolute inset-0 grid place-items-center">
+                    <span className="grid h-12 w-12 place-items-center rounded-full bg-black/55"><Play size={20} fill="white" className="ml-0.5 text-white" /></span>
+                  </span>
+                )}
+              </div>
+            ) : (
+              <KindTile kind={kind} label={kind === 'place' ? title : undefined} className="w-full h-32" />
+            )}
+            <div className="px-5 pt-4 flex flex-col">
+              <h3 className="text-[16px] font-bold text-slate-800 line-clamp-2 leading-snug break-keep">{title}</h3>
+              {sub && <p className="text-[13px] text-slate-500 mt-1 line-clamp-1">{sub}</p>}
+              {kind === 'place' && typeof p?.place?.reviews === 'number' && (
+                <p className="text-[12px] text-slate-400 mt-0.5">방문자 리뷰 {p.place.reviews.toLocaleString('ko-KR')}</p>
+              )}
+            </div>
+          </>
         ) : (
-          <div className="w-full h-20 bg-slate-50 flex items-center justify-center text-slate-300">
-            <LinkIcon size={32} />
+          <div className="px-4 pt-4 flex gap-3">
+            {img ? (
+              <div className={`${kind === 'instagram' ? 'w-32 h-40' : 'w-28 h-[84px]'} shrink-0 rounded-2xl overflow-hidden bg-slate-100`}>
+                <img src={img} alt="" className="w-full h-full object-cover" draggable={false} onError={() => setImgOk(false)} />
+              </div>
+            ) : (
+              <KindTile kind={kind} className={`${kind === 'instagram' ? 'w-32 h-40' : 'w-28 h-[84px]'} shrink-0 rounded-2xl`} />
+            )}
+            <div className={`flex-1 min-w-0 flex flex-col ${isNew ? 'pt-7' : 'pt-0.5'}`}>
+              <h3 className={`text-[15px] font-bold text-slate-800 leading-snug break-keep ${kind === 'instagram' ? 'line-clamp-3' : 'line-clamp-2'}`}>{title}</h3>
+              {sub && <p className="text-[12px] text-slate-500 mt-1 line-clamp-1">{sub}</p>}
+            </div>
           </div>
         )}
 
         {/* Content Body */}
-        <div className="p-5 flex flex-col">
-          {item.preview?.siteName && (
-            <span className="text-[11px] font-bold text-[#10B981] uppercase tracking-wider mb-1">
-              {item.preview.siteName}
-            </span>
-          )}
-
-          <h3 className="text-[16px] font-bold text-slate-800 line-clamp-2 leading-snug">
-            {item.preview?.title || item.url}
-          </h3>
-
-          {item.preview?.description && (
-            <p className="text-[13px] text-slate-500 mt-1.5 line-clamp-1">
-              {item.preview.description}
-            </p>
-          )}
+        <div className="px-5 pb-5 pt-3 flex flex-col">
+          <a
+            href={item.url} target="_blank" rel="noopener noreferrer"
+            onClick={(e) => { e.stopPropagation(); onSeen?.(item); }}
+            className="self-start inline-flex items-center gap-1 rounded-full bg-[#ECFDF5] px-3 py-1.5 text-[12px] font-bold text-[#059669] active:scale-95"
+          >
+            {LINK_ACTION[kind]} <ExternalLink size={12} />
+          </a>
 
           {/* Memo Box */}
           {item.memo && (
@@ -175,7 +215,6 @@ function ShareCard({
                   <span className="text-[12px] font-bold tabular-nums">{item.commentCount || 0}</span>
                 </button>
               )}
-              <ExternalLink size={14} className="opacity-50" />
             </div>
           </div>
         </div>
@@ -199,7 +238,7 @@ function ShareCard({
 }
 
 export default function ShareListV1({
-  me, items, onBack, onAdd, onOpen, onDelete, fetchPreview, onHeart, onOpenComments
+  me, items, onBack, onAdd, onOpen, onDelete, fetchPreview, onHeart, onOpenComments, onSeen
 }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -207,7 +246,7 @@ export default function ShareListV1({
   const [draftUrl, setDraftUrl] = useState('');
   const [draftMemo, setDraftMemo] = useState('');
 
-  const [previewData, setPreviewData] = useState<{ title?: string; description?: string; image?: string; siteName?: string } | null>(null);
+  const [previewData, setPreviewData] = useState<LinkPreview | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   const newCount = useMemo(() => items.filter(item => !item.seenBy.includes(me)).length, [items, me]);
@@ -250,6 +289,7 @@ export default function ShareListV1({
       await onAdd({
         url: draftUrl,
         memo: draftMemo || undefined,
+        preview: previewData,   // 이미 받은 미리보기 — 저장할 때 다시 받지 않는다
       });
       setIsAdding(false);
     } catch (e) {
@@ -322,6 +362,7 @@ export default function ShareListV1({
                 onDelete={onDelete}
                 onHeart={onHeart}
                 onOpenComments={onOpenComments}
+                onSeen={onSeen}
               />
             </motion.div>
           ))}
@@ -369,9 +410,9 @@ export default function ShareListV1({
                     <AnimatePresence>
                       {draftUrl.startsWith('http') && (
                         <motion.div
-                          initial={{ opacity: 0, height: 0, mt: 0 }}
-                          animate={{ opacity: 1, height: 'auto', mt: 12 }}
-                          exit={{ opacity: 0, height: 0, mt: 0 }}
+                          initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                          animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+                          exit={{ opacity: 0, height: 0, marginTop: 0 }}
                           className="overflow-hidden"
                         >
                           <div className="bg-white border border-slate-100 rounded-[20px] p-3 flex gap-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)] items-center">
@@ -384,13 +425,11 @@ export default function ShareListV1({
                                 {previewData.image ? (
                                   <img src={previewData.image} alt="" className="w-14 h-14 rounded-2xl object-cover shrink-0 bg-slate-50" />
                                 ) : (
-                                  <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 shrink-0">
-                                    <LinkIcon size={20} />
-                                  </div>
+                                  <KindTile kind={linkKindOf(draftUrl, previewData)} className="w-14 h-14 rounded-2xl shrink-0 [&_svg]:w-5 [&_svg]:h-5" />
                                 )}
                                 <div className="flex-1 min-w-0 pr-2">
-                                  <h4 className="text-[14px] font-bold text-slate-800 truncate leading-snug">{previewData.title || draftUrl}</h4>
-                                  {previewData.description && <p className="text-[12px] font-medium text-slate-400 line-clamp-1 mt-0.5">{previewData.description}</p>}
+                                  <h4 className="text-[14px] font-bold text-slate-800 truncate leading-snug">{linkTitle(draftUrl, previewData)}</h4>
+                                  <p className="text-[12px] font-medium text-slate-400 line-clamp-1 mt-0.5">{linkSubline(draftUrl, previewData)}</p>
                                 </div>
                               </>
                             ) : (

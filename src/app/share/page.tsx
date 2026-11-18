@@ -12,7 +12,7 @@ import {
   deleteShare,
   type ShareItemView,
 } from '@/lib/share';
-import { fetchOgPreview } from '@/lib/wishlist';
+import { fetchLinkPreview, linkKindOf, linkTitle } from '@/lib/linkPreview';
 import {
   incrementHeartsAt,
   subscribeCommentsAt,
@@ -63,11 +63,15 @@ export default function SharePage() {
         onAdd={async (draft) => { await addShare({ ...draft, by: me }); }}
         onOpen={(item) => {
           if (!item.seenBy.includes(me)) markShareSeen(item.id, me);
+          // 유튜브·인스타는 앱 안에서 바로 틀고, 장소·블로그·사이트는 바로 연다(미리보기 창의 「외부에서 열기」를 한 번 더 누르지 않게).
+          const k = linkKindOf(item.url, item.preview);
+          if (k !== 'youtube' && k !== 'instagram') { window.open(item.url, '_blank', 'noopener'); return; }
           setPreviewUrl(item.url);
-          setPreviewTitle(item.preview?.title || item.url);
+          setPreviewTitle(linkTitle(item.url, item.preview));
         }}
+        onSeen={(item) => { if (!item.seenBy.includes(me)) markShareSeen(item.id, me); }}
         onDelete={deleteShare}
-        fetchPreview={fetchOgPreview}
+        fetchPreview={fetchLinkPreview}
         onHeart={(id) => incrementHeartsAt(COLLECTION, id)}
         onOpenComments={(item) => setCommentItem(item as unknown as ShareItemView)}
       />
@@ -80,7 +84,7 @@ export default function SharePage() {
       <CommentSheet
         open={!!commentItem}
         me={me}
-        title={commentItem?.preview?.title || commentItem?.url}
+        title={commentItem ? linkTitle(commentItem.url, commentItem.preview) : undefined}
         comments={comments}
         onClose={() => setCommentItem(null)}
         onAdd={(text) => addCommentAt(COLLECTION, commentItem!.id, me, text)}
