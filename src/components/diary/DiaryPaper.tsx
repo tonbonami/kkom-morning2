@@ -8,6 +8,32 @@ import { DiaryDecor } from './DiaryDecor';
 import { todayYmd } from '@/lib/calendarLayout';
 import { isDakuSrc } from '@/lib/dakuStickers';
 
+/**
+ * 빈 곳을 눌러 바로 쓰기(꼼이 2026-11-19 「글 쓰고 스티커 붙이고 밑에 다른 칸에 글 쓰려고 하면 '고마워요' 다음 칸으로 넘어가는 게 불편」).
+ *   글상자는 한 덩어리라 글 끝보다 아래를 눌러도 커서가 글 끝에 붙는다 → 누른 줄까지 빈 줄을 채우고 커서를 거기 둔다.
+ *   데이터 모양은 그대로(글 하나). 아무것도 안 쓰고 나가면 채운 빈 줄은 지운다(onBlur).
+ * 줄 높이는 글상자 style 의 32px 고정. 글 끝이 몇째 줄인지는 줄바꿈(자동 줄넘김 포함) 때문에 같은 모양의 숨은 거울 상자로 잰다.
+ */
+export const DIARY_LINE_PX = 32;
+let mirror: HTMLDivElement | null = null;
+export function lastTextLine(el: HTMLTextAreaElement): number {
+  if (typeof document === 'undefined') return 0;
+  if (!mirror) {
+    mirror = document.createElement('div');
+    Object.assign(mirror.style, { position: 'absolute', left: '-9999px', top: '0', visibility: 'hidden', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'normal' });
+    document.body.appendChild(mirror);
+  }
+  const cs = getComputedStyle(el);
+  Object.assign(mirror.style, {
+    width: `${el.clientWidth}px`, font: cs.font, letterSpacing: cs.letterSpacing, lineHeight: `${DIARY_LINE_PX}px`,
+    padding: cs.padding, boxSizing: cs.boxSizing, wordBreak: cs.wordBreak, overflowWrap: cs.overflowWrap,
+  });
+  mirror.textContent = el.value;
+  const mark = document.createElement('span'); mark.textContent = '\u200b'; mirror.appendChild(mark);
+  return Math.max(0, Math.floor((mark.offsetTop - (parseFloat(cs.paddingTop) || 0)) / DIARY_LINE_PX));
+}
+
+
 export interface DiaryPaperProps {
   page: DiaryPageVM;
   dateLabel: string;
@@ -78,6 +104,22 @@ export function DiaryPaper({
 }: DiaryPaperProps): React.JSX.Element {
   const paperRef = useRef<HTMLDivElement>(null);
   const [textFocused, setTextFocused] = useState(false);
+  const ownTextRef = useRef<HTMLTextAreaElement>(null);
+  const padRef = useRef(false);   // 지금 글 끝의 빈 줄이 「빈 곳 누르기」로 채운 것인가(아무것도 안 쓰고 나가면 지운다)
+  const fillToTap = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+    const el = e.currentTarget;
+    const r = el.getBoundingClientRect();
+    const tapLine = Math.floor((e.clientY - r.top - (parseFloat(getComputedStyle(el).paddingTop) || 0) + el.scrollTop) / DIARY_LINE_PX);
+    const last = lastTextLine(el);
+    if (tapLine <= last) return;                                  // 글 안(또는 바로 그 줄)을 눌렀다 — 브라우저 그대로
+    const next = (el.value + '\n'.repeat(Math.min(tapLine - last, 40))).slice(0, DIARY_LIMITS.text);
+    padRef.current = true;
+    onTextChange(next);
+    requestAnimationFrame(() => {
+      const t = (textRef ?? ownTextRef).current;
+      if (t) { t.focus(); t.setSelectionRange(next.length, next.length); }
+    });
+  };
   const blank = editable && page.items.length === 0 && !page.text.trim() && !page.question;
   const dragTargetRef = useRef<{
     id: string;
@@ -273,11 +315,16 @@ export function DiaryPaper({
         )}
         {editable ? (
           <textarea
-            ref={textRef}
+            ref={textRef ?? ownTextRef}
             value={page.text}
-            onChange={(e) => onTextChange(e.target.value)}
+            onChange={(e) => { padRef.current = false; onTextChange(e.target.value); }}
+            onClick={fillToTap}
             onFocus={() => setTextFocused(true)}
-            onBlur={() => setTextFocused(false)}
+            onBlur={(e) => {
+              setTextFocused(false);
+              // 빈 곳을 눌러 빈 줄만 채우고 아무것도 안 썼으면 그 빈 줄은 지운다(장에 쓸데없는 빈 줄이 안 남게).
+              if (padRef.current) { padRef.current = false; const v = e.currentTarget.value; const t = v.replace(/\n+$/, ''); if (t !== v) onTextChange(t); }
+            }}
             maxLength={1000}
             placeholder={page.date === todayYmd() ? '오늘 하루는 어땠나요?' : ''}
             style={{ lineHeight: '32px' }}
