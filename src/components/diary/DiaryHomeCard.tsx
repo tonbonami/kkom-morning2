@@ -18,6 +18,8 @@ export interface DiaryHomeCardProps {
   } | null;
   onOpen: () => void;
   onOpenMonth: () => void;
+  /** 아래 줄 오른쪽 「지난 일기」 — 모아보기(11/18) */
+  onOpenArchive?: () => void;
 }
 
 export function DiaryHomeCard({
@@ -28,6 +30,7 @@ export function DiaryHomeCard({
   nextEvent,
   onOpen,
   onOpenMonth,
+  onOpenArchive,
 }: DiaryHomeCardProps): React.JSX.Element {
   return (
     <div
@@ -80,10 +83,11 @@ export function DiaryHomeCard({
         </div>
       </button>
 
+      <div className="w-full flex items-stretch border-t border-[var(--sd-line)]">
       <button
         type="button"
         onClick={onOpenMonth}
-        className="w-full min-h-[44px] px-4 py-2 border-t border-[var(--sd-line)] flex items-center justify-between text-left active:bg-[var(--sd-surface-2)] transition-colors"
+        className="flex-1 min-w-0 min-h-[44px] px-4 py-2 flex items-center justify-between text-left active:bg-[var(--sd-surface-2)] transition-colors"
       >
         {nextEvent ? (
           <div className="flex items-center gap-2 min-w-0 flex-1 pr-2">
@@ -103,6 +107,16 @@ export function DiaryHomeCard({
         )}
         <ChevronRight className="w-4 h-4 text-[var(--sd-faint)] flex-shrink-0" />
       </button>
+      {onOpenArchive && (
+        <button
+          type="button"
+          onClick={onOpenArchive}
+          className="shrink-0 min-h-[44px] px-3 border-l border-[var(--sd-line)] text-xs font-medium text-[var(--sd-muted)] active:bg-[var(--sd-surface-2)]"
+        >
+          지난 일기
+        </button>
+      )}
+      </div>
     </div>
   );
 }

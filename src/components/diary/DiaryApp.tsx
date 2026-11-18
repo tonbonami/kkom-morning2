@@ -19,6 +19,7 @@ import { DiarySpecialDatesSheet } from './DiarySpecialDatesSheet';
 import { DiaryDayAgendaSheet } from './DiaryDayAgendaSheet';
 import { DiaryEventSheet } from './DiaryEventSheet';
 import { DiaryUpcomingSheet } from './DiaryUpcomingSheet';
+import { ARCHIVE_STEP, DiaryArchiveScreen, type ArchiveWho } from './DiaryArchiveScreen';
 import { DECOR_ASSETS } from './DiaryDecor';
 import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS } from '@/lib/stickerPacks';
 import { DAKU_PACKS, dakuSrc } from '@/lib/dakuStickers';
@@ -79,7 +80,7 @@ const readIds = (k: string): string[] => { try { const v = JSON.parse(localStora
 const writeIds = (k: string, ids: string[]) => { try { localStorage.setItem(k, JSON.stringify(ids)); } catch { /* */ } };
 
 export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgenda, initialEventId, onExit }: {
-  me: Person; initialDate?: string; initialView?: 'day' | 'month';
+  me: Person; initialDate?: string; initialView?: 'day' | 'month' | 'archive';
   initialOwner?: Person;       // 누구 장부터 열지(다이어리 ♥·한마디 알림에서 올 때)
   openAgenda?: boolean;        // 월간으로 들어오면서 그날 시트까지 연다(알림·꼼톡 일정 카드에서 올 때)
   initialEventId?: string;     // 보러 온 일정 — 날짜가 안 왔으면 이 일정의 시작 날로 찾아간다
@@ -91,9 +92,16 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
 
   const [date, setDate] = useState(initialDate && /^\d{4}-\d\d-\d\d$/.test(initialDate) ? initialDate : TODAY);
   const [owner, setOwner] = useState<Person>(initialOwner ?? me);
-  const [view, setView] = useState<'day' | 'month'>(initialView ?? 'day');
-  // 달력 → 날짜 시트 → 하루 장으로 왔으면 ← 는 달력으로(Aside 검수 11/18: 손이 가는 ← 가 홈으로 나가 위험 — 홈 단추는 연습 모드에서도 진짜로 간다)
-  const [fromMonth, setFromMonth] = useState(false);
+  const [view, setView] = useState<'day' | 'month' | 'archive'>(initialView ?? 'day');
+  // 달력(날짜 시트)·지난 일기에서 하루 장으로 왔으면 ← 는 거기로(Aside 검수 11/18: 손이 가는 ← 가 홈으로 나가 위험 — 홈 단추는 연습 모드에서도 진짜로 간다)
+  const [backTo, setBackTo] = useState<null | 'month' | 'archive'>(null);
+  // ── 지난 일기(모아보기, 11/18 「1단계 진행」) — 상태는 여기 두어서 장을 보고 돌아오면 그 달·거르기·「더 보기」·스크롤 그대로 ──
+  const [arcYm, setArcYm] = useState(TODAY.slice(0, 7));
+  const [arcWho, setArcWho] = useState<ArchiveWho>('both');
+  const [arcPhoto, setArcPhoto] = useState(false);
+  const [arcShown, setArcShown] = useState(ARCHIVE_STEP);
+  const [arcBack, setArcBack] = useState<'day' | 'month' | 'exit'>(initialView === 'archive' ? 'exit' : 'day');
+  const arcScroll = useRef(0);
   const [mYm, setMYm] = useState(date.slice(0, 7));
   const [sel, setSel] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
@@ -103,9 +111,10 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const say = useCallback((t: string) => { setNote(t); window.setTimeout(() => setNote((n) => (n === t ? null : n)), 3200); }, []);
 
   // ── 같이 읽는 것: 한 달 표지(점), 기념일, 일정(읽기 전용 칩) ──
-  const metaYm = view === 'month' ? mYm : date.slice(0, 7);
+  const metaYm = view === 'month' ? mYm : view === 'archive' ? arcYm : date.slice(0, 7);
   const [metas, setMetas] = useState<Record<string, DiaryMeta>>({});
-  useEffect(() => subscribeDiaryMonthMeta(metaYm, setMetas), [metaYm]);
+  const [metasYm, setMetasYm] = useState<string | null>(null);   // 지금 metas 가 어느 달 것인지(지난 일기의 「불러오는 중」)
+  useEffect(() => subscribeDiaryMonthMeta(metaYm, (m) => { setMetas(m); setMetasYm(metaYm); }), [metaYm]);
   const [serverSpecials, setServerSpecials] = useState<SpecialDateVM[]>([]);
   useEffect(() => { void seedSpecialDates().catch(() => {}); return subscribeSpecialDates(setServerSpecials); }, []);
   const specials = practice && serverSpecials.length === 0 ? BUILTIN_SPECIALS : serverSpecials;
@@ -474,6 +483,31 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     </div>
   );
 
+  const openArchive = (from: 'day' | 'month', ym: string) => {
+    void flush(); setSel(null); setArcBack(from);
+    if (ym !== arcYm) { setArcYm(ym); setArcShown(ARCHIVE_STEP); arcScroll.current = 0; }
+    setView('archive');
+  };
+  if (view === 'archive') {
+    return (
+      <>
+        <DiaryArchiveScreen
+          me={me} ym={arcYm} today={todayYmd()}
+          metas={metasYm === arcYm ? Object.values(metas) : null}
+          who={arcWho} photoOnly={arcPhoto} shown={arcShown}
+          onWho={(w) => { setArcWho(w); setArcShown(ARCHIVE_STEP); }}
+          onPhotoOnly={(v) => { setArcPhoto(v); setArcShown(ARCHIVE_STEP); }}
+          onMore={() => setArcShown((n) => n + ARCHIVE_STEP)}
+          onYm={(ym) => { setArcYm(ym); setArcShown(ARCHIVE_STEP); arcScroll.current = 0; window.scrollTo(0, 0); }}
+          onOpen={(d, o) => { arcScroll.current = window.scrollY; setOwner(o); goDate(d); setBackTo('archive'); setView('day'); window.scrollTo(0, 0); }}
+          onBack={() => { if (arcBack === 'exit') { onExit(); return; } if (arcBack === 'month') setView('month'); else setView('day'); }}
+        />
+        <ArchiveScrollRestore y={arcScroll.current} />
+        {toast}
+      </>
+    );
+  }
+
   if (view === 'month') {
     const ordered = (a: string, b: string) => (a <= b ? [a, b] : [b, a]);
     return (
@@ -487,7 +521,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
           onAddEvent={() => openNewEvent(mYm === TODAY.slice(0, 7) ? TODAY : `${mYm}-01`, null)}
           mode={canEditMonth ? mMode : 'view'} tool={tool} selectedAsset={pickedNow} spanStart={spanStart}
           undoText={undo?.text ?? null} saveState={mOffline ? 'offline' : mPending > 0 ? 'saving' : 'saved'}
-          onBack={() => { setFromMonth(false); setView('day'); }}
+          onBack={() => { setView('day'); }}
           onPrevMonth={() => setMYm((m) => shiftMonth(m, -1))}
           onNextMonth={() => setMYm((m) => shiftMonth(m, 1))}
           onGoThisMonth={() => setMYm(TODAY.slice(0, 7))}
@@ -528,6 +562,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
           }}
           onCycleTitleStyle={() => patchMonth({ kind: 'title', title: deco.title === 'plain' ? 'brush' : deco.title === 'brush' ? 'round' : 'plain' })}
           onUndo={() => { if (undo) { const p = undo.patch; setUndo(null); patchMonth(p); } }}
+          onOpenArchive={() => openArchive('month', mYm)}
           onOpenSpecialDates={() => setSpecial(true)}
         />
         <DiaryAssetDrawer
@@ -570,7 +605,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
           } as Record<Person, { has: boolean; excerpt?: string; thumbSrc?: string }>}
           onAddEvent={() => { if (agendaDate) openNewEvent(agendaDate, agendaDate); }}
           onOpenEvent={(id) => openEvent(id, agendaDate)}
-          onOpenPage={(o) => { const d = agendaDate; if (!d) return; setAgendaDate(null); setOwner(o); goDate(d); setFromMonth(true); setView('day'); }}
+          onOpenPage={(o) => { const d = agendaDate; if (!d) return; setAgendaDate(null); setOwner(o); goDate(d); setBackTo('month'); setView('day'); }}
           onClose={() => setAgendaDate(null)}
           decor={agendaDate ? { stickers: deco.stickers[agendaDate] ?? [], memo: deco.memos[agendaDate] } : undefined}
           onEditMemo={canEditMonth ? () => { const d = agendaDate; if (!d) return; setAgendaDate(null); setMemoBack(d); setMemoDate(d); } : undefined}
@@ -601,8 +636,13 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         materials={isMine && ready && date === TODAY && !mine.question ? [{ id: 'q', kind: 'prompt', label: promptOfDay }] : []}
         hasPage={{ [me]: diaryPageHasContent(mine), [partner]: !!theirs || !!metas[diaryPageId(date, partner)] } as Record<Person, boolean>}
         saveState={saveState} isToday={date === TODAY} selectedItemId={isMine ? sel : null}
-        onBack={() => { if (fromMonth) { setFromMonth(false); setSel(null); setMYm(date.slice(0, 7)); setView('month'); return; } void flush(); onExit(); }}
-        backLabel={fromMonth ? '달력' : undefined}
+        onBack={() => {
+          if (backTo === 'month') { setBackTo(null); setSel(null); setMYm(date.slice(0, 7)); setView('month'); return; }
+          if (backTo === 'archive') { void flush(); setBackTo(null); setSel(null); setView('archive'); return; }
+          void flush(); onExit();
+        }}
+        backLabel={backTo === 'month' ? '달력' : backTo === 'archive' ? '지난 일기' : undefined}
+        onOpenArchive={() => openArchive('day', date.slice(0, 7))}
         onPrevDate={() => goDate(addDaysYmd(date, -1))} onNextDate={() => goDate(addDaysYmd(date, 1))}
         onGoToday={() => goDate(TODAY)} onOpenMonth={() => { setMYm(date.slice(0, 7)); setView('month'); }}
         onChangeOwner={(p) => { setSel(null); setOwner(p); }}
@@ -640,4 +680,10 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
       {toast}
     </>
   );
+}
+
+/** 지난 일기로 돌아오면 보던 자리로 — 그려진 뒤 한 번만 굴린다. */
+function ArchiveScrollRestore({ y }: { y: number }) {
+  useEffect(() => { if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
 }

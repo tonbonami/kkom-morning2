@@ -56,6 +56,8 @@ export interface DiaryMonthScreenProps {
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onGoThisMonth: () => void;
+  /** ⋯ 메뉴 맨 위 「지난 일기 모아보기」 */
+  onOpenArchive?: () => void;
   onChangeOwner: (o: MonthOwner) => void;
   onToggleMode: () => void;
   onPickTool: (t: MonthTool) => void;
@@ -98,6 +100,7 @@ export function DiaryMonthScreen({
   onPrevMonth,
   onNextMonth,
   onGoThisMonth,
+  onOpenArchive,
   onChangeOwner,
   onToggleMode,
   onPickTool,
@@ -227,7 +230,19 @@ export function DiaryMonthScreen({
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 top-11 z-30 w-36 py-1 rounded-2xl bg-[var(--sd-card-solid)] border border-[var(--sd-line)] shadow-lg space-y-0.5">
+              <div className="absolute right-0 top-11 z-30 w-40 py-1 rounded-2xl bg-[var(--sd-card-solid)] border border-[var(--sd-line)] shadow-lg space-y-0.5">
+                {onOpenArchive && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onOpenArchive();
+                    }}
+                    className="w-full h-10 px-3 text-left text-xs font-medium text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)]"
+                  >
+                    지난 일기 모아보기
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {

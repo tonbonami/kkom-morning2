@@ -1088,6 +1088,7 @@ export default function KkomMorningHome() {
           } : null}
           onOpen={() => router.push('/diary')}
           onOpenMonth={() => router.push(calendarHref())}
+          onOpenArchive={() => router.push('/diary?view=archive')}
         />
       );
     })(),

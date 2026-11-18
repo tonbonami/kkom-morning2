@@ -24,7 +24,7 @@ function Diary() {
   if (!me) return null;
   const who = sp.get('who');   // 다이어리 ♥·한마디 알림이 「누구 장」인지 실어 온다(udaeng|kkomi)
   const initialOwner: Person | undefined = who === 'udaeng' ? '우댕' : who === 'kkomi' ? '꼼이' : undefined;
-  return <DiaryApp me={me} initialDate={d} initialOwner={initialOwner} initialView={sp.get('view') === 'month' ? 'month' : 'day'} openAgenda={sp.get('view') === 'month' && !!sp.get('date')} initialEventId={sp.get('event') ?? undefined} onExit={() => router.push('/')} />;
+  return <DiaryApp me={me} initialDate={d} initialOwner={initialOwner} initialView={sp.get('view') === 'month' ? 'month' : sp.get('view') === 'archive' ? 'archive' : 'day'} openAgenda={sp.get('view') === 'month' && !!sp.get('date')} initialEventId={sp.get('event') ?? undefined} onExit={() => router.push('/')} />;
 }
 
 export default function DiaryPage() {

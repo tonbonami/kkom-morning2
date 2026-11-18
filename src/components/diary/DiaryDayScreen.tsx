@@ -15,6 +15,7 @@ import {
   Type,
   X,
   Check,
+  BookOpen,
 } from 'lucide-react';
 import {
   Person,
@@ -79,6 +80,8 @@ export interface DiaryDayScreenProps {
   future?: boolean;
   /** ← 옆 글자 — 달력에서 왔으면 「달력」(누르면 달력으로) */
   backLabel?: string;
+  /** ⋮ 메뉴 맨 위 「지난 일기 모아보기」 */
+  onOpenArchive?: () => void;
 }
 
 export function DiaryDayScreen({
@@ -121,6 +124,7 @@ export function DiaryDayScreen({
   onPhotoCaption,
   future = false,
   backLabel,
+  onOpenArchive,
 }: DiaryDayScreenProps): React.JSX.Element {
   const [showMenu, setShowMenu] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -208,7 +212,20 @@ export function DiaryDayScreen({
           </button>
 
           {showMenu && (
-            <div className="absolute right-0 top-11 w-32 bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-xl shadow-lg py-1 z-50">
+            <div className="absolute right-0 top-11 w-44 bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-xl shadow-lg py-1 z-50">
+              {onOpenArchive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false);
+                    onOpenArchive();
+                  }}
+                  className="w-full min-h-[44px] px-3 text-left text-xs font-medium text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)] flex items-center gap-2"
+                >
+                  <BookOpen className="w-4 h-4 text-[var(--sd-rel)]" />
+                  지난 일기 모아보기
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
