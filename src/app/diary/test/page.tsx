@@ -47,6 +47,15 @@ const TABS = [
   { id: 'recent', label: '최근' }, { id: 'favorite', label: '즐겨찾기' }, { id: 'kkom', label: '꼼이' },
   { id: 'kkul', label: '꿀됑' }, { id: 'uri', label: '우리' }, { id: 'tape', label: '테이프' }, { id: 'stamp', label: '도장' },
 ];
+/** 시험 화면 서랍 — 최근·즐겨찾기 고정 + 나머지 팩(설정 저장 없음) */
+const testDrawerTabs = (tab: string, setTab: (t: string) => void) => {
+  const packs = TABS.filter((t) => t.id !== 'recent' && t.id !== 'favorite');
+  return {
+    fixedTabs: TABS.filter((t) => t.id === 'recent' || t.id === 'favorite'), packs, tab,
+    allPacks: packs.map((p) => ({ ...p, shown: true })),
+    onTabChange: setTab, onReorder: () => {}, onToggleShown: () => {}, onResetOrder: () => {},
+  };
+};
 const ratioOfDecor = (id?: string) => DECOR_ASSETS.find((d) => d.id === id)?.ratio ?? 1;
 
 const SAMPLE: DiaryItemVM[] = [
@@ -248,8 +257,7 @@ function Test() {
           onOpenSpecialDates={() => setSpecial(true)}
         />
         <DiaryAssetDrawer
-          open={drawer && canEditMonth} tabs={TABS} tab={tab} assets={assets}
-          onTabChange={setTab}
+          open={drawer && canEditMonth} {...testDrawerTabs(tab, setTab)} assets={assets}
           onPick={(a) => { setPicked(a); setTool('sticker'); setDrawer(false); }}
           onToggleFavorite={(a) => setFav((st) => { const n = new Set(st); if (n.has(a.id)) n.delete(a.id); else n.add(a.id); return n; })}
           onClose={() => setDrawer(false)}
@@ -321,8 +329,7 @@ function Test() {
         onPhotoCaption={(caption) => put((p) => ({ ...p, items: p.items.map((i) => (i.id === sel ? { ...i, caption } : i)) }))}
       />
       <DiaryAssetDrawer
-        open={drawer && mine} tabs={TABS} tab={tab} assets={assets} full={page.items.length >= DIARY_LIMITS.items}
-        onTabChange={setTab}
+        open={drawer && mine} {...testDrawerTabs(tab, setTab)} assets={assets} full={page.items.length >= DIARY_LIMITS.items}
         onPick={(a) => {
           addItem(a.kind === 'sticker' ? { type: 'sticker', src: a.src, w: 0.3, ratio: 1 } : { type: a.kind, decorId: a.decorId, w: a.kind === 'tape' ? 0.42 : 0.3, ratio: ratioOfDecor(a.decorId) });
           setRecent((r) => [a, ...r.filter((x) => x.id !== a.id)].slice(0, 12));

@@ -10,7 +10,8 @@
 // ⚠️ 못 읽은 장(오프라인)은 고치지 못하게 막는다 — 빈 장인 줄 알고 저장하면 서버의 진짜 장을 덮는다.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DiaryDayScreen } from './DiaryDayScreen';
-import { DiaryAssetDrawer } from './DiaryAssetDrawer';
+import { DiaryAssetDrawer, type DiaryPackVM } from './DiaryAssetDrawer';
+import { useDiaryAssetPrefs, visiblePacksOf } from '@/lib/diaryAssetPrefs';
 import { DiaryMonthScreen } from './DiaryMonthScreen';
 import { DiaryMonthMemoSheet } from './DiaryMonthMemoSheet';
 import { DiaryMonthSpanSheet } from './DiaryMonthSpanSheet';
@@ -43,18 +44,23 @@ const shiftMonth = (ym: string, n: number) => { const t = new Date(Number(ym.sli
 const newId = (p: string) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 const STICKER = (pack: string, list: { word: string; image: string }[]): DiaryAssetVM[] =>
-  list.map((s, i) => ({ id: `${pack}-${i}`, kind: 'sticker', src: s.image, label: s.word }));
+  list.map((s, i) => ({ id: `${pack}-${i}`, packId: pack, kind: 'sticker', src: s.image, label: s.word }));
 const ASSETS: Record<string, DiaryAssetVM[]> = {
   kkom: STICKER('kkom', SAI_STICKERS),
   kkul: STICKER('kkul', KKUL_STICKERS),
   uri: STICKER('uri', URI_STICKERS),
-  tape: DECOR_ASSETS.filter((d) => d.kind === 'tape').map((d) => ({ id: d.id, kind: 'tape', decorId: d.id, label: d.label })),
-  stamp: DECOR_ASSETS.filter((d) => d.kind === 'stamp').map((d) => ({ id: d.id, kind: 'stamp', decorId: d.id, label: d.label })),
+  tape: DECOR_ASSETS.filter((d) => d.kind === 'tape').map((d) => ({ id: d.id, packId: 'tape', kind: 'tape', decorId: d.id, label: d.label })),
+  stamp: DECOR_ASSETS.filter((d) => d.kind === 'stamp').map((d) => ({ id: d.id, packId: 'stamp', kind: 'stamp', decorId: d.id, label: d.label })),
 };
 const ALL_ASSETS = Object.values(ASSETS).flat();
-const TABS = [
-  { id: 'recent', label: '최근' }, { id: 'favorite', label: '즐겨찾기' }, { id: 'kkom', label: '꼼이' },
-  { id: 'kkul', label: '꿀됑' }, { id: 'uri', label: '우리' }, { id: 'tape', label: '테이프' }, { id: 'stamp', label: '도장' },
+/** 서랍 탭 — 「최근·즐겨찾기」는 늘 맨 앞(고정), 팩은 사람마다 끄고 옮긴다(lib/diaryAssetPrefs.ts). 새 팩은 PACKS 에 더하면 저절로 보인다. */
+const FIXED_TABS = [{ id: 'recent', label: '최근' }, { id: 'favorite', label: '즐겨찾기' }];
+const PACKS: DiaryPackVM[] = [
+  { id: 'kkom', label: '꼼이', thumbSrc: SAI_STICKERS[0]?.image },
+  { id: 'kkul', label: '꿀됑', thumbSrc: KKUL_STICKERS[0]?.image },
+  { id: 'uri', label: '우리', thumbSrc: URI_STICKERS[2]?.image },
+  { id: 'tape', label: '테이프', thumbDecorId: ASSETS.tape[0]?.decorId },
+  { id: 'stamp', label: '도장', thumbDecorId: ASSETS.stamp[0]?.decorId },
 ];
 const SPECIAL_STICKERS = [...ASSETS.uri.slice(0, 6), ...ASSETS.kkul.slice(0, 4), ...ASSETS.kkom.slice(0, 2)];
 const ratioOfDecor = (id?: string) => DECOR_ASSETS.find((d) => d.id === id)?.ratio ?? 1;
@@ -85,7 +91,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const [mYm, setMYm] = useState(date.slice(0, 7));
   const [sel, setSel] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
-  const [tab, setTab] = useState('kkul');
+  const [tabPick, setTab] = useState<string | null>(null);   // 고른 탭 — 숨긴 팩이면 아래 tab 이 다른 탭으로 바꿔 보여 준다
   const [special, setSpecial] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const say = useCallback((t: string) => { setNote(t); window.setTimeout(() => setNote((n) => (n === t ? null : n)), 3200); }, []);
@@ -313,11 +319,28 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   useEffect(() => { setRecentIds(readIds(LS_RECENT)); setFavIds(readIds(LS_FAV)); }, []);
   const remember = (a: DiaryAssetVM) => setRecentIds((r) => { const n = [a.id, ...r.filter((x) => x !== a.id)].slice(0, 12); writeIds(LS_RECENT, n); return n; });
   const toggleFav = (a: DiaryAssetVM) => setFavIds((f) => { const n = f.includes(a.id) ? f.filter((x) => x !== a.id) : [...f, a.id]; writeIds(LS_FAV, n); return n; });
+  // 탭 끄기·옮기기(우댕 2026-11-18). 숨긴 팩의 그림은 최근·즐겨찾기에서도 빠진다(기록은 그대로 — 다시 켜면 돌아온다).
+  const { prefs: assetPrefs, setShown: setPackShown, setOrder: setPackOrder, resetOrder: resetPackOrder } = useDiaryAssetPrefs(me);
+  const visiblePacks = useMemo(() => visiblePacksOf(PACKS, assetPrefs), [assetPrefs]);
+  const packShown = useCallback((a: DiaryAssetVM) => !a.packId || !assetPrefs.hiddenPackIds.includes(a.packId), [assetPrefs]);
+  // 처음엔 내 캐릭터 팩(우댕 꿀됑·꼼이 꼼이), 그 팩을 껐으면 보이는 첫 팩, 다 껐으면 최근.
+  const tab = tabPick && (tabPick === 'recent' || tabPick === 'favorite' || visiblePacks.some((p) => p.id === tabPick))
+    ? tabPick
+    : visiblePacks.find((p) => p.id === (me === '우댕' ? 'kkul' : 'kkom'))?.id ?? visiblePacks[0]?.id ?? 'recent';
   const assets = useMemo(() => {
-    const byId = (ids: string[]) => ids.map((id) => ALL_ASSETS.find((x) => x.id === id)).filter((x): x is DiaryAssetVM => !!x);
+    const byId = (ids: string[]) => ids.map((id) => ALL_ASSETS.find((x) => x.id === id)).filter((x): x is DiaryAssetVM => !!x && packShown(x));
     const base = tab === 'recent' ? byId(recentIds) : tab === 'favorite' ? byId(favIds) : ASSETS[tab] ?? [];
     return base.map((x) => ({ ...x, favorite: favIds.includes(x.id) }));
-  }, [tab, recentIds, favIds]);
+  }, [tab, recentIds, favIds, packShown]);
+  const packFail = () => say('설정을 저장하지 못했어요. 잠시 뒤 다시 해 주세요');
+  const drawerTabs = {
+    fixedTabs: FIXED_TABS, packs: visiblePacks, tab,
+    allPacks: PACKS.map((p) => ({ ...p, shown: !assetPrefs.hiddenPackIds.includes(p.id) })),
+    onTabChange: setTab,
+    onReorder: (ids: string[]) => { void setPackOrder(ids).then((ok) => { if (!ok) packFail(); }); },
+    onToggleShown: (id: string, shown: boolean) => { void setPackShown(id, shown).then((ok) => { if (!ok) packFail(); }); },
+    onResetOrder: () => { void resetPackOrder().then((ok) => { if (!ok) packFail(); }); },
+  };
 
   // ── 월간 꾸미기 ──
   const [mOwner, setMOwner] = useState<MonthOwner>('together');
@@ -342,7 +365,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     return subscribeDiaryMonth(mYm, mOwner, setDeco);
   }, [monthOpen, mYm, mOwner]);
   const canEditMonth = mOwner === 'together' || mOwner === me;
-  const pickedNow = picked ?? ALL_ASSETS.find((x) => x.id === recentIds[0]) ?? ASSETS.kkul[1] ?? null;
+  const pickedNow = picked ?? ALL_ASSETS.find((x) => x.id === recentIds[0] && packShown(x)) ?? ALL_ASSETS.find(packShown) ?? null;
   const stickerOf = (a: DiaryAssetVM): MonthStickerVM => ({ id: newId('ms'), src: a.src, decorId: a.decorId, by: me });
 
   // ── 일정(달력 합치기) — 원본은 calendarEvents. 「같이」 = 전부, 각자 달력 = 자기 것 + 함께 ──
@@ -500,8 +523,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
           onOpenSpecialDates={() => setSpecial(true)}
         />
         <DiaryAssetDrawer
-          open={drawer && canEditMonth} tabs={TABS} tab={tab} assets={assets}
-          onTabChange={setTab}
+          open={drawer && canEditMonth} {...drawerTabs} assets={assets}
           onPick={(a) => { setPicked(a); remember(a); setTool('sticker'); setDrawer(false); }}
           onToggleFavorite={toggleFav}
           onClose={() => setDrawer(false)}
@@ -596,8 +618,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         onPhotoCaption={setPhotoCaption}
       />
       <DiaryAssetDrawer
-        open={drawer && isMine} tabs={TABS} tab={tab} assets={assets} full={mine.items.length >= DIARY_LIMITS.items}
-        onTabChange={setTab}
+        open={drawer && isMine} {...drawerTabs} assets={assets} full={mine.items.length >= DIARY_LIMITS.items}
         onPick={(a) => {
           addItem(a.kind === 'sticker' ? { type: 'sticker', src: a.src, w: 0.3, ratio: 1 } : { type: a.kind, decorId: a.decorId, w: a.kind === 'tape' ? 0.42 : 0.3, ratio: ratioOfDecor(a.decorId) });
           remember(a);
