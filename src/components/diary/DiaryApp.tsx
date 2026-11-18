@@ -195,6 +195,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
 
   const put = useCallback((fn: (p: DiaryPageVM) => DiaryPageVM) => {
     if (!readyRef.current) return;
+    if (mineRef.current.date > todayYmd()) return;   // 아직 오지 않은 날은 안 쓴다(화면도 막지만 한 번 더)
     const next = fn(mineRef.current);
     if (next === mineRef.current) return;
     mineRef.current = next; setMine(next); lastRef.current[next.date] = next;
@@ -616,6 +617,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         onPhotoFull={() => say(`사진은 한 장에 ${DIARY_LIMITS.photos}장까지 넣을 수 있어요`)}
         onPhotoFrame={setPhotoFrame}
         onPhotoCaption={setPhotoCaption}
+        future={date > todayYmd()}
       />
       <DiaryAssetDrawer
         open={drawer && isMine} {...drawerTabs} assets={assets} full={mine.items.length >= DIARY_LIMITS.items}

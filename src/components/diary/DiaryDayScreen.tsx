@@ -75,6 +75,8 @@ export interface DiaryDayScreenProps {
   onPhotoFull: () => void;
   onPhotoFrame: (f: DiaryPhotoFrame) => void;
   onPhotoCaption: (text: string) => void;
+  /** 아직 오지 않은 날 — 내 장이어도 쓰지 못한다(꼼이가 일기 쓰다 다음 날 장으로 밀려 같은 글이 생긴 일, 2026-11-17) */
+  future?: boolean;
 }
 
 export function DiaryDayScreen({
@@ -115,6 +117,7 @@ export function DiaryDayScreen({
   onPhotoFull,
   onPhotoFrame,
   onPhotoCaption,
+  future = false,
 }: DiaryDayScreenProps): React.JSX.Element {
   const [showMenu, setShowMenu] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -123,7 +126,7 @@ export function DiaryDayScreen({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
-  const isEditable = me === pageOwner;
+  const isEditable = me === pageOwner && !future;
   const photoRoom = Math.max(0, DIARY_LIMITS.photos - photoCount);
   const selectedPhoto = selectedItem && selectedItem.type === 'photo' ? selectedItem : null;
   // 사진 넣기: 다 찼으면 서랍 대신 안내(GPT: 단추는 감추지 않는다 — 기능이 사라진 것처럼 보이지 않게)
@@ -255,7 +258,9 @@ export function DiaryDayScreen({
 
         {!isEditable && (
           <p className="text-[11px] text-[var(--sd-faint)] mt-1">
-            {pageExists ? `${pageOwner}의 장 — 아래에 마음·한마디를 남길 수 있어요` : `${pageOwner}의 장 — 보기만 할 수 있어요`}
+            {me === pageOwner
+              ? '아직 오지 않은 날이에요 — 그날이 되면 쓸 수 있어요'
+              : pageExists ? `${pageOwner}의 장 — 아래에 마음·한마디를 남길 수 있어요` : `${pageOwner}의 장 — 보기만 할 수 있어요`}
           </p>
         )}
       </div>

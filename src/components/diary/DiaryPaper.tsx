@@ -164,7 +164,12 @@ export function DiaryPaper({
   };
 
   // 빈 배경 제스처(스와이프 및 선택 해제)
+  // ⚠️ 글 칸 안에서 시작한 손짓·글 쓰는 중에는 날짜를 넘기지 않는다 — 꼼이 2026-11-17 아침, 일기를 쓰다 손가락이 옆으로
+  //    밀려 다음 날(11/18) 장으로 넘어갔고, 거기에 같은 글이 들어가 「어제랑 오늘이 똑같은」 장이 생겼다(우댕 11/18 발견).
+  //    글 칸이 종이 대부분을 덮으니 내 장에선 날짜 밀기가 거의 안 되고, 날짜 넘기기는 위쪽 ‹ › 로 한다.
   const handlePaperPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const t = e.target as HTMLElement;
+    if (textFocused || t.closest('textarea, input, button')) { swipeStartRef.current = null; return; }
     swipeStartRef.current = { x: e.clientX, y: e.clientY };
   };
 
