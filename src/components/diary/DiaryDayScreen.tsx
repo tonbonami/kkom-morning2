@@ -154,12 +154,23 @@ export function DiaryDayScreen({
     if (layout === 'phone') { setFitW(null); return; }
     const el = mainRef.current;
     if (!el) return;
-    const calc = () => { const r = el.getBoundingClientRect(); setFitW(Math.max(280, Math.floor(Math.min(r.width - 32, (r.height - 16) * 3 / 4)))); };
+    const calc = () => {
+      const r = el.getBoundingClientRect();
+      const byWidth = r.width - 32;
+      setFitW(Math.max(280, Math.floor(window.innerHeight < 500 ? byWidth : Math.min(byWidth, (r.height - 16) * 3 / 4))));
+    };
     const ro = new ResizeObserver(calc);
     ro.observe(el); calc();
     return () => ro.disconnect();
   }, [layout]);
   const side = layout === 'side';
+  // 폰 가로(키 500 아래): 종이를 높이에 맞추면 너무 작다 → 왼쪽 폭에 꽉 채우고 위아래로 넘겨 본다(우댕 11/18 「폰에서 가로 화면에서도 옆으로 화면이 꽉 차서」).
+  const [shortScreen, setShortScreen] = useState(false);
+  useEffect(() => {
+    const f = () => setShortScreen(window.innerHeight < 500);
+    f(); window.addEventListener('resize', f);
+    return () => window.removeEventListener('resize', f);
+  }, []);
   const photoRoom = Math.max(0, DIARY_LIMITS.photos - photoCount);
   const selectedPhoto = selectedItem && selectedItem.type === 'photo' ? selectedItem : null;
   // 사진 넣기: 다 찼으면 서랍 대신 안내(GPT: 단추는 감추지 않는다 — 기능이 사라진 것처럼 보이지 않게)
@@ -189,7 +200,7 @@ export function DiaryDayScreen({
       }`}
       style={{
         paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)',
-        ...(side ? { gridTemplateColumns: 'minmax(0,1fr) 380px', gridTemplateRows: 'auto auto minmax(0,1fr)', gridTemplateAreas: '"head head" "paper owner" "paper tools"' } : {}),
+        ...(side ? { gridTemplateColumns: shortScreen ? 'minmax(0,1fr) 300px' : 'minmax(0,1fr) 380px', gridTemplateRows: 'auto auto minmax(0,1fr)', gridTemplateAreas: '"head head" "paper owner" "paper tools"' } : {}),
       }}
     >
       {/* 상단 헤더 */}
@@ -323,7 +334,7 @@ export function DiaryDayScreen({
       {/* 가운데 종이 영역 */}
       <main
         ref={mainRef}
-        className={`px-4 py-2 flex items-center justify-center ${layout === 'phone' ? 'flex-1' : 'flex-1 min-h-0 min-w-0'}`}
+        className={`px-4 py-2 flex justify-center ${layout === 'phone' ? 'flex-1 items-center' : side && shortScreen ? 'flex-1 min-h-0 min-w-0 items-start overflow-y-auto' : 'flex-1 min-h-0 min-w-0 items-center'}`}
         style={side ? { gridArea: 'paper' } : undefined}
       >
         <div className={fitW ? 'shrink-0' : 'w-full'} style={fitW ? { width: fitW } : undefined}>
@@ -347,7 +358,7 @@ export function DiaryDayScreen({
       {/* 하단 제어부 (내 장일 때만 꾸미기 단추 노출) */}
       <footer
         className={`px-4 pb-3 pt-1 space-y-2 z-30 ${layout === 'tall' ? 'w-full max-w-[600px] mx-auto' : ''}`}
-        style={side ? { gridArea: 'tools', alignSelf: 'center' } : undefined}
+        style={side ? { gridArea: 'tools', alignSelf: 'center', maxHeight: '100%', overflowY: 'auto' } : undefined}
       >
         {notes && onToggleHeart && onSendNote && onDeleteNote && !selectedItemId && (
           <DiaryNotes

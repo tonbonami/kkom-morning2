@@ -1125,10 +1125,10 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   //   내용이 길어져도 다시 바닥으로. 새 메시지 때만 내리던 탓에 서랍을 열면 마지막 말풍선이 가려졌다(Aside 1부·2부).
   //   ⚠️ 한 번만 내리면 늦게 커지는 내용에 반드시 재발한다 → 크기 변화마다 재고정(관제탑 교훈).
   const stickBottom = useRef(true);
-  // 넓은 화면(768px↑ = Tailwind md) — 끌어서 닫기를 끄는 데 쓴다.
+  // 넓은 화면(폭 768↑ 그리고 키 600↑ = 가운데 창이 되는 화면) — 끌어서 닫기를 끄는 데 쓴다. 폰 가로는 꽉 차니 넓은 화면이 아니다(11/18).
   const [isWide, setIsWide] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia('(min-width: 768px)');
+    const mq = window.matchMedia('(min-width: 768px) and (min-height: 600px)');
     const on = () => setIsWide(mq.matches);
     on();
     mq.addEventListener('change', on);
@@ -1621,7 +1621,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   const stickerArt = (src: string) => (
     isVideoSrc(src) ? (
       <video src={src} poster={posterOf(src)} autoPlay loop muted playsInline
-        className="w-40 h-40 rounded-[26px] object-cover bg-white shadow-sm" />
+        className="w-[clamp(160px,24vw,240px)] h-[clamp(160px,24vw,240px)] rounded-[26px] object-cover bg-white shadow-sm" />
     ) : FULL_STICKERS.has(src) ? (
       <motion.img src={src} alt="이모티콘" className="w-[76vw] max-w-[400px] h-auto rounded-2xl shadow-sm"
         initial={{ scale: 0.6, opacity: 0 }}
@@ -1633,7 +1633,8 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
       //   두 상한으로 캐릭터 '덩치'를 통일(우댕: 뭐해/도착/심심해/ㅋㅋㅋ 지적). 푸데데 가로형이 대략 상한.
       //   챗 이모티콘은 말풍선 없이 그림만. ⚠️ 움짤(sai-anim)은 스스로 움직여 통 흔들기(rotate) 제외, 정지만 흔든다.
       <motion.img src={src} alt="이모티콘"
-        className="max-h-[138px] max-w-[150px] object-contain drop-shadow-sm"
+        // 폭이 넓으면(가로 화면·아이패드) 같이 커진다 — 폰 세로(390)에선 22vw 가 작아서 예전 그대로 138/150.
+        className="max-h-[clamp(138px,20vw,230px)] max-w-[clamp(150px,22vw,250px)] object-contain drop-shadow-sm"
         initial={{ scale: 0.4, opacity: 0 }}
         animate={src.startsWith('/emo/sai-anim/')
           ? { scale: 1, opacity: 1 }
@@ -1868,13 +1869,15 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
           1440px에서 입력줄이 화면 끝까지 늘어나고 스티커가 한 줄 4개로 거대해지던 것(Aside 1부).
           양옆을 눌러 닫기는 뺐다(Aside 3부: 실수로 누르기 쉽고 왜 닫혔는지 모른다). 닫기는 ×·스와이프. 뒤 홈 클릭만 막는다. */}
       {open && (
-        <motion.div key="chat-backdrop" className="fixed inset-0 z-[59] hidden bg-black/25 md:block"
+        <motion.div key="chat-backdrop" className="fixed inset-0 z-[59] hidden bg-black/25 [@media(min-width:768px)_and_(min-height:600px)]:block"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
       )}
       {open && (
         <motion.div
           key="chat"
-          className="fixed inset-0 z-[60] flex flex-col md:left-[calc(50%-20rem)] md:right-[calc(50%-20rem)] md:shadow-2xl"
+          // 폰 가로(키 600 아래)는 가운데 창으로 줄이지 않고 꽉 채운다 — 우댕 11/18 「폰에서 가로 화면에서도 옆으로 화면이 꽉 차서 이모티콘 같은 거 크게 보이면 좋겠어. 반응형으로」.
+          //   아이패드·컴퓨터(폭 768↑ 그리고 키 600↑)만 가운데 창, 폭은 화면의 72%(최대 900px, 최소 640px).
+          className="fixed inset-0 z-[60] flex flex-col [@media(min-width:768px)_and_(min-height:600px)]:left-[calc(50%-min(450px,max(320px,36vw)))] [@media(min-width:768px)_and_(min-height:600px)]:right-[calc(50%-min(450px,max(320px,36vw)))] [@media(min-width:768px)_and_(min-height:600px)]:shadow-2xl"
           style={chatThemeStyle}
           // 들어오고 나갈 때 '화면 폭'만큼 — '100%'(자기 폭 640px)면 넓은 화면에서 다 안 빠져나가 오른쪽에 걸려 남았다(Aside 3부).
           //   ⚠️ '100vw' 문자열은 motion이 0으로 못 움직여 열리지도 않았다 → 화면 폭을 px 숫자로.
