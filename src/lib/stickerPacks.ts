@@ -106,6 +106,9 @@ export const KKUL_ANIM: { word: string; image: string }[] = [
   // 꼼이 「추워」(사이 팩)의 짝 — 덜덜 → 날개로 데우려다 찬바람 역풍 → 딱 얼어 더듬이 띠용 → 콧물 고드름 달고 멍
   //   (art/kkuldaeng/cold: GPT 회의 1순위 「자가 냉풍기」 → Codex 키프레임 → Kling 24 → make_cold.py, 우댕 「올려」 2026-11-10)
   { word: '추워', image: '/emo/sai-anim/kkul-cold.webp' },
+  // 꼼이(말티푸) 「으악」(sai-anim/yell)의 짝 — 평소 → 씩 웃음 → 입이 「확」 얼굴만큼(코는 머리 꼭대기로, 귀 펄럭·더듬이 띠용·날개 쫙) → 버팀
+  //   (art/kkuldaeng/yell: Codex 키프레임 3장 → Kling 25 → make_yell.py, 우댕 「꿀됑버전도 만들어」 → 「넣어」 2026-11-18)
+  { word: '으악!', image: '/emo/sai-anim/kkul-yell.webp' },
 ];
 // 우리 탭 — 꿀됑+꼼이가 같이 나오는 커플 16종(정지, 글씨 배지). GPT 회의(후보 20 → 16, 순서 = 자주 쓸 것 앞) + 우댕 OK(2026-10-27).
 //   원본·회의 원문·지시문·만든 스크립트는 art/couple16 (make_couple.py: 투명 그림 → 배지 webp 320).

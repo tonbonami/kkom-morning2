@@ -248,7 +248,7 @@ const SUGGEST_RULES: { re: RegExp; get: () => (Suggestion | undefined)[] }[] = [
   // ── 놀람·리액션·웃음 ──
   { re: /헐|헉|대박|깜짝|놀랐|놀람|뭐야|실화|미쳤|헐랭|헉스/,    get: () => [sugSai('헐'), sugAnim('으악'), sugKkul('진짜아?'), sugKkul('으악')] },
   { re: /진짜\?|진짜아|레알\?|정말\?|ㄹㅇ\?/,                     get: () => [sugKkul('진짜아?')] },
-  { re: /으악|으아|꺄|악!|끼야/,                               get: () => [sugAnim('으악'), sugSai('헐'), sugKkulAnim('으악 펄쩍'), sugKkul('으악')] },
+  { re: /으악|으아|꺄|악!|끼야/,                               get: () => [sugAnim('으악'), sugKkulAnim('으악!'), sugSai('헐'), sugKkulAnim('으악 펄쩍'), sugKkul('으악')] },   // 꼼이·꿀됑 「으악」 짝 — 내 캐릭터 판이 앞(OWN_MODES)
   { re: /ㅋㅋ|ㅎㅎ|웃겨|웃김|빵\s?터|풉|낄낄|개웃|ㅋ큐/,         get: () => [sugSai('ㅋㅋㅋ'), sugKkul('ㅋㅋㅋ')] },
   { re: /뭐해|모해|뭐하|머해|뭐함|뭐하니|모하/,                 get: () => [sugSai('뭐해?')] },
   { re: /ㄴㄴ|아니야|아니(?![가-힣])|노노|싫어|절대\s?안|안돼|노우/, get: () => [sugSai('ㄴㄴ')] },
@@ -322,7 +322,7 @@ const INTENTS: Intent[] = [
   { id: 'sick',     pop: 3, aliases: ['아파', '아프다', '아파요', '아픔', '감기', '몸살', '열나', '골골', '몸안좋아', '컨디션', '병원', '두통', '배아파'], get: () => [sugAnim('아파'), sugMini('아파'), sugKkul('괜찮아?')] },
   { id: 'worried',  pop: 3, aliases: ['괜찮아', '괜찮니', '괜춘', '무슨일이야', '걱정돼', '걱정', '어디아파', '별일없지', 'ㄱㅊ'], get: () => [sugKkul('괜찮아?'), sugUri('괜찮아'), sugCouple('토닥토닥')] },
   { id: 'yay',      aliases: ['좋아', '좋다', '조아', '오예', '굿', '찬성', '좋았어', '마음에들어', 'ㅈㅇ'], get: () => [sugAnim('좋아!'), sugMini('최고야')] },
-  { id: 'scream',   pop: 3, aliases: ['으악', '으아악', '으아', '악', '꺄', '깜짝이야', '깜짝', '놀랐어', '무서워', '펄쩍', '끼야'], get: () => [sugKkulAnim('으악 펄쩍'), sugKkul('으악'), sugAnim('으악'), sugSai('헐')] },
+  { id: 'scream',   pop: 3, aliases: ['으악', '으아악', '으아', '악', '꺄', '깜짝이야', '깜짝', '놀랐어', '무서워', '펄쩍', '끼야'], get: () => [sugKkulAnim('으악!'), sugKkulAnim('으악 펄쩍'), sugKkul('으악'), sugAnim('으악'), sugSai('헐')] },
   { id: 'congrats', aliases: ['축하해', '축하', '축하한다', '추카', '추카해', '생일축하', '생축', '생일', '기념일', 'ㅊㅋ', '🎉', '🎊'], get: () => [sugAnim('축하해!'), sugUri('축하해'), sugAnim('선물'), sugCouple('헹가래')] },
   { id: 'gift',     aliases: ['선물', '선물이야', '선물줄게', '기프트', '기프티콘', '서프라이즈', '택배', '🎁'], get: () => [sugAnim('선물'), sugKkulAnim('꽃 줄게')] },
   { id: 'shy',      aliases: ['부끄러워', '부끄', '수줍어', '쑥스러워', '민망해', '창피해', '헤헤', 'ㅂㄲ'], get: () => [sugAnim('부끄')] },
