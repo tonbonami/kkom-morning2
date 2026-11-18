@@ -37,6 +37,8 @@ export interface DiaryMonthScreenProps {
   owner: MonthOwner;
   canEdit: boolean;
   monthLabel: string;
+  /** 올해가 아닌 달이면 「2025년」 — 제목 아래 작게(Aside 검수 11/18: 연도가 어디에도 안 보여 작년인지 모름) */
+  yearNote?: string;
   monthNumber: number;
   titleStyle: MonthTitleStyle;
   hero?: MonthStickerVM | null;
@@ -78,6 +80,7 @@ export function DiaryMonthScreen({
   owner,
   canEdit,
   monthLabel,
+  yearNote,
   monthNumber,
   titleStyle,
   hero,
@@ -169,8 +172,9 @@ export function DiaryMonthScreen({
             <button
               type="button"
               onClick={isDecorate ? onCycleTitleStyle : undefined}
-              className={`flex items-center justify-center min-w-[64px] ${isDecorate ? 'active:opacity-80' : 'cursor-default'}`}
+              className={`flex flex-col items-center justify-center min-w-[64px] ${isDecorate ? 'active:opacity-80' : 'cursor-default'}`}
             >
+              {yearNote && <span className="text-[11px] leading-none text-[var(--sd-muted)] mb-0.5">{yearNote}</span>}
               {titleStyle === 'round' ? (
                 <div className="w-10 h-10 rounded-full bg-[#F5DEB3]/50 flex items-center justify-center">
                   <span className="font-['Dongle'] text-3xl leading-none text-[var(--sd-ink)]">

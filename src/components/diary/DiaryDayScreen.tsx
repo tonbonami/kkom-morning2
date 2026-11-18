@@ -77,6 +77,8 @@ export interface DiaryDayScreenProps {
   onPhotoCaption: (text: string) => void;
   /** 아직 오지 않은 날 — 내 장이어도 쓰지 못한다(꼼이가 일기 쓰다 다음 날 장으로 밀려 같은 글이 생긴 일, 2026-11-17) */
   future?: boolean;
+  /** ← 옆 글자 — 달력에서 왔으면 「달력」(누르면 달력으로) */
+  backLabel?: string;
 }
 
 export function DiaryDayScreen({
@@ -118,6 +120,7 @@ export function DiaryDayScreen({
   onPhotoFrame,
   onPhotoCaption,
   future = false,
+  backLabel,
 }: DiaryDayScreenProps): React.JSX.Element {
   const [showMenu, setShowMenu] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -157,9 +160,11 @@ export function DiaryDayScreen({
         <button
           type="button"
           onClick={onBack}
+          aria-label={backLabel ? `${backLabel}로 돌아가기` : '다이어리 나가기'}
           className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--sd-ink)] active:scale-95"
         >
           <ChevronLeft className="w-6 h-6" />
+          {backLabel && <span className="text-[13px] font-medium -ml-0.5 pr-1">{backLabel}</span>}
         </button>
 
         {/* 날짜 및 월 선택 */}
@@ -278,7 +283,7 @@ export function DiaryDayScreen({
           onTextChange={onTextChange}
           onSwipe={(dir) => (dir === 'prev' ? onPrevDate() : onNextDate())}
           onClearQuestion={isEditable ? onClearQuestion : undefined}
-          onEmptyPhoto={isEditable ? openPhotos : undefined}
+          onEmptyPhoto={isEditable && isToday ? openPhotos : undefined}
           textRef={textRef}
         />
       </main>

@@ -5,6 +5,7 @@ import React, { useRef, useState } from 'react';
 import { X, Image as ImageIcon } from 'lucide-react';
 import { DiaryPageVM, DiaryChipVM, DiaryItemVM, DIARY_LIMITS, PHOTO_PAD, photoBoxRatio, photoShowsCaption } from '@/lib/diaryTypes';
 import { DiaryDecor } from './DiaryDecor';
+import { todayYmd } from '@/lib/calendarLayout';
 
 export interface DiaryPaperProps {
   page: DiaryPageVM;
@@ -277,7 +278,7 @@ export function DiaryPaper({
             onFocus={() => setTextFocused(true)}
             onBlur={() => setTextFocused(false)}
             maxLength={1000}
-            placeholder="오늘 하루는 어땠나요?"
+            placeholder={page.date === todayYmd() ? '오늘 하루는 어땠나요?' : ''}
             style={{ lineHeight: '32px' }}
             className="w-full flex-1 min-h-0 bg-transparent resize-none outline-none text-[16px] text-[var(--sd-ink)] placeholder-[var(--sd-faint)] font-sans"
           />

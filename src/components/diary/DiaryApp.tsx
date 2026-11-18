@@ -88,6 +88,8 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const [date, setDate] = useState(initialDate && /^\d{4}-\d\d-\d\d$/.test(initialDate) ? initialDate : TODAY);
   const [owner, setOwner] = useState<Person>(initialOwner ?? me);
   const [view, setView] = useState<'day' | 'month'>(initialView ?? 'day');
+  // 달력 → 날짜 시트 → 하루 장으로 왔으면 ← 는 달력으로(Aside 검수 11/18: 손이 가는 ← 가 홈으로 나가 위험 — 홈 단추는 연습 모드에서도 진짜로 간다)
+  const [fromMonth, setFromMonth] = useState(false);
   const [mYm, setMYm] = useState(date.slice(0, 7));
   const [sel, setSel] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
@@ -475,12 +477,13 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         <DiaryMonthScreen
           me={me} owner={mOwner} canEdit={canEditMonth}
           monthLabel={`${mYm.slice(0, 4)}년 ${Number(mYm.slice(5, 7))}월`} monthNumber={Number(mYm.slice(5, 7))}
+          yearNote={mYm.slice(0, 4) !== todayYmd().slice(0, 4) ? `${mYm.slice(0, 4)}년` : undefined}
           titleStyle={deco.title} hero={deco.hero} cells={cells} bands={bands} margin={deco.margin}
           upcoming={upcoming} onOpenUpcoming={() => setUpOpen(true)}
           onAddEvent={() => openNewEvent(mYm === TODAY.slice(0, 7) ? TODAY : `${mYm}-01`, null)}
           mode={canEditMonth ? mMode : 'view'} tool={tool} selectedAsset={pickedNow} spanStart={spanStart}
           undoText={undo?.text ?? null} saveState={mOffline ? 'offline' : mPending > 0 ? 'saving' : 'saved'}
-          onBack={() => setView('day')}
+          onBack={() => { setFromMonth(false); setView('day'); }}
           onPrevMonth={() => setMYm((m) => shiftMonth(m, -1))}
           onNextMonth={() => setMYm((m) => shiftMonth(m, 1))}
           onGoThisMonth={() => setMYm(TODAY.slice(0, 7))}
@@ -563,7 +566,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
           } as Record<Person, { has: boolean; excerpt?: string; thumbSrc?: string }>}
           onAddEvent={() => { if (agendaDate) openNewEvent(agendaDate, agendaDate); }}
           onOpenEvent={(id) => openEvent(id, agendaDate)}
-          onOpenPage={(o) => { const d = agendaDate; if (!d) return; setAgendaDate(null); setOwner(o); goDate(d); setView('day'); }}
+          onOpenPage={(o) => { const d = agendaDate; if (!d) return; setAgendaDate(null); setOwner(o); goDate(d); setFromMonth(true); setView('day'); }}
           onClose={() => setAgendaDate(null)}
           decor={agendaDate ? { stickers: deco.stickers[agendaDate] ?? [], memo: deco.memos[agendaDate] } : undefined}
           onEditMemo={canEditMonth ? () => { const d = agendaDate; if (!d) return; setAgendaDate(null); setMemoBack(d); setMemoDate(d); } : undefined}
@@ -594,7 +597,8 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         materials={isMine && ready && date === TODAY && !mine.question ? [{ id: 'q', kind: 'prompt', label: promptOfDay }] : []}
         hasPage={{ [me]: diaryPageHasContent(mine), [partner]: !!theirs || !!metas[diaryPageId(date, partner)] } as Record<Person, boolean>}
         saveState={saveState} isToday={date === TODAY} selectedItemId={isMine ? sel : null}
-        onBack={() => { void flush(); onExit(); }}
+        onBack={() => { if (fromMonth) { setFromMonth(false); setSel(null); setMYm(date.slice(0, 7)); setView('month'); return; } void flush(); onExit(); }}
+        backLabel={fromMonth ? '달력' : undefined}
         onPrevDate={() => goDate(addDaysYmd(date, -1))} onNextDate={() => goDate(addDaysYmd(date, 1))}
         onGoToday={() => goDate(TODAY)} onOpenMonth={() => { setMYm(date.slice(0, 7)); setView('month'); }}
         onChangeOwner={(p) => { setSel(null); setOwner(p); }}
