@@ -1,7 +1,7 @@
 // src/components/diary/DiaryMonthScreen.tsx
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -135,6 +135,28 @@ export function DiaryMonthScreen({
   };
   const isDecorate = mode === 'decorate';
 
+  // 반응형(우댕 11/18 「여기는 달라진게 없어」 — 가로 폰·아이패드에서 달력이 가운데 좁은 칸으로만 보였다):
+  //   화면 폭 700 이상이면 폭 제한(448)을 풀어 화면을 채우고(최대 1100), 칸이 넓어지면 칸 높이·스티커·글씨도 같이 키운다.
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const on = () => setWide(window.innerWidth >= 700);
+    on(); window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [gridW, setGridW] = useState(0);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([e]) => setGridW(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const cellW = gridW / 7;
+  const big = cellW >= 88;
+  const cellH = big ? Math.round(Math.min(124, Math.max(86, cellW * 0.8))) : 74;
+  const bandTop = big ? 27 : 23, bandStep = big ? 18 : 15, bandH = big ? 17 : 14;
+
   const cellSpansAbove: number[] = new Array(cells.length).fill(0);
   bands.forEach((b) => {
     for (let c = b.col; c < b.col + b.span && c < 7; c++) {
@@ -146,7 +168,7 @@ export function DiaryMonthScreen({
   });
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen bg-[#FCFAF7] flex flex-col justify-between select-none">
+    <div className={`w-full ${wide ? 'max-w-[1100px]' : 'max-w-md'} mx-auto min-h-screen bg-[#FCFAF7] flex flex-col justify-between select-none`}>
       <div className="p-4 space-y-3">
         {/* 머리줄 — 우댕 2026-11-18 「대칭이 안맞아서 안예쁜데 화살표 잘 안눌리고. 지난달 가기가 불편해」 + GPT 회의:
             [뒤로 | 오늘 자리] [‹ 제목 ›] [저장 표시 | 메뉴] — 양옆 칸 폭을 같게 해서 제목이 정확히 가운데. 화살표 44×44.
@@ -341,7 +363,7 @@ export function DiaryMonthScreen({
           </div>
 
           <div className="pl-2">
-            <div className="grid grid-cols-7 mb-1 text-center text-[11px] text-[var(--sd-faint)]">
+            <div className={`grid grid-cols-7 mb-1 text-center ${big ? 'text-[13px]' : 'text-[11px]'} text-[var(--sd-faint)]`}>
               <span className="text-[var(--sd-rel)] font-medium">일</span>
               <span>월</span>
               <span>화</span>
@@ -351,7 +373,7 @@ export function DiaryMonthScreen({
               <span>토</span>
             </div>
 
-            <div className="flex flex-col border-t border-l border-[color:color-mix(in_srgb,var(--sd-line)_40%,transparent)]">
+            <div ref={gridRef} className="flex flex-col border-t border-l border-[color:color-mix(in_srgb,var(--sd-line)_40%,transparent)]">
               {Array.from({ length: 6 }, (_, w) => {
                 const weekBands = bands.filter((b) => b.week === w);
 
@@ -360,7 +382,7 @@ export function DiaryMonthScreen({
                     {weekBands.map((b) => {
                       const leftCalc = `calc(${(b.col / 7) * 100}% + 2px)`;
                       const widthCalc = `calc(${(b.span / 7) * 100}% - 4px)`;
-                      const topPx = 23 + b.row * 15;   // DiaryMonthCell 의 날짜 줄(20) 밑, 줄마다 15(띠 14 + 틈 1)
+                      const topPx = bandTop + b.row * bandStep;   // DiaryMonthCell 의 날짜 줄(20, 넓은 칸 24) 밑, 줄마다 15(띠 14 + 틈 1) · 넓은 칸 18(17 + 1)
                       const isEvent = b.kind === 'event';
                       const ownerStyle = isEvent
                         ? EVENT_OWNER_STYLE[b.owner || 'together']
@@ -386,10 +408,11 @@ export function DiaryMonthScreen({
                             left: leftCalc,
                             width: widthCalc,
                             top: `${topPx}px`,
+                            height: bandH,
                             backgroundColor: ownerStyle ? ownerStyle.band : undefined,
                             borderLeftColor: ownerStyle ? ownerStyle.dot : undefined,
                           }}
-                          className={`absolute h-[14px] overflow-hidden ${b.span === 1 ? 'px-[3px]' : 'px-1'} flex items-center select-none ${cornerClasses} ${
+                          className={`absolute overflow-hidden ${b.span === 1 ? 'px-[3px]' : 'px-1'} flex items-center select-none ${cornerClasses} ${
                             isEvent
                               ? `border-l-[2.5px] ${
                                   isDecorate
@@ -411,7 +434,7 @@ export function DiaryMonthScreen({
                               {b.showLabel && b.label && (
                                 <span
                                   style={{ color: ownerStyle?.text }}
-                                  className="relative z-10 text-[9.5px] font-medium truncate leading-none"
+                                  className={`relative z-10 ${big ? 'text-[11.5px]' : 'text-[9.5px]'} font-medium truncate leading-none`}
                                 >
                                   {b.label}
                                 </span>
@@ -423,7 +446,7 @@ export function DiaryMonthScreen({
                                 <DiaryDecor decorId={b.decorId ?? 'tape-honey'} />
                               </div>
                               {b.showLabel && b.label && (
-                                <span className="relative z-10 text-[9.5px] text-[var(--sd-ink)] font-medium truncate leading-none">
+                                <span className={`relative z-10 ${big ? 'text-[11.5px]' : 'text-[9.5px]'} text-[var(--sd-ink)] font-medium truncate leading-none`}>
                                   {b.label}
                                 </span>
                               )}
@@ -443,6 +466,8 @@ export function DiaryMonthScreen({
                           tool={tool}
                           marked={spanStart === cell.date}
                           hasSpanAbove={cellSpansAbove[globalIdx]}
+                          cellH={cellH}
+                          big={big}
                           onTap={() => onTapDay(cell.date)}
                           onRemoveSticker={(sId) => onRemoveSticker(cell.date, sId)}
                           onRemoveMemo={() => onRemoveMemo(cell.date)}
@@ -459,7 +484,7 @@ export function DiaryMonthScreen({
               {hero && (
                 <div
                   onClick={isDecorate ? onTapHero : undefined}
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDecorate ? 'cursor-pointer active:scale-95' : ''}`}
+                  className={`${big ? 'w-12 h-12' : 'w-9 h-9'} rounded-xl flex items-center justify-center shrink-0 ${isDecorate ? 'cursor-pointer active:scale-95' : ''}`}
                 >
                   {hero.src ? (
                     <img src={hero.src} alt="" loading="lazy" decoding="async" draggable={false} className="w-full h-full object-contain" />
@@ -474,7 +499,7 @@ export function DiaryMonthScreen({
                   <div
                     key={idx}
                     onClick={() => onTapMargin(idx)}
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    className={`${big ? 'w-12 h-12' : 'w-9 h-9'} rounded-xl flex items-center justify-center shrink-0 ${
                       item
                         ? 'bg-transparent'
                         : isDecorate
@@ -510,6 +535,7 @@ export function DiaryMonthScreen({
         className="w-full border-t border-[var(--sd-line)] bg-[var(--sd-card-solid)]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
+        <div className={wide ? 'max-w-[640px] mx-auto' : undefined}>
         {undoText && (
           <div className="flex items-center justify-between px-4 py-1.5 bg-[var(--sd-surface-2)] border-b border-[var(--sd-line)] text-xs text-[var(--sd-ink)]">
             <span>{undoText}</span>
@@ -628,6 +654,7 @@ export function DiaryMonthScreen({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

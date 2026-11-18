@@ -16,6 +16,10 @@ export interface DiaryMonthCellProps {
   onTap: () => void;
   onRemoveSticker?: (stickerId: string) => void;
   onRemoveMemo?: () => void;
+  /** 칸 높이 — 넓은 화면(가로 폰·아이패드)에선 칸 폭에 맞춰 키운다(기본 74). */
+  cellH?: number;
+  /** 넓은 칸 — 날짜·메모·점·띠 칸을 한 단계 크게(우댕 11/18 「가로 화면에서도 꽉 차서 크게」). */
+  big?: boolean;
 }
 
 export function DiaryMonthCell({
@@ -27,6 +31,8 @@ export function DiaryMonthCell({
   onTap,
   onRemoveSticker,
   onRemoveMemo,
+  cellH = 74,
+  big = false,
 }: DiaryMonthCellProps): React.JSX.Element {
   const isErase = mode === 'decorate' && tool === 'erase';
   const special = cell.specials[0];
@@ -41,9 +47,14 @@ export function DiaryMonthCell({
   const specialBig = !!special?.sticker && userStickers.length < 2;
   const shown = (specialBig ? 1 : 0) + userStickers.length;
 
-  const avail = 46 - Math.min(2, hasSpanAbove) * 15;
-  const memoLines = !cell.memo ? 0 : shown === 0 ? (avail >= 26 ? 2 : avail >= 13 ? 1 : 0) : avail >= 40 ? 1 : 0;
-  const px = Math.max(14, Math.min(shown >= 2 ? 24 : 30, avail - memoLines * 12 - 2));
+  // 넓은 칸은 같은 계산을 칸 높이 비율(scale)로 키운다 — 기본 칸(74)에선 예전 숫자 그대로(46·26·13·40·24·30).
+  const scale = Math.max(1, cellH / 74);
+  const dateH = big ? 24 : 20, step = big ? 18 : 15, lineH = big ? 14 : 12;
+  const avail = cellH - 8 - dateH - Math.min(2, hasSpanAbove) * step;
+  const memoLines = !cell.memo ? 0 : shown === 0 ? (avail >= lineH * 2 + 2 ? 2 : avail >= lineH + 1 ? 1 : 0) : avail >= lineH + Math.round(28 * scale) ? 1 : 0;
+  // 넓은 칸은 옆으로 자리가 남아서 스티커 상한을 더 올린다(남는 높이가 진짜 한도).
+  const boost = big ? 1.35 : 1;
+  const px = Math.round(Math.max(14 * scale, Math.min((shown >= 2 ? 24 : 30) * scale * boost, avail - memoLines * lineH - 2)));
   const hideMemo = !!cell.memo && memoLines === 0;
 
   const drawSticker = (st: { src?: string; decorId?: string }) =>
@@ -63,7 +74,8 @@ export function DiaryMonthCell({
   return (
     <div
       onClick={cell.inMonth ? onTap : undefined}
-      className={`relative w-full h-[74px] p-1 flex flex-col justify-between overflow-hidden border-b border-r border-[color:color-mix(in_srgb,var(--sd-line)_40%,transparent)] select-none ${
+      style={{ height: cellH }}
+      className={`relative w-full p-1 flex flex-col justify-between overflow-hidden border-b border-r border-[color:color-mix(in_srgb,var(--sd-line)_40%,transparent)] select-none ${
         !cell.inMonth
           ? 'opacity-25 bg-[color:color-mix(in_srgb,var(--sd-surface-2)_30%,transparent)]'
           : marked
@@ -75,15 +87,15 @@ export function DiaryMonthCell({
           : ''
       }`}
     >
-      <div className="flex items-center justify-between w-full h-5 shrink-0">
+      <div className={`flex items-center justify-between w-full shrink-0 ${big ? 'h-6' : 'h-5'}`}>
         <div className="flex items-center gap-0.5 min-w-0">
           {cell.isToday ? (
-            <span className="w-5 h-5 rounded-full bg-[var(--sd-rel)] text-white text-[11.5px] font-bold flex items-center justify-center leading-none shrink-0">
+            <span className={`rounded-full bg-[var(--sd-rel)] text-white font-bold flex items-center justify-center leading-none shrink-0 ${big ? 'w-6 h-6 text-[14px]' : 'w-5 h-5 text-[11.5px]'}`}>
               {cell.day}
             </span>
           ) : (
             <span
-              className={`text-[12.5px] font-medium leading-none shrink-0 ${
+              className={`${big ? 'text-[15px]' : 'text-[12.5px]'} font-medium leading-none shrink-0 ${
                 cell.holiday ? 'text-[var(--sd-rel)]' : 'text-[var(--sd-ink)]'
               }`}
             >
@@ -95,7 +107,7 @@ export function DiaryMonthCell({
             <div className="flex items-center gap-0.5 ml-0.5 truncate">
               {special.sticker ? (
                 specialBig ? null : (
-                  <div className="w-3.5 h-3.5 shrink-0">{drawSticker(special.sticker)}</div>
+                  <div className={`shrink-0 ${big ? 'w-[18px] h-[18px]' : 'w-3.5 h-3.5'}`}>{drawSticker(special.sticker)}</div>
                 )
               ) : special.kind === 'birthday' ? (
                 <Cake className="w-2.5 h-2.5 text-[var(--sd-rel)] shrink-0" />
@@ -107,7 +119,7 @@ export function DiaryMonthCell({
                 <Star className="w-2.5 h-2.5 text-[var(--sd-rel)] shrink-0" />
               )}
               {special.years && (
-                <span className="text-[9px] text-[var(--sd-rel)] font-medium leading-none whitespace-nowrap">
+                <span className={`${big ? 'text-[11px]' : 'text-[9px]'} text-[var(--sd-rel)] font-medium leading-none whitespace-nowrap`}>
                   {special.years}주년
                 </span>
               )}
@@ -122,17 +134,17 @@ export function DiaryMonthCell({
             }`}
           >
             {hideMemo && (
-              <span className="text-[10px] leading-none text-[var(--sd-muted)]" aria-label="메모 있음">✎</span>
+              <span className={`${big ? 'text-[12px]' : 'text-[10px]'} leading-none text-[var(--sd-muted)]`} aria-label="메모 있음">✎</span>
             )}
             {cell.events?.owners.slice(0, 2).map((owner, idx) => (
               <span
                 key={idx}
-                className="w-[5px] h-[5px] rounded-full shrink-0"
+                className={`rounded-full shrink-0 ${big ? 'w-[7px] h-[7px]' : 'w-[5px] h-[5px]'}`}
                 style={{ backgroundColor: EVENT_OWNER_STYLE[owner].dot }}
               />
             ))}
             {cell.events && cell.events.more > 0 && (
-              <span className="text-[9.5px] font-medium leading-none text-[var(--sd-muted)]">
+              <span className={`${big ? 'text-[11px]' : 'text-[9.5px]'} font-medium leading-none text-[var(--sd-muted)]`}>
                 +{cell.events.more}
               </span>
             )}
@@ -141,7 +153,7 @@ export function DiaryMonthCell({
       </div>
 
       {hasSpanAbove > 0 && (
-        <div style={{ height: `${Math.min(2, hasSpanAbove) * 15}px` }} className="shrink-0" />
+        <div style={{ height: `${Math.min(2, hasSpanAbove) * step}px` }} className="shrink-0" />
       )}
 
       <div
@@ -185,7 +197,7 @@ export function DiaryMonthCell({
               onRemoveMemo();
             }
           }}
-          className={`w-full shrink-0 text-center break-all text-[10.5px] leading-[12px] text-[var(--sd-ink)] opacity-80 font-normal px-0.5 ${
+          className={`w-full shrink-0 text-center break-all ${big ? 'text-[12.5px] leading-[14px]' : 'text-[10.5px] leading-[12px]'} text-[var(--sd-ink)] opacity-80 font-normal px-0.5 ${
             memoLines >= 2 ? 'line-clamp-2' : 'line-clamp-1'
           } ${
             isErase
@@ -199,8 +211,8 @@ export function DiaryMonthCell({
 
       {(cell.mine || cell.partner) && (
         <div className="absolute right-1 bottom-1 flex items-center gap-0.5 pointer-events-none z-10">
-          {cell.mine && <span className="w-1.5 h-1.5 rounded-full bg-[var(--sd-ink)]" />}
-          {cell.partner && <span className="w-1.5 h-1.5 rounded-full bg-[color:color-mix(in_srgb,var(--sd-ink)_35%,transparent)]" />}
+          {cell.mine && <span className={`${big ? 'w-2 h-2' : 'w-1.5 h-1.5'} rounded-full bg-[var(--sd-ink)]`} />}
+          {cell.partner && <span className={`${big ? 'w-2 h-2' : 'w-1.5 h-1.5'} rounded-full bg-[color:color-mix(in_srgb,var(--sd-ink)_35%,transparent)]`} />}
         </div>
       )}
     </div>
