@@ -57,7 +57,9 @@ export interface DiaryChipVM { id: string; kind: 'mood' | 'weather' | 'event' | 
 /** question = 그 장에 고른 「오늘의 질문」 — 글과 따로 두고 다른 색으로 그린다(꼼이 2026-11-17 「이 글씨 색을 밑에 글씨와 구분할 수 있게」). */
 export interface DiaryPageVM { date: string; owner: Person; theme: DiaryPaperTheme; text: string; items: DiaryItemVM[]; question?: string }
 /** 서랍의 고를 거리 하나. packId = 어느 팩 탭인지(서랍에서 끄기·옮기기용 — 장에 붙인 물건에는 저장하지 않는다). */
-export interface DiaryAssetVM { id: string; packId?: string; kind: 'sticker' | 'tape' | 'stamp'; src?: string; decorId?: string; label?: string; favorite?: boolean }
+export interface DiaryAssetVM { id: string; packId?: string; kind: 'sticker' | 'tape' | 'stamp'; src?: string; decorId?: string; label?: string; favorite?: boolean;
+  /** 다꾸 전용 스티커 — 그림 높이/폭과 처음 붙일 폭(없으면 정사각·0.3) */
+  ratio?: number; w?: number }
 export interface DiaryMaterialVM { id: string; kind: 'mood' | 'weather' | 'photo' | 'prompt' | 'special'; label: string; thumbSrc?: string }
 export interface DiaryMonthDayVM { date: string; day: number; inMonth: boolean; isToday: boolean; mine: boolean; partner: boolean; special?: string; holiday?: boolean }
 /** 생일·기념일. sticker = 전용 스티커(등록할 때 고름) — 매년 그 날짜 칸에 저절로 붙는다(월간 장식 개수에 안 센다). */

@@ -21,6 +21,7 @@ import { DiaryEventSheet } from './DiaryEventSheet';
 import { DiaryUpcomingSheet } from './DiaryUpcomingSheet';
 import { DECOR_ASSETS } from './DiaryDecor';
 import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS } from '@/lib/stickerPacks';
+import { DAKU_PACKS, dakuSrc } from '@/lib/dakuStickers';
 import { subscribeCalendar, type CalendarEvent } from '@/lib/calendar';
 import { addDaysYmd, eventsOnDate, todayYmd } from '@/lib/calendarLayout';
 import { holidayName } from '@/lib/holidays';
@@ -46,6 +47,8 @@ const newId = (p: string) => `${p}${Date.now().toString(36)}${Math.random().toSt
 const STICKER = (pack: string, list: { word: string; image: string }[]): DiaryAssetVM[] =>
   list.map((s, i) => ({ id: `${pack}-${i}`, packId: pack, kind: 'sticker', src: s.image, label: s.word }));
 const ASSETS: Record<string, DiaryAssetVM[]> = {
+  // 다꾸 전용 팩(lib/dakuStickers.ts) — 탭 맨 앞
+  ...Object.fromEntries(DAKU_PACKS.map((p) => [p.id, p.items.map((s): DiaryAssetVM => ({ id: `${p.id}-${s.id}`, packId: p.id, kind: 'sticker', src: dakuSrc(p.id, s.id), label: s.label, ratio: s.ratio, w: s.w }))])),
   kkom: STICKER('kkom', SAI_STICKERS),
   kkul: STICKER('kkul', KKUL_STICKERS),
   uri: STICKER('uri', URI_STICKERS),
@@ -56,6 +59,7 @@ const ALL_ASSETS = Object.values(ASSETS).flat();
 /** 서랍 탭 — 「최근·즐겨찾기」는 늘 맨 앞(고정), 팩은 사람마다 끄고 옮긴다(lib/diaryAssetPrefs.ts). 새 팩은 PACKS 에 더하면 저절로 보인다. */
 const FIXED_TABS = [{ id: 'recent', label: '최근' }, { id: 'favorite', label: '즐겨찾기' }];
 const PACKS: DiaryPackVM[] = [
+  ...DAKU_PACKS.map((p) => ({ id: p.id, label: p.label, thumbSrc: dakuSrc(p.id, p.items.find((s) => s.id.startsWith('tape'))?.id ?? p.items[0].id) })),
   { id: 'kkom', label: '꼼이', thumbSrc: SAI_STICKERS[0]?.image },
   { id: 'kkul', label: '꿀됑', thumbSrc: KKUL_STICKERS[0]?.image },
   { id: 'uri', label: '우리', thumbSrc: URI_STICKERS[2]?.image },
@@ -326,10 +330,10 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const { prefs: assetPrefs, setShown: setPackShown, setOrder: setPackOrder, resetOrder: resetPackOrder } = useDiaryAssetPrefs(me);
   const visiblePacks = useMemo(() => visiblePacksOf(PACKS, assetPrefs), [assetPrefs]);
   const packShown = useCallback((a: DiaryAssetVM) => !a.packId || !assetPrefs.hiddenPackIds.includes(a.packId), [assetPrefs]);
-  // 처음엔 내 캐릭터 팩(우댕 꿀됑·꼼이 꼼이), 그 팩을 껐으면 보이는 첫 팩, 다 껐으면 최근.
+  // 처음엔 다꾸 전용 팩(종이·테이프), 그걸 껐으면 내 캐릭터 팩(우댕 꿀됑·꼼이 꼼이), 그것도 껐으면 보이는 첫 팩, 다 껐으면 최근.
   const tab = tabPick && (tabPick === 'recent' || tabPick === 'favorite' || visiblePacks.some((p) => p.id === tabPick))
     ? tabPick
-    : visiblePacks.find((p) => p.id === (me === '우댕' ? 'kkul' : 'kkom'))?.id ?? visiblePacks[0]?.id ?? 'recent';
+    : visiblePacks.find((p) => p.id === DAKU_PACKS[0]?.id)?.id ?? visiblePacks.find((p) => p.id === (me === '우댕' ? 'kkul' : 'kkom'))?.id ?? visiblePacks[0]?.id ?? 'recent';
   const assets = useMemo(() => {
     const byId = (ids: string[]) => ids.map((id) => ALL_ASSETS.find((x) => x.id === id)).filter((x): x is DiaryAssetVM => !!x && packShown(x));
     const base = tab === 'recent' ? byId(recentIds) : tab === 'favorite' ? byId(favIds) : ASSETS[tab] ?? [];
@@ -626,7 +630,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
       <DiaryAssetDrawer
         open={drawer && isMine} {...drawerTabs} assets={assets} full={mine.items.length >= DIARY_LIMITS.items}
         onPick={(a) => {
-          addItem(a.kind === 'sticker' ? { type: 'sticker', src: a.src, w: 0.3, ratio: 1 } : { type: a.kind, decorId: a.decorId, w: a.kind === 'tape' ? 0.42 : 0.3, ratio: ratioOfDecor(a.decorId) });
+          addItem(a.kind === 'sticker' ? { type: 'sticker', src: a.src, w: a.w ?? 0.3, ratio: a.ratio ?? 1 } : { type: a.kind, decorId: a.decorId, w: a.kind === 'tape' ? 0.42 : 0.3, ratio: ratioOfDecor(a.decorId) });
           remember(a);
         }}
         onToggleFavorite={toggleFav}

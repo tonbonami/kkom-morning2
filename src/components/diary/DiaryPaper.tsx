@@ -6,6 +6,7 @@ import { X, Image as ImageIcon } from 'lucide-react';
 import { DiaryPageVM, DiaryChipVM, DiaryItemVM, DIARY_LIMITS, PHOTO_PAD, photoBoxRatio, photoShowsCaption } from '@/lib/diaryTypes';
 import { DiaryDecor } from './DiaryDecor';
 import { todayYmd } from '@/lib/calendarLayout';
+import { isDakuSrc } from '@/lib/dakuStickers';
 
 export interface DiaryPaperProps {
   page: DiaryPageVM;
@@ -351,6 +352,8 @@ export function DiaryPaper({
                 <img
                   src={item.src}
                   alt="sticker"
+                  // 다꾸 전용 스티커는 그림에 그림자를 굽지 않았다 — 종이에서 살짝 뜬 느낌만 여기서(조사: 불투명 15~25%, 따뜻한 갈색)
+                  style={isDakuSrc(item.src) ? { filter: 'drop-shadow(0 1.5px 2.5px rgba(90,60,45,0.22))' } : undefined}
                   className="w-full h-full object-contain pointer-events-none"
                   loading="lazy"
                   decoding="async"
