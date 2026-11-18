@@ -108,4 +108,18 @@ export const DAKU_PACKS: DakuPack[] = [
       { id: 'winter-snowman', label: '겨울 눈사람', ratio: 1.228, w: 0.22 },
     ],
   },
+  {
+    // 꼼모닝 전용 — 꼼이·꿀됑은 둘만의 캐릭터(우댕 11/18 「여기에서 밖에 못써」). 사이담에 넘기지 않는다.
+    id: 'couple', label: '꼼이·꿀됑', shared: false,
+    items: [
+      { id: 'walk-hands', label: '손잡고 걷기', ratio: 0.822, w: 0.42 },
+      { id: 'popcorn', label: '팝콘 나눠 먹기', ratio: 0.821, w: 0.42 },
+      { id: 'umbrella', label: '우산 하나', ratio: 1.046, w: 0.42 },
+      { id: 'hug', label: '꼭 안기', ratio: 1.13, w: 0.42 },
+      { id: 'cafe', label: '카페 데이트', ratio: 0.912, w: 0.42 },
+      { id: 'photo', label: '사진 찍어 주기', ratio: 0.787, w: 0.42 },
+      { id: 'picnic', label: '피크닉', ratio: 0.779, w: 0.42 },
+      { id: 'blanket', label: '이불 속', ratio: 0.885, w: 0.42 },
+    ],
+  },
 ];
