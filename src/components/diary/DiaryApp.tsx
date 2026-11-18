@@ -23,7 +23,7 @@ import { ARCHIVE_STEP, DiaryArchiveScreen, type ArchiveWho } from './DiaryArchiv
 import { DECOR_ASSETS } from './DiaryDecor';
 import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS } from '@/lib/stickerPacks';
 import { DAKU_PACKS, dakuSrc } from '@/lib/dakuStickers';
-import { diaryInkAvailable, editDiaryInk, PAPER_HEX } from '@/lib/diaryInk';
+import { diaryInkAvailable, diaryInkCanReedit, editDiaryInk, PAPER_HEX, placeStrokes, type DiaryInkResult, type InkSidecar } from '@/lib/diaryInk';
 import { subscribeCalendar, type CalendarEvent } from '@/lib/calendar';
 import { addDaysYmd, eventsOnDate, todayYmd } from '@/lib/calendarLayout';
 import { holidayName } from '@/lib/holidays';
@@ -36,7 +36,7 @@ import {
   writeDiaryMonthPatch, addDiaryNote, deleteDiaryNote, setDiaryHeart, subscribeDiaryNotes, appPhotoFile, type AppPhotoVM, type DiaryMeta, type DiaryNoteVM, type MonthDeco, type MonthPatch,
 } from '@/lib/diary';
 import {
-  DIARY_LIMITS, DIARY_PROMPTS, MONTH_LIMITS, type DiaryAssetVM, type DiaryChipVM, type DiaryEventDraft, type DiaryItemAction, type DiaryItemVM, type DiaryMonthCellVM, type DiaryPageVM,
+  DIARY_LIMITS, DIARY_PROMPTS, MONTH_LIMITS, sendItemToBack, type DiaryAssetVM, type DiaryChipVM, type DiaryEventDraft, type DiaryItemAction, type DiaryItemVM, type DiaryMonthCellVM, type DiaryPageVM,
   type DiaryPaperTheme, type DiaryPhotoFrame, type DiaryPhotoSource, type MonthOwner, type MonthStickerVM, type MonthTool, type Person, type SpecialDateVM,
 } from '@/lib/diaryTypes';
 
@@ -135,7 +135,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const revsRef = useRef<Record<string, number>>({});              // 서버에 저장된 revision
   const pathsRef = useRef<Record<string, Set<string>>>({});        // 마지막으로 저장된 장에 있던 사진 파일
   const lastRef = useRef<Record<string, DiaryPageVM>>({});         // 그 날짜의 가장 새 편집본(저장 대기 포함)
-  const pathsOf = (p: DiaryPageVM) => new Set(p.items.map((i) => i.path).filter((x): x is string => !!x));
+  const pathsOf = (p: DiaryPageVM) => new Set(p.items.flatMap((i) => [i.path, i.strokePath]).filter((x): x is string => !!x));
 
   const flush = useCallback((): Promise<void> => {
     if (timerRef.current) { window.clearTimeout(timerRef.current); timerRef.current = null; }
@@ -240,6 +240,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   };
   const removeNote = (id: string) => { deleteDiaryNote(date, owner, id).catch((e) => noteFail(e, '지우지')); };
   const topZ = Math.max(0, ...mine.items.map((i) => i.z));
+  const selItem = isMine && sel ? mine.items.find((i) => i.id === sel) ?? null : null;
 
   const addItem = (it: Omit<DiaryItemVM, 'id' | 'z' | 'x' | 'y' | 'rotation'>, id = newId('i'), at?: { x: number; y: number; rotation: number }) => {
     if (!isMine || !readyRef.current) return null;
@@ -251,15 +252,18 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   };
   const act = (a: DiaryItemAction) => {
     if (!sel || !isMine) return;
+    const dupId = newId('i');
+    if (a === 'duplicate' && inkSideRef.current[sel]) inkSideRef.current[dupId] = inkSideRef.current[sel];
     put((p) => {
       const cur = p.items.find((i) => i.id === sel);
       if (!cur) return p;
       const top = Math.max(0, ...p.items.map((i) => i.z));
       if (a === 'delete') return { ...p, items: p.items.filter((i) => i.id !== sel) };
+      if (a === 'back') return { ...p, items: sendItemToBack(p.items, sel) };
       if (a === 'duplicate') {
         if (p.items.length >= DIARY_LIMITS.items) return p;
         if (cur.type === 'photo' && p.items.filter((i) => i.type === 'photo').length >= DIARY_LIMITS.photos) return p;
-        return { ...p, items: [...p.items, { ...cur, id: newId('i'), x: Math.min(0.95, cur.x + 0.06), y: Math.min(0.95, cur.y + 0.05), z: top + 1 }] };
+        return { ...p, items: [...p.items, { ...cur, id: dupId, x: Math.min(0.95, cur.x + 0.06), y: Math.min(0.95, cur.y + 0.05), z: top + 1 }] };
       }
       const next = { ...cur };
       if (a === 'smaller') next.w = Math.max(0.1, cur.w * 0.87);
@@ -307,27 +311,78 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   // 필기(아이패드·아이폰 앱 — 우댕 11/18 「아이패드 필기 1단계 진행해」). 네이티브 화면에서 그린 부분만 투명 PNG 로 받아
   //   그린 자리 그대로 종이에 붙인다(필기 보드도 3:4). 올리는 동안은 받은 그림을 먼저 보이고, 다 올라가면 진짜 주소로(사진과 같은 길).
   const [inkOk, setInkOk] = useState(false);
-  useEffect(() => { void diaryInkAvailable().then(setInkOk); }, []);
+  const [inkRedo, setInkRedo] = useState(false);
+  useEffect(() => { void diaryInkAvailable().then(setInkOk); void diaryInkCanReedit().then(setInkRedo); }, []);
+  // 다시 그리기(필기 2단계, 11/18): 그릴 때 받은 획을 PNG 옆 JSON 파일로 둔다. 올라가기 전·연습 모드엔 여기(물건 id → 획)에서 꺼낸다.
+  const inkSideRef = useRef<Record<string, InkSidecar>>({});
+  const sideOf = (r: DiaryInkResult): InkSidecar | null => (r.strokes?.length ? { v: 1, rect: { x: r.x, y: r.y, w: r.w, h: r.h }, strokes: r.strokes } : null);
+  const inkGeom = (r: DiaryInkResult) => ({ w: r.w, ratio: (r.h * 4 / 3) / r.w, x: r.x + r.w / 2, y: r.y + r.h / 2 });
+  const meInk = me === '우댕' ? 'udaeng' : 'kkomi';
   const drawInk = async () => {
     if (!isMine || !readyRef.current) return;
     if (mineRef.current.items.length >= DIARY_LIMITS.items) { say(`한 장에 ${DIARY_LIMITS.items}개까지 붙일 수 있어요`); return; }
     const startDate = date;
     let r: Awaited<ReturnType<typeof editDiaryInk>>;
-    try { r = await editDiaryInk(me === '우댕' ? 'udaeng' : 'kkomi', PAPER_HEX[mineRef.current.theme] ?? '#FAF6EE'); }
+    try { r = await editDiaryInk(meInk, PAPER_HEX[mineRef.current.theme] ?? '#FAF6EE'); }
     catch { say('필기 화면을 열지 못했어요'); return; }
     if (!r || r.w <= 0 || r.h <= 0 || mineRef.current.date !== startDate) return;
     const local = URL.createObjectURL(r.png);
-    const id = addItem({ type: 'ink', src: local, w: r.w, ratio: (r.h * 4 / 3) / r.w }, newId('i'), { x: r.x + r.w / 2, y: r.y + r.h / 2, rotation: 0 });
+    const g = inkGeom(r);
+    const id = addItem({ type: 'ink', src: local, w: g.w, ratio: g.ratio }, newId('i'), { x: g.x, y: g.y, rotation: 0 });
     if (!id) { URL.revokeObjectURL(local); return; }
-    uploadDiaryInk(startDate, me, r.png).then(({ src, path }) => {
+    const side = sideOf(r);
+    if (side) inkSideRef.current[id] = side;
+    uploadDiaryInk(startDate, me, r.png, side ? JSON.stringify(side) : undefined).then(({ src, path, strokeSrc, strokePath }) => {
       const here = mineRef.current.date === startDate && mineRef.current.items.some((i) => i.id === id);
-      if (!here) { void deleteDiaryPhotos([path]); return; }
-      put((p) => ({ ...p, items: p.items.map((i) => (i.id === id ? { ...i, src, path } : i)) }));
+      if (!here) { void deleteDiaryPhotos([path, ...(strokePath ? [strokePath] : [])]); return; }
+      put((p) => ({ ...p, items: p.items.map((i) => (i.id === id ? { ...i, src, path, ...(strokeSrc && strokePath ? { strokeSrc, strokePath } : {}) } : i)) }));
       window.setTimeout(() => URL.revokeObjectURL(local), 4000);
     }).catch((e) => {
       if (e instanceof PracticeBlocked) return;
       if (mineRef.current.date === startDate) put((p) => ({ ...p, items: p.items.filter((i) => i.id !== id) }));
       say('필기를 올리지 못했어요. 잠시 뒤에 다시 해 주세요');
+    });
+  };
+  // 고른 필기를 다시 그리기 — 저장된 획을 「지금 놓인 자리·크기」로 옮겨 필기 화면에 다시 열고, 다 그리면 그 물건의 그림·자리만 바꾼다.
+  //   ⚠️ 새 그림이 다 올라갈 때까지 옛 그림을 그대로 둔다 — 올리는 중 앱이 닫혀도 옛 필기는 남게(임시 blob 물건은 저장에서 빠진다).
+  //   돌린 각도·앞뒤 순서는 그대로 둔다(필기 화면에선 0°로 그린다).
+  const loadSide = async (it: DiaryItemVM): Promise<InkSidecar | null> => {
+    const c = inkSideRef.current[it.id];
+    if (c) return c;
+    if (!it.strokeSrc) return null;
+    try {
+      const res = await fetch(it.strokeSrc);
+      if (!res.ok) return null;
+      const j = (await res.json()) as InkSidecar;
+      return j && j.rect && Array.isArray(j.strokes) ? j : null;
+    } catch { return null; }
+  };
+  const reEditInk = async () => {
+    const it = mineRef.current.items.find((i) => i.id === sel);
+    if (!it || it.type !== 'ink' || !isMine || !readyRef.current) return;
+    const startDate = date, id = it.id;
+    const side = await loadSide(it);
+    if (!side) { say('이 필기는 다시 그릴 수 없어요 — 예전 앱으로 그린 그림이에요'); return; }
+    let r: Awaited<ReturnType<typeof editDiaryInk>>;
+    try { r = await editDiaryInk(meInk, PAPER_HEX[mineRef.current.theme] ?? '#FAF6EE', placeStrokes(side, it)); }
+    catch { say('필기 화면을 열지 못했어요'); return; }
+    if (!r || r.w <= 0 || r.h <= 0 || mineRef.current.date !== startDate) return;
+    if (!mineRef.current.items.some((i) => i.id === id)) return;
+    const g = inkGeom(r);
+    const next = sideOf(r);
+    if (next) inkSideRef.current[id] = next;
+    const swap = (patch: Partial<DiaryItemVM>) => put((p) => ({ ...p, items: p.items.map((i) => (i.id === id ? { ...i, ...g, ...patch } : i)) }));
+    uploadDiaryInk(startDate, me, r.png, next ? JSON.stringify(next) : undefined).then(({ src, path, strokeSrc, strokePath }) => {
+      const here = mineRef.current.date === startDate && mineRef.current.items.some((i) => i.id === id);
+      if (!here) { void deleteDiaryPhotos([path, ...(strokePath ? [strokePath] : [])]); return; }
+      // 옛 PNG·획 파일은 장에서 빠지면 저장(flush) 때 정리된다 — 복제해 둔 같은 그림이 있으면 그건 남는다.
+      swap({ src, path, strokeSrc, strokePath });
+    }).catch((e) => {
+      if (e instanceof PracticeBlocked) {                              // 연습 모드 — 화면에만 바꿔 둔다
+        if (mineRef.current.date === startDate && r) swap({ src: URL.createObjectURL(r.png), path: undefined, strokeSrc: undefined, strokePath: undefined });
+        return;
+      }
+      say('다시 그린 필기를 올리지 못했어요. 잠시 뒤에 다시 해 주세요');
     });
   };
   const pickAppPhotos = async (list: AppPhotoVM[]) => {
@@ -688,13 +743,14 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         pageExists={isMine ? diaryPageHasContent(mine) : !!theirs}
         onToggleHeart={toggleHeart} onSendNote={sendNote} onDeleteNote={removeNote}
         photoCount={isMine ? mine.items.filter((i) => i.type === 'photo').length : 0}
-        selectedItem={isMine && sel ? mine.items.find((i) => i.id === sel) ?? null : null}
+        selectedItem={selItem}
         onPickAppPhotos={(list) => void pickAppPhotos(list)}
         onPhotoFull={() => say(`사진은 한 장에 ${DIARY_LIMITS.photos}장까지 넣을 수 있어요`)}
         onPhotoFrame={setPhotoFrame}
         onPhotoCaption={setPhotoCaption}
         future={date > todayYmd()}
         onDraw={inkOk ? () => void drawInk() : undefined}
+        onRedraw={inkRedo && selItem?.type === 'ink' && (selItem.strokeSrc || inkSideRef.current[selItem.id]) ? () => void reEditInk() : undefined}
       />
       <DiaryAssetDrawer
         open={drawer && isMine} {...drawerTabs} assets={assets} full={mine.items.length >= DIARY_LIMITS.items}

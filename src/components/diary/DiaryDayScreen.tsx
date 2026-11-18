@@ -85,6 +85,8 @@ export interface DiaryDayScreenProps {
   onOpenArchive?: () => void;
   /** 「그리기」 — 앱(DiaryInk 플러그인이 있는 빌드)에서만 온다. 없으면 단추를 안 보인다. */
   onDraw?: () => void;
+  /** 고른 필기를 다시 그리기 — 획 파일이 있는 필기 + 다시 그리기가 되는 앱 빌드에서만 온다(필기 2단계). */
+  onRedraw?: () => void;
 }
 
 export function DiaryDayScreen({
@@ -129,6 +131,7 @@ export function DiaryDayScreen({
   backLabel,
   onOpenArchive,
   onDraw,
+  onRedraw,
 }: DiaryDayScreenProps): React.JSX.Element {
   const [showMenu, setShowMenu] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -375,6 +378,17 @@ export function DiaryDayScreen({
           <>
             {selectedItemId ? (
               <>
+                {onRedraw && selectedItem?.type === 'ink' && (
+                  <button
+                    type="button"
+                    onClick={onRedraw}
+                    style={{ touchAction: 'none' }}
+                    className="w-full min-h-[48px] bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-2xl shadow-sm flex items-center justify-center gap-2 text-[14px] font-semibold text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)]"
+                  >
+                    <Brush className="w-[18px] h-[18px] stroke-[1.8]" />
+                    다시 그리기
+                  </button>
+                )}
                 {selectedPhoto && (
                   <PhotoStyleRow
                     item={selectedPhoto}

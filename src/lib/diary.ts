@@ -57,6 +57,8 @@ function toItems(raw: unknown): DiaryItemVM[] {
       ...(type === 'photo' && (r.frame === 'none' || r.frame === 'polaroid' || r.frame === 'circle' || r.frame === 'white') ? { frame: r.frame } : {}),
       ...(type === 'photo' && typeof r.caption === 'string' && r.caption.trim() ? { caption: r.caption.slice(0, DIARY_LIMITS.caption) } : {}),
       ...(type === 'photo' && (r.source === 'library' || r.source === 'chat' || r.source === 'memories') ? { source: r.source } : {}),
+      ...(type === 'ink' && typeof r.strokePath === 'string' ? { strokePath: r.strokePath } : {}),
+      ...(type === 'ink' && typeof r.strokeSrc === 'string' ? { strokeSrc: r.strokeSrc } : {}),
       x: num(r.x, 0.5, 0, 1), y: num(r.y, 0.5, 0, 1), w: num(r.w, 0.3, 0.05, 1), ratio: num(r.ratio, 1, 0.05, 10),
       rotation: num(r.rotation, 0, -3600, 3600), z: num(r.z, 1, 0, 100000),
     });
@@ -307,13 +309,22 @@ export async function appPhotoFile(p: AppPhotoVM): Promise<File> {
 }
 
 /** 손으로 그린 필기(투명 PNG) 올리기 — 사진과 같은 자리(diary/…/{장 id}/ink-…png). JPEG 로 바꾸면 투명이 사라져서 따로 둔다. */
-export async function uploadDiaryInk(date: string, owner: Person, png: Blob): Promise<{ src: string; path: string }> {
+export async function uploadDiaryInk(date: string, owner: Person, png: Blob, sidecarJson?: string): Promise<{ src: string; path: string; strokeSrc?: string; strokePath?: string }> {
   if (blocked('다이어리 필기 올리기')) throw new PracticeBlocked();
   const inkId = `ink-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-  const path = `diary/${PERSON_KEY[owner]}/${date.slice(0, 4)}/${date.slice(5, 7)}/${diaryPageId(date, owner)}/${inkId}.png`;
-  const r = storageRef(storage, path);
+  const base = `diary/${PERSON_KEY[owner]}/${date.slice(0, 4)}/${date.slice(5, 7)}/${diaryPageId(date, owner)}/${inkId}`;
+  const r = storageRef(storage, `${base}.png`);
   await uploadBytes(r, png, { contentType: 'image/png' });
-  return { src: await getDownloadURL(r), path };
+  const out: { src: string; path: string; strokeSrc?: string; strokePath?: string } = { src: await getDownloadURL(r), path: `${base}.png` };
+  // 다시 그리기용 획(필기 2단계) — 장 문서에 넣으면 장이 무거워지고 통째 저장이 커져서 옆 파일로(GPT 계획 B-2).
+  if (sidecarJson) {
+    try {
+      const j = storageRef(storage, `${base}.json`);
+      await uploadBytes(j, new Blob([sidecarJson], { type: 'application/json' }), { contentType: 'application/json' });
+      out.strokeSrc = await getDownloadURL(j); out.strokePath = `${base}.json`;
+    } catch { /* 획 파일을 못 올려도 그림은 붙는다 — 다시 그리기만 안 될 뿐 */ }
+  }
+  return out;
 }
 
 /** 장에서 빠진 사진 파일 지우기 — 「이미 없음」은 성공으로 본다. 실패해도 장 저장은 이미 끝난 뒤라 조용히 넘긴다. */

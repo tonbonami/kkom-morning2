@@ -34,6 +34,9 @@ export interface DiaryItemVM {
   frame?: DiaryPhotoFrame;
   caption?: string;    // photo — 사진 아래 글귀(40자). 기본·폴라로이드에서만 보이고, 없음·동그라미에선 숨기기만 한다(안 지움).
   source?: DiaryPhotoSource;
+  /** ink — 다시 그리기용 획 파일(Storage JSON). 이게 있어야 「다시 그리기」가 된다(필기 2단계, 11/18). */
+  strokePath?: string;
+  strokeSrc?: string;
   x: number; y: number; w: number; ratio: number; rotation: number; z: number;
 }
 
@@ -65,7 +68,7 @@ export interface DiaryMaterialVM { id: string; kind: 'mood' | 'weather' | 'photo
 export interface DiaryMonthDayVM { date: string; day: number; inMonth: boolean; isToday: boolean; mine: boolean; partner: boolean; special?: string; holiday?: boolean }
 /** 생일·기념일. sticker = 전용 스티커(등록할 때 고름) — 매년 그 날짜 칸에 저절로 붙는다(월간 장식 개수에 안 센다). */
 export interface SpecialDateVM { id: string; label: string; kind: 'birthday' | 'anniversary' | 'custom'; monthDay: string; startYear?: number; owner: Person | 'together'; sticker?: MonthStickerVM }
-export type DiaryItemAction = 'smaller' | 'larger' | 'rotateLeft' | 'rotateRight' | 'front' | 'duplicate' | 'delete';
+export type DiaryItemAction = 'smaller' | 'larger' | 'rotateLeft' | 'rotateRight' | 'front' | 'back' | 'duplicate' | 'delete';
 
 /** 빈 장 질문 한 줄(GPT 회의: AI 호출 없이 로컬 문구) — 날마다 하나씩 돌아간다. 문구를 고치면 옛 장의 질문 알아보기(diary.ts toPage)가 그 문구를 놓친다 — 빼지 말고 뒤에 더할 것. */
 export const DIARY_PROMPTS = [
@@ -129,4 +132,13 @@ export interface DiaryEventDraft {
 export interface UpcomingItemVM {
   id: string; kind: 'event' | 'special'; title: string; whenLabel: string; dateLabel: string;
   owner?: EventOwnerKey; timeLabel?: string; date: string;
+}
+
+/** 「뒤로」 — 고른 물건을 맨 아래로(필기를 스티커 밑에 깔 때 등). z 를 1부터 다시 매겨 음수가 안 생기게. */
+export function sendItemToBack(items: DiaryItemVM[], id: string): DiaryItemVM[] {
+  const cur = items.find((i) => i.id === id);
+  if (!cur) return items;
+  const order = [cur, ...items.filter((i) => i.id !== id).sort((a, b) => a.z - b.z)];
+  const zOf = new Map(order.map((it, k) => [it.id, k + 1]));
+  return items.map((i) => ({ ...i, z: zOf.get(i.id) ?? i.z }));
 }

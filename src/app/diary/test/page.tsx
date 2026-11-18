@@ -24,7 +24,7 @@ import type { CalendarEvent } from '@/lib/calendar';
 import { DECOR_ASSETS } from '@/components/diary/DiaryDecor';
 import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS } from '@/lib/stickerPacks';
 import {
-  DIARY_LIMITS, MONTH_LIMITS, type DiaryAssetVM, type DiaryItemAction, type DiaryItemVM, type DiaryMonthCellVM, type DiaryPageVM,
+  DIARY_LIMITS, MONTH_LIMITS, sendItemToBack, type DiaryAssetVM, type DiaryItemAction, type DiaryItemVM, type DiaryMonthCellVM, type DiaryPageVM,
   type DiaryPaperTheme, type MonthOwner, type MonthSpanVM, type MonthStickerVM, type MonthTitleStyle, type MonthTool, type Person, type SpecialDateVM,
 } from '@/lib/diaryTypes';
 
@@ -163,6 +163,7 @@ function Test() {
       const cur = p.items.find((i) => i.id === sel);
       if (!cur) return p;
       if (a === 'delete') return { ...p, items: p.items.filter((i) => i.id !== sel) };
+      if (a === 'back') return { ...p, items: sendItemToBack(p.items, sel) };
       if (a === 'duplicate') {
         if (p.items.length >= DIARY_LIMITS.items) return p;
         return { ...p, items: [...p.items, { ...cur, id: `i${Date.now()}`, x: Math.min(0.95, cur.x + 0.06), y: Math.min(0.95, cur.y + 0.05), z: topZ + 1 }] };

@@ -37,21 +37,33 @@ public class DiaryInkPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "DiaryInkPlugin"
     public let jsName = "DiaryInk"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "edit", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "edit", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "capabilities", returnType: CAPPluginReturnPromise),
     ]
+
+    /// 이 빌드가 할 수 있는 것 — 웹이 「다시 그리기」 단추를 보일지 정한다(빌드 66 엔 이 메서드가 없어 웹이 false 로 본다).
+    @objc func capabilities(_ call: CAPPluginCall) {
+        call.resolve(["reedit": true])
+    }
 
     @objc func edit(_ call: CAPPluginCall) {
         let me = call.getString("me") ?? "udaeng"
         let paper = call.getString("paper") ?? "#FAF6EE"
+        // 다시 그리기(필기 2단계): 웹이 지금 자리에 맞춰 옮겨 둔 획(보드 0~1) JSON
+        var initial: [NetStroke] = []
+        if let js = call.getString("strokes"), let d = js.data(using: .utf8), let list = try? JSONDecoder().decode([NetStroke].self, from: d) {
+            initial = list
+        }
         DispatchQueue.main.async { [weak self] in
             guard let presenter = self?.bridge?.viewController else { call.reject("no presenter"); return }
             let screen = DiaryInkScreen(
-                me: me, paperHex: paper,
-                onDone: { png, rect in
+                me: me, paperHex: paper, initial: initial,
+                onDone: { png, rect, strokesJson in
                     presenter.dismiss(animated: true)
                     call.resolve([
                         "cancelled": false, "pngBase64": png.base64EncodedString(),
                         "x": Double(rect.minX), "y": Double(rect.minY), "w": Double(rect.width), "h": Double(rect.height),
+                        "strokes": strokesJson ?? "",
                     ])
                 },
                 onCancel: {
@@ -69,11 +81,13 @@ public class DiaryInkPlugin: CAPPlugin, CAPBridgedPlugin {
 struct DiaryInkRepresentable: UIViewRepresentable {
     @ObservedObject var controller: CanvasController
     let me: String
+    var initial: [NetStroke] = []
     func makeUIView(context: Context) -> StrokeCanvasView {
         let v = StrokeCanvasView()
         v.controller = controller
         v.localMe = me                 // 서버 없이(낙서장 RTDB 와 무관)
         controller.canvas = v
+        if !initial.isEmpty { v.loadLocalStrokes(initial) }   // 다시 그리기 — 크기가 정해지면 layoutSubviews 가 다시 굽는다
         return v
     }
     func updateUIView(_ uiView: StrokeCanvasView, context: Context) {
@@ -85,7 +99,8 @@ struct DiaryInkRepresentable: UIViewRepresentable {
 struct DiaryInkScreen: View {
     let me: String
     let paperHex: String
-    let onDone: (Data, CGRect) -> Void
+    var initial: [NetStroke] = []
+    let onDone: (Data, CGRect, String?) -> Void
     let onCancel: () -> Void
     @StateObject private var c = CanvasController()
     @State private var emptyNote = false
@@ -103,7 +118,7 @@ struct DiaryInkScreen: View {
                 Text("필기").font(.system(size: 17, weight: .semibold)).foregroundColor(ink)
                 Spacer()
                 Button("완료") {
-                    if let r = c.canvas?.exportInk() { onDone(r.png, r.rect) } else { emptyNote = true }
+                    if let cv = c.canvas, let r = cv.exportInk() { onDone(r.png, r.rect, cv.exportStrokesJSON()) } else { emptyNote = true }
                 }.font(.system(size: 16, weight: .bold)).foregroundColor(Color(UIColor(hex: "#D9635B"))).frame(minWidth: 60, minHeight: 44, alignment: .trailing)
             }
             .padding(.horizontal, 16).padding(.top, 6)
@@ -112,7 +127,7 @@ struct DiaryInkScreen: View {
                 let w = min(geo.size.width - 24, (geo.size.height - 16) * 3 / 4)
                 ZStack {
                     RoundedRectangle(cornerRadius: 16).fill(Color(UIColor(hex: paperHex)))
-                    DiaryInkRepresentable(controller: c, me: me)
+                    DiaryInkRepresentable(controller: c, me: me, initial: initial)
                 }
                 .frame(width: w, height: w * 4 / 3)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -122,7 +137,7 @@ struct DiaryInkScreen: View {
             }
 
             if emptyNote {
-                Text("아직 그린 게 없어요 — 그리지 않으려면 「취소」").font(.system(size: 13)).foregroundColor(.secondary).padding(.bottom, 4)
+                Text(initial.isEmpty ? "아직 그린 게 없어요 — 그리지 않으려면 「취소」" : "다 지웠어요 — 그림째 없애려면 「취소」 뒤 종이에서 「지우기」").font(.system(size: 13)).foregroundColor(.secondary).padding(.bottom, 4)
             }
 
             // 도구 줄 — 색 여섯 · 굵기 셋 · 지우개 · 되돌리기 · (아이패드) 펜슬만

@@ -400,6 +400,18 @@ final class StrokeCanvasView: UIView {
 
     // ── 다이어리 필기 내보내기 ──
     var hasStrokes: Bool { !committed.isEmpty }
+    /// 다시 그리기(필기 2단계) — 저장해 둔 획(보드 0~1)을 불러와 이어서 고친다. 불러온 획도 「내 것」이라 지우개로 지울 수 있다.
+    func loadLocalStrokes(_ list: [NetStroke]) {
+        guard let me = meId else { return }
+        committed = list.map { ("\(me)/\(UUID().uuidString)", $0) }
+        rebuildBaked(); setNeedsDisplay()
+    }
+    /// 지금 획 전부(보드 0~1) — JSON 문자열. 다시 그리기용으로 그림과 함께 저장한다.
+    func exportStrokesJSON() -> String? {
+        let list = committed.map { $0.1 }
+        guard let data = try? JSONEncoder().encode(list) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
     /// 그린 부분만 잘라 투명 PNG + 그 자리(보드에 대한 0~1). 다이어리 종이도 같은 3:4라 그대로 같은 자리에 붙는다.
     /// 긴 변이 maxSide px 안쪽이 되게(최대 3배 해상도) 굽는다 — 종이에서 키워도 선이 덜 뭉개지게.
     func exportInk(maxSide: CGFloat = 1400) -> (png: Data, rect: CGRect)? {
