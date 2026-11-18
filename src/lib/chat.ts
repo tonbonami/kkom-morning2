@@ -3,7 +3,7 @@
 import { db, rtdb, storage } from './firebase';
 import {
   collection, addDoc, doc, setDoc, getDoc, getDocs, updateDoc, deleteField,
-  query, orderBy, limit, onSnapshot, serverTimestamp, Timestamp,
+  query, orderBy, limit, onSnapshot, serverTimestamp, Timestamp, where,
 } from 'firebase/firestore';
 import { ref as dbRef, set as dbSet, onValue, onDisconnect } from 'firebase/database';
 import { firstUrl, youTubeId } from './links';
@@ -339,6 +339,38 @@ export async function fetchRecentMessages(max = 300): Promise<ChatMessage[]> {
       } as ChatMessage;
     })
     .reverse();
+}
+
+// ── 지난 대화(우댕 2026-11-18 「오래전 대화 볼 때 불편해. 갑자기 위쪽 대화가 뚝 끊겨서 안 보여 … 카톡처럼」) ──
+// 실시간 구독은 최근 것만 고정으로 두고, 그 앞쪽은 이걸로 한 번씩 받아 이어 붙인다(구독을 다시 거는 일 없음).
+function toChatMessage(id: string, data: Record<string, unknown> & { createdAt?: Timestamp; editedAt?: Timestamp }): ChatMessage {
+  return {
+    id, from: (data.from as string) ?? '', text: (data.text as string) ?? '',
+    imageUrl: data.imageUrl as string | undefined, sticker: data.sticker as string | undefined,
+    imageUrls: Array.isArray(data.imageUrls) ? (data.imageUrls as string[]) : undefined,
+    imageThumbs: Array.isArray(data.imageThumbs) ? (data.imageThumbs as string[]) : undefined,
+    audioUrl: data.audioUrl as string | undefined, audioDur: data.audioDur as number | undefined,
+    videoUrl: data.videoUrl as string | undefined, videoDur: data.videoDur as number | undefined,
+    replyTo: data.replyTo as ReplyRef | undefined, reactions: data.reactions as Record<string, string> | undefined,
+    deleted: data.deleted as boolean | undefined, starred: data.starred as boolean | undefined,
+    capsule: data.capsule as boolean | undefined, kind: data.kind as 'calendar' | undefined,
+    calendarDate: typeof data.calendarDate === 'string' ? data.calendarDate : undefined,
+    calendarEventId: typeof data.calendarEventId === 'string' ? data.calendarEventId : undefined,
+    createdAt: data.createdAt?.toDate?.() ?? null,
+    editedAt: data.editedAt?.toDate?.() ?? null,
+  };
+}
+
+/** before 보다 앞선 메시지 n개(오래된→최신). done = 더 앞은 없다. */
+export async function fetchMessagesBefore(before: Date, n = 60): Promise<{ msgs: ChatMessage[]; done: boolean }> {
+  const snap = await getDocs(query(collection(db, 'messages'), where('createdAt', '<', Timestamp.fromDate(before)), orderBy('createdAt', 'desc'), limit(n)));
+  return { msgs: snap.docs.map((d) => toChatMessage(d.id, d.data())).reverse(), done: snap.size < n };
+}
+
+/** from 부터 n개(오래된→최신) — 날짜로 지난 대화 보기. done = 그 뒤로 더 없다(아직 오지 않은 타임캡슐은 부르는 쪽이 거른다). */
+export async function fetchMessagesFrom(from: Date, n = 80): Promise<{ msgs: ChatMessage[]; done: boolean }> {
+  const snap = await getDocs(query(collection(db, 'messages'), where('createdAt', '>=', Timestamp.fromDate(from)), orderBy('createdAt', 'asc'), limit(n)));
+  return { msgs: snap.docs.map((d) => toChatMessage(d.id, d.data())), done: snap.size < n };
 }
 
 // 최근 max개 실시간 구독 (오래된→최신 순으로 콜백).

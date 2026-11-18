@@ -8,7 +8,8 @@ import EmoticonManager from './EmoticonManager';
 import { useEmoPrefs, withOrder, withoutHidden, CHAT_PACKS, OWN_PACKS, defaultPacks } from '@/lib/emoPrefs';
 import { flushSync } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard, Search, ChevronLeft, ChevronRight, History, ChevronDown } from 'lucide-react';
+import ChatHistorySheet from './ChatHistorySheet';
 import { saveMedia } from '@/lib/saveMedia';
 import { firstUrl, youTubeId } from '@/lib/links';
 import { igPost } from '@/lib/instagram';
@@ -92,8 +93,10 @@ interface Props {
   onSend: (text: string, imageUrl?: string, sticker?: string, replyTo?: ReplyRef, audio?: { url: string; dur: number }, video?: { url: string; dur?: number }) => void | Promise<void>;
   partnerOnline: boolean;
   partnerOnWatch?: boolean;   // 폰은 꺼졌고 워치만 켜짐 — '워치로 보는 중'(길게 답장은 못 하는 상태)
-  onLoadMore: () => void;
+  onLoadMore: () => void | Promise<void>;
   hasMore: boolean;
+  /** 지난 대화를 받아 오는 중(위쪽 끝에 「불러오는 중」) */
+  loadingMore?: boolean;
   onSendCapsule: (text: string, deliverAt: Date) => void;
 }
 
@@ -838,7 +841,7 @@ function MenuAction({ onClick, label, icon, tone }: { onClick: () => void; label
 // 드래그 중 데이터에 '파일'이 실려 있나(내용은 drop 전까지 못 읽으니 종류만 본다).
 const dtHasFile = (dt: DataTransfer | null) => !!dt && Array.from(dt.types || []).includes('Files');
 
-export default function ChatPanel({ me, partner, messages: messagesIn, open, onClose, onSend, partnerOnline, partnerOnWatch, onLoadMore, hasMore, onSendCapsule }: Props) {
+export default function ChatPanel({ me, partner, messages: messagesIn, open, onClose, onSend, partnerOnline, partnerOnWatch, onLoadMore, hasMore, loadingMore = false, onSendCapsule }: Props) {
   const router = useRouter();   // 일정 카드를 누르면 그 날짜의 달력으로
   const [draft, setDraft] = useState('');
   // 연습 모드(?practice=1)에서 보낸 묶음 사진 — 내 화면에만 잠깐 보인다(격자·넘겨 보기·지우기를 진짜 대화방 없이 확인).
@@ -1015,6 +1018,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   const [recSec, setRecSec] = useState(0);
   const [effect, setEffect] = useState<ChatEffect | null>(null);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);   // 「지난 대화」 — 날짜로 가기(읽기 전용)
   const [memoryTab, setMemoryTab] = useState<'star' | 'photo' | 'link'>('star');
   // "이거봐봐" — 저장한 링크들. 링크 보내면 저장할지 묻는 프롬프트.
   const [links, setLinks] = useState<ShareItemView[] | null>(null);
@@ -1064,22 +1068,51 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   useEffect(() => { if (open) markRead(meKey); }, [open, messages, meKey]);
   useEffect(() => { if (!open) setTyping(meKey, false); }, [open, meKey]);
 
-  // 무한스크롤 앵커 복원(위로 불러올 때 화면 튐 방지) — layout effect가 먼저 실행됨
+  // 무한스크롤 앵커 복원(위로 불러올 때 화면 튐 방지) — layout effect가 먼저 실행됨.
+  //   ⚠️ 맨 위 메시지가 **바뀌었을 때만**(정말 앞에 붙었을 때) 되돌린다 — 지난 대화를 받는 사이 새 메시지·반응이 먼저 오면
+  //   그때 앵커를 써 버려서, 정작 지난 대화가 붙을 땐 화면이 튀었다(우댕 11/18 「위쪽 대화가 뚝 끊겨서」).
+  const firstIdAtLoad = useRef<string | null>(null);
   useLayoutEffect(() => {
     const el = scrollRef.current;
-    if (el && pendingAnchor.current != null) {
+    if (el && pendingAnchor.current != null && messages[0]?.id !== firstIdAtLoad.current) {
       el.scrollTop = el.scrollHeight - pendingAnchor.current;
       pendingAnchor.current = null;
+      isPrepending.current = false;
     }
   }, [messages]);
-
-  // 새 메시지 시 맨 아래로 (단, 위로 불러오는 중이면 스킵)
+  // 받아 왔는데 붙을 게 없었으면(처음까지 다 봤음) 앵커를 비운다.
   useEffect(() => {
-    if (!open) return;
-    if (isPrepending.current) { isPrepending.current = false; return; }
+    if (!loadingMore && pendingAnchor.current != null && messages[0]?.id === firstIdAtLoad.current) { pendingAnchor.current = null; isPrepending.current = false; }
+  }, [loadingMore]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 새 메시지 → 맨 아래로. ⚠️ **맨 아래를 보고 있었거나 내가 보낸 것일 때만**(카톡처럼).
+  //   예전엔 메시지가 바뀔 때마다(반응·읽음·상대 입력 중까지) 무조건 내려서, 위에서 지난 대화를 읽다가 튕겨 내려갔다.
+  //   위에 있을 때 상대 말이 오면 아래에 「새 메시지 ↓」만 띄운다.
+  const lastIdRef = useRef<string | null>(null);
+  const [newBelow, setNewBelow] = useState(0);
+  const [farFromBottom, setFarFromBottom] = useState(false);
+  const toBottom = useCallback(() => {
     const el = scrollRef.current;
-    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
-  }, [messages, open, partnerTyping]);
+    if (!el) return;
+    stickBottom.current = true; setNewBelow(0); setFarFromBottom(false);
+    el.scrollTop = el.scrollHeight;                                            // 바로 한 번(그리기 타이머가 멈춘 창에서도)
+    requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });         // 늦게 커진 내용까지
+  }, []);
+  useEffect(() => {
+    if (!open) { lastIdRef.current = null; return; }
+    const last = messages[messages.length - 1];
+    const lastId = last?.id ?? null;
+    const opened = lastIdRef.current === null;
+    const changed = lastId !== lastIdRef.current;
+    lastIdRef.current = lastId;
+    if (opened) { toBottom(); return; }
+    if (!changed) return;                                   // 위로 붙었거나(지난 대화) 반응·읽음만 바뀜 — 그대로
+    if (last?.from === me || stickBottom.current) toBottom();
+    else setNewBelow((n) => n + 1);
+  }, [messages, open]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (open && partnerTyping && stickBottom.current) { const el = scrollRef.current; if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; }); }
+  }, [partnerTyping, open]);
 
   // 바닥 지키기 — 바닥에 붙어 있었으면, ☺서랍·＋칸·키보드로 목록 높이가 줄거나 사진·링크 썸네일이 늦게 떠
   //   내용이 길어져도 다시 바닥으로. 새 메시지 때만 내리던 탓에 서랍을 열면 마지막 말풍선이 가려졌다(Aside 1부·2부).
@@ -1216,6 +1249,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.isComposing) return;
       if (actionMsg) setActionMsg(null);
+      else if (historyOpen) setHistoryOpen(false);
       else if (themeOpen) setThemeOpen(false);
       else if (memoryOpen) setMemoryOpen(false);
       else if (stickerOpen || attachOpen) { setStickerOpen(false); setAttachOpen(false); }
@@ -1224,18 +1258,26 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, actionMsg, themeOpen, memoryOpen, stickerOpen, attachOpen]);
+  }, [open, actionMsg, historyOpen, themeOpen, memoryOpen, stickerOpen, attachOpen]);
 
+  // 지난 대화 받아 오기 — 위쪽 끝에 닿기 **전에**(600px 남았을 때) 미리. 화면은 아래까지 거리를 지켜 그대로 둔다.
+  const loadOlder = () => {
+    const el = scrollRef.current;
+    if (!el || !hasMore || loadingMore || pendingAnchor.current != null) return;
+    isPrepending.current = true;
+    pendingAnchor.current = el.scrollHeight - el.scrollTop; // 하단까지 거리 유지
+    firstIdAtLoad.current = messages[0]?.id ?? null;
+    void onLoadMore();
+  };
   const onScroll = () => {
     const el = scrollRef.current;
     if (ignoreScroll.current) ignoreScroll.current = false;   // 내가 붙인 스크롤 — 판정에서 뺀다
     else if (el) stickBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    if (!el || !hasMore) return;
-    if (el.scrollTop < 60 && pendingAnchor.current == null) {
-      isPrepending.current = true;
-      pendingAnchor.current = el.scrollHeight - el.scrollTop; // 하단까지 거리 유지
-      onLoadMore();
-    }
+    if (!el) return;
+    const far = el.scrollHeight - el.scrollTop - el.clientHeight > 600;
+    if (far !== farFromBottom) setFarFromBottom(far);
+    if (stickBottom.current && newBelow) setNewBelow(0);
+    if (el.scrollTop < 600) loadOlder();
   };
 
   const stopTyping = () => { setTyping(meKey, false); if (typingTimer.current) clearTimeout(typingTimer.current); };
@@ -1875,6 +1917,9 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
               <button onClick={() => { setMemoryOpen(false); setThemeOpen(true); }} aria-label="챗 테마" title="챗 테마" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
                 <Palette size={20} />
               </button>
+              <button onClick={() => { setThemeOpen(false); setMemoryOpen(false); setHistoryOpen(true); }} aria-label="지난 대화 보기" title="지난 대화 — 날짜로 가기" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
+                <History size={20} />
+              </button>
               <button onClick={openMemory} aria-label="추억 보관함" title="추억 보관함" className="p-1.5 text-[#FB7BA8] hover:opacity-80">
                 <Bookmark size={20} />
               </button>
@@ -1937,9 +1982,17 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
             // 메뉴가 열려 있으면 아래 여유를 더 준다 — 떠 있는 메뉴가 맨 아래 말풍선보다 아래로 나와 스크롤 여유가 모자랐다.
             style={actionMsg ? { paddingBottom: 112 } : undefined}
             className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5 select-none [-webkit-touch-callout:none] [-webkit-user-select:none]">
-            {hasMore && (
+            {hasMore ? (
               <div className="flex justify-center py-1">
-                <button onClick={onLoadMore} className="text-[11px] font-bold text-slate-400 bg-black/5 rounded-full px-3 py-1">이전 대화 더보기</button>
+                {loadingMore ? (
+                  <span className="flex items-center gap-1 text-[11px] font-bold text-slate-400 px-3 py-1"><Loader2 size={12} className="animate-spin" />이전 대화 불러오는 중</span>
+                ) : (
+                  <button onClick={loadOlder} className="text-[11px] font-bold text-slate-400 bg-black/5 rounded-full px-3 py-1">이전 대화 더보기</button>
+                )}
+              </div>
+            ) : withDays.length > 0 && (
+              <div className="flex justify-center py-1">
+                <button onClick={() => setHistoryOpen(true)} className="text-[11px] font-bold text-slate-400 px-3 py-1">대화의 처음이에요</button>
               </div>
             )}
             {withDays.length === 0 && (
@@ -2183,6 +2236,21 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
                     <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* 위에서 읽는 중 — 「새 메시지 ↓」(상대 말이 왔을 때) 또는 「↓」(아래와 멀 때). 누르면 맨 아래로. sticky 라 목록 아래쪽에 떠 있다. */}
+            {(newBelow > 0 || farFromBottom) && (
+              <div className="sticky bottom-1 z-10 flex justify-center pointer-events-none">
+                <button
+                  type="button"
+                  onClick={toBottom}
+                  className="pointer-events-auto flex items-center gap-1 rounded-full px-3.5 py-2 text-[12px] font-bold shadow-md active:scale-95"
+                  style={{ background: 'var(--ct-sheet, #fff)', color: 'var(--ct-chip-text)' }}
+                >
+                  {newBelow > 0 ? `새 메시지 ${newBelow}` : '맨 아래로'}
+                  <ChevronDown size={14} />
+                </button>
               </div>
             )}
           </div>
@@ -2664,6 +2732,9 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
           <ChatEffectLayer effect={effect} />
 
           {/* (액션 시트 → 사이담식 인라인 줄로 교체됨: 말풍선 아래에 렌더) */}
+
+          {/* 지난 대화 — 날짜로 가기 */}
+          <ChatHistorySheet open={historyOpen} onClose={() => setHistoryOpen(false)} me={me} renderText={renderRich} />
 
           {/* 추억 보관함 */}
           <AnimatePresence>

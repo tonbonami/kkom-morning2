@@ -4,7 +4,7 @@ import KkulDoctorLogo from '@/components/skin/KkulDoctorLogo';
 import { SleepSoundCard } from '@/components/SleepSoundCard';
 import { useSleepSound } from '@/lib/sleepSound';
 import { sevOf } from '@/lib/skinTypes';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence, useAnimation, Reorder, useDragControls } from 'framer-motion';
@@ -57,7 +57,8 @@ import AirSkyVisual from '@/components/AirSkyVisual';
 import { subscribeHomeLayout, saveHomeLayout, type HomeLayout } from '@/lib/homeLayout';
 import { Bell, BellOff, MessageCircle } from 'lucide-react';
 import ChatPanel, { preview } from '@/components/ChatPanel';
-import { subscribeMessages, sendMessage, sendCapsule, type ChatMessage } from '@/lib/chat';
+import { sendMessage, sendCapsule } from '@/lib/chat';
+import { useChatMessages } from '@/lib/useChatMessages';
 import type { WeatherData, OutfitGuide } from '@/types';
 import { HoneybraryHomeCard } from '@/components/honeybrary/HoneybraryHomeCard';
 import { DiaryHomeCard } from '@/components/diary/DiaryHomeCard';
@@ -265,9 +266,7 @@ export default function KkomMorningHome() {
   const [partnerWatchPresence, setPartnerWatchPresence] = useState<Presence>({ lastSeenAt: null, active: false });
   const [partnerDrawing, setPartnerDrawing] = useState(false); // 상대가 낙서장에서 실시간 필기 중 (RTDB live)
   const [chatOpen, setChatOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatUnread, setChatUnread] = useState(false);
-  const [msgLimit, setMsgLimit] = useState(40);
   const homeTouch = useRef<{ x: number; y: number } | null>(null);
   const lastReadIdRef = useRef<string | null>(null);
   const [nextEvent, setNextEvent] = useState<{ title: string; date: string; owner?: 'kkomi' | 'udaeng' | 'together' } | null>(null); // 위젯용 다음 일정
@@ -505,15 +504,8 @@ export default function KkomMorningHome() {
     });
   }, [userName, partnerPresence, partnerDrawing, nextEvent, air, weather, moods]);
 
-  // 채팅 — 실시간 메시지 구독 (msgLimit 늘리면 지난 대화 더 불러옴)
-  // 타임캡슐: 도착 전(createdAt 미래)엔 상대 것은 숨김, 내 예약분만 보임.
-  useEffect(() => {
-    const unsub = subscribeMessages((msgs) => {
-      const now = Date.now();
-      setMessages(msgs.filter((m) => !m.capsule || m.from === userName || (m.createdAt != null && m.createdAt.getTime() <= now)));
-    }, msgLimit);
-    return () => unsub();
-  }, [msgLimit, userName]);
+  // 채팅 — 최근 것은 실시간, 지난 대화는 위로 올리며 이어 붙이기(lib/useChatMessages.ts — 우댕 11/18 「위쪽 대화가 뚝 끊겨서」)
+  const { messages, hasMore: chatHasMore, loadingMore: loadingOlder, loadMore: loadOlderMessages } = useChatMessages(userName);
 
   // 안 읽음 표시 — 채팅 열려있으면 읽음 처리, 닫혀있고 상대 새 메시지면 뱃지
   useEffect(() => {
@@ -1340,8 +1332,9 @@ export default function KkomMorningHome() {
           onSend={(text, imageUrl, sticker, replyTo, audio, video) => sendMessage(userName, text, isTogetherNow(partnerPresence), imageUrl, sticker, replyTo, audio, video)}
           partnerOnline={isTogetherNow(partnerPresence)}
           partnerOnWatch={!isTogetherNow(partnerPresence) && isTogetherNow(partnerWatchPresence)}
-          onLoadMore={() => setMsgLimit((l) => l + 40)}
-          hasMore={messages.length >= msgLimit}
+          onLoadMore={loadOlderMessages}
+          hasMore={chatHasMore}
+          loadingMore={loadingOlder}
           onSendCapsule={(text, deliverAt) => sendCapsule(userName, text, deliverAt)}
         />
       )}
