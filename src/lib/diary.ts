@@ -48,7 +48,7 @@ function toItems(raw: unknown): DiaryItemVM[] {
   const out: DiaryItemVM[] = [];
   for (const r of raw as DocumentData[]) {
     if (!r || typeof r.id !== 'string') continue;
-    const type = r.type === 'photo' || r.type === 'tape' || r.type === 'stamp' ? r.type : 'sticker';
+    const type = r.type === 'photo' || r.type === 'tape' || r.type === 'stamp' || r.type === 'ink' ? r.type : 'sticker';
     out.push({
       id: r.id, type,
       ...(typeof r.src === 'string' ? { src: r.src } : {}),
@@ -304,6 +304,16 @@ export async function appPhotoFile(p: AppPhotoVM): Promise<File> {
   if (!res.ok) throw new Error(`사진을 받지 못했어요 (${res.status})`);
   const blob = await res.blob();
   return new File([blob], `${p.id}.jpg`, { type: blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg' });
+}
+
+/** 손으로 그린 필기(투명 PNG) 올리기 — 사진과 같은 자리(diary/…/{장 id}/ink-…png). JPEG 로 바꾸면 투명이 사라져서 따로 둔다. */
+export async function uploadDiaryInk(date: string, owner: Person, png: Blob): Promise<{ src: string; path: string }> {
+  if (blocked('다이어리 필기 올리기')) throw new PracticeBlocked();
+  const inkId = `ink-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+  const path = `diary/${PERSON_KEY[owner]}/${date.slice(0, 4)}/${date.slice(5, 7)}/${diaryPageId(date, owner)}/${inkId}.png`;
+  const r = storageRef(storage, path);
+  await uploadBytes(r, png, { contentType: 'image/png' });
+  return { src: await getDownloadURL(r), path };
 }
 
 /** 장에서 빠진 사진 파일 지우기 — 「이미 없음」은 성공으로 본다. 실패해도 장 저장은 이미 끝난 뒤라 조용히 넘긴다. */

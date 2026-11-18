@@ -361,6 +361,9 @@ export function DiaryPaper({
                 />
               )}
               {item.type === 'photo' && <PhotoBody item={item} />}
+              {item.type === 'ink' && item.src && (
+                <img src={item.src} alt="필기" className="w-full h-full object-contain pointer-events-none" loading="lazy" decoding="async" draggable={false} />
+              )}
               {(item.type === 'tape' || item.type === 'stamp') && item.decorId && (
                 <DiaryDecor decorId={item.decorId} />
               )}

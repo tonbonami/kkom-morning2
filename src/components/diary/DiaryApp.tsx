@@ -23,6 +23,7 @@ import { ARCHIVE_STEP, DiaryArchiveScreen, type ArchiveWho } from './DiaryArchiv
 import { DECOR_ASSETS } from './DiaryDecor';
 import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS } from '@/lib/stickerPacks';
 import { DAKU_PACKS, dakuSrc } from '@/lib/dakuStickers';
+import { diaryInkAvailable, editDiaryInk, PAPER_HEX } from '@/lib/diaryInk';
 import { subscribeCalendar, type CalendarEvent } from '@/lib/calendar';
 import { addDaysYmd, eventsOnDate, todayYmd } from '@/lib/calendarLayout';
 import { holidayName } from '@/lib/holidays';
@@ -31,7 +32,7 @@ import { isPractice } from '@/lib/practice';
 import {
   BUILTIN_SPECIALS, PracticeBlocked, addSpecialDate, applyMonthPatch, blankDiaryPage, clearDiaryDraft, deleteDiaryPhotos, deleteSpecialDate,
   diaryPageHasContent, diaryPageId, emptyMonthDeco, invertMonthPatch, loadDiaryPage, prepareDiaryPhoto, readDiaryDraft, saveDiaryDraft, saveDiaryPage,
-  removeDiaryEvent, saveDiaryEvent, seedSpecialDates, specialsOn, subscribeDiaryMonth, subscribeDiaryMonthMeta, subscribeDiaryPage, subscribeSpecialDates, uploadDiaryPhoto,
+  removeDiaryEvent, saveDiaryEvent, uploadDiaryInk, seedSpecialDates, specialsOn, subscribeDiaryMonth, subscribeDiaryMonthMeta, subscribeDiaryPage, subscribeSpecialDates, uploadDiaryPhoto,
   writeDiaryMonthPatch, addDiaryNote, deleteDiaryNote, setDiaryHeart, subscribeDiaryNotes, appPhotoFile, type AppPhotoVM, type DiaryMeta, type DiaryNoteVM, type MonthDeco, type MonthPatch,
 } from '@/lib/diary';
 import {
@@ -302,6 +303,33 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     }
   };
   const pickPhotos = (files: File[]) => placePhotos(files.map((file) => ({ file, source: 'library' as const })));
+
+  // 필기(아이패드·아이폰 앱 — 우댕 11/18 「아이패드 필기 1단계 진행해」). 네이티브 화면에서 그린 부분만 투명 PNG 로 받아
+  //   그린 자리 그대로 종이에 붙인다(필기 보드도 3:4). 올리는 동안은 받은 그림을 먼저 보이고, 다 올라가면 진짜 주소로(사진과 같은 길).
+  const [inkOk, setInkOk] = useState(false);
+  useEffect(() => { void diaryInkAvailable().then(setInkOk); }, []);
+  const drawInk = async () => {
+    if (!isMine || !readyRef.current) return;
+    if (mineRef.current.items.length >= DIARY_LIMITS.items) { say(`한 장에 ${DIARY_LIMITS.items}개까지 붙일 수 있어요`); return; }
+    const startDate = date;
+    let r: Awaited<ReturnType<typeof editDiaryInk>>;
+    try { r = await editDiaryInk(me === '우댕' ? 'udaeng' : 'kkomi', PAPER_HEX[mineRef.current.theme] ?? '#FAF6EE'); }
+    catch { say('필기 화면을 열지 못했어요'); return; }
+    if (!r || r.w <= 0 || r.h <= 0 || mineRef.current.date !== startDate) return;
+    const local = URL.createObjectURL(r.png);
+    const id = addItem({ type: 'ink', src: local, w: r.w, ratio: (r.h * 4 / 3) / r.w }, newId('i'), { x: r.x + r.w / 2, y: r.y + r.h / 2, rotation: 0 });
+    if (!id) { URL.revokeObjectURL(local); return; }
+    uploadDiaryInk(startDate, me, r.png).then(({ src, path }) => {
+      const here = mineRef.current.date === startDate && mineRef.current.items.some((i) => i.id === id);
+      if (!here) { void deleteDiaryPhotos([path]); return; }
+      put((p) => ({ ...p, items: p.items.map((i) => (i.id === id ? { ...i, src, path } : i)) }));
+      window.setTimeout(() => URL.revokeObjectURL(local), 4000);
+    }).catch((e) => {
+      if (e instanceof PracticeBlocked) return;
+      if (mineRef.current.date === startDate) put((p) => ({ ...p, items: p.items.filter((i) => i.id !== id) }));
+      say('필기를 올리지 못했어요. 잠시 뒤에 다시 해 주세요');
+    });
+  };
   const pickAppPhotos = async (list: AppPhotoVM[]) => {
     if (!isMine || !readyRef.current || list.length === 0) return;
     say(list.length > 1 ? `사진 ${list.length}장을 가져오는 중이에요` : '사진을 가져오는 중이에요');
@@ -666,6 +694,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         onPhotoFrame={setPhotoFrame}
         onPhotoCaption={setPhotoCaption}
         future={date > todayYmd()}
+        onDraw={inkOk ? () => void drawInk() : undefined}
       />
       <DiaryAssetDrawer
         open={drawer && isMine} {...drawerTabs} assets={assets} full={mine.items.length >= DIARY_LIMITS.items}

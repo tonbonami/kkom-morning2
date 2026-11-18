@@ -116,6 +116,9 @@ struct InkCanvasRepresentable: UIViewRepresentable {
 final class StrokeCanvasView: UIView {
     weak var controller: CanvasController?
     var sync: SyncClient?
+    // 다이어리 필기(우댕 2026-11-18 「아이패드 필기 1단계 진행해」) — 서버 없이 이 기기에서만 그린다. 값이 있으면 sync 대신 이걸 「나」로 쓴다.
+    var localMe: String?
+    private var meId: String? { localMe ?? sync?.me }
 
     private var committed: [(String, NetStroke)] = []   // key "user/id"
     private var myStack: [String] = []                  // 내가 이번 세션에 커밋한 id (되돌리기용)
@@ -268,7 +271,7 @@ final class StrokeCanvasView: UIView {
     }
 
     private func commitCurrent() {
-        if current.count > 1, let me = sync?.me {
+        if current.count > 1, let me = meId {
             let net = netStroke(current)
             let key = "\(me)/\(currentId)"
             committed.append((key, net)); myStack.append(currentId)
@@ -282,14 +285,14 @@ final class StrokeCanvasView: UIView {
     }
 
     func undo() {
-        guard let me = sync?.me, let id = myStack.popLast() else { return }
+        guard let me = meId, let id = myStack.popLast() else { return }
         let key = "\(me)/\(id)"
         committed.removeAll { $0.0 == key }
         sync?.deleteMine(id: id)
         rebuildBaked(); setNeedsDisplay()
     }
     func clear() {
-        guard let me = sync?.me else { return }
+        guard let me = meId else { return }
         committed.removeAll { $0.0.hasPrefix("\(me)/") }
         myStack.removeAll()
         sync?.clearMine()
@@ -297,7 +300,7 @@ final class StrokeCanvasView: UIView {
     }
 
     private func eraseAt(_ point: CGPoint) {
-        guard let me = sync?.me else { return }
+        guard let me = meId else { return }
         let r: CGFloat = 22
         var removed = false
         for (key, ns) in committed where key.hasPrefix("\(me)/") {
@@ -393,6 +396,37 @@ final class StrokeCanvasView: UIView {
                 ctx.fillEllipse(in: CGRect(x: tip.location.x - 5, y: tip.location.y - 5, width: 10, height: 10))
             }
         }
+    }
+
+    // ── 다이어리 필기 내보내기 ──
+    var hasStrokes: Bool { !committed.isEmpty }
+    /// 그린 부분만 잘라 투명 PNG + 그 자리(보드에 대한 0~1). 다이어리 종이도 같은 3:4라 그대로 같은 자리에 붙는다.
+    /// 긴 변이 maxSide px 안쪽이 되게(최대 3배 해상도) 굽는다 — 종이에서 키워도 선이 덜 뭉개지게.
+    func exportInk(maxSide: CGFloat = 1400) -> (png: Data, rect: CGRect)? {
+        guard bounds.width > 0, bounds.height > 0, !committed.isEmpty else { return nil }
+        var minX = CGFloat.greatestFiniteMagnitude, minY = CGFloat.greatestFiniteMagnitude
+        var maxX = -CGFloat.greatestFiniteMagnitude, maxY = -CGFloat.greatestFiniteMagnitude
+        for (_, ns) in committed {
+            for p in inkPoints(ns) {
+                let r = p.width / 2 + 2
+                minX = min(minX, p.location.x - r); minY = min(minY, p.location.y - r)
+                maxX = max(maxX, p.location.x + r); maxY = max(maxY, p.location.y + r)
+            }
+        }
+        let pad: CGFloat = 6
+        let box = CGRect(x: minX - pad, y: minY - pad, width: maxX - minX + pad * 2, height: maxY - minY + pad * 2).intersection(bounds)
+        guard !box.isNull, box.width > 2, box.height > 2 else { return nil }
+        let fmt = UIGraphicsImageRendererFormat()
+        fmt.opaque = false
+        fmt.scale = min(3, max(1, maxSide / max(box.width, box.height)))
+        let img = UIGraphicsImageRenderer(size: box.size, format: fmt).image { ctx in
+            ctx.cgContext.translateBy(x: -box.minX, y: -box.minY)
+            for (_, ns) in committed { drawStroke(inkPoints(ns), color: UIColor(hex: ns.color), in: ctx.cgContext) }
+        }
+        guard let data = img.pngData() else { return nil }
+        let norm = CGRect(x: box.minX / bounds.width, y: box.minY / bounds.height,
+                          width: box.width / bounds.width, height: box.height / bounds.height)
+        return (data, norm)
     }
 
     // ── 가변폭 획 — Catmull-Rom 스무딩 후 단일 외곽선 채움 ──

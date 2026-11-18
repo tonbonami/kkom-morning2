@@ -10,7 +10,8 @@
  */
 export type Person = '우댕' | '꼼이';
 export type DiaryPaperTheme = 'cream' | 'plain' | 'lined' | 'grid';
-export type DiaryItemType = 'sticker' | 'photo' | 'tape' | 'stamp';
+/** ink = 손으로 그린 필기(아이패드·아이폰 앱의 「그리기」 — 투명 PNG 한 장, 11/18) */
+export type DiaryItemType = 'sticker' | 'photo' | 'tape' | 'stamp' | 'ink';
 
 /**
  * 사진 모양(GPT 회의 2026-11-18 「다이어리 꾸미기 회의」 — 새 그림 없이 CSS 로 되는 넷만. 필름·찢은 종이는 그림이 필요해서 나중에).

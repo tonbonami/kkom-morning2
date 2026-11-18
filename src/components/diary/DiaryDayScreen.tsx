@@ -16,6 +16,7 @@ import {
   X,
   Check,
   BookOpen,
+  Brush,
 } from 'lucide-react';
 import {
   Person,
@@ -82,6 +83,8 @@ export interface DiaryDayScreenProps {
   backLabel?: string;
   /** ⋮ 메뉴 맨 위 「지난 일기 모아보기」 */
   onOpenArchive?: () => void;
+  /** 「그리기」 — 앱(DiaryInk 플러그인이 있는 빌드)에서만 온다. 없으면 단추를 안 보인다. */
+  onDraw?: () => void;
 }
 
 export function DiaryDayScreen({
@@ -125,6 +128,7 @@ export function DiaryDayScreen({
   future = false,
   backLabel,
   onOpenArchive,
+  onDraw,
 }: DiaryDayScreenProps): React.JSX.Element {
   const [showMenu, setShowMenu] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -359,7 +363,7 @@ export function DiaryDayScreen({
                 )}
 
                 {/* 순서·이름(GPT 회의 2026-11-18): 사진이 맨 앞 · 「종이」→「배경」 · 글씨 10→12px · 높이 56 */}
-                <div className="bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-2xl shadow-sm px-1 grid grid-cols-4">
+                <div className={`bg-[var(--sd-card-solid)] border border-[var(--sd-line)] rounded-2xl shadow-sm px-1 grid ${onDraw ? 'grid-cols-5' : 'grid-cols-4'}`}>
                   <button
                     type="button"
                     onClick={openPhotos}
@@ -386,6 +390,17 @@ export function DiaryDayScreen({
                     <PenLine className="w-[21px] h-[21px] stroke-[1.8]" />
                     <span className="text-[12px] font-medium leading-none">글쓰기</span>
                   </button>
+
+                  {onDraw && (
+                    <button
+                      type="button"
+                      onClick={() => { setShowThemePicker(false); onSelectItem(null); onDraw(); }}
+                      className="min-h-[56px] flex flex-col items-center justify-center gap-[3px] rounded-xl text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)]"
+                    >
+                      <Brush className="w-[21px] h-[21px] stroke-[1.8]" />
+                      <span className="text-[12px] font-medium leading-none">그리기</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"
