@@ -138,6 +138,28 @@ export function DiaryDayScreen({
   const textRef = useRef<HTMLTextAreaElement>(null);
 
   const isEditable = me === pageOwner && !future;
+
+  // 아이패드(폭 700↑ — 아이패드 미니 세로 744 포함): 우댕 11/18 「아이패드에서 보면 비효율적이야 중간에 빈 공간 많이 생기고 하단에 도구 전환은 뚝 떨어져 있고」
+  //   세로(tall) = 종이를 화면 높이에 맞춰 키우고 단추 줄을 종이 바로 아래 · 가로(side) = 종이 왼쪽 크게, 주인 전환·단추 줄은 오른쪽 옆.
+  //   폰(phone)은 예전 그대로. 종이 폭 = min(남은 폭, 남은 높이×3/4) 를 그때그때 잰다(ResizeObserver).
+  const [layout, setLayout] = useState<'phone' | 'tall' | 'side'>('phone');
+  useEffect(() => {
+    const f = () => { const w = window.innerWidth, h = window.innerHeight; setLayout(w < 700 ? 'phone' : w > h ? 'side' : 'tall'); };
+    f(); window.addEventListener('resize', f);
+    return () => window.removeEventListener('resize', f);
+  }, []);
+  const mainRef = useRef<HTMLElement>(null);
+  const [fitW, setFitW] = useState<number | null>(null);
+  useEffect(() => {
+    if (layout === 'phone') { setFitW(null); return; }
+    const el = mainRef.current;
+    if (!el) return;
+    const calc = () => { const r = el.getBoundingClientRect(); setFitW(Math.max(280, Math.floor(Math.min(r.width - 32, (r.height - 16) * 3 / 4)))); };
+    const ro = new ResizeObserver(calc);
+    ro.observe(el); calc();
+    return () => ro.disconnect();
+  }, [layout]);
+  const side = layout === 'side';
   const photoRoom = Math.max(0, DIARY_LIMITS.photos - photoCount);
   const selectedPhoto = selectedItem && selectedItem.type === 'photo' ? selectedItem : null;
   // 사진 넣기: 다 찼으면 서랍 대신 안내(GPT: 단추는 감추지 않는다 — 기능이 사라진 것처럼 보이지 않게)
@@ -160,11 +182,18 @@ export function DiaryDayScreen({
 
   return (
     <div
-      className="relative w-full max-w-md mx-auto min-h-screen bg-[#FCFAF7] flex flex-col justify-between select-none"
-      style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className={`relative w-full mx-auto bg-[#FCFAF7] select-none ${
+        layout === 'phone' ? 'max-w-md min-h-screen flex flex-col justify-between'
+        : layout === 'tall' ? 'max-w-[860px] h-[100dvh] flex flex-col'
+        : 'max-w-[1366px] h-[100dvh] grid'
+      }`}
+      style={{
+        paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)',
+        ...(side ? { gridTemplateColumns: 'minmax(0,1fr) 380px', gridTemplateRows: 'auto auto minmax(0,1fr)', gridTemplateAreas: '"head head" "paper owner" "paper tools"' } : {}),
+      }}
     >
       {/* 상단 헤더 */}
-      <header className="px-4 py-2 flex items-center justify-between border-b border-[var(--sd-line)] bg-[#FCFAF7] z-30">
+      <header className="px-4 py-2 flex items-center justify-between border-b border-[var(--sd-line)] bg-[#FCFAF7] z-30" style={side ? { gridArea: 'head' } : undefined}>
         <button
           type="button"
           onClick={onBack}
@@ -258,7 +287,7 @@ export function DiaryDayScreen({
       </header>
 
       {/* 우댕 | 꼼이 소유자 탭 */}
-      <div className="px-4 pt-2 pb-1 flex flex-col items-center">
+      <div className={`px-4 pt-2 pb-1 flex flex-col items-center ${side ? 'pt-4' : ''}`} style={side ? { gridArea: 'owner' } : undefined}>
         <div className="inline-flex p-1 rounded-full bg-[var(--sd-surface-2)] border border-[var(--sd-line)]">
           {(['우댕', '꼼이'] as Person[]).map((person) => {
             const isOwner = pageOwner === person;
@@ -292,7 +321,12 @@ export function DiaryDayScreen({
       </div>
 
       {/* 가운데 종이 영역 */}
-      <main className="flex-1 px-4 py-2 flex items-center justify-center">
+      <main
+        ref={mainRef}
+        className={`px-4 py-2 flex items-center justify-center ${layout === 'phone' ? 'flex-1' : 'flex-1 min-h-0 min-w-0'}`}
+        style={side ? { gridArea: 'paper' } : undefined}
+      >
+        <div className={fitW ? 'shrink-0' : 'w-full'} style={fitW ? { width: fitW } : undefined}>
         <DiaryPaper
           page={page}
           dateLabel={dateLabel}
@@ -307,10 +341,14 @@ export function DiaryDayScreen({
           onEmptyPhoto={isEditable && isToday ? openPhotos : undefined}
           textRef={textRef}
         />
+        </div>
       </main>
 
       {/* 하단 제어부 (내 장일 때만 꾸미기 단추 노출) */}
-      <footer className="px-4 pb-3 pt-1 space-y-2 z-30">
+      <footer
+        className={`px-4 pb-3 pt-1 space-y-2 z-30 ${layout === 'tall' ? 'w-full max-w-[600px] mx-auto' : ''}`}
+        style={side ? { gridArea: 'tools', alignSelf: 'center' } : undefined}
+      >
         {notes && onToggleHeart && onSendNote && onDeleteNote && !selectedItemId && (
           <DiaryNotes
             me={me} pageOwner={pageOwner} notes={notes} pageExists={!!pageExists}
