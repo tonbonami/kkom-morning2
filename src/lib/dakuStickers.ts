@@ -122,4 +122,37 @@ export const DAKU_PACKS: DakuPack[] = [
       { id: 'blanket', label: '이불 속', ratio: 0.885, w: 0.42 },
     ],
   },
+  // ── 사이어리에서 데려온 팩(우댕 2026-11-19 「사이어리에서 만든 스티커 너무 예쁘다 우리껄로 가지고 오자」) ──
+  //   그림은 사이담 public/stickers/sai/{팩} 그대로 복사(꼬까 하루 = 사이담 제작, 사진 친구 = 꼼모닝이 그려 넘긴 것).
+  //   shared:false — 원래 사이담 것이라 다시 넘길 필요 없음. 사진 친구의 「꼼이」는 사이담 푸들 꼼이.
+  {
+    id: 'kkoka-day', label: '꼬까 하루', shared: false,
+    items: [
+      { id: 'tandem-bike', label: '자전거', ratio: 0.85, w: 0.34 },
+      { id: 'cook-together', label: '같이 요리', ratio: 0.92, w: 0.34 },
+      { id: 'back-to-back-books', label: '책 읽기', ratio: 0.801, w: 0.34 },
+      { id: 'stargazing', label: '별 보기', ratio: 0.971, w: 0.34 },
+      { id: 'ginkgo-toss', label: '은행잎', ratio: 1.004, w: 0.34 },
+      { id: 'goodbye-wave', label: '배웅', ratio: 0.912, w: 0.34 },
+      { id: 'shared-earphones', label: '이어폰', ratio: 0.861, w: 0.34 },
+      { id: 'snowman', label: '눈사람', ratio: 0.945, w: 0.34 },
+    ],
+  },
+  {
+    id: 'photo-buddy', label: '사진 친구', shared: false,
+    items: [
+      { id: 'kkomi-corner', label: '꼼이 모서리 껴안기', ratio: 0.92, w: 0.28 },
+      { id: 'kkomi-peek', label: '꼼이 빼꼼', ratio: 0.639, w: 0.3 },
+      { id: 'kkomi-lift', label: '꼼이 받쳐 들기', ratio: 0.988, w: 0.3 },
+      { id: 'kkomi-point', label: '꼼이 꼬리로 가리키기', ratio: 0.854, w: 0.3 },
+      { id: 'kkwagi-circle', label: '꽉이 크레용 동그라미', ratio: 0.857, w: 0.3 },
+      { id: 'kkwagi-arrow', label: '꽉이 화살표', ratio: 0.805, w: 0.3 },
+      { id: 'kkwagi-tape', label: '꽉이 테이프 당기기', ratio: 0.582, w: 0.32 },
+      { id: 'kkwagi-spot', label: '꽉이 여기 봐', ratio: 1.079, w: 0.26 },
+      { id: 'kkoka-tape', label: '꼬까 테이프 들기', ratio: 0.909, w: 0.34 },
+      { id: 'kkoka-corner', label: '꼬까 모서리 껴안기', ratio: 1.128, w: 0.28 },
+      { id: 'kkappi-rest', label: '까삐 문진', ratio: 0.562, w: 0.32 },
+      { id: 'kkappi-peek', label: '까삐 빼꼼', ratio: 0.804, w: 0.28 },
+    ],
+  },
 ];

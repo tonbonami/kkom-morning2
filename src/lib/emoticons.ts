@@ -1,6 +1,6 @@
 export type EmoticonAssetType = 'png' | 'webp' | 'gif';
 
-import { ANIM_STICKERS, DANG_STICKERS, KKOM_STICKERS, KKUL_STICKERS, KKUL_ANIM, URI_STICKERS, SAI_STICKERS } from './stickerPacks';
+import { ANIM_STICKERS, DANG_STICKERS, KKOM_STICKERS, KKUL_STICKERS, KKUL_ANIM, URI_STICKERS, SAI_STICKERS, KKWAGI_STICKERS } from './stickerPacks';
 
 export type EmoticonSet = {
   id: string;
@@ -202,6 +202,8 @@ const PACKS: PackDef[] = [
     prefix: 'kkulanim', items: KKUL_ANIM, thumbOf: (s) => stillOf(s.image), assetType: 'webp' },
   { set: { id: 'uri', title: '우리', description: '꿀됑이랑 꼼이랑' },
     prefix: 'uri', items: URI_STICKERS, assetType: 'webp' },
+  { set: { id: 'kkwagi', title: '꽉이', description: '동글동글 오리 — 사이담에서 데려옴' },
+    prefix: 'kkwagi', items: KKWAGI_STICKERS, assetType: 'webp' },
   { set: { id: 'pochacco_dang', title: '포차코 우댕', description: '우댕 포차코' },
     prefix: 'pdang', items: DANG_STICKERS, assetType: 'png' },
   { set: { id: 'pochacco_kkom', title: '포차코 꼼이', description: '꼼이 포차코' },

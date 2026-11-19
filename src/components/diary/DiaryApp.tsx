@@ -23,7 +23,7 @@ import { DiaryStashSheet } from './DiaryStashSheet';
 import { ARCHIVE_STEP, DiaryArchiveScreen, type ArchiveWho } from './DiaryArchiveScreen';
 import { DiaryTrashPage, type RestoreResult } from './DiaryTrash';
 import { DECOR_ASSETS } from './DiaryDecor';
-import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS } from '@/lib/stickerPacks';
+import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS, KKWAGI_STICKERS } from '@/lib/stickerPacks';
 import { DAKU_PACKS, dakuSrc } from '@/lib/dakuStickers';
 import { diaryInkAvailable, diaryInkCanReedit, editDiaryInk, PAPER_HEX, placeStrokes, type DiaryInkResult, type InkSidecar } from '@/lib/diaryInk';
 import { subscribeCalendar, type CalendarEvent } from '@/lib/calendar';
@@ -61,6 +61,7 @@ const ASSETS: Record<string, DiaryAssetVM[]> = {
   kkom: STICKER('kkom', SAI_STICKERS),
   kkul: STICKER('kkul', KKUL_STICKERS),
   uri: STICKER('uri', URI_STICKERS),
+  kkwagi: STICKER('kkwagi', KKWAGI_STICKERS),
   tape: DECOR_ASSETS.filter((d) => d.kind === 'tape').map((d) => ({ id: d.id, packId: 'tape', kind: 'tape', decorId: d.id, label: d.label })),
   stamp: DECOR_ASSETS.filter((d) => d.kind === 'stamp').map((d) => ({ id: d.id, packId: 'stamp', kind: 'stamp', decorId: d.id, label: d.label })),
 };
@@ -72,6 +73,7 @@ const PACKS: DiaryPackVM[] = [
   { id: 'kkom', label: '꼼이', thumbSrc: SAI_STICKERS[0]?.image },
   { id: 'kkul', label: '꿀됑', thumbSrc: KKUL_STICKERS[0]?.image },
   { id: 'uri', label: '우리', thumbSrc: URI_STICKERS[2]?.image },
+  { id: 'kkwagi', label: '꽉이', thumbSrc: KKWAGI_STICKERS[1]?.image },
   { id: 'tape', label: '테이프', thumbDecorId: ASSETS.tape[0]?.decorId },
   { id: 'stamp', label: '도장', thumbDecorId: ASSETS.stamp[0]?.decorId },
 ];

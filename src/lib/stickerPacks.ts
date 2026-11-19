@@ -155,3 +155,20 @@ export const SAI_STICKERS: { word: string; image: string }[] = [
   { word: '꼼돌아', image: '/emo/sai/kkomdol.webp' }, // 꼼이가 우댕을 부름 — 꿀됑 「꼼슌아」를 좌우로 뒤집은 짝(art/kkom-call A안, 우댕 OK 2026-10-30)
   { word: '추워', image: '/emo/sai/cold.webp' },   // 웅크려 떠는 꼼이(파란 반다나) — 사이담 sai_cold 그림 그대로(우댕 「사이담에 있는 추워, 꼼모닝에도」 2026-11-10)
 ];
+
+// 꽉이 탭 — 사이담 오리 「꽉이」 12종 그대로(우댕 2026-11-19 「꽉이 이모티콘도 전부 우리걸로 가져다 줘」).
+//   그림은 사이담 public/emo/kkwagi 를 복사. 순서·이름은 사이담 EMOTICONS(dk_) 정의 그대로. 파일 이름은 바꾸지 말 것(꼼톡·편지가 주소로 저장).
+export const KKWAGI_STICKERS: { word: string; image: string }[] = [
+  { word: '기억해',     image: '/emo/kkwagi/remember.webp' },
+  { word: '알겠오',     image: '/emo/kkwagi/ok.webp' },
+  { word: '오리와',     image: '/emo/kkwagi/come.webp' },
+  { word: '할 수 있다', image: '/emo/kkwagi/cando.webp' },
+  { word: '납작',       image: '/emo/kkwagi/flat.webp' },
+  { word: '굿럭',       image: '/emo/kkwagi/luck.webp' },
+  { word: '완전무장',   image: '/emo/kkwagi/padding.webp' },
+  { word: '준비중',     image: '/emo/kkwagi/ready.webp' },
+  { word: '붕어빵',     image: '/emo/kkwagi/bungeo.webp' },
+  { word: '잘자',       image: '/emo/kkwagi/night.webp' },
+  { word: '가는 중',    image: '/emo/kkwagi/otw.webp' },
+  { word: '밥도둑',     image: '/emo/kkwagi/thief.webp' },
+];
