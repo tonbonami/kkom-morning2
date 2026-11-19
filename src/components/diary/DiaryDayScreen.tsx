@@ -30,7 +30,7 @@ import {
   DIARY_PHOTO_FRAMES,
   DIARY_LIMITS,
 } from '@/lib/diaryTypes';
-import { DiaryPaper } from './DiaryPaper';
+import { DiaryPaper, focusTextEnd } from './DiaryPaper';
 import { DiaryObjectToolbar } from './DiaryObjectToolbar';
 import { DiaryMaterialTray } from './DiaryMaterialTray';
 import { DiaryNotes } from './DiaryNotes';
@@ -447,7 +447,7 @@ export function DiaryDayScreen({
 
                   <button
                     type="button"
-                    onClick={() => { setShowThemePicker(false); onSelectItem(null); textRef.current?.focus(); }}
+                    onClick={() => { setShowThemePicker(false); onSelectItem(null); focusTextEnd(textRef.current); }}
                     className="min-h-[56px] flex flex-col items-center justify-center gap-[3px] rounded-xl text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)]"
                   >
                     <PenLine className="w-[21px] h-[21px] stroke-[1.8]" />

@@ -15,6 +15,18 @@ import { isDakuSrc } from '@/lib/dakuStickers';
  * 줄 높이는 글상자 style 의 32px 고정. 글 끝이 몇째 줄인지는 줄바꿈(자동 줄넘김 포함) 때문에 같은 모양의 숨은 거울 상자로 잰다.
  */
 export const DIARY_LINE_PX = 32;
+
+/**
+ * 「글쓰기」·「글부터 쓰기」 — 글상자에 초점을 주고 **커서를 글 끝으로**(꼼이 2026-11-19 「글쓰기 눌러도 아무 반응 없다」).
+ *   focus() 만 하면 커서가 글 맨 앞에 가서, 이미 쓴 장에선 키보드만 올라오고 이어 쓸 자리가 안 보였다. 끝 줄이 보이게 내린다.
+ */
+export function focusTextEnd(el: HTMLTextAreaElement | null | undefined): void {
+  if (!el) return;
+  el.focus();
+  const n = el.value.length;
+  try { el.setSelectionRange(n, n); } catch { /* 고를 수 없는 상태 — 초점만 */ }
+  el.scrollTop = el.scrollHeight;
+}
 let mirror: HTMLDivElement | null = null;
 export function lastTextLine(el: HTMLTextAreaElement): number {
   if (typeof document === 'undefined') return 0;
@@ -327,8 +339,10 @@ export function DiaryPaper({
             }}
             maxLength={1000}
             placeholder={page.date === todayYmd() ? '오늘 하루는 어땠나요?' : ''}
-            style={{ lineHeight: '32px' }}
-            className="w-full flex-1 min-h-0 bg-transparent resize-none outline-none text-[16px] text-[var(--sd-ink)] placeholder-[var(--sd-faint)] font-sans"
+            // ⚠️ 종이·화면 전체가 select-none 이다(스티커 끌 때 글자가 잡히지 않게). 아이폰 웹뷰는 user-select:none 안의 글상자에
+            //    초점·커서가 잘 안 가기도 해서 글상자만 글자 선택을 되살린다(꼼이 11/19 「글쓰기 눌러도 반응 없다」).
+            style={{ lineHeight: '32px', WebkitUserSelect: 'text', userSelect: 'text' }}
+            className="w-full flex-1 min-h-0 bg-transparent resize-none outline-none text-[16px] text-[var(--sd-ink)] placeholder-[var(--sd-faint)] font-sans select-text"
           />
         ) : (
           <p
@@ -361,7 +375,7 @@ export function DiaryPaper({
             type="button"
             onPointerDown={(e) => e.stopPropagation()}
             onPointerUp={(e) => e.stopPropagation()}
-            onClick={() => textRef?.current?.focus()}
+            onClick={() => focusTextEnd((textRef ?? ownTextRef).current)}
             className="pointer-events-auto w-[168px] h-11 rounded-full bg-[var(--sd-card-solid)] border border-[var(--sd-line)] text-[14px] font-medium text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)]"
           >
             글부터 쓰기
