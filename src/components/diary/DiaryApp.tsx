@@ -30,7 +30,7 @@ import { holidayName } from '@/lib/holidays';
 import { blankEventDraft, buildMonthBands, buildUpcoming, draftOfEvent, eventsForOwner, normalizeEventDraft, toEventVM } from '@/lib/diaryCalendar';
 import { isPractice } from '@/lib/practice';
 import {
-  BUILTIN_SPECIALS, PracticeBlocked, addSpecialDate, applyMonthPatch, blankDiaryPage, clearDiaryDraft, deleteDiaryPhotos, deleteSpecialDate,
+  BUILTIN_SPECIALS, DiaryConflict, PracticeBlocked, subscribeDiaryRevision, addSpecialDate, applyMonthPatch, blankDiaryPage, clearDiaryDraft, deleteDiaryPhotos, deleteSpecialDate,
   diaryPageHasContent, diaryPageId, emptyMonthDeco, invertMonthPatch, loadDiaryPage, prepareDiaryPhoto, readDiaryDraft, saveDiaryDraft, saveDiaryPage,
   removeDiaryEvent, saveDiaryEvent, uploadDiaryInk, seedSpecialDates, specialsOn, subscribeDiaryMonth, subscribeDiaryMonthMeta, subscribeDiaryPage, subscribeSpecialDates, uploadDiaryPhoto,
   writeDiaryMonthPatch, addDiaryNote, deleteDiaryNote, setDiaryHeart, subscribeDiaryNotes, appPhotoFile, type AppPhotoVM, type DiaryMeta, type DiaryNoteVM, type MonthDeco, type MonthPatch,
@@ -157,6 +157,26 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         else { clearDiaryDraft(d, me); if (mineRef.current.date === d && !dirtyRef.current) setSaveState('saved'); }
       } catch (e) {
         if (e instanceof PracticeBlocked) { if (mineRef.current.date === d) setSaveState('saved'); return; }
+        if (e instanceof DiaryConflict) {
+          // 다른 기기(아이패드↔폰)가 먼저 고쳤다 — 서버 장을 다시 읽어 보이고, 이 기기에서 쓴 장은 따로 보관한 뒤 알린다(11/19).
+          //   ⚠️ 이 기기 장을 그대로 다시 저장하면 다른 기기 글이 통째로 덮인다 — 그게 막으려던 일이다.
+          //   보관본: localStorage kk-diary-conflict:{장 id}:{시각} (사진 파일은 지우지 않아 보관본의 사진도 남는다).
+          const mineNow = mineRef.current.date === d ? mineRef.current : (lastRef.current[d] ?? page);
+          try { localStorage.setItem(`kk-diary-conflict:${diaryPageId(d, me)}:${Date.now()}`, JSON.stringify(mineNow)); } catch { /* 보관이 막힌 기기 */ }
+          clearDiaryDraft(d, me);
+          const got = await loadDiaryPage(d, me).catch(() => undefined);
+          if (got === undefined) { revsRef.current[d] = e.serverRevision; return; }   // 못 읽었다 — 다음 저장도 다시 부딪혀 여기로 온다
+          const fresh = got?.page ?? blankDiaryPage(d, me);
+          revsRef.current[d] = got?.revision ?? 0;
+          pathsRef.current[d] = got ? pathsOf(got.page) : new Set();
+          lastRef.current[d] = fresh;
+          if (mineRef.current.date === d) {
+            if (timerRef.current) { window.clearTimeout(timerRef.current); timerRef.current = null; }
+            mineRef.current = fresh; setMine(fresh); dirtyRef.current = false; setSaveState('saved');
+            say('다른 기기에서 고친 장이 있어 새로 불러왔어요 — 여기서 쓴 건 따로 보관했어요');
+          }
+          return;
+        }
         if (mineRef.current.date === d) {
           dirtyRef.current = true; setSaveState('offline');
           if (!timerRef.current) timerRef.current = window.setTimeout(() => void flush(), 5000);
@@ -165,7 +185,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
       }
     });
     return chainRef.current;
-  }, [me]);
+  }, [me, say]);
   const schedule = useCallback(() => {
     if (timerRef.current) window.clearTimeout(timerRef.current);
     setSaveState((s) => (s === 'offline' ? s : 'saving'));
@@ -199,6 +219,28 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     void load();
     return () => { alive = false; if (retry) window.clearTimeout(retry); };
   }, [date, me, schedule]);
+
+  // 열어 둔 내 장 — 다른 기기가 저장해서 서버 판이 올라가면, 이 기기에서 고치는 중이 아닐 때 새로 불러온다(11/19 저장 충돌 막기).
+  //   그래야 아이패드에서 쓴 뒤 폰을 열어 둔 채 스티커를 붙여도 옛 장 위에 붙이지 않는다(붙이기 전에 이미 새 장이다).
+  //   ⚠️ 고치는 중(dirty·저장 대기)이면 안 바꾼다 — 그때 부딪히면 저장 쪽(DiaryConflict)이 받는다.
+  useEffect(() => {
+    if (!ready || isPractice()) return;
+    const d = date;
+    let alive = true;
+    const off = subscribeDiaryRevision(d, me, (rev) => {
+      if (rev <= (revsRef.current[d] ?? 0)) return;
+      if (dirtyRef.current || timerRef.current || mineRef.current.date !== d) return;
+      void loadDiaryPage(d, me).then((got) => {
+        if (!alive || !got || got.revision <= (revsRef.current[d] ?? 0)) return;
+        if (dirtyRef.current || timerRef.current || mineRef.current.date !== d) return;
+        revsRef.current[d] = got.revision;
+        pathsRef.current[d] = pathsOf(got.page);
+        lastRef.current[d] = got.page;
+        mineRef.current = got.page; setMine(got.page);
+      }).catch(() => { /* 못 읽으면 다음 판 알림 때 다시 */ });
+    });
+    return () => { alive = false; off(); };
+  }, [date, me, ready]);
 
   // 화면을 내리거나 나갈 때 밀린 저장을 바로 보낸다.
   useEffect(() => {

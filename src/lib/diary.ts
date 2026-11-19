@@ -15,7 +15,7 @@
  */
 import { db, storage, usingEmulator } from './firebase';
 import {
-  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, startAfter, writeBatch,
+  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, startAfter, writeBatch, runTransaction,
   serverTimestamp, deleteField, type DocumentData, type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -90,6 +90,16 @@ export async function loadDiaryPage(date: string, owner: Person): Promise<{ page
   return { page: toPage(date, owner, d), revision: num(d.revision, 0, 0, 1e9) };
 }
 
+/**
+ * 내 장의 서버 판 번호를 듣는다(없으면 0) — 다른 기기(아이패드↔폰)가 저장하면 열어 둔 장을 새로 불러오려고(11/19 저장 충돌 막기).
+ * 본문은 안 넘긴다: 판이 바뀐 걸 알면 부르는 쪽이 loadDiaryPage 로 다시 읽는다(고치는 중이면 안 읽는다).
+ */
+export function subscribeDiaryRevision(date: string, owner: Person, cb: (revision: number) => void): () => void {
+  return onSnapshot(contentRef(diaryPageId(date, owner)),
+    (s) => { if (!s.metadata.hasPendingWrites) cb(s.exists() ? num(s.data().revision, 0, 0, 1e9) : 0); },
+    () => { /* 못 들으면 그만 — 저장 때 트랜잭션이 막는다 */ });
+}
+
 /** 상대 장은 켜 둔 채로 본다(상대가 고치면 바로 바뀐다). 없으면 null. */
 export function subscribeDiaryPage(date: string, owner: Person, cb: (p: DiaryPageVM | null) => void): () => void {
   return onSnapshot(contentRef(diaryPageId(date, owner)),
@@ -119,35 +129,46 @@ export function subscribeDiaryMonthMeta(ym: string, cb: (m: Record<string, Diary
 /** 저장할 수 있는 물건만 — 아직 올리는 중인 사진(blob:)은 뺀다(다 올라오면 다시 저장된다). */
 export const storableItems = (items: DiaryItemVM[]) => items.filter((i) => !(i.src ?? '').startsWith('blob:')).slice(0, DIARY_LIMITS.items);
 
+/** 저장하려는데 서버 판이 내가 알던 판과 다르다 — 다른 기기(아이패드↔폰)가 먼저 고쳤다. */
+export class DiaryConflict extends Error {
+  constructor(public serverRevision: number) { super('다른 기기에서 먼저 고친 장'); this.name = 'DiaryConflict'; }
+}
+
 /**
  * 한 장 저장(전체 덮어쓰기). 글도 물건도 없으면 장을 지운다(빈 장이 달력에 점으로 남지 않게).
- * @returns 새 revision
+ * ⚠️ 2026-11-19 **트랜잭션으로 판 번호를 대조한다**(우댕 「저장 충돌 막기부터 해」 — 사이담 설계 docs/gpt-sairy-switch-answer.md §3 「중요한 반박」).
+ *   예전엔 baseRevision+1 을 적기만 해서, 아이패드에서 쓴 뒤 옛 장을 열어 둔 폰이 저장하면 아이패드 글이 통째로 덮였다.
+ *   서버 판 ≠ baseRevision 이면 저장하지 않고 DiaryConflict — 부르는 쪽이 서버 장을 다시 읽고 이 기기 것은 따로 보관한다.
+ * @returns 새 revision(장을 지웠으면 0 — 서버에 장이 없으니 다음 저장의 기준도 0)
  */
 export async function saveDiaryPage(page: DiaryPageVM, baseRevision: number): Promise<number> {
   if (blocked('다이어리 저장')) throw new PracticeBlocked();
   const id = diaryPageId(page.date, page.owner);
   const items = clean(storableItems(page.items));
   const text = page.text.slice(0, DIARY_LIMITS.text);
-  const revision = baseRevision + 1;
-  const batch = writeBatch(db);
-  if (!text.trim() && items.length === 0) {
-    batch.delete(contentRef(id));
-    batch.delete(doc(db, 'diaryPages', id));
-    await batch.commit();
-    return revision;
-  }
+  const empty = !text.trim() && items.length === 0;
   const firstLine = text.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
   const thumb = items.find((i) => i.type === 'photo' && i.src)?.src ?? items.find((i) => i.type === 'sticker' && i.src)?.src;
-  batch.set(contentRef(id), { text, items, theme: page.theme, ...(page.question ? { question: page.question.slice(0, 60) } : {}), revision, updatedAt: serverTimestamp() });
-  batch.set(doc(db, 'diaryPages', id), {
-    date: page.date, ym: page.date.slice(0, 7), owner: page.owner, theme: page.theme,
-    itemCount: items.length, hasPhoto: items.some((i) => i.type === 'photo'),
-    excerpt: firstLine.slice(0, 40), thumb: thumb ?? deleteField(),
-    schemaVersion: 1, revision, updatedAt: serverTimestamp(),
-    ...(baseRevision === 0 ? { createdAt: serverTimestamp() } : {}),
-  }, { merge: true });
-  await batch.commit();
-  return revision;
+  return runTransaction(db, async (tx) => {
+    const cur = await tx.get(contentRef(id));
+    const serverRev = cur.exists() ? num(cur.data()?.revision, 0, 0, 1e9) : 0;
+    if (serverRev !== baseRevision) throw new DiaryConflict(serverRev);
+    if (empty) {
+      tx.delete(contentRef(id));
+      tx.delete(doc(db, 'diaryPages', id));
+      return 0;
+    }
+    const revision = serverRev + 1;
+    tx.set(contentRef(id), { text, items, theme: page.theme, ...(page.question ? { question: page.question.slice(0, 60) } : {}), revision, updatedAt: serverTimestamp() });
+    tx.set(doc(db, 'diaryPages', id), {
+      date: page.date, ym: page.date.slice(0, 7), owner: page.owner, theme: page.theme,
+      itemCount: items.length, hasPhoto: items.some((i) => i.type === 'photo'),
+      excerpt: firstLine.slice(0, 40), thumb: thumb ?? deleteField(),
+      schemaVersion: 1, revision, updatedAt: serverTimestamp(),
+      ...(serverRev === 0 ? { createdAt: serverTimestamp() } : {}),
+    }, { merge: true });
+    return revision;
+  });
 }
 
 // ── 마음(♥)·한마디 ─────────────────────────────────────────────────────────
