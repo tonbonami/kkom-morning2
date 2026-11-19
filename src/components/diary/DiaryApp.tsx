@@ -102,6 +102,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const [arcYm, setArcYm] = useState(TODAY.slice(0, 7));
   const [arcWho, setArcWho] = useState<ArchiveWho>('both');
   const [arcPhoto, setArcPhoto] = useState(false);
+  const [arcQuery, setArcQuery] = useState('');
   const [arcShown, setArcShown] = useState(ARCHIVE_STEP);
   const [arcBack, setArcBack] = useState<'day' | 'month' | 'exit'>(initialView === 'archive' ? 'exit' : 'day');
   const arcScroll = useRef(0);
@@ -737,9 +738,10 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         <DiaryArchiveScreen
           me={me} ym={arcYm} today={todayYmd()}
           metas={metasYm === arcYm ? Object.values(metas) : null}
-          who={arcWho} photoOnly={arcPhoto} shown={arcShown}
+          who={arcWho} photoOnly={arcPhoto} query={arcQuery} shown={arcShown}
           onWho={(w) => { setArcWho(w); setArcShown(ARCHIVE_STEP); }}
           onPhotoOnly={(v) => { setArcPhoto(v); setArcShown(ARCHIVE_STEP); }}
+          onQuery={(v) => { setArcQuery(v); setArcShown(ARCHIVE_STEP); arcScroll.current = 0; window.scrollTo(0, 0); }}
           onMore={() => setArcShown((n) => n + ARCHIVE_STEP)}
           onYm={(ym) => { setArcYm(ym); setArcShown(ARCHIVE_STEP); arcScroll.current = 0; window.scrollTo(0, 0); }}
           onOpen={(d, o) => { arcScroll.current = window.scrollY; setOwner(o); goDate(d); setBackTo('archive'); setView('day'); window.scrollTo(0, 0); }}

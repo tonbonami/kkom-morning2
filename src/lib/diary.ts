@@ -40,8 +40,8 @@ export const diaryPageId = (date: string, owner: Person) => `${date}_${PERSON_KE
 export const blankDiaryPage = (date: string, owner: Person): DiaryPageVM => ({ date, owner, theme: 'cream', text: '', items: [] });
 export const diaryPageHasContent = (p: Pick<DiaryPageVM, 'text' | 'items'>) => p.text.trim().length > 0 || p.items.length > 0;
 
-/** 달력 점·홈 카드가 읽는 가벼운 표지. */
-export interface DiaryMeta { id: string; date: string; owner: Person; excerpt: string; thumb?: string; itemCount: number; hasPhoto: boolean }
+/** 달력 점·홈 카드가 읽는 가벼운 표지. photos 는 사진 모아 보기용 앞쪽 4장. */
+export interface DiaryMeta { id: string; date: string; owner: Person; excerpt: string; thumb?: string; photos?: string[]; itemCount: number; hasPhoto: boolean }
 
 function toItems(raw: unknown): DiaryItemVM[] {
   if (!Array.isArray(raw)) return [];
@@ -110,23 +110,48 @@ export function subscribeDiaryPage(date: string, owner: Person, cb: (p: DiaryPag
     (e) => { console.error('diary page 구독 오류:', e); cb(null); });
 }
 
+const toMeta = (id: string, d: DocumentData): DiaryMeta | null => {
+  // 빈 판(지운 자리·비운 장)은 표지로 안 친다 — 달력·지난 일기·찾기·홈 어디에도 안 보이게.
+  if ((d.owner !== '우댕' && d.owner !== '꼼이') || d.empty === true) return null;
+  const photos = Array.isArray(d.photos) ? d.photos.filter((x: unknown): x is string => typeof x === 'string' && !!x).slice(0, 4) : [];
+  return {
+    id, date: String(d.date || ''), owner: d.owner, excerpt: typeof d.excerpt === 'string' ? d.excerpt : '',
+    ...(typeof d.thumb === 'string' && d.thumb ? { thumb: d.thumb } : {}),
+    ...(photos.length ? { photos } : {}),
+    itemCount: num(d.itemCount, 0, 0, 1000), hasPhoto: !!d.hasPhoto,
+  };
+};
+
 /** 한 달의 표지들(두 사람 것 다) — id → 표지. */
 export function subscribeDiaryMonthMeta(ym: string, cb: (m: Record<string, DiaryMeta>) => void): () => void {
   return onSnapshot(query(collection(db, 'diaryPages'), where('ym', '==', ym)),
     (snap) => {
       const out: Record<string, DiaryMeta> = {};
       snap.forEach((s) => {
-        const d = s.data();
-        if ((d.owner !== '우댕' && d.owner !== '꼼이') || d.empty === true) return;
-        out[s.id] = {
-          id: s.id, date: String(d.date || ''), owner: d.owner, excerpt: typeof d.excerpt === 'string' ? d.excerpt : '',
-          ...(typeof d.thumb === 'string' && d.thumb ? { thumb: d.thumb } : {}),
-          itemCount: num(d.itemCount, 0, 0, 1000), hasPhoto: !!d.hasPhoto,
-        };
+        const m = toMeta(s.id, s.data());
+        if (m) out[s.id] = m;
       });
       cb(out);
     },
     (e) => { console.error('diary 표지 구독 오류:', e); cb({}); });
+}
+
+let allMetaCache: Promise<DiaryMeta[]> | null = null;
+/** 장이 저장·이동되면 다음 검색 때 표지를 새로 받게 한다(받은 표지는 앱이 켜져 있는 동안 남아서 새 장·지운 장이 어긋나던 것). */
+export function forgetAllDiaryMeta(): void { allMetaCache = null; }
+/** 첫 줄 찾기용 표지 전체. 처음 한 번만 받고 이후 검색은 화면에서 거른다(본문은 읽지 않는다). */
+export function fetchAllDiaryMeta(): Promise<DiaryMeta[]> {
+  if (allMetaCache) return allMetaCache;
+  allMetaCache = getDocs(collection(db, 'diaryPages')).then((snap) => {
+    const out: DiaryMeta[] = [];
+    snap.forEach((s) => { const m = toMeta(s.id, s.data()); if (m) out.push(m); });
+    return out;
+  }).catch((e) => {
+    allMetaCache = null;
+    console.error('diary 전체 표지 읽기 오류:', e);
+    throw e;
+  });
+  return allMetaCache;
 }
 
 /** 저장할 수 있는 물건만 — 아직 올리는 중인 사진(blob:)은 뺀다(다 올라오면 다시 저장된다). */
@@ -153,7 +178,7 @@ export async function saveDiaryPage(page: DiaryPageVM, baseRevision: number): Pr
     if (serverRev !== baseRevision) throw new DiaryConflict(serverRev);
     putPage(tx, page, serverRev + 1, cur.exists());
     return serverRev + 1;
-  });
+  }).then((r) => { forgetAllDiaryMeta(); return r; });
 }
 
 /** 장 한 판을 표지·본문에 쓴다 — 빈 장도 판 번호를 남겨 오래된 로컬 초안이 지운 장을 되살리지 못하게 한다. */
@@ -167,11 +192,12 @@ function putPage(tx: Transaction, page: DiaryPageVM, revision: number, existed: 
     ...(!empty && page.question ? { question: page.question.slice(0, 60) } : {}),
     empty, revision, updatedAt: serverTimestamp(),
   });
+  const photos = empty ? [] : items.filter((i) => i.type === 'photo' && i.src).map((i) => i.src!).slice(0, 4);
   const thumb = empty ? undefined : thumbOf(items);
   tx.set(doc(db, 'diaryPages', id), {
     date: page.date, ym: page.date.slice(0, 7), owner: page.owner, theme: page.theme,
     itemCount: items.length, hasPhoto: !empty && items.some((i) => i.type === 'photo'),
-    excerpt: empty ? '' : excerptOf(text), thumb: thumb ?? deleteField(), empty,
+    excerpt: empty ? '' : excerptOf(text), thumb: thumb ?? deleteField(), photos: photos.length ? photos : deleteField(), empty,
     schemaVersion: 1, revision, updatedAt: serverTimestamp(),
     ...(existed ? {} : { createdAt: serverTimestamp() }),
   }, { merge: true });
@@ -216,7 +242,7 @@ export async function trashDiaryPage(date: string, owner: Person, baseRevision: 
     tx.set(tRef, trashData(page, clearedRevision));
     putPage(tx, { ...blankDiaryPage(date, owner), theme: page.theme }, clearedRevision, cur.exists());
     return { revision: clearedRevision, trashId: tRef.id };
-  });
+  }).finally(forgetAllDiaryMeta);
 }
 
 /** 휴지통 장을 되살린다. 새 장이 있으면 먼저 묻고, swap일 때 그 새 장을 다시 휴지통에 넣는다. */
@@ -240,7 +266,7 @@ export async function restoreDiaryTrash(trashId: string, owner: Person, swap = f
     putPage(tx, toPage(date, owner, t.data()), serverRev + 1, cur.exists());
     tx.delete(tRef);
     return date;
-  });
+  }).finally(forgetAllDiaryMeta);
 }
 
 /** 내 휴지통(최근에 지운 것 먼저). 30일이 지난 것은 서버 파기 전이라도 목록에서 숨긴다. */
