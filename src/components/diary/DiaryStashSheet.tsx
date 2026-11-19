@@ -71,7 +71,7 @@ export function DiaryStashSheet({ open, stashes, practice = false, onRestore, on
                   <div className="min-w-0 flex-1 pt-0.5">
                     <p className="text-[11px] text-[var(--sd-muted)]">{timeLabel(stash.savedAt)}</p>
                     <p className="mt-1.5 text-[13px] leading-5 font-medium text-[var(--sd-ink)] line-clamp-2">{firstLine(stash)}</p>
-                    <p className="mt-1 text-[10px] text-[var(--sd-faint)]">물건 {stash.page.items.length}개</p>
+                    {stash.page.items.length > 0 && <p className="mt-1 text-[10px] text-[var(--sd-faint)]">사진·스티커 {stash.page.items.length}개</p>}
                   </div>
                 </div>
                 {asking ? (
