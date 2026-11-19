@@ -352,8 +352,9 @@ function EventForm({ me, initial, presetDate, onClose, onSaved }: {
       if (initial) {
         await updateCalendarEvent(initial.id, {
           title: title.trim(), owner, startDate, endDate: fixedEnd, allDay,
-          startTime: !allDay ? startTime : undefined,
-          memo: memo.trim() || undefined, location: location.trim() || undefined,
+          // 비운 칸은 null = 지우기(undefined 면 예전 값이 남는다)
+          startTime: !allDay && startTime ? startTime : null,
+          memo: memo.trim() || null, location: location.trim() || null,
           remindDaysBefore: reminds,
         });
         feedback('✏️ 일정 고쳤어');

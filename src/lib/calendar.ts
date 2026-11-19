@@ -6,7 +6,7 @@
 import { db, usingEmulator } from './firebase';
 import {
   collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot,
-  serverTimestamp, Timestamp, type DocumentData,
+  serverTimestamp, Timestamp, deleteField, type DocumentData,
 } from 'firebase/firestore';
 import { partnerOf } from './letters';
 
@@ -122,10 +122,18 @@ export async function addCalendarEvent(input: {
   return ref.id;
 }
 
-export async function updateCalendarEvent(id: string, patch: Partial<CalendarEventDoc>): Promise<void> {
+/**
+ * 일정 고치기. undefined = 그대로 두기, null = 그 칸 지우기(deleteField).
+ * ⚠️ 비운 메모·장소·시간을 undefined 로 넘기면 건너뛰어서 예전 값이 그대로 남았다(사이담 8a6c061 과 같은 버그).
+ */
+export async function updateCalendarEvent(
+  id: string,
+  patch: { [K in keyof CalendarEventDoc]?: CalendarEventDoc[K] | null },
+): Promise<void> {
   const clean: DocumentData = {};
   for (const [k, v] of Object.entries(patch)) {
-    if (v !== undefined) clean[k] = v;
+    if (v === null) clean[k] = deleteField();
+    else if (v !== undefined) clean[k] = v;
   }
   if (Object.keys(clean).length === 0) return;
   await updateDoc(doc(db, 'calendarEvents', id), clean);
