@@ -48,7 +48,12 @@ export function lastTextLine(el: HTMLTextAreaElement): number {
 
 export interface DiaryPaperProps {
   page: DiaryPageVM;
+  /** 종이 제목 「NOV 19 · THU」 */
   dateLabel: string;
+  /** 읽어 주기용 전체 날짜 */
+  dateFull?: string;
+  /** 다른 해의 장이면 「2025」 */
+  yearNote?: string;
   chips: DiaryChipVM[];
   editable: boolean;
   selectedItemId: string | null;
@@ -103,6 +108,8 @@ function PhotoBody({ item }: { item: DiaryItemVM }): React.JSX.Element | null {
 export function DiaryPaper({
   page,
   dateLabel,
+  dateFull,
+  yearNote,
   chips,
   editable,
   selectedItemId,
@@ -287,7 +294,8 @@ export function DiaryPaper({
 
       {/* 상단 날짜 및 칩 영역 */}
       <div className="pl-4 pr-1 mb-2 z-10 pointer-events-none">
-        <h2 className="font-['Dongle'] text-4xl leading-none text-[var(--sd-ink)] font-normal">
+        {yearNote && <p className="text-[11px] leading-none text-[var(--sd-muted)] mb-1">{yearNote}</p>}
+        <h2 aria-label={dateFull} className="text-[22px] leading-none font-medium tracking-[0.06em] text-[var(--sd-ink)]">
           {dateLabel}
         </h2>
 

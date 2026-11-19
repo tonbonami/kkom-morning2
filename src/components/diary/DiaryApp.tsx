@@ -49,6 +49,12 @@ import {
 
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const labelOf = (d: string) => { const t = new Date(d + 'T00:00:00'); return `${t.getMonth() + 1}월 ${t.getDate()}일 ${WD[t.getDay()]}요일`; };
+// 짧은 날짜: 머리말 「11.19 목」, 종이 「NOV 19 · THU」, 읽어 주기는 전체 날짜.
+const EN_M = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const EN_D = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const navLabelOf = (d: string) => { const t = new Date(d + 'T00:00:00'); return `${t.getMonth() + 1}.${t.getDate()} ${WD[t.getDay()]}`; };
+const paperLabelOf = (d: string) => { const t = new Date(d + 'T00:00:00'); return `${EN_M[t.getMonth()]} ${t.getDate()} · ${EN_D[t.getDay()]}`; };
+const fullLabelOf = (d: string) => `${d.slice(0, 4)}년 ${labelOf(d)}`;
 const dayLabelShort = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8))}일`;
 const shiftMonth = (ym: string, n: number) => { const t = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1 + n, 1); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`; };
 const newId = (p: string) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -957,7 +963,8 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   return (
     <>
       <DiaryDayScreen
-        me={me} pageOwner={owner} page={page} dateLabel={labelOf(date)}
+        me={me} pageOwner={owner} page={page} dateLabel={navLabelOf(date)} dateFull={fullLabelOf(date)}
+        paperLabel={paperLabelOf(date)} paperYear={date.slice(0, 4) !== TODAY.slice(0, 4) ? date.slice(0, 4) : undefined}
         chips={chips}
         materials={isMine && ready && date === TODAY && !mine.question ? [{ id: 'q', kind: 'prompt', label: promptOfDay }] : []}
         hasPage={{ [me]: diaryPageHasContent(mine), [partner]: !!theirs || !!metas[diaryPageId(date, partner)] } as Record<Person, boolean>}

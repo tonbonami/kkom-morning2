@@ -20,6 +20,7 @@ import {
   BookOpen,
   Brush,
   ArchiveRestore,
+  CalendarDays,
 } from 'lucide-react';
 import {
   Person,
@@ -44,7 +45,13 @@ export interface DiaryDayScreenProps {
   me: Person;
   pageOwner: Person;
   page: DiaryPageVM;
+  /** 머리말 날짜 「11.19 목」 */
   dateLabel: string;
+  /** 읽어 주기용 전체 날짜 「2026년 11월 19일 목요일」 */
+  dateFull: string;
+  /** 종이 제목 「NOV 19 · THU」 · 다른 해면 연도 */
+  paperLabel: string;
+  paperYear?: string;
   chips: DiaryChipVM[];
   materials: DiaryMaterialVM[];
   hasPage: Record<Person, boolean>;
@@ -82,7 +89,7 @@ export interface DiaryDayScreenProps {
   onPhotoCaption: (text: string) => void;
   /** 아직 오지 않은 날 — 내 장이어도 쓰지 못한다(꼼이가 일기 쓰다 다음 날 장으로 밀려 같은 글이 생긴 일, 2026-11-17) */
   future?: boolean;
-  /** ← 옆 글자 — 달력에서 왔으면 「달력」(누르면 달력으로) */
+  /** ←가 돌아갈 곳 — 화면에는 안 쓰고 읽어 주기 문구에 쓴다. */
   backLabel?: string;
   /** ⋮ 메뉴 맨 위 「지난 일기 모아보기」 */
   onOpenArchive?: () => void;
@@ -104,6 +111,9 @@ export function DiaryDayScreen({
   pageOwner,
   page,
   dateLabel,
+  dateFull,
+  paperLabel,
+  paperYear,
   chips,
   materials,
   hasPage,
@@ -229,7 +239,6 @@ export function DiaryDayScreen({
           className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--sd-ink)] active:scale-95"
         >
           <ChevronLeft className="w-6 h-6" />
-          {backLabel && <span className="text-[13px] font-medium -ml-0.5 pr-1">{backLabel}</span>}
         </button>
 
         {/* 날짜 및 월 선택 */}
@@ -244,7 +253,8 @@ export function DiaryDayScreen({
           <button
             type="button"
             onClick={onOpenMonth}
-            className="min-h-[44px] px-2 font-['Dongle'] text-3xl text-[var(--sd-ink)] font-normal active:opacity-70"
+            aria-label={`${dateFull} — 달력 열기`}
+            className="min-h-[44px] px-1 text-[17px] font-semibold tabular-nums whitespace-nowrap text-[var(--sd-ink)] active:opacity-70"
           >
             {dateLabel}
           </button>
@@ -258,12 +268,24 @@ export function DiaryDayScreen({
         </div>
 
         {/* 저장 상태 및 메뉴 */}
-        <div className="relative flex items-center gap-1">
-          <span className="text-[10px] text-[var(--sd-faint)]">
-            {saveState === 'saved' && '저장됨'}
-            {saveState === 'saving' && '저장 중…'}
-            {saveState === 'offline' && '폰에 보관 중'}
-          </span>
+        <div className="relative flex items-center gap-0.5">
+          {/* 저장 표시는 버튼을 밀지 않게 머리말 아래에 띄운다. */}
+          {saveState !== 'saved' && (
+            <span className="absolute right-0 top-full mt-0.5 text-[10px] leading-none whitespace-nowrap text-[var(--sd-faint)] pointer-events-none">
+              {saveState === 'saving' ? '저장 중…' : '폰에 보관 중'}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onOpenMonth}
+            aria-label="달력 열기"
+            className="min-h-[44px] flex items-center active:scale-95"
+          >
+            <span className="h-8 pl-2.5 pr-3 rounded-full flex items-center gap-1 text-[13px] font-semibold leading-none text-[var(--sd-rel)] bg-[var(--sd-rel-soft)]">
+              <CalendarDays className="w-4 h-4" />
+              달력
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => setShowMenu((prev) => !prev)}
@@ -391,7 +413,9 @@ export function DiaryDayScreen({
         <div className={fitW ? 'shrink-0' : 'w-full'} style={fitW ? { width: fitW } : undefined}>
         <DiaryPaper
           page={page}
-          dateLabel={dateLabel}
+          dateLabel={paperLabel}
+          dateFull={dateFull}
+          yearNote={paperYear}
           chips={chips}
           editable={isEditable}
           selectedItemId={selectedItemId}

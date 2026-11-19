@@ -4,6 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ChevronLeft,
+  NotebookPen,
   ChevronRight,
   ArrowLeft,
   MoreHorizontal,
@@ -174,9 +175,9 @@ export function DiaryMonthScreen({
     <div className={`w-full ${wide ? 'max-w-[1100px]' : 'max-w-md'} mx-auto min-h-screen bg-[#FCFAF7] flex flex-col justify-between select-none`}>
       <div className="p-4 space-y-3">
         {/* 머리줄 — 우댕 2026-11-18 「대칭이 안맞아서 안예쁜데 화살표 잘 안눌리고. 지난달 가기가 불편해」 + GPT 회의:
-            [뒤로 | 오늘 자리] [‹ 제목 ›] [저장 표시 | 메뉴] — 양옆 칸 폭을 같게 해서 제목이 정확히 가운데. 화살표 44×44.
+            [뒤로] [‹ 제목 ›] [하루 | 메뉴] — 양옆 칸 폭을 같게 해서 제목이 정확히 가운데. 화살표 44×44.
             「머리 스티커」 칸은 여기서 뺐다(붙여 둔 것은 달력 아래 여백 줄 맨 앞에 보인다). */}
-        <div className="grid grid-cols-[92px_1fr_92px] items-center">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
           <div className="flex items-center">
             <button
               type="button"
@@ -233,23 +234,28 @@ export function DiaryMonthScreen({
           </div>
 
           <div className="flex items-center justify-end gap-0.5 relative">
-            {!isCurrentMonth ? (
-              <button
-                type="button"
-                onClick={onGoThisMonth}
-                className="min-h-[32px] px-2.5 rounded-full border border-[var(--sd-line)] bg-[var(--sd-card-solid)] text-[11px] font-medium text-[var(--sd-ink)] active:scale-95"
-              >
-                오늘
-              </button>
-            ) : (
-              <span className="text-[10px] text-[var(--sd-faint)] whitespace-nowrap">
-                {saveState === 'saving' ? '저장 중' : saveState === 'offline' ? '오프라인' : ''}
+            {/* 저장 표시는 버튼을 밀지 않게 머리말 아래에 띄운다. */}
+            {saveState !== 'saved' && (
+              <span className="absolute right-0 top-full mt-0.5 text-[10px] leading-none whitespace-nowrap text-[var(--sd-faint)] pointer-events-none">
+                {saveState === 'saving' ? '저장 중…' : '오프라인'}
               </span>
             )}
             <button
               type="button"
+              onClick={onBack}
+              aria-label="하루 장 열기"
+              className="min-h-[44px] flex items-center active:scale-95"
+            >
+              <span className="h-8 pl-2 pr-2.5 rounded-full flex items-center gap-1 text-[13px] font-semibold leading-none text-[var(--sd-rel)] bg-[var(--sd-rel-soft)]">
+                <NotebookPen className="w-4 h-4" />
+                하루
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--sd-muted)] active:scale-95"
+              aria-label="메뉴"
+              className="min-w-[44px] min-h-[44px] -mr-3 flex items-center justify-center text-[var(--sd-muted)] active:scale-95"
             >
               <MoreHorizontal className="w-5 h-5" />
             </button>

@@ -32,6 +32,11 @@ const ME: Person = '우댕';
 const TODAY = '2026-11-17';
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const labelOf = (d: string) => { const t = new Date(d + 'T00:00:00'); return `${t.getMonth() + 1}월 ${t.getDate()}일 ${WD[t.getDay()]}요일`; };
+const EN_M = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const EN_D = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const navLabelOf = (d: string) => { const t = new Date(d + 'T00:00:00'); return `${t.getMonth() + 1}.${t.getDate()} ${WD[t.getDay()]}`; };
+const paperLabelOf = (d: string) => { const t = new Date(d + 'T00:00:00'); return `${EN_M[t.getMonth()]} ${t.getDate()} · ${EN_D[t.getDay()]}`; };
+const fullLabelOf = (d: string) => `${d.slice(0, 4)}년 ${labelOf(d)}`;
 const shift = (d: string, n: number) => { const t = new Date(d + 'T00:00:00'); t.setDate(t.getDate() + n); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; };
 
 const STICKER = (pack: string, list: { word: string; image: string }[]): DiaryAssetVM[] =>
@@ -294,7 +299,8 @@ function Test() {
   return (
     <>
       <DiaryDayScreen
-        me={ME} pageOwner={owner} page={page} dateLabel={labelOf(date)}
+        me={ME} pageOwner={owner} page={page} dateLabel={navLabelOf(date)} dateFull={fullLabelOf(date)}
+        paperLabel={paperLabelOf(date)} paperYear={date.slice(0, 4) !== TODAY.slice(0, 4) ? date.slice(0, 4) : undefined}
         chips={date === TODAY ? [
           { id: 'm', kind: 'mood', label: '신나', iconSrc: '/emo/kkuldaeng/mood/calm.png' },
           { id: 'w', kind: 'weather', label: '맑음 12°' },
