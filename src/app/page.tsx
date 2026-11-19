@@ -10,7 +10,7 @@ import Image from 'next/image';
 import { motion, AnimatePresence, useAnimation, Reorder, useDragControls } from 'framer-motion';
 import {
   Wind, Heart, PenLine, BookOpen, ChefHat, BookText,
-  RefreshCcw, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award, CalendarDays,
+  BookHeart, ChevronRight, Shirt, Smile, Camera, Sparkles, Home, Building2, CheckCircle2, Award, CalendarDays,
   Library, ExternalLink, Link2, MapPin, CloudSun, Mail, LayoutGrid, GripVertical, Check, LoaderCircle, Stethoscope,
   type LucideIcon,
 } from 'lucide-react';
@@ -95,10 +95,11 @@ const MODULES: ModuleDef[] = [
   { id: 'sleep',    name: '잠 소리' },    // 잘 때 빗소리·백색소음 — 소리는 아이폰 앱이 냄(화면 잠가도 계속), 자세히는 /sleep
   { id: 'mood',     name: '오늘의 기분' },
   { id: 'dday',     name: '함께한 지' },
+  { id: 'calendar', name: '달력' },     // 꼼캘(/calendar) — 2026-11-19 「달력 합치지 말자 … 꼼캘은 원래대로」로 되살림
   { id: 'letter',   name: '편지' },
   { id: 'memories', name: '추억' },
   { id: 'library',  name: '허니브러리' }, // 둘의 책장(사이담 사이브러리를 옮김, /library) — 2x1, 로고+요즘 읽는 책
-  { id: 'diary',    name: '다이어리' },  // 다꾸 다이어리(/diary) — 2x1, 오늘 내 장 한 줄 + 다음 일정 한 줄. 옛 '달력' 카드는 여기로 합쳤다(2026-11-17)
+  { id: 'diary',    name: '다이어리' },  // 다꾸 다이어리(/diary) — 2x1, 오늘 내 장 한 줄 + 다음 일정 한 줄(누르면 다이어리 달력). 꼼캘과 따로 쓴다(사이캘·사이어리처럼)
   { id: 'praise',   name: '칭찬' },
   { id: 'share',    name: '공유 리스트' },
   { id: 'wishlist', name: '위시리스트' },
@@ -109,7 +110,7 @@ const MODULES: ModuleDef[] = [
 // ⚠️ 2x1 이 1x1 보다 높다(핵심). 풀폭 카드 = 2x1, 짝지은 1칸 = 1x1.
 const DEFAULT_SIZE: Record<string, CardSize> = {
   doodle: '2x1', chat: '2x1', air: '2x1', weather: '2x1', memories: '2x1', skin: '2x1', sleep: '2x1', library: '2x1', diary: '2x1',
-  mood: '1x1', dday: '1x1', letter: '1x1',
+  mood: '1x1', dday: '1x1', calendar: '1x1', letter: '1x1',
   praise: '1x1', share: '1x1', wishlist: '1x1', again: '1x1', recipes: '1x1', poems: '1x1',
 };
 const SIZE_CLASS: Record<CardSize, string> = {
@@ -142,35 +143,8 @@ function applyModuleOrder(order: string[] | undefined): ModuleDef[] {
   return result;
 }
 
-// 달력 카드를 다이어리 카드로 합쳤다(달력 합치기 4단계, docs/gpt-diary-merge-answer.md 8번).
-//   저장된 배치의 'calendar' 는 **화면에서만** 'diary' 로 읽는다 — 둘 다 있으면 앞에 있던 자리 하나만. 문서에는 안 쓴다.
-//   (둘이 「배치 완료」를 누를 때 비로소 calendar 없는 새 배치가 저장된다.)
-function mergeCalendarCard(order: string[] | undefined): string[] | undefined {
-  if (!order?.length) return order;
-  const out: string[] = [];
-  let placed = false;
-  for (const id of order) {
-    if (id === 'calendar' || id === 'diary') { if (!placed) { out.push('diary'); placed = true; } }
-    else out.push(id);
-  }
-  return out;
-}
-// 한 칸짜리 달력 자리에 넓은 다이어리가 들어가면 옆 카드가 짝을 잃어 빈칸이 난다(격자가 빈칸을 안 메운다).
-//   넓은 카드가 오른쪽 칸에서 시작하게 되면, 뒤에 있는 첫 한 칸 카드를 당겨 와 짝을 채운다. 합친 직후(옛 배치)에만 쓴다.
-function closeGaps(mods: ModuleDef[], sizes: Record<string, CardSize>): ModuleDef[] {
-  const out = [...mods];
-  let col = 0;
-  for (let i = 0; i < out.length; i++) {
-    const wide = sizes[out[i].id] !== '1x1';
-    if (wide && col === 1) {
-      const j = out.findIndex((m, k) => k > i && sizes[m.id] === '1x1');
-      if (j > i) { const [m] = out.splice(j, 1); out.splice(i, 0, m); col = 0; continue; }
-      col = 0;
-    }
-    col = wide ? 0 : (col + 1) % 2;
-  }
-  return out;
-}
+// (11/17 달력 합치기 4단계에서 'calendar' 를 화면에서만 'diary' 로 읽던 mergeCalendarCard·closeGaps 는 11/19 합치기 취소로 뺐다.
+//   저장된 배치 문서는 그동안 안 건드렸으므로 달력 카드가 예전 자리로 그대로 돌아온다.)
 
 // 편집모드 한 줄 — 끌기핸들 + 크기순환 + on/off. (Reorder.Item은 훅을 쓰므로 컴포넌트로 분리)
 function EditRow({ module, size, enabled, onCycleSize, onToggle }: {
@@ -213,11 +187,7 @@ export default function KkomMorningHome() {
     if (!saved) return new Set(MODULES.map((m) => m.id)); // 이전 배치 = 전부 켬(사이담 함정: undefined vs [])
     return new Set([...saved, ...ADDED_LATER.filter((id) => !saved.includes(id))]);
   }, [layout.enabledModules]);
-  const ordered = useMemo(() => {
-    const list = applyModuleOrder(mergeCalendarCard(layout.moduleOrder));
-    if (!layout.moduleOrder?.includes('calendar')) return list;          // 합친 뒤에 새로 저장한 배치는 그대로
-    return [...closeGaps(list.filter((m) => enabledSet.has(m.id)), sizes), ...list.filter((m) => !enabledSet.has(m.id))];
-  }, [layout.moduleOrder, enabledSet, sizes]);
+  const ordered = useMemo(() => applyModuleOrder(layout.moduleOrder), [layout.moduleOrder]);
   const shownModules = useMemo(() => ordered.filter((m) => enabledSet.has(m.id)), [ordered, enabledSet]);
   const [editing, setEditing] = useState(false);
   const [draftOrder, setDraftOrder] = useState<ModuleDef[]>(MODULES);
@@ -259,7 +229,6 @@ export default function KkomMorningHome() {
   const [latestMemory, setLatestMemory] = useState<Memory | null>(null);
   const [memoryCount, setMemoryCount] = useState(0);
   const [userName, setUserName] = useState('');   // 빈값이어야 [userName] 이펙트 가드가 로그인 확정 전 실행을 막음(잘못된 상대·푸시토큰 방지)
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [dDay, setDDay] = useState(0);
   const [dateText, setDateText] = useState('');
   const [partnerPresence, setPartnerPresence] = useState<Presence>({ lastSeenAt: null, active: false });
@@ -309,16 +278,14 @@ export default function KkomMorningHome() {
   const [showWeatherHint, setShowWeatherHint] = useState(false);
   const weatherShake = useAnimation();
 
+  // (홈 위 새로고침 단추는 11/19 꼼이어리 단추로 바뀌었다 — 처음 열 때만 부른다.)
   const loadData = async (forceRefresh = false) => {
-    setIsRefreshing(true);
     try {
       const data = await getInitialData('home', forceRefresh);
       // 날씨는 GAS(죽음) 대신 /api/weather(기상청)에서 별도로 받음
       setOutfit(data.outfit);
     } catch (e) {
       console.error('데이터 로드 실패:', e);
-    } finally {
-      setTimeout(() => setIsRefreshing(false), 800);
     }
   };
 
@@ -890,6 +857,27 @@ export default function KkomMorningHome() {
         </AnimatePresence>
       </motion.button>
     ),
+    // 꼼캘 — 11/17 다이어리 카드로 합쳤다가 11/19 되살림(「꼼캘은 원래대로 살려주고」). 예전 카드 그대로.
+    calendar: (
+      <button
+        onClick={() => router.push('/calendar')}
+        aria-label="달력 보기"
+        className="sd-card w-full h-full px-4 py-4 flex flex-col relative text-left transition-transform active:scale-[.98]"
+        style={{ background: 'var(--m-calendar)' }}
+      >
+        <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+          <CalendarDays size={16} /> 달력
+        </span>
+        {nextEvent ? (
+          <div className="mt-auto">
+            <p className="text-[14px] font-semibold line-clamp-1" style={{ color: 'var(--sd-ink)' }}>{nextEvent.title}</p>
+            <span className="text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>{(() => { const p = nextEvent.date.split('-'); return `${+p[1]}월 ${+p[2]}일`; })()}</span>
+          </div>
+        ) : (
+          <p className="mt-2.5 text-[12.5px]" style={{ color: 'var(--sd-faint)' }}>다가오는 일정이 없어요</p>
+        )}
+      </button>
+    ),
     mood: (
       // 사이담과 동일 — 얼굴이 주인공. 카드 전체를 눌러 /quick/mood 로 간다(인라인 피커 X).
       // 흰 면 + 가운데 + 큰 얼굴 + 제목 위 숨쉴 자리. 상대 얼굴을 눌러도 내 기분 고르기로 가고,
@@ -1079,7 +1067,7 @@ export default function KkomMorningHome() {
             whenLabel: (() => { const n = Math.round((new Date(nextEvent.date + 'T00:00:00').getTime() - dt.getTime()) / 86400000); return n < 0 ? '진행 중' : n === 0 ? '오늘' : n === 1 ? '내일' : `${n}일 뒤`; })(),
           } : null}
           onOpen={() => router.push('/diary')}
-          onOpenMonth={() => router.push(calendarHref())}
+          onOpenMonth={() => router.push('/diary?view=month')}
           onOpenArchive={() => router.push('/diary?view=archive')}
         />
       );
@@ -1142,7 +1130,7 @@ export default function KkomMorningHome() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* 공유 캘린더 진입 (새로고침 왼쪽) */}
+          {/* 꼼톡 · 꼼캘 · 꼼이어리 — 새로고침 단추 자리에 꼼이어리(11/19 「새로고침 버튼 없애고 그자리에 꼼이어리」) */}
           <button
             onClick={() => { setChatOpen(true); setChatUnread(false); }}
             className="relative p-2 bg-white/50 backdrop-blur-md rounded-full text-[#FB7BA8] hover:text-[#e0568f] transition-colors"
@@ -1160,11 +1148,12 @@ export default function KkomMorningHome() {
             <CalendarDays size={20} />
           </button>
           <button
-            onClick={() => loadData(true)}
-            className="p-2 bg-white/50 backdrop-blur-md rounded-full text-slate-400 hover:text-slate-600 transition-colors"
-            aria-label="새로고침"
+            onClick={() => router.push('/diary')}
+            className="p-2 bg-white/50 backdrop-blur-md rounded-full text-[#D9822B] hover:text-[#B86A1E] transition-colors"
+            aria-label="꼼이어리"
+            title="꼼이어리"
           >
-            <RefreshCcw size={20} className={isRefreshing ? 'animate-spin' : ''} />
+            <BookHeart size={20} />
           </button>
         </div>
       </header>
