@@ -58,6 +58,8 @@ export interface DiaryMonthScreenProps {
   onGoThisMonth: () => void;
   /** ⋯ 메뉴 맨 위 「지난 일기 모아보기」 */
   onOpenArchive?: () => void;
+  /** ⋯ 메뉴 「휴지통」 */
+  onOpenTrash?: () => void;
   onChangeOwner: (o: MonthOwner) => void;
   onToggleMode: () => void;
   onPickTool: (t: MonthTool) => void;
@@ -101,6 +103,7 @@ export function DiaryMonthScreen({
   onNextMonth,
   onGoThisMonth,
   onOpenArchive,
+  onOpenTrash,
   onChangeOwner,
   onToggleMode,
   onPickTool,
@@ -285,6 +288,15 @@ export function DiaryMonthScreen({
                 >
                   생일·기념일 관리
                 </button>
+                {onOpenTrash && (
+                  <button
+                    type="button"
+                    onClick={() => { setMenuOpen(false); onOpenTrash(); }}
+                    className="w-full h-10 px-3 text-left text-xs text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)]"
+                  >
+                    휴지통
+                  </button>
+                )}
               </div>
             )}
           </div>

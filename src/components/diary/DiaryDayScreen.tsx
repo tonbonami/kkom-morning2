@@ -6,6 +6,8 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreVertical,
+  Trash,
+  Trash2,
   Smile,
   Image as ImageIcon,
   Scroll,
@@ -83,6 +85,10 @@ export interface DiaryDayScreenProps {
   backLabel?: string;
   /** ⋮ 메뉴 맨 위 「지난 일기 모아보기」 */
   onOpenArchive?: () => void;
+  /** ⋮ 메뉴 「휴지통」 */
+  onOpenTrash?: () => void;
+  /** ⋮ 메뉴 「이 장 지우기」 — 내 장에 내용이 있을 때만 온다. */
+  onTrashPage?: () => void;
   /** 「그리기」 — 앱(DiaryInk 플러그인이 있는 빌드)에서만 온다. 없으면 단추를 안 보인다. */
   onDraw?: () => void;
   /** 고른 필기를 다시 그리기 — 획 파일이 있는 필기 + 다시 그리기가 되는 앱 빌드에서만 온다(필기 2단계). */
@@ -130,6 +136,8 @@ export function DiaryDayScreen({
   future = false,
   backLabel,
   onOpenArchive,
+  onOpenTrash,
+  onTrashPage,
   onDraw,
   onRedraw,
 }: DiaryDayScreenProps): React.JSX.Element {
@@ -295,6 +303,26 @@ export function DiaryDayScreen({
                 <Sparkles className="w-4 h-4 text-[var(--sd-rel)]" />
                 기념일 관리
               </button>
+              {onOpenTrash && (
+                <button
+                  type="button"
+                  onClick={() => { setShowMenu(false); onOpenTrash(); }}
+                  className="w-full min-h-[44px] px-3 text-left text-xs text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)] flex items-center gap-2"
+                >
+                  <Trash className="w-4 h-4 text-[var(--sd-muted)]" />
+                  휴지통
+                </button>
+              )}
+              {onTrashPage && (
+                <button
+                  type="button"
+                  onClick={() => { setShowMenu(false); onTrashPage(); }}
+                  className="w-full min-h-[44px] px-3 text-left text-xs text-[var(--sd-crit)] active:bg-[var(--sd-surface-2)] flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  이 장 지우기
+                </button>
+              )}
             </div>
           )}
         </div>

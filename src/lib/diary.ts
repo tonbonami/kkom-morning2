@@ -16,7 +16,7 @@
 import { db, storage, usingEmulator } from './firebase';
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, startAfter, writeBatch, runTransaction,
-  serverTimestamp, deleteField, type DocumentData, type QueryDocumentSnapshot,
+  serverTimestamp, deleteField, type DocumentData, type QueryDocumentSnapshot, type Transaction,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { isPractice, practiceBlocked } from './practice';
@@ -103,7 +103,10 @@ export function subscribeDiaryRevision(date: string, owner: Person, cb: (revisio
 /** 상대 장은 켜 둔 채로 본다(상대가 고치면 바로 바뀐다). 없으면 null. */
 export function subscribeDiaryPage(date: string, owner: Person, cb: (p: DiaryPageVM | null) => void): () => void {
   return onSnapshot(contentRef(diaryPageId(date, owner)),
-    (s) => cb(s.exists() ? toPage(date, owner, s.data()) : null),
+    (s) => {
+      const page = s.exists() ? toPage(date, owner, s.data()) : null;
+      cb(page && diaryPageHasContent(page) ? page : null);
+    },
     (e) => { console.error('diary page 구독 오류:', e); cb(null); });
 }
 
@@ -114,7 +117,7 @@ export function subscribeDiaryMonthMeta(ym: string, cb: (m: Record<string, Diary
       const out: Record<string, DiaryMeta> = {};
       snap.forEach((s) => {
         const d = s.data();
-        if (d.owner !== '우댕' && d.owner !== '꼼이') return;
+        if ((d.owner !== '우댕' && d.owner !== '꼼이') || d.empty === true) return;
         out[s.id] = {
           id: s.id, date: String(d.date || ''), owner: d.owner, excerpt: typeof d.excerpt === 'string' ? d.excerpt : '',
           ...(typeof d.thumb === 'string' && d.thumb ? { thumb: d.thumb } : {}),
@@ -135,40 +138,130 @@ export class DiaryConflict extends Error {
 }
 
 /**
- * 한 장 저장(전체 덮어쓰기). 글도 물건도 없으면 장을 지운다(빈 장이 달력에 점으로 남지 않게).
+ * 한 장 저장(전체 덮어쓰기). 글도 물건도 없으면 숨은 빈 판으로 남긴다(달력 점에는 안 보이되 revision은 이어지게).
  * ⚠️ 2026-11-19 **트랜잭션으로 판 번호를 대조한다**(우댕 「저장 충돌 막기부터 해」 — 사이담 설계 docs/gpt-sairy-switch-answer.md §3 「중요한 반박」).
  *   예전엔 baseRevision+1 을 적기만 해서, 아이패드에서 쓴 뒤 옛 장을 열어 둔 폰이 저장하면 아이패드 글이 통째로 덮였다.
  *   서버 판 ≠ baseRevision 이면 저장하지 않고 DiaryConflict — 부르는 쪽이 서버 장을 다시 읽고 이 기기 것은 따로 보관한다.
- * @returns 새 revision(장을 지웠으면 0 — 서버에 장이 없으니 다음 저장의 기준도 0)
+ * @returns 새 revision
  */
 export async function saveDiaryPage(page: DiaryPageVM, baseRevision: number): Promise<number> {
   if (blocked('다이어리 저장')) throw new PracticeBlocked();
   const id = diaryPageId(page.date, page.owner);
-  const items = clean(storableItems(page.items));
-  const text = page.text.slice(0, DIARY_LIMITS.text);
-  const empty = !text.trim() && items.length === 0;
-  const firstLine = text.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
-  const thumb = items.find((i) => i.type === 'photo' && i.src)?.src ?? items.find((i) => i.type === 'sticker' && i.src)?.src;
   return runTransaction(db, async (tx) => {
     const cur = await tx.get(contentRef(id));
     const serverRev = cur.exists() ? num(cur.data()?.revision, 0, 0, 1e9) : 0;
     if (serverRev !== baseRevision) throw new DiaryConflict(serverRev);
-    if (empty) {
-      tx.delete(contentRef(id));
-      tx.delete(doc(db, 'diaryPages', id));
-      return 0;
-    }
-    const revision = serverRev + 1;
-    tx.set(contentRef(id), { text, items, theme: page.theme, ...(page.question ? { question: page.question.slice(0, 60) } : {}), revision, updatedAt: serverTimestamp() });
-    tx.set(doc(db, 'diaryPages', id), {
-      date: page.date, ym: page.date.slice(0, 7), owner: page.owner, theme: page.theme,
-      itemCount: items.length, hasPhoto: items.some((i) => i.type === 'photo'),
-      excerpt: firstLine.slice(0, 40), thumb: thumb ?? deleteField(),
-      schemaVersion: 1, revision, updatedAt: serverTimestamp(),
-      ...(serverRev === 0 ? { createdAt: serverTimestamp() } : {}),
-    }, { merge: true });
-    return revision;
+    putPage(tx, page, serverRev + 1, cur.exists());
+    return serverRev + 1;
   });
+}
+
+/** 장 한 판을 표지·본문에 쓴다 — 빈 장도 판 번호를 남겨 오래된 로컬 초안이 지운 장을 되살리지 못하게 한다. */
+function putPage(tx: Transaction, page: DiaryPageVM, revision: number, existed: boolean): void {
+  const id = diaryPageId(page.date, page.owner);
+  const items = clean(storableItems(page.items));
+  const text = page.text.slice(0, DIARY_LIMITS.text);
+  const empty = !text.trim() && items.length === 0;
+  tx.set(contentRef(id), {
+    text: empty ? '' : text, items: empty ? [] : items, theme: page.theme,
+    ...(!empty && page.question ? { question: page.question.slice(0, 60) } : {}),
+    empty, revision, updatedAt: serverTimestamp(),
+  });
+  const thumb = empty ? undefined : thumbOf(items);
+  tx.set(doc(db, 'diaryPages', id), {
+    date: page.date, ym: page.date.slice(0, 7), owner: page.owner, theme: page.theme,
+    itemCount: items.length, hasPhoto: !empty && items.some((i) => i.type === 'photo'),
+    excerpt: empty ? '' : excerptOf(text), thumb: thumb ?? deleteField(), empty,
+    schemaVersion: 1, revision, updatedAt: serverTimestamp(),
+    ...(existed ? {} : { createdAt: serverTimestamp() }),
+  }, { merge: true });
+}
+const excerptOf = (text: string) => (text.split('\n').map((l) => l.trim()).find(Boolean) ?? '').slice(0, 40);
+const thumbOf = (items: DiaryItemVM[]) => items.find((i) => i.type === 'photo' && i.src)?.src ?? items.find((i) => i.type === 'sticker' && i.src)?.src;
+
+// ── 휴지통(30일) ─────────────────────────────────────────────────────────────
+// diaryTrash/{id}: owner 는 앱의 사람 키(udaeng | kkomi). 사진·필기 파일과 notes 는 30일 동안 원래 자리에 둔다.
+// 빈 판은 달력·지난 일기·홈·상대 화면에서 숨기되 revision 을 올려, 다른 기기의 오래된 초안이 다시 저장되는 길을 막는다.
+export const DIARY_TRASH_DAYS = 30;
+type DiaryOwnerKey = 'udaeng' | 'kkomi';
+export interface DiaryTrashVM { id: string; page: DiaryPageVM; excerpt: string; thumb?: string; deletedAt: number }
+export class DiaryRestoreOccupied extends Error {
+  constructor() { super('그 날에 이미 쓴 장이 있어요'); this.name = 'DiaryRestoreOccupied'; }
+}
+const trashCol = () => collection(db, 'diaryTrash');
+function trashData(page: DiaryPageVM, clearedRevision?: number) {
+  const items = clean(storableItems(page.items));
+  const text = page.text.slice(0, DIARY_LIMITS.text);
+  const thumb = thumbOf(items);
+  return {
+    owner: PERSON_KEY[page.owner] as DiaryOwnerKey, date: page.date, text, items, theme: page.theme,
+    ...(page.question ? { question: page.question.slice(0, 60) } : {}),
+    excerpt: excerptOf(text), ...(thumb ? { thumb } : {}), itemCount: items.length,
+    ...(clearedRevision === undefined ? {} : { clearedRevision }), deletedAt: serverTimestamp(),
+  };
+}
+
+/** 저장된 내 장을 휴지통으로 옮기고, 같은 revision 줄에 빈 판을 남긴다. */
+export async function trashDiaryPage(date: string, owner: Person, baseRevision: number): Promise<{ revision: number; trashId?: string }> {
+  if (blocked('장 지우기')) throw new PracticeBlocked();
+  const id = diaryPageId(date, owner);
+  const tRef = doc(trashCol());
+  return runTransaction(db, async (tx) => {
+    const cur = await tx.get(contentRef(id));
+    const serverRev = cur.exists() ? num(cur.data()?.revision, 0, 0, 1e9) : 0;
+    if (serverRev !== baseRevision) throw new DiaryConflict(serverRev);
+    const page = toPage(date, owner, cur.data());
+    if (!diaryPageHasContent(page)) return { revision: serverRev };
+    const clearedRevision = serverRev + 1;
+    tx.set(tRef, trashData(page, clearedRevision));
+    putPage(tx, { ...blankDiaryPage(date, owner), theme: page.theme }, clearedRevision, cur.exists());
+    return { revision: clearedRevision, trashId: tRef.id };
+  });
+}
+
+/** 휴지통 장을 되살린다. 새 장이 있으면 먼저 묻고, swap일 때 그 새 장을 다시 휴지통에 넣는다. */
+export async function restoreDiaryTrash(trashId: string, owner: Person, swap = false): Promise<string> {
+  if (blocked('장 되살리기')) throw new PracticeBlocked();
+  const tRef = doc(trashCol(), trashId);
+  const swapRef = doc(trashCol());
+  return runTransaction(db, async (tx) => {
+    const t = await tx.get(tRef);
+    if (!t.exists() || t.data()?.owner !== PERSON_KEY[owner]) throw new Error('휴지통에 없는 장이에요');
+    const date = String(t.data()?.date ?? '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('날짜가 올바르지 않아요');
+    const id = diaryPageId(date, owner);
+    const cur = await tx.get(contentRef(id));
+    const now = toPage(date, owner, cur.data());
+    if (diaryPageHasContent(now)) {
+      if (!swap) throw new DiaryRestoreOccupied();
+      tx.set(swapRef, trashData(now));
+    }
+    const serverRev = cur.exists() ? num(cur.data()?.revision, 0, 0, 1e9) : 0;
+    putPage(tx, toPage(date, owner, t.data()), serverRev + 1, cur.exists());
+    tx.delete(tRef);
+    return date;
+  });
+}
+
+/** 내 휴지통(최근에 지운 것 먼저). 30일이 지난 것은 서버 파기 전이라도 목록에서 숨긴다. */
+export function subscribeDiaryTrash(owner: Person, cb: (list: DiaryTrashVM[] | null) => void): () => void {
+  return onSnapshot(query(trashCol(), where('owner', '==', PERSON_KEY[owner])),
+    (snap) => {
+      const cutoff = Date.now() - DIARY_TRASH_DAYS * 86400000;
+      const out: DiaryTrashVM[] = [];
+      snap.forEach((s) => {
+        const d = s.data({ serverTimestamps: 'estimate' });
+        const at = typeof d.deletedAt?.toMillis === 'function' ? d.deletedAt.toMillis() : Date.now();
+        if (at < cutoff || typeof d.date !== 'string') return;
+        out.push({
+          id: s.id, page: toPage(d.date, owner, d), deletedAt: at,
+          excerpt: typeof d.excerpt === 'string' ? d.excerpt : '',
+          ...(typeof d.thumb === 'string' && d.thumb ? { thumb: d.thumb } : {}),
+        });
+      });
+      cb(out.sort((a, b) => b.deletedAt - a.deletedAt));
+    },
+    (e) => { console.error('꼼이어리 휴지통 구독 오류:', e); cb(null); });
 }
 
 // ── 마음(♥)·한마디 ─────────────────────────────────────────────────────────
@@ -176,7 +269,7 @@ export async function saveDiaryPage(page: DiaryPageVM, baseRevision: number): Pr
 //   diaryPages/{장 id}/notes/{id}   { by, kind: 'heart'|'text', text, at }
 //   ♥ 는 사람마다 하나(문서 id heart_{udaeng|kkomi}) — 눌렀다 떼면 지운다. 한마디는 여러 개.
 // ⚠️ 장 주인이 아니어도 쓴다 — 장(content/main)은 건드리지 않고 아래 notes 에만 쓴다(주인의 장 저장과 안 부딪힌다).
-// ⚠️ 주인이 장을 비워서 장이 지워져도 notes 는 남는다 — 다시 쓰면 그대로 돌아온다.
+// ⚠️ 주인이 장을 비우거나 휴지통으로 옮겨도 notes 는 남는다 — 장을 되살리면 그대로 돌아온다.
 export interface DiaryNoteVM { id: string; by: Person; kind: 'heart' | 'text'; text: string; at: number }
 export const DIARY_NOTE_MAX = 300;
 const notesCol = (pageId: string) => collection(db, 'diaryPages', pageId, 'notes');

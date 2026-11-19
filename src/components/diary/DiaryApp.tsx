@@ -20,6 +20,7 @@ import { DiaryDayAgendaSheet } from './DiaryDayAgendaSheet';
 import { DiaryEventSheet } from './DiaryEventSheet';
 import { DiaryUpcomingSheet } from './DiaryUpcomingSheet';
 import { ARCHIVE_STEP, DiaryArchiveScreen, type ArchiveWho } from './DiaryArchiveScreen';
+import { DiaryTrashPage, type RestoreResult } from './DiaryTrash';
 import { DECOR_ASSETS } from './DiaryDecor';
 import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS } from '@/lib/stickerPacks';
 import { DAKU_PACKS, dakuSrc } from '@/lib/dakuStickers';
@@ -30,10 +31,11 @@ import { holidayName } from '@/lib/holidays';
 import { blankEventDraft, buildMonthBands, buildUpcoming, draftOfEvent, eventsForOwner, normalizeEventDraft, toEventVM } from '@/lib/diaryCalendar';
 import { isPractice } from '@/lib/practice';
 import {
-  BUILTIN_SPECIALS, DiaryConflict, PracticeBlocked, subscribeDiaryRevision, addSpecialDate, applyMonthPatch, blankDiaryPage, clearDiaryDraft, deleteDiaryPhotos, deleteSpecialDate,
+  BUILTIN_SPECIALS, DiaryConflict, DiaryRestoreOccupied, PracticeBlocked, subscribeDiaryRevision, addSpecialDate, applyMonthPatch, blankDiaryPage, clearDiaryDraft, deleteDiaryPhotos, deleteSpecialDate,
   diaryPageHasContent, diaryPageId, emptyMonthDeco, invertMonthPatch, loadDiaryPage, prepareDiaryPhoto, readDiaryDraft, saveDiaryDraft, saveDiaryPage,
   removeDiaryEvent, saveDiaryEvent, uploadDiaryInk, seedSpecialDates, specialsOn, subscribeDiaryMonth, subscribeDiaryMonthMeta, subscribeDiaryPage, subscribeSpecialDates, uploadDiaryPhoto,
-  writeDiaryMonthPatch, addDiaryNote, deleteDiaryNote, setDiaryHeart, subscribeDiaryNotes, appPhotoFile, type AppPhotoVM, type DiaryMeta, type DiaryNoteVM, type MonthDeco, type MonthPatch,
+  writeDiaryMonthPatch, addDiaryNote, deleteDiaryNote, setDiaryHeart, subscribeDiaryNotes, appPhotoFile, restoreDiaryTrash, subscribeDiaryTrash, trashDiaryPage,
+  type AppPhotoVM, type DiaryMeta, type DiaryNoteVM, type DiaryTrashVM, type MonthDeco, type MonthPatch,
 } from '@/lib/diary';
 import {
   DIARY_LIMITS, DIARY_PROMPTS, MONTH_LIMITS, sendItemToBack, type DiaryAssetVM, type DiaryChipVM, type DiaryEventDraft, type DiaryItemAction, type DiaryItemVM, type DiaryMonthCellVM, type DiaryPageVM,
@@ -135,6 +137,9 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const revsRef = useRef<Record<string, number>>({});              // 서버에 저장된 revision
   const pathsRef = useRef<Record<string, Set<string>>>({});        // 마지막으로 저장된 장에 있던 사진 파일
   const lastRef = useRef<Record<string, DiaryPageVM>>({});         // 그 날짜의 가장 새 편집본(저장 대기 포함)
+  const conflictSeqRef = useRef(0);                                // 저장 충돌 횟수 — 지우는 사이 새 판을 불러왔는지 본다
+  const busyRef = useRef(0);                                       // 사진 준비·업로드, 앱 사진 받기, 필기 화면·업로드
+  const track = <T,>(p: Promise<T>): Promise<T> => { busyRef.current++; return p.finally(() => { busyRef.current--; }); };
   const pathsOf = (p: DiaryPageVM) => new Set(p.items.flatMap((i) => [i.path, i.strokePath]).filter((x): x is string => !!x));
 
   const flush = useCallback((): Promise<void> => {
@@ -158,6 +163,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
       } catch (e) {
         if (e instanceof PracticeBlocked) { if (mineRef.current.date === d) setSaveState('saved'); return; }
         if (e instanceof DiaryConflict) {
+          conflictSeqRef.current++;
           // 다른 기기(아이패드↔폰)가 먼저 고쳤다 — 서버 장을 다시 읽어 보이고, 이 기기에서 쓴 장은 따로 보관한 뒤 알린다(11/19).
           //   ⚠️ 이 기기 장을 그대로 다시 저장하면 다른 기기 글이 통째로 덮인다 — 그게 막으려던 일이다.
           //   보관본: localStorage kk-diary-conflict:{장 id}:{시각} (사진 파일은 지우지 않아 보관본의 사진도 남는다).
@@ -193,6 +199,8 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   }, [flush]);
 
   // 날짜가 바뀌면 내 장을 읽는다(밀린 저장이 끝난 뒤에). 폰에 남은 편집이 서버보다 새것이면 되살려서 다시 저장.
+  // reloadKey — 휴지통에서 되살리거나 지우기 충돌이 나면 같은 날짜도 서버 판을 다시 읽는다.
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     let alive = true, retry: number | null = null;
     readyRef.current = false; setReady(false);
@@ -218,7 +226,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     };
     void load();
     return () => { alive = false; if (retry) window.clearTimeout(retry); };
-  }, [date, me, schedule]);
+  }, [date, me, schedule, reloadKey]);
 
   // 열어 둔 내 장 — 다른 기기가 저장해서 서버 판이 올라가면, 이 기기에서 고치는 중이 아닐 때 새로 불러온다(11/19 저장 충돌 막기).
   //   그래야 아이패드에서 쓴 뒤 폰을 열어 둔 채 스티커를 붙여도 옛 장 위에 붙이지 않는다(붙이기 전에 이미 새 장이다).
@@ -330,13 +338,13 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     const lone = picks.length === 1 && room === DIARY_LIMITS.photos;
     for (const { file: f, source } of picks.slice(0, room)) {
       let prep: Awaited<ReturnType<typeof prepareDiaryPhoto>>;
-      try { prep = await prepareDiaryPhoto(f); } catch { say('사진을 읽지 못했어요'); continue; }
+      try { prep = await track(prepareDiaryPhoto(f)); } catch { say('사진을 읽지 못했어요'); continue; }
       if (mineRef.current.date !== startDate) return;
       const local = URL.createObjectURL(prep.blob);
       const slot = mineRef.current.items.filter((i) => i.type === 'photo').length;
       const id = addItem({ type: 'photo', src: local, w: 0.42, ratio: prep.ratio, source }, newId('i'), lone ? undefined : PHOTO_SLOTS[slot % PHOTO_SLOTS.length]);
       if (!id) { URL.revokeObjectURL(local); return; }
-      uploadDiaryPhoto(startDate, me, prep.blob).then(({ src, path }) => {
+      track(uploadDiaryPhoto(startDate, me, prep.blob)).then(({ src, path }) => {
         const here = mineRef.current.date === startDate && mineRef.current.items.some((i) => i.id === id);
         if (!here) { void deleteDiaryPhotos([path]); return; }       // 그새 지웠거나 다른 날로 갔다 — 올라간 파일만 치운다
         put((p) => ({ ...p, items: p.items.map((i) => (i.id === id || i.src === local ? { ...i, src, path } : i)) }));
@@ -365,7 +373,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     if (mineRef.current.items.length >= DIARY_LIMITS.items) { say(`한 장에 ${DIARY_LIMITS.items}개까지 붙일 수 있어요`); return; }
     const startDate = date;
     let r: Awaited<ReturnType<typeof editDiaryInk>>;
-    try { r = await editDiaryInk(meInk, PAPER_HEX[mineRef.current.theme] ?? '#FAF6EE'); }
+    try { r = await track(editDiaryInk(meInk, PAPER_HEX[mineRef.current.theme] ?? '#FAF6EE')); }
     catch { say('필기 화면을 열지 못했어요'); return; }
     if (!r || r.w <= 0 || r.h <= 0 || mineRef.current.date !== startDate) return;
     const local = URL.createObjectURL(r.png);
@@ -374,7 +382,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     if (!id) { URL.revokeObjectURL(local); return; }
     const side = sideOf(r);
     if (side) inkSideRef.current[id] = side;
-    uploadDiaryInk(startDate, me, r.png, side ? JSON.stringify(side) : undefined).then(({ src, path, strokeSrc, strokePath }) => {
+    track(uploadDiaryInk(startDate, me, r.png, side ? JSON.stringify(side) : undefined)).then(({ src, path, strokeSrc, strokePath }) => {
       const here = mineRef.current.date === startDate && mineRef.current.items.some((i) => i.id === id);
       if (!here) { void deleteDiaryPhotos([path, ...(strokePath ? [strokePath] : [])]); return; }
       put((p) => ({ ...p, items: p.items.map((i) => (i.id === id ? { ...i, src, path, ...(strokeSrc && strokePath ? { strokeSrc, strokePath } : {}) } : i)) }));
@@ -406,7 +414,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     const side = await loadSide(it);
     if (!side) { say('이 필기는 다시 그릴 수 없어요 — 예전 앱으로 그린 그림이에요'); return; }
     let r: Awaited<ReturnType<typeof editDiaryInk>>;
-    try { r = await editDiaryInk(meInk, PAPER_HEX[mineRef.current.theme] ?? '#FAF6EE', placeStrokes(side, it)); }
+    try { r = await track(editDiaryInk(meInk, PAPER_HEX[mineRef.current.theme] ?? '#FAF6EE', placeStrokes(side, it))); }
     catch { say('필기 화면을 열지 못했어요'); return; }
     if (!r || r.w <= 0 || r.h <= 0 || mineRef.current.date !== startDate) return;
     if (!mineRef.current.items.some((i) => i.id === id)) return;
@@ -414,7 +422,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     const next = sideOf(r);
     if (next) inkSideRef.current[id] = next;
     const swap = (patch: Partial<DiaryItemVM>) => put((p) => ({ ...p, items: p.items.map((i) => (i.id === id ? { ...i, ...g, ...patch } : i)) }));
-    uploadDiaryInk(startDate, me, r.png, next ? JSON.stringify(next) : undefined).then(({ src, path, strokeSrc, strokePath }) => {
+    track(uploadDiaryInk(startDate, me, r.png, next ? JSON.stringify(next) : undefined)).then(({ src, path, strokeSrc, strokePath }) => {
       const here = mineRef.current.date === startDate && mineRef.current.items.some((i) => i.id === id);
       if (!here) { void deleteDiaryPhotos([path, ...(strokePath ? [strokePath] : [])]); return; }
       // 옛 PNG·획 파일은 장에서 빠지면 저장(flush) 때 정리된다 — 복제해 둔 같은 그림이 있으면 그건 남는다.
@@ -430,7 +438,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const pickAppPhotos = async (list: AppPhotoVM[]) => {
     if (!isMine || !readyRef.current || list.length === 0) return;
     say(list.length > 1 ? `사진 ${list.length}장을 가져오는 중이에요` : '사진을 가져오는 중이에요');
-    const got = await Promise.all(list.map((p) => appPhotoFile(p).then((file) => ({ file, source: p.source })).catch(() => null)));
+    const got = await track(Promise.all(list.map((p) => appPhotoFile(p).then((file) => ({ file, source: p.source })).catch(() => null))));
     const ok = got.filter((x): x is { file: File; source: 'chat' | 'memories' } => !!x);
     if (ok.length < list.length) say(ok.length ? `${list.length - ok.length}장은 가져오지 못했어요` : '사진을 가져오지 못했어요. 잠시 뒤에 다시 해 주세요');
     if (ok.length) await placePhotos(ok);
@@ -608,6 +616,116 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     </div>
   );
 
+  // ── 휴지통(30일) ──
+  // 지우기는 자동저장 줄 뒤에 세우고, 사진·필기 작업 중에는 막는다. 성공한 뒤 pathsRef 를 비워 파일 정리가 돌지 않게 한다.
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [trashItems, setTrashItems] = useState<DiaryTrashVM[]>([]);
+  const [trashLoaded, setTrashLoaded] = useState(false);
+  const [trashFailed, setTrashFailed] = useState(false);
+  useEffect(() => {
+    if (!trashOpen) return;
+    setTrashLoaded(false); setTrashFailed(false);
+    return subscribeDiaryTrash(me, (list) => { setTrashItems(list ?? []); setTrashFailed(list === null); setTrashLoaded(true); });
+  }, [me, trashOpen]);
+  const [trashUndo, setTrashUndo] = useState<{ id: string; date: string } | null>(null);
+  useEffect(() => {
+    if (!trashUndo) return;
+    const t = window.setTimeout(() => setTrashUndo((u) => (u === trashUndo ? null : u)), 5000);
+    return () => window.clearTimeout(t);
+  }, [trashUndo]);
+
+  const uploading = () => busyRef.current > 0 || mineRef.current.items.some((i) => (i.src ?? '').startsWith('blob:'));
+  const trashMine = useCallback(async () => {
+    if (!readyRef.current || !diaryPageHasContent(mineRef.current)) return;
+    if (uploading()) { say('사진을 올리는 중이에요 — 다 올라간 뒤에 지워 주세요'); return; }
+    const d = mineRef.current.date;
+    setSel(null);
+    const seq = conflictSeqRef.current;
+    await flush();
+    if (conflictSeqRef.current !== seq) { say('다른 기기에서 고친 장을 불러왔어요 — 확인한 뒤 다시 지워 주세요'); return; }
+    if (dirtyRef.current || readDiaryDraft(d, me)) { say('아직 저장되지 않았어요 — 저장된 뒤에 다시 지워 주세요'); return; }
+    if (mineRef.current.date !== d || !readyRef.current) return;
+    readyRef.current = false; setReady(false);
+    const job = chainRef.current.then(async () => {
+      try {
+        const { revision, trashId } = await trashDiaryPage(d, me, revsRef.current[d] ?? 0);
+        revsRef.current[d] = revision;
+        clearDiaryDraft(d, me);
+        if (!trashId) return;
+        const blank = { ...blankDiaryPage(d, me), theme: mineRef.current.theme };
+        pathsRef.current[d] = new Set(); lastRef.current[d] = blank;
+        if (mineRef.current.date === d) { mineRef.current = blank; setMine(blank); dirtyRef.current = false; setSaveState('saved'); }
+        setTrashUndo({ id: trashId, date: d });
+      } catch (e) {
+        if (e instanceof PracticeBlocked) return;
+        if (e instanceof DiaryConflict) {
+          clearDiaryDraft(d, me); setReloadKey((k) => k + 1);
+          say('다른 기기에서 고친 장이 있어 지우지 않았어요 — 새로 불러왔어요');
+          return;
+        }
+        say('지우지 못했어요. 잠시 뒤에 다시 해 주세요');
+      }
+    });
+    chainRef.current = job.catch(() => {});
+    await job.catch(() => {});
+    if (mineRef.current.date === d) { readyRef.current = true; setReady(true); }
+  }, [me, flush, say]);
+
+  // 되살릴 날짜의 로컬 초안이 남아 있으면 먼저 그 날짜를 열어 저장하게 한다. 덮어쓸 장이 있으면 화면에서 한 번 더 묻는다.
+  const restoreTrash = useCallback(async (id: string, d: string, swap: boolean): Promise<RestoreResult> => {
+    if (uploading()) { say('사진을 올리는 중이에요 — 다 올라간 뒤에 되살려 주세요'); return 'fail'; }
+    await flush();
+    if ((mineRef.current.date === d && dirtyRef.current) || readDiaryDraft(d, me)) {
+      setTrashOpen(false); setTrashUndo(null); setSel(null); setBackTo(null); setOwner(me); setView('day');
+      if (mineRef.current.date !== d) setDate(d);
+      say('그 날에 아직 저장 안 된 글이 있어요 — 저장된 뒤에 휴지통에서 되살려 주세요');
+      return 'fail';
+    }
+    const wasReady = readyRef.current;
+    readyRef.current = false; setReady(false);
+    let out: RestoreResult = 'fail';
+    const job = chainRef.current.then(async () => {
+      try {
+        await restoreDiaryTrash(id, me, swap);
+        clearDiaryDraft(d, me);
+        const blank = blankDiaryPage(d, me);
+        mineRef.current = blank; setMine(blank); dirtyRef.current = false;
+        setTrashUndo(null); setTrashOpen(false); setSel(null); setBackTo(null); setOwner(me); setView('day');
+        if (date === d) setReloadKey((k) => k + 1); else setDate(d);
+        window.scrollTo(0, 0);
+        say(swap ? '장을 되살렸어요 — 있던 장은 휴지통으로 옮겼어요' : '장을 되살렸어요');
+        out = 'ok';
+      } catch (e) {
+        if (e instanceof DiaryRestoreOccupied) out = 'occupied';
+        else if (!(e instanceof PracticeBlocked)) say('되살리지 못했어요. 잠시 뒤에 다시 해 주세요');
+        if (wasReady && mineRef.current.date === date) { readyRef.current = true; setReady(true); }
+      }
+    });
+    chainRef.current = job.catch(() => {});
+    await job.catch(() => {});
+    return out;
+  }, [me, date, flush, say]);
+  const openTrash = () => { void flush(); setSel(null); setTrashOpen(true); };
+
+  const trashLayer = (
+    <>
+      {trashOpen && <DiaryTrashPage items={trashItems} loaded={trashLoaded} failed={trashFailed} onBack={() => setTrashOpen(false)} onRestore={restoreTrash} />}
+      {trashUndo && (
+        <div className="fixed inset-x-0 z-[85] flex justify-center px-4 pointer-events-none" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}>
+          <div className="pointer-events-auto flex items-center gap-3 min-h-[44px] pl-4 pr-1.5 py-1.5 rounded-2xl bg-[var(--sd-card-solid)] border border-[var(--sd-line)] shadow-lg">
+            <span className="text-[14px] text-[var(--sd-ink)]">휴지통으로 옮겼어요</span>
+            <button type="button"
+                    onClick={() => { const u = trashUndo; setTrashUndo(null); void restoreTrash(u.id, u.date, false).then((r) => { if (r === 'occupied') { setTrashOpen(true); say('그 날에 새로 쓴 장이 있어요 — 휴지통에서 골라 주세요'); } }); }}
+                    className="min-h-[36px] px-3 rounded-xl text-[14px] font-semibold text-white active:scale-[0.98]"
+                    style={{ background: '#B4546A' }}>
+              되돌리기
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   const openArchive = (from: 'day' | 'month', ym: string) => {
     void flush(); setSel(null); setArcBack(from);
     if (ym !== arcYm) { setArcYm(ym); setArcShown(ARCHIVE_STEP); arcScroll.current = 0; }
@@ -629,6 +747,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         />
         <ArchiveScrollRestore y={arcScroll.current} />
         {toast}
+        {trashLayer}
       </>
     );
   }
@@ -688,6 +807,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
           onCycleTitleStyle={() => patchMonth({ kind: 'title', title: deco.title === 'plain' ? 'brush' : deco.title === 'brush' ? 'round' : 'plain' })}
           onUndo={() => { if (undo) { const p = undo.patch; setUndo(null); patchMonth(p); } }}
           onOpenArchive={() => openArchive('month', mYm)}
+          onOpenTrash={openTrash}
           onOpenSpecialDates={() => setSpecial(true)}
         />
         <DiaryAssetDrawer
@@ -749,6 +869,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         />
         {specialSheet}
         {toast}
+        {trashLayer}
       </>
     );
   }
@@ -768,6 +889,8 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         }}
         backLabel={backTo === 'month' ? '달력' : backTo === 'archive' ? '지난 일기' : undefined}
         onOpenArchive={() => openArchive('day', date.slice(0, 7))}
+        onOpenTrash={openTrash}
+        onTrashPage={isMine && ready && diaryPageHasContent(mine) ? () => void trashMine() : undefined}
         onPrevDate={() => goDate(addDaysYmd(date, -1))} onNextDate={() => goDate(addDaysYmd(date, 1))}
         onGoToday={() => goDate(TODAY)} onOpenMonth={() => { setMYm(date.slice(0, 7)); setView('month'); }}
         onChangeOwner={(p) => { setSel(null); setOwner(p); }}
@@ -781,7 +904,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         onAddMaterial={(m) => { if (isMine && m.kind === 'prompt') put((p) => ({ ...p, question: m.label })); }}
         onClearQuestion={() => { if (isMine) put((p) => { const { question: _q, ...rest } = p; return rest; }); }}
         onOpenSpecialDates={() => setSpecial(true)}
-        notes={notes}
+        notes={diaryPageHasContent(page) ? notes : []}
         pageExists={isMine ? diaryPageHasContent(mine) : !!theirs}
         onToggleHeart={toggleHeart} onSendNote={sendNote} onDeleteNote={removeNote}
         photoCount={isMine ? mine.items.filter((i) => i.type === 'photo').length : 0}
@@ -805,6 +928,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
       />
       {specialSheet}
       {toast}
+      {trashLayer}
     </>
   );
 }
