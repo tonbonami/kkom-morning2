@@ -1143,21 +1143,38 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   //   빌드 53(막대 있음)도 문서를 밀어서 우연히 보였을 뿐. visualViewport 값은 정확했다(보이는 아래끝 511 = 키보드 윗선).
   //   ⚠️ 채팅 '전체' 높이는 안 바꾼다 — 앱 높이를 resize마다 바꾸면 화면이 출렁인 기록(AppViewportHeight 주석).
   //   inset = innerHeight − vv.height − vv.offsetTop. 80px 미만은 키보드가 아니라 툴바 변화로 보고 무시.
+  //
+  //   ⚠️ 2026-11-19 고침(우댕 「사이담은 입력창 고정이 잘 되는데 꼼모닝은 가끔 입력창 아래에 키보드가 숨어서 다시 끄집어내야 해」 —
+  //   사이담 useKeyboardViewport·사이챗 kbPad 가 실기기에서 고친 것 셋을 옮김):
+  //   ① 기준을 innerHeight 만이 아니라 clientHeight 와 큰 쪽으로 — 키보드가 올라오는 프레임에 innerHeight 가 vv.height 를 따라가면
+  //      (사이담 10-19 실측 573/573) 가린 높이가 0 이 됐다. clientHeight 는 키보드로 안 바뀐다.
+  //   ② 「키보드인가」는 가린 높이(covered)로 보고 그 값으로 갚는다 — 예전엔 offsetTop 을 뺀 inset 에 80 문턱을 같이 걸어,
+  //      문서가 밀린 프레임의 작은 값이 「키보드 아님」으로 버려졌다. (문서가 밀리면 아래 scrollTo 가 되돌린다.)
+  //   ③ **한 번 잘못 읽으면 굳는다** — vv 이벤트가 더 안 오면 0 이 그대로 남아 입력줄이 키보드 밑에 숨었다.
+  //      입력칸 포커스가 들어오고 나간 뒤 60·160·320·600ms 에 다시 읽고, 창 resize 도 듣는다.
+  //   ⚠️ 높이는 여전히 안 바꾼다(입력줄 아래 여백만) — 잰 값이 다시 높이를 바꾸는 고리가 없다. 같은 값이면 React 가 안 그린다.
   const [kbInset, setKbInset] = useState(0);
   useEffect(() => {
     if (!open) return;
     const vv = window.visualViewport;
     if (!vv) return;
     let raf = 0;
+    let settles: number[] = [];
     const update = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+        const base = Math.max(window.innerHeight, document.documentElement.clientHeight);
+        const covered = Math.max(0, Math.round(base - vv.height));
         // 채팅은 화면 전체를 덮는 고정 패널이라 문서 스크롤은 WebKit '입력칸 보이게'의 부작용뿐 → 되돌려 헤더를 지킨다.
         //   되돌리면 scroll 이벤트가 다시 와서 offsetTop 0 기준으로 다시 잰다.
-        if (inset > 80 && (window.scrollY !== 0 || vv.offsetTop !== 0)) window.scrollTo(0, 0);
-        setKbInset(inset > 80 ? inset : 0);
+        if (covered > 80 && (window.scrollY !== 0 || vv.offsetTop !== 0)) window.scrollTo(0, 0);
+        setKbInset(covered > 80 ? covered : 0);
       });
+    };
+    const settle = () => {
+      settles.forEach(clearTimeout);
+      settles = [60, 160, 320, 600].map((ms) => window.setTimeout(update, ms));
+      update();
     };
     update();
     vv.addEventListener('resize', update);
@@ -1165,11 +1182,18 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
     // 문서 자체 스크롤도 듣는다 — WebKit이 문서를 통째로 밀면 vv.offsetTop은 그대로라 vv scroll 이벤트가 안 와서
     //   헤더가 상태바 위로 밀린 채 남았다(우댕 실기기 2번째 사진, 입력줄은 보였음).
     window.addEventListener('scroll', update);
+    window.addEventListener('resize', update);
+    window.addEventListener('focusin', settle);
+    window.addEventListener('focusout', settle);
     return () => {
       cancelAnimationFrame(raf);
+      settles.forEach(clearTimeout);
       vv.removeEventListener('resize', update);
       vv.removeEventListener('scroll', update);
       window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+      window.removeEventListener('focusin', settle);
+      window.removeEventListener('focusout', settle);
       setKbInset(0);
     };
   }, [open]);
@@ -1177,11 +1201,22 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   //   높이 = 이번에 잰 키보드 높이(흔들림이 잦아든 150ms 뒤 값), 못 쟀으면 화면의 38%(280~360px). 기기별로 저장은 안 한다.
   const [panelH, setPanelH] = useState(320);
   useEffect(() => { setPanelH(Math.round(Math.min(360, Math.max(280, window.innerHeight * 0.38)))); }, []);
+  //   ⚠️ **입력칸에 포커스가 있을 때만 배운다**(사이담 사이챗 341-366, 11/19 옮김). ☺ 를 누르면 입력칸이 blur 되고 키보드가
+  //      내려가는데, 위에서 다시 읽는 중에 **반쯤 내려간 값**이 150ms 를 버티면 서랍이 그 낮은 높이로 굳는다.
   useEffect(() => {
     if (kbInset < 120) return;
-    const t = setTimeout(() => setPanelH(Math.round(Math.min(480, Math.max(220, kbInset)))), 150);
+    if (document.activeElement !== taRef.current) return;
+    const t = setTimeout(() => {
+      if (document.activeElement !== taRef.current) return;
+      setPanelH(Math.round(Math.min(480, Math.max(220, kbInset))));
+    }, 150);
     return () => clearTimeout(t);
   }, [kbInset]);
+  // 이모티콘 관리를 열면 서랍을 이만큼까지 올린다(화면의 62%, 최대 560 — 사이담과 같게). 평소 높이는 키보드 높이(panelH) 그대로라
+  //   키보드↔서랍을 바꿀 때 입력줄이 안 움직인다(우댕 「스위치 패널이 너무 얇게 열려서 2~3개밖에 안 보여」, 사이담 11/19).
+  //   ⚠️ 들어올 때 한 번만 잰다 — 잰 값이 다시 높이를 바꾸는 고리가 없게.
+  const [manageH, setManageH] = useState(480);
+  useEffect(() => { setManageH(Math.round(Math.min(560, window.innerHeight * 0.62))); }, []);
   // 서랍 → 키보드로 넘어가는 사이엔 키보드가 다 올라올 때까지 서랍 높이만큼 비워 둔다(입력줄이 바닥으로 떨어졌다 다시 오르지 않게)
   const [holdPanel, setHoldPanel] = useState(false);
   useEffect(() => {
@@ -2523,7 +2558,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
             {stickerOpen && (
               // 키보드 자리 — 평소엔 마지막으로 잰 키보드 높이(panelH)로 고정해 키보드↔서랍을 바꿔도 입력줄이 안 움직인다.
               //   찾기 글칸을 쓰는 동안(searchEditing)엔 키보드가 아래를 차지하니 서랍은 짧게(결과 22vh).
-              <div className="mt-2" style={searchEditing ? undefined : { height: panelH, paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
+              <div className="mt-2" style={searchEditing ? undefined : { height: emoManage ? Math.max(panelH, manageH) : panelH, paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
               <div className={`rounded-[28px] p-3 backdrop-blur-md border ${searchEditing ? '' : 'flex h-full flex-col'}`} style={{ background: 'var(--ct-sheet)', borderColor: 'var(--ct-sheet-border)', boxShadow: 'var(--sd-shadow-card)' }}>
                 {/* 찾기 — 평소엔 글칸을 안 보인다: 입력줄과 똑같은 흰 글칸이 위아래로 둘이라 「어디다 치지?」 헷갈렸다(우댕 2026-11-02, 카톡 비교·GPT 상의).
                     찾은 말은 알약으로만 보이고, 🔍(다시 찾기)를 누를 때만 글칸이 나와 키보드가 뜬다. 글씨 16px: 아이폰은 16px 미만 입력칸을 누르면 화면을 확대한다. */}
@@ -2630,7 +2665,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
                       // 이모티콘 관리 — 팩마다 「서랍에 표시」, 「입력할 때 이모티콘 추천」, 「탭 순서 처음대로」(lib/emoPrefs.ts)
                       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-0.5">
                         <EmoticonManager compact sets={packTabs.map((t) => ({ id: t.id, title: t.name, thumbnailUrl: t.thumb }))}
-                          prefs={emo.prefs} onShown={emo.setShown} onSuggestions={emo.setSuggestions} onResetOrder={emo.resetOrder} />
+                          prefs={emo.prefs} onShown={emo.setShown} onSuggestions={emo.setSuggestions} onResetOrder={emo.resetOrder} onReorder={emo.setOrder} />
                       </div>
                     ) : dragTabs.length === 0 ? (
                       // 전부 숨겼을 때 — 다시 켤 길을 바로 준다

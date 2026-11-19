@@ -19,7 +19,7 @@ export default function EmoticonSettings() {
     setMe(who);
   }, [router]);
   const sets = useMemo(() => (me ? defaultPacks(me).map((t) => ({ id: t.id, title: t.name, thumbnailUrl: t.thumb })) : []), [me]);
-  const { prefs, setShown, setSuggestions, resetOrder } = useEmoPrefs(me ?? '');
+  const { prefs, setShown, setSuggestions, setOrder, resetOrder } = useEmoPrefs(me ?? '');
   // ⚠️ 이 화면이 앱에서 처음 연 화면이면 뒤로 갈 데가 없다 — 그땐 홈으로.
   const back = () => { if (window.history.length > 1) router.back(); else router.replace('/'); };
 
@@ -32,7 +32,7 @@ export default function EmoticonSettings() {
         </button>
         <h1 className="text-[24px] font-extrabold mb-3" style={{ color: 'var(--sd-ink)' }}>이모티콘 관리</h1>
         {me
-          ? <EmoticonManager sets={sets} prefs={prefs} onShown={setShown} onSuggestions={setSuggestions} onResetOrder={resetOrder} />
+          ? <EmoticonManager sets={sets} prefs={prefs} onShown={setShown} onSuggestions={setSuggestions} onResetOrder={resetOrder} onReorder={setOrder} />
           : <p className="text-[13.5px]" style={{ color: 'var(--sd-faint)' }}>불러오는 중…</p>}
       </div>
     </main>
