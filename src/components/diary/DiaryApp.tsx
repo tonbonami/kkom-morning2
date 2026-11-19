@@ -19,6 +19,7 @@ import { DiarySpecialDatesSheet } from './DiarySpecialDatesSheet';
 import { DiaryDayAgendaSheet } from './DiaryDayAgendaSheet';
 import { DiaryEventSheet } from './DiaryEventSheet';
 import { DiaryUpcomingSheet } from './DiaryUpcomingSheet';
+import { DiaryStashSheet } from './DiaryStashSheet';
 import { ARCHIVE_STEP, DiaryArchiveScreen, type ArchiveWho } from './DiaryArchiveScreen';
 import { DECOR_ASSETS } from './DiaryDecor';
 import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS } from '@/lib/stickerPacks';
@@ -29,6 +30,10 @@ import { addDaysYmd, eventsOnDate, todayYmd } from '@/lib/calendarLayout';
 import { holidayName } from '@/lib/holidays';
 import { blankEventDraft, buildMonthBands, buildUpcoming, draftOfEvent, eventsForOwner, normalizeEventDraft, toEventVM } from '@/lib/diaryCalendar';
 import { isPractice } from '@/lib/practice';
+import {
+  cleanupDiaryConflictStashes, diaryConflictProtectedPaths, pruneDiaryConflictStashes, readDiaryConflictStashes, removeDiaryConflictStash, stashDiaryConflictPage,
+  type DiaryConflictStash,
+} from '@/lib/diaryConflictStash';
 import {
   BUILTIN_SPECIALS, DiaryConflict, PracticeBlocked, subscribeDiaryRevision, addSpecialDate, applyMonthPatch, blankDiaryPage, clearDiaryDraft, deleteDiaryPhotos, deleteSpecialDate,
   diaryPageHasContent, diaryPageId, emptyMonthDeco, invertMonthPatch, loadDiaryPage, prepareDiaryPhoto, readDiaryDraft, saveDiaryDraft, saveDiaryPage,
@@ -109,7 +114,19 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const [tabPick, setTab] = useState<string | null>(null);   // 고른 탭 — 숨긴 팩이면 아래 tab 이 다른 탭으로 바꿔 보여 준다
   const [special, setSpecial] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const say = useCallback((t: string) => { setNote(t); window.setTimeout(() => setNote((n) => (n === t ? null : n)), 3200); }, []);
+  const [toastAction, setToastAction] = useState<{ label: string; onClick: () => void } | null>(null);
+  const toastSeq = useRef(0);
+  const say = useCallback((t: string, action?: { label: string; onClick: () => void }) => {
+    const seq = ++toastSeq.current;
+    setNote(t); setToastAction(action ?? null);
+    window.setTimeout(() => { if (toastSeq.current === seq) { setNote(null); setToastAction(null); } }, 3200);
+  }, []);
+  const [stashOpen, setStashOpen] = useState(false);
+  const [stashVersion, setStashVersion] = useState(0);
+  const refreshStashes = useCallback(() => setStashVersion((v) => v + 1), []);
+  useEffect(() => { cleanupDiaryConflictStashes(); refreshStashes(); }, [refreshStashes]);
+  useEffect(() => setStashOpen(false), [date]);
+  const stashes = useMemo(() => readDiaryConflictStashes(date, me), [date, me, stashVersion]);
 
   // ── 같이 읽는 것: 한 달 표지(점), 기념일, 일정(읽기 전용 칩) ──
   const metaYm = view === 'month' ? mYm : view === 'archive' ? arcYm : date.slice(0, 7);
@@ -148,7 +165,8 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         revsRef.current[d] = rev;
         // 장에서 빠진 사진 파일 정리(같은 사진을 복제해 둔 게 남아 있으면 안 지운다)
         const now = pathsOf(page);
-        const gone = [...(pathsRef.current[d] ?? [])].filter((x) => !now.has(x));
+        const protectedPaths = diaryConflictProtectedPaths();
+        const gone = [...(pathsRef.current[d] ?? [])].filter((x) => !now.has(x) && !protectedPaths.has(x));
         if (gone.length) void deleteDiaryPhotos(gone);
         pathsRef.current[d] = now;
         // 이보다 새 편집이 남아 있으면 그 임시 보관의 기준 revision 을 올려 두고(되살릴 때 서버보다 낡았다고 버리지 않게), 없으면 지운다.
@@ -160,9 +178,10 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         if (e instanceof DiaryConflict) {
           // 다른 기기(아이패드↔폰)가 먼저 고쳤다 — 서버 장을 다시 읽어 보이고, 이 기기에서 쓴 장은 따로 보관한 뒤 알린다(11/19).
           //   ⚠️ 이 기기 장을 그대로 다시 저장하면 다른 기기 글이 통째로 덮인다 — 그게 막으려던 일이다.
-          //   보관본: localStorage kk-diary-conflict:{장 id}:{시각} (사진 파일은 지우지 않아 보관본의 사진도 남는다).
+          //   보관본의 사진·필기 파일은 아래 파일 정리에서도 빼서, 이 장을 꺼낼 때까지 남긴다.
           const mineNow = mineRef.current.date === d ? mineRef.current : (lastRef.current[d] ?? page);
-          try { localStorage.setItem(`kk-diary-conflict:${diaryPageId(d, me)}:${Date.now()}`, JSON.stringify(mineNow)); } catch { /* 보관이 막힌 기기 */ }
+          const stored = stashDiaryConflictPage(mineNow);
+          if (stored) refreshStashes();
           clearDiaryDraft(d, me);
           const got = await loadDiaryPage(d, me).catch(() => undefined);
           if (got === undefined) { revsRef.current[d] = e.serverRevision; return; }   // 못 읽었다 — 다음 저장도 다시 부딪혀 여기로 온다
@@ -173,7 +192,10 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
           if (mineRef.current.date === d) {
             if (timerRef.current) { window.clearTimeout(timerRef.current); timerRef.current = null; }
             mineRef.current = fresh; setMine(fresh); dirtyRef.current = false; setSaveState('saved');
-            say('다른 기기에서 고친 장이 있어 새로 불러왔어요 — 여기서 쓴 건 따로 보관했어요');
+            say(
+              stored ? '다른 기기에서 고친 장을 불러왔어요. 여기서 쓴 건 따로 보관했어요' : '다른 기기에서 고친 장을 불러왔지만, 여기서 쓴 건 보관하지 못했어요',
+              stored ? { label: '보기', onClick: () => setStashOpen(true) } : undefined,
+            );
           }
           return;
         }
@@ -185,7 +207,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
       }
     });
     return chainRef.current;
-  }, [me, say]);
+  }, [me, refreshStashes, say]);
   const schedule = useCallback(() => {
     if (timerRef.current) window.clearTimeout(timerRef.current);
     setSaveState((s) => (s === 'offline' ? s : 'saving'));
@@ -267,6 +289,55 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
 
   const isMine = owner === me;
   const page = isMine ? mine : theirs ?? blankDiaryPage(date, partner);
+
+  const restoreStash = async (stash: DiaryConflictStash): Promise<void> => {
+    if (practice) { say('연습 모드라 장을 바꾸지 않았어요'); return; }
+    await flush();
+    if (!readyRef.current || dirtyRef.current) { say('지금 장을 먼저 저장하지 못해 바꾸지 않았어요'); return; }
+    const d = stash.page.date;
+    if (mineRef.current.date !== d || stash.page.owner !== me) return;
+    const before = mineRef.current;
+    // 저장 결과가 나기 전에는 임시로 6개를 허용한다. 실패했는데 기존 보관본까지 밀려 사라지면 안 된다.
+    const rollback = stashDiaryConflictPage(before, Date.now(), false);
+    if (!rollback) { say('바꾸기 전 장을 보관하지 못해 장을 바꾸지 않았어요'); return; }
+    refreshStashes();
+    setSaveState('saving');
+    try {
+      const rev = await saveDiaryPage(stash.page, revsRef.current[d] ?? 0);
+      const now = pathsOf(stash.page);
+      const protectedPaths = diaryConflictProtectedPaths();
+      const gone = [...(pathsRef.current[d] ?? [])].filter((path) => !now.has(path) && !protectedPaths.has(path));
+      if (gone.length) void deleteDiaryPhotos(gone);
+      removeDiaryConflictStash(stash.key);
+      pruneDiaryConflictStashes(d, me);
+      refreshStashes();
+      revsRef.current[d] = rev; pathsRef.current[d] = now; lastRef.current[d] = stash.page;
+      mineRef.current = stash.page; setMine(stash.page); dirtyRef.current = false; clearDiaryDraft(d, me);
+      setSel(null); setSaveState('saved');
+      say('보관한 장으로 바꿨어요. 바꾸기 전 장도 따로 보관했어요');
+    } catch (e) {
+      if (e instanceof DiaryConflict) {
+        pruneDiaryConflictStashes(d, me, 5, [rollback.key, stash.key]);
+        refreshStashes();
+        clearDiaryDraft(d, me);
+        const got = await loadDiaryPage(d, me).catch(() => undefined);
+        if (got === undefined) { revsRef.current[d] = e.serverRevision; setSaveState('offline'); say('다른 기기에서 먼저 고쳤어요. 새 장을 불러오지 못했어요'); return; }
+        const fresh = got?.page ?? blankDiaryPage(d, me);
+        revsRef.current[d] = got?.revision ?? 0; pathsRef.current[d] = got ? pathsOf(got.page) : new Set(); lastRef.current[d] = fresh;
+        mineRef.current = fresh; setMine(fresh); dirtyRef.current = false; setSel(null); setSaveState('saved');
+        say('다른 기기에서 고친 장을 불러왔어요. 보관본은 그대로 두었어요', { label: '보기', onClick: () => setStashOpen(true) });
+        return;
+      }
+      removeDiaryConflictStash(rollback.key); refreshStashes();
+      setSaveState('saved');
+      if (e instanceof PracticeBlocked) say('연습 모드라 장을 바꾸지 않았어요');
+      else say('장으로 바꾸지 못했어요. 잠시 뒤 다시 해 주세요');
+    }
+  };
+
+  const deleteStash = (stash: DiaryConflictStash) => {
+    removeDiaryConflictStash(stash.key); refreshStashes(); say('보관본을 지웠어요');
+  };
 
   // ── ♥·한마디(보고 있는 장 아래) ──
   const [notes, setNotes] = useState<DiaryNoteVM[]>([]);
@@ -604,7 +675,12 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const toast = (note || practice) && (
     <div className="fixed left-1/2 -translate-x-1/2 z-[80] pointer-events-none flex flex-col items-center gap-1" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 56px)' }}>
       {practice && <div className="px-3 py-1 rounded-full text-[11px] bg-[var(--sd-surface-2)] text-[var(--sd-muted)] border border-[var(--sd-line)]">연습 모드 · 저장 안 함</div>}
-      {note && <div className="px-4 py-2 rounded-full text-[13px] bg-[var(--sd-ink)] text-[var(--sd-bg)] shadow-lg">{note}</div>}
+      {note && (
+        <div className="max-w-[calc(100vw-24px)] px-4 py-2 rounded-2xl text-[13px] bg-[var(--sd-ink)] text-[var(--sd-bg)] shadow-lg flex items-center gap-3">
+          <span>{note}</span>
+          {toastAction && <button type="button" onClick={toastAction.onClick} className="pointer-events-auto shrink-0 min-h-[32px] px-3 rounded-full bg-[var(--sd-bg)] text-[var(--sd-ink)] text-xs font-medium">{toastAction.label}</button>}
+        </div>
+      )}
     </div>
   );
 
@@ -768,9 +844,11 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         }}
         backLabel={backTo === 'month' ? '달력' : backTo === 'archive' ? '지난 일기' : undefined}
         onOpenArchive={() => openArchive('day', date.slice(0, 7))}
+        stashCount={isMine ? stashes.length : 0}
+        onOpenStashes={isMine ? () => setStashOpen(true) : undefined}
         onPrevDate={() => goDate(addDaysYmd(date, -1))} onNextDate={() => goDate(addDaysYmd(date, 1))}
         onGoToday={() => goDate(TODAY)} onOpenMonth={() => { setMYm(date.slice(0, 7)); setView('month'); }}
-        onChangeOwner={(p) => { setSel(null); setOwner(p); }}
+        onChangeOwner={(p) => { setSel(null); setStashOpen(false); setOwner(p); }}
         onSelectItem={(id) => setSel(isMine ? id : null)}
         onMoveItem={(id, x, y) => { if (isMine) put((p) => ({ ...p, items: p.items.map((i) => (i.id === id ? { ...i, x, y } : i)) })); }}
         onItemAction={act}
@@ -802,6 +880,10 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         }}
         onToggleFavorite={toggleFav}
         onClose={() => setDrawer(false)}
+      />
+      <DiaryStashSheet
+        open={stashOpen && isMine} stashes={stashes} practice={practice}
+        onRestore={restoreStash} onDelete={deleteStash} onClose={() => setStashOpen(false)}
       />
       {specialSheet}
       {toast}

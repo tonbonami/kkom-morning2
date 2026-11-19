@@ -17,6 +17,7 @@ import {
   Check,
   BookOpen,
   Brush,
+  ArchiveRestore,
 } from 'lucide-react';
 import {
   Person,
@@ -83,6 +84,9 @@ export interface DiaryDayScreenProps {
   backLabel?: string;
   /** ⋮ 메뉴 맨 위 「지난 일기 모아보기」 */
   onOpenArchive?: () => void;
+  /** 이 기기에 남은 저장 충돌 보관본 — 내 장에서만 보인다. */
+  stashCount?: number;
+  onOpenStashes?: () => void;
   /** 「그리기」 — 앱(DiaryInk 플러그인이 있는 빌드)에서만 온다. 없으면 단추를 안 보인다. */
   onDraw?: () => void;
   /** 고른 필기를 다시 그리기 — 획 파일이 있는 필기 + 다시 그리기가 되는 앱 빌드에서만 온다(필기 2단계). */
@@ -130,6 +134,8 @@ export function DiaryDayScreen({
   future = false,
   backLabel,
   onOpenArchive,
+  stashCount = 0,
+  onOpenStashes,
   onDraw,
   onRedraw,
 }: DiaryDayScreenProps): React.JSX.Element {
@@ -271,6 +277,20 @@ export function DiaryDayScreen({
                 >
                   <BookOpen className="w-4 h-4 text-[var(--sd-rel)]" />
                   지난 일기 모아보기
+                </button>
+              )}
+              {isEditable && stashCount > 0 && onOpenStashes && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false);
+                    onOpenStashes();
+                  }}
+                  className="w-full min-h-[44px] px-3 text-left text-xs font-medium text-[var(--sd-ink)] active:bg-[var(--sd-surface-2)] flex items-center gap-2"
+                >
+                  <ArchiveRestore className="w-4 h-4 text-[var(--sd-rel)]" />
+                  <span className="flex-1">따로 보관한 장</span>
+                  <span className="text-[10px] text-[var(--sd-muted)]">{stashCount}</span>
                 </button>
               )}
               <button
