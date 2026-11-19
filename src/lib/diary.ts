@@ -40,8 +40,8 @@ export const diaryPageId = (date: string, owner: Person) => `${date}_${PERSON_KE
 export const blankDiaryPage = (date: string, owner: Person): DiaryPageVM => ({ date, owner, theme: 'cream', text: '', items: [] });
 export const diaryPageHasContent = (p: Pick<DiaryPageVM, 'text' | 'items'>) => p.text.trim().length > 0 || p.items.length > 0;
 
-/** 달력 점·홈 카드가 읽는 가벼운 표지. */
-export interface DiaryMeta { id: string; date: string; owner: Person; excerpt: string; thumb?: string; itemCount: number; hasPhoto: boolean }
+/** 달력 점·홈 카드가 읽는 가벼운 표지. photos 는 사진 모아 보기용 앞쪽 4장. */
+export interface DiaryMeta { id: string; date: string; owner: Person; excerpt: string; thumb?: string; photos?: string[]; itemCount: number; hasPhoto: boolean }
 
 function toItems(raw: unknown): DiaryItemVM[] {
   if (!Array.isArray(raw)) return [];
@@ -107,23 +107,47 @@ export function subscribeDiaryPage(date: string, owner: Person, cb: (p: DiaryPag
     (e) => { console.error('diary page 구독 오류:', e); cb(null); });
 }
 
+const toMeta = (id: string, d: DocumentData): DiaryMeta | null => {
+  if (d.owner !== '우댕' && d.owner !== '꼼이') return null;
+  const photos = Array.isArray(d.photos) ? d.photos.filter((x: unknown): x is string => typeof x === 'string' && !!x).slice(0, 4) : [];
+  return {
+    id, date: String(d.date || ''), owner: d.owner, excerpt: typeof d.excerpt === 'string' ? d.excerpt : '',
+    ...(typeof d.thumb === 'string' && d.thumb ? { thumb: d.thumb } : {}),
+    ...(photos.length ? { photos } : {}),
+    itemCount: num(d.itemCount, 0, 0, 1000), hasPhoto: !!d.hasPhoto,
+  };
+};
+
 /** 한 달의 표지들(두 사람 것 다) — id → 표지. */
 export function subscribeDiaryMonthMeta(ym: string, cb: (m: Record<string, DiaryMeta>) => void): () => void {
   return onSnapshot(query(collection(db, 'diaryPages'), where('ym', '==', ym)),
     (snap) => {
       const out: Record<string, DiaryMeta> = {};
       snap.forEach((s) => {
-        const d = s.data();
-        if (d.owner !== '우댕' && d.owner !== '꼼이') return;
-        out[s.id] = {
-          id: s.id, date: String(d.date || ''), owner: d.owner, excerpt: typeof d.excerpt === 'string' ? d.excerpt : '',
-          ...(typeof d.thumb === 'string' && d.thumb ? { thumb: d.thumb } : {}),
-          itemCount: num(d.itemCount, 0, 0, 1000), hasPhoto: !!d.hasPhoto,
-        };
+        const m = toMeta(s.id, s.data());
+        if (m) out[s.id] = m;
       });
       cb(out);
     },
     (e) => { console.error('diary 표지 구독 오류:', e); cb({}); });
+}
+
+let allMetaCache: Promise<DiaryMeta[]> | null = null;
+/** 장이 저장·이동되면 다음 검색 때 표지를 새로 받게 한다(받은 표지는 앱이 켜져 있는 동안 남아서 새 장·지운 장이 어긋나던 것). */
+export function forgetAllDiaryMeta(): void { allMetaCache = null; }
+/** 첫 줄 찾기용 표지 전체. 처음 한 번만 받고 이후 검색은 화면에서 거른다(본문은 읽지 않는다). */
+export function fetchAllDiaryMeta(): Promise<DiaryMeta[]> {
+  if (allMetaCache) return allMetaCache;
+  allMetaCache = getDocs(collection(db, 'diaryPages')).then((snap) => {
+    const out: DiaryMeta[] = [];
+    snap.forEach((s) => { const m = toMeta(s.id, s.data()); if (m) out.push(m); });
+    return out;
+  }).catch((e) => {
+    allMetaCache = null;
+    console.error('diary 전체 표지 읽기 오류:', e);
+    throw e;
+  });
+  return allMetaCache;
 }
 
 /** 저장할 수 있는 물건만 — 아직 올리는 중인 사진(blob:)은 뺀다(다 올라오면 다시 저장된다). */
@@ -148,7 +172,8 @@ export async function saveDiaryPage(page: DiaryPageVM, baseRevision: number): Pr
   const text = page.text.slice(0, DIARY_LIMITS.text);
   const empty = !text.trim() && items.length === 0;
   const firstLine = text.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
-  const thumb = items.find((i) => i.type === 'photo' && i.src)?.src ?? items.find((i) => i.type === 'sticker' && i.src)?.src;
+  const photos = items.filter((i) => i.type === 'photo' && i.src).map((i) => i.src!).slice(0, 4);
+  const thumb = photos[0] ?? items.find((i) => i.type === 'sticker' && i.src)?.src;
   return runTransaction(db, async (tx) => {
     const cur = await tx.get(contentRef(id));
     const serverRev = cur.exists() ? num(cur.data()?.revision, 0, 0, 1e9) : 0;
@@ -162,13 +187,13 @@ export async function saveDiaryPage(page: DiaryPageVM, baseRevision: number): Pr
     tx.set(contentRef(id), { text, items, theme: page.theme, ...(page.question ? { question: page.question.slice(0, 60) } : {}), revision, updatedAt: serverTimestamp() });
     tx.set(doc(db, 'diaryPages', id), {
       date: page.date, ym: page.date.slice(0, 7), owner: page.owner, theme: page.theme,
-      itemCount: items.length, hasPhoto: items.some((i) => i.type === 'photo'),
-      excerpt: firstLine.slice(0, 40), thumb: thumb ?? deleteField(),
+      itemCount: items.length, hasPhoto: photos.length > 0,
+      excerpt: firstLine.slice(0, 40), thumb: thumb ?? deleteField(), photos: photos.length ? photos : deleteField(),
       schemaVersion: 1, revision, updatedAt: serverTimestamp(),
       ...(serverRev === 0 ? { createdAt: serverTimestamp() } : {}),
     }, { merge: true });
     return revision;
-  });
+  }).then((r) => { forgetAllDiaryMeta(); return r; });
 }
 
 // ── 마음(♥)·한마디 ─────────────────────────────────────────────────────────
