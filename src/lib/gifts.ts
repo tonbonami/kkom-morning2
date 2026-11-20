@@ -36,6 +36,13 @@ export const GIFT_ITEMS: GiftItem[] = [
   { id: 'ramen',       label: '라면',       for: 'all',  msg: '야식 콜? 🍜',             cat: 'fridge' },
   { id: 'samgyeopsal', label: '삼겹살',     for: 'all',  msg: '구워먹자 🥓',              cat: 'fridge' },
   { id: 'dakkochi',    label: '닭꼬치',     for: 'all',  msg: '포장마차 가자',            cat: 'fridge' },
+  // 겨울맞이(2026-11-20, GPT 와 고르고 Codex 그림, 우댕 OK)
+  { id: 'hoppang',     label: '호빵',       for: 'all',  msg: '한입 베면 겨울이야',       cat: 'fridge' },
+  { id: 'eomuk',       label: '어묵',       for: 'all',  msg: '뜨끈한 국물까지',          cat: 'fridge' },
+  { id: 'hotteok',     label: '호떡',       for: 'all',  msg: '꿀 조심, 뜨거워',          cat: 'fridge' },
+  { id: 'yujatea',     label: '유자차',     for: 'all',  msg: '따뜻하게 마셔',            cat: 'fridge' },
+  { id: 'manduguk',    label: '만둣국',     for: 'all',  msg: '만두 하나 더 줄게',        cat: 'fridge' },
+  { id: 'danpatjuk',   label: '단팥죽',     for: 'all',  msg: '새알심 같이 먹자',         cat: 'fridge' },
   // 🗄️ 서랍 — 마음·보살핌
   { id: 'blanket',     label: '담요',       for: 'all',  msg: '따뜻하게 있어',            cat: 'drawer' },
   { id: 'flower',      label: '꽃',         for: 'all',  msg: '그냥 네 생각나서',         cat: 'drawer' },
@@ -54,6 +61,12 @@ export const GIFT_ITEMS: GiftItem[] = [
   { id: 'guitar',      label: '기타',       for: 'all',  msg: '노래 하나 불러줘',         cat: 'drawer' },
   { id: 'handwarmer',  label: '핫팩',       for: 'all',  msg: '손 시릴 때 꼭 쥐어',       cat: 'drawer' },
   { id: 'scarf',       label: '목도리',     for: 'all',  msg: '목 따뜻하게',              cat: 'drawer' },
+  // 겨울맞이(2026-11-20)
+  { id: 'mittens',     label: '벙어리장갑', for: 'all',  msg: '내 손인 척 끼고 있어',     cat: 'drawer' },
+  { id: 'sleepsocks',  label: '수면양말',   for: 'all',  msg: '발끝까지 포근해져',        cat: 'drawer' },
+  { id: 'firstsnow',   label: '첫눈',       for: 'all',  msg: '첫눈은 너랑 볼래',         cat: 'drawer' },
+  { id: 'snowman',     label: '눈사람',     for: 'all',  msg: '우리 마음은 안 녹아',      cat: 'drawer' },
+  { id: 'snowglobe',   label: '스노우볼',   for: 'all',  msg: '우리 겨울 담아 뒀어',      cat: 'drawer' },
   // 🎟️ 쿠폰
   { id: 'massagecoupon', label: '안마쿠폰', for: 'all',  msg: '뭉친 데 풀어줄게',         cat: 'coupon' },   // 강아지 안마
   { id: 'kisscoupon',  label: '뽀뽀쿠폰',   for: 'all',  msg: '이거 쓰면 뽀뽀 한 번 💋',  cat: 'coupon' },
