@@ -42,8 +42,9 @@ public class DiaryInkPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     /// 이 빌드가 할 수 있는 것 — 웹이 「다시 그리기」 단추를 보일지 정한다(빌드 66 엔 이 메서드가 없어 웹이 false 로 본다).
+    /// inkFormat 2 = 연필·크레파스·형광펜·부분 지우개 획(b·sd)을 읽는다(11/21). 없으면 웹이 1 로 보고 형식 2 필기를 안 연다.
     @objc func capabilities(_ call: CAPPluginCall) {
-        call.resolve(["reedit": true])
+        call.resolve(["reedit": true, "inkFormat": 2])
     }
 
     @objc func edit(_ call: CAPPluginCall) {
@@ -80,11 +81,13 @@ public class DiaryInkPlugin: CAPPlugin, CAPBridgedPlugin {
 
 struct DiaryInkRepresentable: UIViewRepresentable {
     @ObservedObject var controller: CanvasController
+    let tools: DiaryInkTools
     let me: String
     var initial: [NetStroke] = []
     func makeUIView(context: Context) -> StrokeCanvasView {
         let v = StrokeCanvasView()
         v.controller = controller
+        v.diaryTools = tools           // 붓·색·굵기·지우개·되돌리기는 다이어리 도구 상태로(낙서장과 따로)
         v.localMe = me                 // 서버 없이(낙서장 RTDB 와 무관)
         controller.canvas = v
         if !initial.isEmpty { v.loadLocalStrokes(initial) }   // 다시 그리기 — 크기가 정해지면 layoutSubviews 가 다시 굽는다
@@ -96,6 +99,7 @@ struct DiaryInkRepresentable: UIViewRepresentable {
     }
 }
 
+// 필기 화면 — 모양은 제미나이 시안(CanvasUI.swift 의 DiaryInkScreenView, 11/21) 그대로, 여기선 연결만.
 struct DiaryInkScreen: View {
     let me: String
     let paperHex: String
@@ -103,79 +107,25 @@ struct DiaryInkScreen: View {
     let onDone: (Data, CGRect, String?) -> Void
     let onCancel: () -> Void
     @StateObject private var c = CanvasController()
+    @StateObject private var tools = DiaryInkTools()
     @State private var emptyNote = false
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
-    // 다이어리에 어울리는 색 여섯(먹·갈색·로즈·블루·초록·노랑) — CanvasController.palette 의 칸 번호
-    private let colors: [Int] = [2, 9, 0, 1, 5, 3]
-    private let sizes: [CGFloat] = [4, 7, 12]
-    private let ink = Color(red: 0.2, green: 0.25, blue: 0.33)
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Button("취소") { onCancel() }.font(.system(size: 16)).foregroundColor(.secondary).frame(minWidth: 60, minHeight: 44, alignment: .leading)
-                Spacer()
-                Text("필기").font(.system(size: 17, weight: .semibold)).foregroundColor(ink)
-                Spacer()
-                Button("완료") {
-                    if let cv = c.canvas, let r = cv.exportInk() { onDone(r.png, r.rect, cv.exportStrokesJSON()) } else { emptyNote = true }
-                }.font(.system(size: 16, weight: .bold)).foregroundColor(Color(UIColor(hex: "#D9635B"))).frame(minWidth: 60, minHeight: 44, alignment: .trailing)
-            }
-            .padding(.horizontal, 16).padding(.top, 6)
-
-            GeometryReader { geo in
-                let w = min(geo.size.width - 24, (geo.size.height - 16) * 3 / 4)
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16).fill(Color(UIColor(hex: paperHex)))
-                    DiaryInkRepresentable(controller: c, me: me, initial: initial)
-                }
-                .frame(width: w, height: w * 4 / 3)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.06), lineWidth: 1))
-                .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-
-            if emptyNote {
-                Text(initial.isEmpty ? "아직 그린 게 없어요 — 그리지 않으려면 「취소」" : "다 지웠어요 — 그림째 없애려면 「취소」 뒤 종이에서 「지우기」").font(.system(size: 13)).foregroundColor(.secondary).padding(.bottom, 4)
-            }
-
-            // 도구 줄 — 색 여섯 · 굵기 셋 · 지우개 · 되돌리기 · (아이패드) 펜슬만
-            HStack(spacing: 10) {
-                ForEach(colors, id: \.self) { i in
-                    Button { c.colorIndex = i; c.eraser = false } label: {
-                        Circle().fill(Color(CanvasController.palette[i])).frame(width: 26, height: 26)
-                            .overlay(Circle().stroke(Color.white, lineWidth: 2))
-                            .overlay(Circle().stroke(ink.opacity(c.colorIndex == i && !c.eraser ? 0.9 : 0), lineWidth: 2).padding(-3))
-                    }.frame(width: 34, height: 44)
-                }
-                Divider().frame(height: 26)
-                ForEach(sizes, id: \.self) { s in
-                    Button { c.lineWidth = s; c.eraser = false } label: {
-                        ZStack {
-                            Circle().stroke(ink.opacity(c.lineWidth == s ? 0.5 : 0.12), lineWidth: 1).frame(width: 30, height: 30)
-                            Circle().fill(ink).frame(width: s * 1.4, height: s * 1.4)
-                        }
-                    }.frame(width: 34, height: 44)
-                }
-                Divider().frame(height: 26)
-                Button { c.eraser.toggle() } label: {
-                    Image(systemName: "eraser").font(.system(size: 18)).foregroundColor(c.eraser ? Color(UIColor(hex: "#D9635B")) : ink)
-                }.frame(width: 40, height: 44)
-                Button { c.undo() } label: {
-                    Image(systemName: "arrow.uturn.backward").font(.system(size: 18)).foregroundColor(ink)
-                }.frame(width: 40, height: 44)
-                if isPad {
-                    Button { c.pencilOnly.toggle() } label: {
-                        Image(systemName: c.pencilOnly ? "applepencil" : "hand.draw").font(.system(size: 18)).foregroundColor(ink)
-                    }.frame(width: 40, height: 44)
-                }
-            }
-            .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 22).fill(Color(UIColor.secondarySystemGroupedBackground)))
-            .padding(.horizontal, 12).padding(.bottom, 10)
+        DiaryInkScreenView(
+            tools: tools,
+            paperColor: Color(UIColor(hex: paperHex)),
+            note: emptyNote ? (initial.isEmpty ? "아직 그린 게 없어요 — 그리지 않으려면 「취소」" : "다 지웠어요 — 그림째 없애려면 「취소」 뒤 종이에서 「지우기」") : nil,
+            isPad: isPad,
+            onCancel: onCancel,
+            onDone: {
+                if let cv = c.canvas, let r = cv.exportInk() { onDone(r.png, r.rect, cv.exportStrokesJSON()) } else { emptyNote = true }
+            },
+            onUndo: { c.undo(); emptyNote = false },
+            onRedo: { c.redo(); emptyNote = false }
+        ) {
+            DiaryInkRepresentable(controller: c, tools: tools, me: me, initial: initial)
         }
-        .background(Color(UIColor(hex: "#F4F0EC")).ignoresSafeArea())
-        .onAppear { c.colorIndex = 2; c.lineWidth = 7 }
+        .onReceive(tools.$pencilOnly) { c.pencilOnly = $0 }
     }
 }

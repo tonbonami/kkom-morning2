@@ -14,7 +14,8 @@ let RTDB_URL = "https://kkom-morning-default-rtdb.asia-southeast1.firebasedataba
 
 struct NetPoint: Codable { var x: Double; var y: Double; var p: Double }
 // t = 그린 순서(서버 시각 ms). 화면은 t 순으로 겹쳐 그린다 — 늦게 그은 선이 위.
-struct NetStroke: Codable { var color: String; var size: Double; var points: [NetPoint]; var t: Double? = nil }
+// b·sd = 다이어리 필기 전용(11/21) — b 붓(nil=펜 · pencil · crayon · hl · erase), sd 질감 시드. 낙서장 RTDB 는 dict 로 따로 써서 이 칸이 안 간다.
+struct NetStroke: Codable { var color: String; var size: Double; var points: [NetPoint]; var t: Double? = nil; var b: String? = nil; var sd: Int? = nil }
 
 final class SyncClient: NSObject, URLSessionDataDelegate {
     let me: String       // "udaeng" | "kkomi"

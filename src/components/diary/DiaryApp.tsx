@@ -25,7 +25,7 @@ import { DiaryTrashPage, type RestoreResult } from './DiaryTrash';
 import { DECOR_ASSETS } from './DiaryDecor';
 import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS, KKWAGI_STICKERS } from '@/lib/stickerPacks';
 import { DAKU_PACKS, dakuSrc } from '@/lib/dakuStickers';
-import { diaryInkAvailable, diaryInkCanReedit, editDiaryInk, PAPER_HEX, placeStrokes, type DiaryInkResult, type InkSidecar } from '@/lib/diaryInk';
+import { diaryInkAvailable, diaryInkFormat, editDiaryInk, inkFormatOf, PAPER_HEX, placeStrokes, type DiaryInkResult, type InkSidecar } from '@/lib/diaryInk';
 import { subscribeCalendar, type CalendarEvent } from '@/lib/calendar';
 import { addDaysYmd, eventsOnDate, todayYmd } from '@/lib/calendarLayout';
 import { holidayName } from '@/lib/holidays';
@@ -441,11 +441,12 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   // 필기(아이패드·아이폰 앱 — 우댕 11/18 「아이패드 필기 1단계 진행해」). 네이티브 화면에서 그린 부분만 투명 PNG 로 받아
   //   그린 자리 그대로 종이에 붙인다(필기 보드도 3:4). 올리는 동안은 받은 그림을 먼저 보이고, 다 올라가면 진짜 주소로(사진과 같은 길).
   const [inkOk, setInkOk] = useState(false);
-  const [inkRedo, setInkRedo] = useState(false);
-  useEffect(() => { void diaryInkAvailable().then(setInkOk); void diaryInkCanReedit().then(setInkRedo); }, []);
+  const [inkFmt, setInkFmt] = useState(0);   // 이 앱 빌드가 다시 열 수 있는 필기 형식(0 = 다시 그리기 없음)
+  const inkRedo = inkFmt > 0;
+  useEffect(() => { void diaryInkAvailable().then(setInkOk); void diaryInkFormat().then(setInkFmt); }, []);
   // 다시 그리기(필기 2단계, 11/18): 그릴 때 받은 획을 PNG 옆 JSON 파일로 둔다. 올라가기 전·연습 모드엔 여기(물건 id → 획)에서 꺼낸다.
   const inkSideRef = useRef<Record<string, InkSidecar>>({});
-  const sideOf = (r: DiaryInkResult): InkSidecar | null => (r.strokes?.length ? { v: 1, rect: { x: r.x, y: r.y, w: r.w, h: r.h }, strokes: r.strokes } : null);
+  const sideOf = (r: DiaryInkResult): InkSidecar | null => (r.strokes?.length ? { v: r.strokes.some((s) => !!s.b) ? 2 : 1, rect: { x: r.x, y: r.y, w: r.w, h: r.h }, strokes: r.strokes } : null);
   const inkGeom = (r: DiaryInkResult) => ({ w: r.w, ratio: (r.h * 4 / 3) / r.w, x: r.x + r.w / 2, y: r.y + r.h / 2 });
   const meInk = me === '우댕' ? 'udaeng' : 'kkomi';
   const drawInk = async () => {
@@ -493,6 +494,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     const startDate = date, id = it.id;
     const side = await loadSide(it);
     if (!side) { say('이 필기는 다시 그릴 수 없어요 — 예전 앱으로 그린 그림이에요'); return; }
+    if (inkFormatOf(side) > inkFmt) { say('연필·크레파스·지우개로 그린 필기예요 — 앱을 새로 받으면 다시 그릴 수 있어요'); return; }
     let r: Awaited<ReturnType<typeof editDiaryInk>>;
     try { r = await track(editDiaryInk(meInk, PAPER_HEX[mineRef.current.theme] ?? '#FAF6EE', placeStrokes(side, it))); }
     catch { say('필기 화면을 열지 못했어요'); return; }

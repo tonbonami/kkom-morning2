@@ -13,20 +13,26 @@ export async function diaryInkAvailable(): Promise<boolean> {
   } catch { return false; }
 }
 
-/** 다시 그리기(필기 2단계)가 되는 빌드인지 — 빌드 66 엔 capabilities 가 없어 false. */
-export async function diaryInkCanReedit(): Promise<boolean> {
+/**
+ * 이 빌드가 열 수 있는 필기 형식 — 0 = 다시 그리기 못 함(빌드 66), 1 = 펜만(빌드 67~68), 2 = 연필·크레파스·형광펜·부분 지우개(11/21~).
+ * ⚠️ 옛 빌드는 모르는 칸(b)을 버려 지우개 획을 색 선으로 그린다 — 그래서 형식 2 필기는 형식 2 빌드에서만 다시 연다.
+ */
+export async function diaryInkFormat(): Promise<number> {
   try {
-    if (!(await diaryInkAvailable())) return false;
+    if (!(await diaryInkAvailable())) return 0;
     const { registerPlugin } = await import('@capacitor/core');
-    const r = await (registerPlugin('DiaryInk') as { capabilities(): Promise<{ reedit?: boolean }> }).capabilities();
-    return !!r?.reedit;
-  } catch { return false; }
+    const r = await (registerPlugin('DiaryInk') as { capabilities(): Promise<{ reedit?: boolean; inkFormat?: number }> }).capabilities();
+    if (!r?.reedit) return 0;
+    return typeof r.inkFormat === 'number' && r.inkFormat >= 2 ? Math.floor(r.inkFormat) : 1;
+  } catch { return 0; }
 }
 
-/** 획 하나(보드 0~1) — 네이티브 NetStroke 와 같은 모양. */
-export interface InkStroke { color: string; size: number; points: { x: number; y: number; p: number }[] }
-/** 그림과 함께 저장하는 다시 그리기용 파일: 획(보드 0~1) + 그때 잘린 자리(rect). */
-export interface InkSidecar { v: 1; rect: { x: number; y: number; w: number; h: number }; strokes: InkStroke[] }
+/** 획 하나(보드 0~1) — 네이티브 NetStroke 와 같은 모양. b = 붓(없으면 펜 · pencil · crayon · hl · erase), sd = 질감 시드. */
+export interface InkStroke { color: string; size: number; points: { x: number; y: number; p: number }[]; b?: string; sd?: number }
+/** 그림과 함께 저장하는 다시 그리기용 파일: 획(보드 0~1) + 그때 잘린 자리(rect). 펜만 쓴 그림은 v1(옛 빌드도 열림), 새 붓·지우개가 있으면 v2. */
+export interface InkSidecar { v: 1 | 2; rect: { x: number; y: number; w: number; h: number }; strokes: InkStroke[] }
+/** 이 필기를 열려면 필요한 형식 — 저장된 v 와 획 안의 붓을 둘 다 본다(옛 파일 v 가 틀려도 안전하게). */
+export const inkFormatOf = (side: InkSidecar): number => Math.max(side.v ?? 1, side.strokes.some((s) => !!s.b) ? 2 : 1);
 
 export interface DiaryInkResult { png: Blob; x: number; y: number; w: number; h: number; strokes?: InkStroke[] }
 

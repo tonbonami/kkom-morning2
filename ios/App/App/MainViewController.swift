@@ -4,6 +4,7 @@ import WidgetKit
 import WebKit
 import UserNotifications
 import ObjectiveC
+import SwiftUI
 
 // Capacitor 브릿지 로드 시 커스텀 플러그인을 명시적으로 등록.
 class MainViewController: CAPBridgeViewController {
@@ -26,6 +27,33 @@ class MainViewController: CAPBridgeViewController {
         UNUserNotificationCenter.current().delegate = PushManager.shared
         if let webView = bridge?.webView { DeepLink.attach(webView) }
     }
+
+    #if DEBUG
+    // 시뮬레이터 확인용 — `simctl launch … -diaryInkDemo` 면 필기 화면을 견본 획(펜·연필·크레파스·형광펜·지우개)과 함께 바로 띄운다. 출시 빌드엔 없음.
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard ProcessInfo.processInfo.arguments.contains("-diaryInkDemo"), presentedViewController == nil else { return }
+        func line(_ y: Double, _ b: String?, _ c: String, _ size: Double, sd: Int? = nil) -> NetStroke {
+            let pts = (0 ... 40).map { i -> NetPoint in let x = 0.12 + Double(i) * 0.019; return NetPoint(x: x, y: y + sin(Double(i) / 4) * 0.025, p: 0.5) }
+            return NetStroke(color: c, size: size, points: pts, b: b, sd: sd)
+        }
+        var demo = [line(0.16, nil, "#23272E", 7), line(0.30, "pencil", "#23272E", 8, sd: 4242), line(0.46, "crayon", "#D64545", 22, sd: 777),
+                    line(0.62, "hl", "#F2C230", 32), line(0.76, "crayon", "#3D74C7", 34, sd: 31337)]
+        demo.append(NetStroke(color: "#000000", size: 60, points: [NetPoint(x: 0.5, y: 0.1, p: 0.5), NetPoint(x: 0.5, y: 0.9, p: 0.5)], b: "erase"))
+        let screen = DiaryInkScreen(me: "udaeng", paperHex: "#FAF6EE", initial: demo,
+                                    onDone: { [weak self] png, rect, _ in
+                                        // 견본: 내보낸 그림을 앱 Documents 에 남겨 확인(잘린 자리·지운 자리)
+                                        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("diaryInkDemo.png")
+                                        try? png.write(to: url)
+                                        print("diaryInkDemo", url.path, rect)
+                                        self?.dismiss(animated: true)
+                                    },
+                                    onCancel: { [weak self] in self?.dismiss(animated: true) })
+        let host = UIHostingController(rootView: screen)
+        host.modalPresentationStyle = .fullScreen
+        present(host, animated: false)
+    }
+    #endif
 }
 
 // 알림 본문을 누르면 라이브 웹의 아는 화면만 연다(빌드 68부터 — 옛 앱은 url 을 몰라 앱만 열린다).
