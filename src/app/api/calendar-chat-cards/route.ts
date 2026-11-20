@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { sendApns } from '@/lib/apns';
+import { calendarHref } from '@/lib/calendarLink';
 
 const CRON_SECRET = process.env.CRON_SECRET || '';
 
@@ -70,7 +71,8 @@ export async function GET(req: NextRequest) {
     const ref = doc(db, 'messages', c.id);
     if ((await getDoc(ref)).exists()) { results.push({ id: c.id, written: false }); continue; }
     await setDoc(ref, { from: '꼼모닝', kind: 'calendar', text: c.text, calendarEventId: c.eventId, calendarDate: c.date, createdAt: serverTimestamp() });
-    const pushed = await Promise.all(['udaeng', 'kkomi'].map((k) => sendApns(k, c.title, c.body).catch(() => false)));
+    const url = calendarHref(c.date, c.eventId);
+    const pushed = await Promise.all(['udaeng', 'kkomi'].map((k) => sendApns(k, c.title, c.body, { threadId: 'calendar', url }).catch(() => false)));
     results.push({ id: c.id, written: true, pushed });
   }
   return NextResponse.json({ ok: true, today, results });

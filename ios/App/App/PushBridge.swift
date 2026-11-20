@@ -46,6 +46,12 @@ final class PushManager: NSObject, UNUserNotificationCenterDelegate {
     // 답장 액션 탭 → 앱 안 열고 상대에게 바로 발사(me→partner). 2인이라 상대는 항상 원발신자.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        // 본문 탭은 답장이 아니다. url이 없거나 허용되지 않으면 기존처럼 앱만 열린다.
+        if response.actionIdentifier == UNNotificationDefaultActionIdentifier {
+            DeepLink.open(response.notification.request.content.userInfo["url"] as? String)
+            completionHandler(); return
+        }
+
         guard let meKey = user, !meKey.isEmpty else { completionHandler(); return }
         let meName = meKey == "udaeng" ? "우댕" : "꼼이"
         let toName = meKey == "udaeng" ? "꼼이" : "우댕"
@@ -64,7 +70,7 @@ final class PushManager: NSObject, UNUserNotificationCenterDelegate {
         case "REPLY_LOVE":  path = "/api/bump"; bodyDict["kind"] = "love"
         case "REPLY_HUG":   path = "/api/bump"; bodyDict["kind"] = "hug"
         case "REPLY_HEART": path = "/api/heart"
-        default: completionHandler(); return   // 본문 탭(기본) → 앱 열림, 답장 없음
+        default: completionHandler(); return
         }
         guard let p = path else { completionHandler(); return }
         postJSON("\(WEB_BASE)\(p)", bodyDict, done: completionHandler)

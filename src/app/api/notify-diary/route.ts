@@ -1,7 +1,7 @@
 // 다이어리 ♥·한마디 알림 — 상대 장에 마음을 누르거나 한마디를 남기면(주인이 답글을 달아도) 상대에게 바로 알린다.
 // 우댕 2026-11-17: 「이거 내가 답글 남기거나 하트는 못해?」
 // 앱(네이티브)은 APNs, 웹은 웹푸시. ♥ 는 눌렀다 뗐다 해도 20초에 한 번만 알린다.
-// 알림을 눌러도 앱은 홈으로 열린다(APNs 에 주소가 없다) — 그래서 본문에 날짜를 넣는다.
+// 웹·새 iOS 앱은 알림을 누르면 그 날짜 장으로 간다. 본문에도 날짜를 남겨 잠금화면에서 바로 알 수 있게 한다.
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
@@ -49,7 +49,9 @@ export async function POST(req: NextRequest) {
     ? `${day} ${whose} 일기에 ♥ 남겼어`
     : `${day} ${whose} 일기에 ${owner === to ? '한마디' : '답글'}: ${text}`;
 
-  const apnsOk = await sendApns(toKey, from, line, { sender: from, threadId: 'diary' }).catch(() => false);
+  // date는 iOS 허용 쿼리라 그 날짜는 같이 연다. who는 웹에서만 장의 주인을 고른다.
+  const url = `/diary?date=${date}&who=${keyForName(owner)}`;
+  const apnsOk = await sendApns(toKey, from, line, { sender: from, threadId: 'diary', url }).catch(() => false);
 
   // 웹(PWA)으로 보는 경우 — 누르면 그 장으로 간다.
   let web: unknown = 'no sub';
@@ -57,7 +59,6 @@ export async function POST(req: NextRequest) {
     const subSnap = await getDoc(doc(db, 'pushSubscriptions', to));
     if (subSnap.exists()) {
       const s = subSnap.data() as { endpoint: string; keys: { p256dh: string; auth: string } };
-      const url = `/diary?d=${date}&who=${keyForName(owner)}`;
       try {
         await webpush.sendNotification(s as never, JSON.stringify({ title: `📔 ${from}`, body: line, url }));
         web = true;

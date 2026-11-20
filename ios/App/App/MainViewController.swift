@@ -1,6 +1,8 @@
 import UIKit
 import Capacitor
 import WidgetKit
+import WebKit
+import UserNotifications
 import ObjectiveC
 
 // Capacitor 브릿지 로드 시 커스텀 플러그인을 명시적으로 등록.
@@ -14,6 +16,90 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(HapticBridgePlugin())
         bridge?.registerPluginInstance(SleepSoundPlugin())   // 잠 소리(백색소음) — 화면 잠가도 계속
         bridge?.registerPluginInstance(DiaryInkPlugin())     // 다이어리 필기 — 그린 부분을 투명 그림으로 돌려준다(11/18)
+    }
+
+    // ⚠️ capacitorDidLoad 는 loadView 안(첫 화면 loadWebView 보다 먼저)이라 거기서 주소를 열면 첫 화면이 덮어쓴다.
+    //    viewDidLoad(super 가 loadWebView 를 부른 뒤)에서 연다. 같은 줄에서 알림 delegate 도 다시 잡는다 —
+    //    브릿지가 만들어질 때 Capacitor 알림 라우터가 delegate 를 가져가서, 콜드 스타트 본문 탭이 PushManager 로 안 올 수 있다.
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        UNUserNotificationCenter.current().delegate = PushManager.shared
+        if let webView = bridge?.webView { DeepLink.attach(webView) }
+    }
+}
+
+// 알림 본문을 누르면 라이브 웹의 아는 화면만 연다(빌드 68부터 — 옛 앱은 url 을 몰라 앱만 열린다).
+// 콜드 스타트에서는 알림 응답이 웹뷰보다 먼저 올 수 있어 경로를 보관했다가 viewDidLoad 뒤에 연다.
+// "/" 는 넣지 않는다 — 꼼톡·범프 알림마다 웹뷰를 홈으로 새로 띄우면 보던 화면(꼼톡 등)이 날아간다.
+enum DeepLink {
+    private static let webBase = URL(string: "https://kkommorning-v2.vercel.app")!
+    private static let allowed: Set<String> = ["/calendar", "/diary", "/letters"]
+    private static weak var webView: WKWebView?
+    private static var pendingPath: String?
+
+    static func attach(_ readyWebView: WKWebView) {
+        webView = readyWebView
+        guard let path = pendingPath else { return }
+        pendingPath = nil
+        go(path)
+    }
+
+    static func open(_ raw: String?) {
+        guard let path = path(from: raw) else { return }
+        DispatchQueue.main.async {
+            guard webView != nil else { pendingPath = path; return }
+            go(path)
+        }
+    }
+
+    // 상대 경로 또는 WEB_BASE와 같은 출처만. 쿼리는 아는 이름과 모양으로 다시 만든다.
+    static func path(from raw: String?) -> String? {
+        guard let raw = raw, !raw.isEmpty, let parts = URLComponents(string: raw) else { return nil }
+        if parts.scheme != nil {
+            guard parts.scheme == webBase.scheme,
+                  parts.host == webBase.host,
+                  parts.port == webBase.port,
+                  parts.user == nil,
+                  parts.password == nil else { return nil }
+        } else {
+            guard raw.hasPrefix("/"), !raw.hasPrefix("//"), parts.host == nil else { return nil }
+        }
+        guard parts.fragment == nil || parts.fragment?.isEmpty == true else { return nil }
+        let page = parts.path.isEmpty ? "/" : parts.path
+        guard allowed.contains(page) else { return nil }
+
+        var date: String?
+        var event: String?
+        var who: String?
+        for item in parts.queryItems ?? [] {
+            switch item.name {
+            case "date":
+                guard date == nil, let value = item.value,
+                      value.count == 10,
+                      value.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil else { return nil }
+                date = value
+            case "event":
+                guard event == nil, let value = item.value,
+                      !value.isEmpty, value.count <= 64,
+                      value.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") }) else { return nil }
+                event = value
+            case "who":   // 꼼이어리 ♥·한마디 — 누구 장인지(상대 장에 단 답글 알림이면 상대 장을 열어야 한다)
+                guard who == nil, let value = item.value, value == "udaeng" || value == "kkomi" else { return nil }
+                who = value
+            default:
+                continue
+            }
+        }
+        var safe: [String] = []
+        if let date = date { safe.append("date=\(date)") }
+        if let event = event { safe.append("event=\(event)") }
+        if let who = who { safe.append("who=\(who)") }
+        return safe.isEmpty ? page : "\(page)?\(safe.joined(separator: "&"))"
+    }
+
+    private static func go(_ path: String) {
+        guard let webView = webView, let url = URL(string: path, relativeTo: webBase)?.absoluteURL else { return }
+        webView.load(URLRequest(url: url))
     }
 }
 

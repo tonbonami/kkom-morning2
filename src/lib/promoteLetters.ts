@@ -90,7 +90,7 @@ export async function promotePendingLetters(): Promise<{ total: number; sent: nu
     const channels: string[] = [];
     // 1) 네이티브 APNs 우선 (둘 다 APNs만 씀). sender→NSE 아바타.
     try {
-      if (await sendApns(keyForName(to), title, bodyText, { sender: from, threadId: 'letters' })) channels.push('apns');
+      if (await sendApns(keyForName(to), title, bodyText, { sender: from, threadId: 'letters', url: '/letters' })) channels.push('apns');
     } catch { /* noop */ }
     // 2) 웹푸시는 구독 있을 때만 병행
     try {

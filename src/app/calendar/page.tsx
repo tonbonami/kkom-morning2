@@ -4,7 +4,7 @@
 // 색: 꼼이(로즈) / 우댕(블루) / 함께(보라). 알림: 1일·1주일 전 아침 8시(cron).
 // Gemini UX: 월뷰에선 개별 일정 탭 X → 날짜 칸 탭하면 그날 일정 바텀시트.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Bell, MapPin, Loader2 } from 'lucide-react';
@@ -36,6 +36,8 @@ export default function CalendarPage() {
   const router = useRouter();
   const [me, setMe] = useState<'우댕' | '꼼이' | ''>('');
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [calendarReady, setCalendarReady] = useState(false);
+  const deepLinkDone = useRef(false);
 
   const today = todayYmd();
   const t = parseYmd(today);
@@ -50,9 +52,34 @@ export default function CalendarPage() {
     const userStr = localStorage.getItem('kkom-user');
     if (!userStr) { router.push('/login'); return; }
     setMe(nameFromCode(JSON.parse(userStr).로그인코드) as '우댕' | '꼼이');
-    const unsub = subscribeCalendar(setEvents);
+    const unsub = subscribeCalendar((next) => { setEvents(next); setCalendarReady(true); });
     return () => unsub();
   }, [router]);
+
+  // 알림·꼼톡 카드의 date/event를 구독 목록이 준비된 뒤 한 번만 연다.
+  // event가 남아 있으면 일정의 실제 시작일이 이긴다. 지워졌으면 date, date도 없으면 오늘을 연다.
+  useEffect(() => {
+    if (!calendarReady || deepLinkDone.current) return;
+    deepLinkDone.current = true;
+
+    const q = new URLSearchParams(window.location.search);
+    const rawDate = q.get('date');
+    const rawEvent = q.get('event');
+    const date = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null;
+    const eventId = rawEvent && /^[A-Za-z0-9_-]{1,64}$/.test(rawEvent) ? rawEvent : null;
+    if (!date && !eventId) return;
+
+    const event = eventId ? events.find((item) => item.id === eventId) : null;
+    const targetDate = event?.startDate || date || today;
+    const target = parseYmd(targetDate);
+    setYear(target.y);
+    setMonth(target.m);
+    setDaySheet(targetDate);
+    // date·event 만 지운다(에뮬레이터 ?emu=1&as=… 같은 다른 쿼리는 남긴다).
+    q.delete('date'); q.delete('event');
+    const rest = q.toString();
+    router.replace(rest ? `/calendar?${rest}` : '/calendar', { scroll: false });
+  }, [calendarReady, events, router, today]);
 
   const weeks = useMemo(() => buildMonthGrid(year, month, events), [year, month, events]);
   const upcoming = useMemo(() => upcomingEvents(events, 15), [events]);

@@ -23,5 +23,22 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(self.clients.openWindow(event.notification.data || '/'));
+  const raw = event.notification.data || '/';
+  let target = '/';
+  try {
+    const url = new URL(raw, self.location.origin);
+    if (url.origin === self.location.origin) target = `${url.pathname}${url.search}`;
+  } catch (_) {}
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windows) => {
+      const opened = windows[0];
+      if (opened) {
+        // 이 서비스워커가 맡지 않은 창이면 navigate 가 실패한다 → 그때는 새 창으로(주소를 잃지 않게).
+        const moved = 'navigate' in opened ? await opened.navigate(target).catch(() => null) : null;
+        if (moved) return moved.focus();
+      }
+      return self.clients.openWindow(target);
+    })
+  );
 });

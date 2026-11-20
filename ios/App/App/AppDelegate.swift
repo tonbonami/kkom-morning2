@@ -10,7 +10,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         AppLock.shared.showCover()   // 콘텐츠 보이기 전 커버
-        // UN delegate·포그라운드 배너는 PushManager가 담당(웹뷰 로드 후 잡아야 Capacitor에 안 덮임)
+        // 알림으로 콜드 스타트할 때 본문 탭을 놓치지 않게 런치 전에 먼저 잡는다.
+        // Capacitor 로드 후 register()가 다시 잡으므로 포그라운드 배너 정책도 기존과 같다.
+        UNUserNotificationCenter.current().delegate = PushManager.shared
         return true
     }
 
