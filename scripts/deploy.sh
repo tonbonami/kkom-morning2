@@ -42,17 +42,25 @@ xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" \
   -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
   clean archive
 
-# ── 익스포트 + TestFlight 업로드 ──
-echo "▶ TestFlight 업로드"
+# ── 익스포트(IPA) → API 키로 TestFlight 업로드 ──
+# ⚠️ 11/21 빌드 69: exportArchive 의 destination=upload 가 「Account credentials have expired」(Xcode 계정 로그인 만료)로 실패.
+#    API 키를 줘도 Xcode 계정을 쓰려 해서다 → IPA 로 내보낸 뒤 altool 이 API 키로 올린다(로그인 필요 없음).
+echo "▶ IPA 내보내기"
 rm -rf "$EXPORT"
+LOCAL_OPTS="$(mktemp -t ExportLocal).plist"
+sed 's|<string>upload</string>|<string>export</string>|' ios/ExportOptions.plist > "$LOCAL_OPTS"
 xcodebuild -exportArchive \
   -archivePath "$ARCHIVE" \
   -exportPath "$EXPORT" \
-  -exportOptionsPlist ios/ExportOptions.plist \
+  -exportOptionsPlist "$LOCAL_OPTS" \
   -allowProvisioningUpdates \
   -authenticationKeyPath "$P8" \
   -authenticationKeyID "$ASC_KEY_ID" \
   -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+rm -f "$LOCAL_OPTS"
+
+echo "▶ TestFlight 업로드"
+xcrun altool --upload-app --type ios -f "$EXPORT/App.ipa" --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
 
 echo ""
 echo "✅ build ${NEXT} 업로드 완료 → App Store Connect 처리(몇 분) 후 TestFlight에 뜸"
