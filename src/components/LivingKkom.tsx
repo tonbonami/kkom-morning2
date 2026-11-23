@@ -1,13 +1,13 @@
 'use client';
 
 // 살아있는 꼼이 — 홈 최상단 마스코트. ① 기분 비추기 ② 쓰다듬기(하트) ③ 선물함(두고 가기).
-//   ⚠️ 절대 다그치지 않음(오늘의 조각 철학). 선물함 UI는 Gemini 디자인 스펙 이식(수정0).
+//   ⚠️ 절대 다그치지 않음(오늘의 조각 철학). 선물함 UI는 사이담의 위 탭 + 바둑판 시안을 이식.
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useAnimationControls, useReducedMotion } from 'framer-motion';
 import { isTogetherNow, serverNow, type Presence } from '@/lib/presence';
 import { throwHeart } from '@/lib/liveHearts';
-import { giveGifts, giftSummary, subscribeGifts, clearGifts, giftsFor, giftById, giftImg, GIFT_STORAGES, MAX_GIFTS, type Gift, type GiftCat } from '@/lib/gifts';
+import { giveGifts, giftSummary, subscribeGifts, clearGifts, giftsFor, giftById, giftImg, GIFT_STORAGES, MAX_GIFTS, giftPicksFor, type Gift, type GiftCat } from '@/lib/gifts';
 
 const V = 4;
 const emo = (name: string) => `/emo/sai-anim/${name}.webp?v=${V}`;
@@ -50,8 +50,8 @@ export default function LivingKkom({ presence, partner, me, tick }: {
   const [incoming, setIncoming] = useState<Gift[]>([]);
   useEffect(() => (me ? subscribeGifts(me, setIncoming) : undefined), [me]);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [activeStorage, setActiveStorage] = useState<GiftCat | null>(null);   // 어느 수납장(냉장고/서랍/쿠폰/보물상자)을 연 상태인지
-  // 고른 소품 — 최대 3개, 같은 걸 여러 번 담을 수 있다(인형 3개). 수납장을 오가도 유지된다.
+  const [tab, setTab] = useState<GiftCat | 'picks'>('picks');
+  // 고른 소품 — 최대 3개, 같은 걸 여러 번 담을 수 있다(인형 3개). 칸을 오가도 유지된다.
   const [picks, setPicks] = useState<string[]>([]);
   const [fullHint, setFullHint] = useState(false);
   const addPick = (id: string) => {
@@ -59,7 +59,7 @@ export default function LivingKkom({ presence, partner, me, tick }: {
     setPicks((p) => [...p, id]);
   };
   const removePickAt = (i: number) => setPicks((p) => p.filter((_, k) => k !== i));
-  const closeSheet = () => { setSheetOpen(false); setActiveStorage(null); setPicks([]); };
+  const closeSheet = () => { setSheetOpen(false); setTab('picks'); setPicks([]); };
   const [flying, setFlying] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   // 오버레이를 body로 portal(아래 이유). SSR 하이드레이션 후에만.
@@ -127,7 +127,7 @@ export default function LivingKkom({ presence, partner, me, tick }: {
     if (!picks.length || !me) return;
     const summary = giftSummary(picks);
     const lastMsg = giftById(picks[picks.length - 1])?.msg ?? '';   // 받는 쪽 캡션도 '가장 최근(마지막)' 것
-    setSheetOpen(false); setActiveStorage(null);
+    setSheetOpen(false); setTab('picks');
     setFlying(picks.map(giftImg));
     setTimeout(() => setFlying([]), 1000);
     setToast(`${summary} 두고 왔어 🐾${lastMsg ? ` · ${lastMsg}` : ''}`);
@@ -144,6 +144,13 @@ export default function LivingKkom({ presence, partner, me, tick }: {
   const receive = () => { if (me) void clearGifts(me); setIncoming([]); };
 
   const items = giftsFor(partner);   // 상대가 받을 수 있는 소품(공통 + 상대 최애)
+  const tabs: { id: GiftCat | 'picks'; title: string }[] = [
+    { id: 'picks', title: '추천' },
+    ...GIFT_STORAGES.filter((storage) => items.some((item) => item.cat === storage.id)),
+  ];
+  const shown = tab === 'picks'
+    ? giftPicksFor(partner).map((id) => items.find((item) => item.id === id)).filter((item): item is NonNullable<typeof item> => !!item)
+    : items.filter((item) => item.cat === tab);
   const latest = incoming.length ? incoming[incoming.length - 1] : null;   // 가장 최근 선물
   const inGift = latest ? giftById(latest.item) : null;   // 캡션(메시지)은 이 최근 것만
 
@@ -235,83 +242,60 @@ export default function LivingKkom({ presence, partner, me, tick }: {
           portal로 컨텍스트를 탈출시켜야 z-index가 전역에서 먹힌다. */}
       {mounted && createPortal(
         <>
-          {/* 선물함 — 수납장 컨셉(🧊냉장고·🗄️서랍·🎟️쿠폰·👑보물상자) 리디자인. 제미나이 스펙 이식 */}
+          {/* 선물함 — 위 칸 탭 + 소품 바둑판 + 바구니(사이담 2026-11-22 개편). */}
           <AnimatePresence>
             {sheetOpen && (
               <>
                 <motion.div className="fixed inset-0 z-[80] bg-black/30"
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeSheet} />
                 <motion.div
-                  className="fixed inset-x-0 bottom-0 z-[81] flex h-[74vh] flex-col overflow-hidden rounded-t-[28px] border-t border-white/60 bg-white/90 backdrop-blur-xl"
+                  className="fixed inset-x-0 bottom-0 z-[81] mx-auto flex h-[74vh] max-w-[480px] flex-col overflow-hidden rounded-t-[28px] border-t border-white/60 bg-white/90 backdrop-blur-xl"
                   initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 360, damping: 36 }}>
                   <div className="mx-auto mt-3 h-1.5 w-12 shrink-0 rounded-full" style={{ background: 'var(--sd-faint)' }} />
                   <div className="relative flex-1 overflow-hidden">
-                    <AnimatePresence mode="wait">
-                      {!activeStorage ? (
-                        /* ① 수납장 고르기 */
-                        <motion.div key="menu"
-                          initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.22 }}
-                          className={`h-full overflow-y-auto px-5 pt-2 ${picks.length ? 'pb-56' : 'pb-8'}`}>
-                          <div className="mb-4 text-center">
-                            <div className="text-[17px] font-extrabold" style={{ color: 'var(--sd-ink)' }}>선물함 🎁</div>
-                            <div className="mt-0.5 text-[12.5px]" style={{ color: 'var(--sd-muted)' }}>{subjName(partner)}에게 뭘 두고 갈까? 한 번에 {MAX_GIFTS}개까지 · 같은 것도 여러 개</div>
-                          </div>
-                          <div className="flex flex-col gap-3">
-                            {GIFT_STORAGES.map((s) => {
-                              const n = items.filter((i) => i.cat === s.id).length;
-                              if (!n) return null;
-                              return (
-                                <button key={s.id} onClick={() => setActiveStorage(s.id)}
-                                  className="flex items-center gap-4 rounded-[22px] border border-black/5 bg-white px-5 py-4 text-left shadow-sm transition active:scale-[0.98]">
-                                  <span className="text-[30px] leading-none">{s.icon}</span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block text-[16px] font-bold" style={{ color: 'var(--sd-ink)' }}>{s.title}</span>
-                                    <span className="block text-[12px]" style={{ color: 'var(--sd-muted)' }}>{n}가지</span>
-                                  </span>
-                                  <span className="text-[15px]" style={{ color: 'var(--sd-faint)' }}>❯</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </motion.div>
-                      ) : (
-                        /* ② 수납장 안(선반) + ③ 선택 */
-                        <motion.div key="detail"
-                          initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.22 }}
-                          className="relative flex h-full flex-col">
-                          <div className="flex shrink-0 items-center gap-2 px-4 pb-2">
-                            <button onClick={() => setActiveStorage(null)} aria-label="수납장 목록으로"
-                              className="grid h-9 w-9 place-items-center rounded-full bg-black/5 text-[15px] active:scale-90" style={{ color: 'var(--sd-ink)' }}>❮</button>
-                            <div className="text-[16px] font-extrabold" style={{ color: 'var(--sd-ink)' }}>
-                              {GIFT_STORAGES.find((s) => s.id === activeStorage)?.icon} {GIFT_STORAGES.find((s) => s.id === activeStorage)?.title}
-                            </div>
-                          </div>
-                          <div className="flex-1 overflow-y-auto px-5 pb-56 pt-4">
-                            <div className="grid grid-cols-3 gap-x-3 gap-y-9">
-                              {items.filter((i) => i.cat === activeStorage).map((it) => {
-                                const count = picks.filter((p) => p === it.id).length;
-                                return (
-                                  <div key={it.id} className="relative flex flex-col items-center">
-                                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => addPick(it.id)}
-                                      aria-label={count ? `${it.label} ${count}개 담음 — 하나 더 담기` : `${it.label} 담기`}
-                                      className={`relative grid aspect-square w-full place-items-center rounded-[20px] transition ${count ? 'bg-[#FB7BA8]/10 ring-2 ring-[#FB7BA8]' : 'border border-black/5 bg-white shadow-sm'}`}>
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img src={giftImg(it.id)} alt="" className="h-[84%] w-[84%] object-contain" />
-                                      {count > 0 && (
-                                        <span className="absolute -right-1.5 -top-1.5 grid h-6 min-w-6 place-items-center rounded-full bg-[#FB7BA8] px-1 text-[13px] font-extrabold text-white shadow-sm">{count}</span>
-                                      )}
-                                    </motion.button>
-                                    <span className="mt-1.5 text-[11px] font-medium" style={{ color: 'var(--sd-muted)' }}>{it.label}</span>
-                                    {/* 유리 선반 느낌의 얇은 가로선 */}
-                                    <div className="pointer-events-none absolute -bottom-4 left-[-8%] h-px w-[116%]" style={{ background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.10), transparent)' }} />
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    {/* 칸 6개를 두 단계로 열지 않고, 위 가로 탭과 아래 3열 바둑판으로 한 화면에 보인다. */}
+                    <div className="flex h-full flex-col">
+                      <div className="shrink-0 px-5 pt-2 text-center">
+                        <div className="text-[17px] font-extrabold" style={{ color: 'var(--sd-ink)' }}>선물함 🎁</div>
+                        <div className="mt-0.5 text-[12.5px]" style={{ color: 'var(--sd-muted)' }}>
+                          {subjName(partner)}에게 뭘 두고 갈까? 한 번에 {MAX_GIFTS}개까지 · 같은 것도 여러 개
+                        </div>
+                      </div>
+                      <div className="mt-3 flex shrink-0 gap-2 overflow-x-auto px-5 pb-1" role="tablist" style={{ scrollbarWidth: 'none' }}>
+                        {tabs.map((item) => {
+                          const selected = item.id === tab;
+                          return (
+                            <button key={item.id} role="tab" aria-selected={selected} onClick={() => setTab(item.id)}
+                              className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13.5px] font-bold transition active:scale-95 ${selected ? 'border-[#2E1D26] bg-[#2E1D26] text-white' : 'border-black/5 bg-white text-[#6E5457]'}`}>
+                              {item.title}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className={`flex-1 overflow-y-auto px-5 pt-5 ${picks.length ? 'pb-56' : 'pb-10'}`}>
+                        <div className="grid grid-cols-3 gap-x-3 gap-y-9">
+                          {shown.map((item) => {
+                            const count = picks.filter((pick) => pick === item.id).length;
+                            return (
+                              <div key={item.id} className="relative flex flex-col items-center">
+                                <motion.button whileTap={{ scale: 0.9 }} onClick={() => addPick(item.id)}
+                                  aria-label={count ? `${item.label} ${count}개 담음 — 하나 더 담기` : `${item.label} 담기`}
+                                  className={`relative grid aspect-square w-full place-items-center rounded-[20px] transition ${count ? 'bg-[#FB7BA8]/10 ring-2 ring-[#FB7BA8]' : 'bg-white shadow-[0_1px_3px_rgba(0,0,0,.06)]'}`}>
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={giftImg(item.id)} alt="" className="h-[84%] w-[84%] object-contain" draggable={false} />
+                                  {count > 0 && (
+                                    <span className="absolute -right-1.5 -top-1.5 grid h-6 min-w-6 place-items-center rounded-full bg-[#FB7BA8] px-1 text-[13px] font-extrabold text-white shadow-sm">{count}</span>
+                                  )}
+                                </motion.button>
+                                <span className="mt-1.5 text-center text-[11px] font-medium leading-tight" style={{ color: 'var(--sd-muted)' }}>{item.label}</span>
+                                <div className="pointer-events-none absolute -bottom-4 left-[-8%] h-px w-[116%]"
+                                  style={{ background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.10), transparent)', opacity: 0.45 }} />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
 
                     {/* 바구니 — 담은 것(최대 3칸, 같은 것 여러 번 가능) + 두고 오기. 수납장 목록·선반 어디서든 보인다.
                         칸을 누르면 하나씩 빠진다. */}
