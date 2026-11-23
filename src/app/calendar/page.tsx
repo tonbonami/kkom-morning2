@@ -1,6 +1,6 @@
 'use client';
 
-// 커플 공유 캘린더 — 월뷰 + 멀티데이 선형 바 + 날짜 탭 바텀시트 + 추가/편집 모달.
+// 커플 공유 캘린더 — 월뷰 일정 제목 띠 + 날짜 탭 바텀시트 + 추가/편집 모달.
 // 색: 꼼이(로즈) / 우댕(블루) / 함께(보라). 알림: 1일·1주일 전 아침 8시(cron).
 // Gemini UX: 월뷰에선 개별 일정 탭 X → 날짜 칸 탭하면 그날 일정 바텀시트.
 
@@ -13,15 +13,16 @@ import {
   OWNER_META, type CalendarEvent, type EventOwner,
 } from '@/lib/calendar';
 import {
-  buildMonthGrid, todayYmd, eventsOnDate, singleDayEventsOn, parseYmd, upcomingEvents, shortDateLabel,
+  buildMonthGrid, todayYmd, eventsOnDate, parseYmd, upcomingEvents, shortDateLabel,
   type UpcomingEvent,
 } from '@/lib/calendarLayout';
 import { nameFromCode } from '@/lib/letters';
 import { feedback } from '@/lib/feedback';
 import { holidayName } from '@/lib/holidays';
+import { EventTitleBand } from '@/components/calendar/EventTitleBand';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
-const DOT_SHAPE: Record<EventOwner, string> = { udaeng: 'rounded-full', kkomi: 'rotate-45 rounded-[2px]', together: 'rounded-full' };
+const MAX_DAY_BANDS = 2;
 
 function fmtRange(e: CalendarEvent): string {
   const s = parseYmd(e.startDate);
@@ -154,24 +155,20 @@ export default function CalendarPage() {
         {/* 캘린더 그리드 — 흰 컨테이너 + 점선 모눈 (다이어리 속지 톤) */}
         <div className="rounded-3xl bg-white border border-slate-100 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-1.5">
           {weeks.map((week, wi) => {
-            const visibleBars = week.bars.filter((b) => b.slot < 2); // 최대 2슬롯
-            const overflowByCol: Record<number, number> = {};
-            week.bars.filter((b) => b.slot >= 2).forEach((b) => {
-              for (let c = b.colStart; c < b.colStart + b.span; c++) overflowByCol[c] = (overflowByCol[c] || 0) + 1;
-            });
             return (
               <div key={wi} className={`relative grid grid-cols-7 ${wi > 0 ? 'border-t border-dashed border-slate-200/70' : ''}`} style={{ minHeight: 82 }}>
                 {/* 날짜 칸 (탭 타겟) */}
                 {week.cells.map((cell, ci) => {
-                  const singles = singleDayEventsOn(cell.date, events);
-                  const ov = overflowByCol[ci] || 0;
+                  const dayEvents = eventsOnDate(cell.date, events);
+                  const visibleEvents = dayEvents.slice(0, MAX_DAY_BANDS);
+                  const more = dayEvents.length - visibleEvents.length;
                   const hol = holidayName(cell.date);
                   const isSun = ci === 0;
                   return (
                     <button
                       key={cell.date}
                       onClick={() => setDaySheet(cell.date)}
-                      className={`relative flex flex-col items-center pt-1.5 ${ci > 0 ? 'border-l border-dashed border-slate-200/70' : ''} active:bg-purple-50/50 transition-colors ${!cell.inMonth ? 'opacity-40' : ''}`}
+                      className={`relative min-w-0 overflow-hidden flex flex-col items-center pt-1.5 ${ci > 0 ? 'border-l border-dashed border-slate-200/70' : ''} active:bg-purple-50/50 transition-colors ${!cell.inMonth ? 'opacity-40' : ''}`}
                     >
                       <span className={`text-[12px] font-bold w-6 h-6 flex items-center justify-center rounded-full z-10 ${
                         cell.isToday ? 'bg-emerald-500 text-white shadow-sm' : !cell.inMonth ? 'text-slate-300' : (hol || isSun) ? 'text-rose-500' : 'text-slate-700'
@@ -180,42 +177,24 @@ export default function CalendarPage() {
                       {hol && cell.inMonth && (
                         <span className="max-w-full px-0.5 -mt-0.5 text-[8px] font-black text-rose-500 leading-none truncate z-10">{hol}</span>
                       )}
-                      {/* 하루짜리 점 — 날짜 숫자 바로 아래 */}
-                      {singles.length > 0 && (
-                        <span className="flex gap-0.5 mt-1 z-10">
-                          {singles.slice(0, 4).map((e) => (
-                            <span key={e.id} className={`w-1.5 h-1.5 ${OWNER_META[e.owner].dot} ${DOT_SHAPE[e.owner]} shadow-sm`} />
+                      {/* 일정 제목 띠 — 여러 날 일정도 걸치는 날짜마다 같은 모양으로 표시한다. */}
+                      {visibleEvents.length > 0 && (
+                        <div className="w-full min-w-0 mt-1 px-0.5 space-y-px z-10">
+                          {visibleEvents.map((event) => (
+                            <EventTitleBand
+                              key={event.id}
+                              owner={event.owner}
+                              title={event.title}
+                              className="w-full h-[14px] pl-0.5 pr-px"
+                              textClassName="text-[10px] font-bold"
+                            />
                           ))}
-                        </span>
-                      )}
-                      {ov > 0 && (
-                        <span className="absolute bottom-0.5 right-1 text-[8px] font-black text-slate-400">+{ov}</span>
+                          {more > 0 && (
+                            <div className="pr-0.5 text-right text-[8px] leading-[9px] font-black text-slate-400">+{more}</div>
+                          )}
+                        </div>
                       )}
                     </button>
-                  );
-                })}
-
-                {/* 멀티데이 선형 바 — 솔리드 채움 + 시작쪽 왼쪽 액센트 (구글캘린더 톤) */}
-                {visibleBars.map((bar, bi) => {
-                  const meta = OWNER_META[bar.event.owner];
-                  return (
-                    <div
-                      key={`${bar.event.id}-${bi}`}
-                      className="absolute pointer-events-none"
-                      style={{
-                        top: 44 + bar.slot * 17,
-                        left: `calc(${(bar.colStart / 7) * 100}% + 2px)`,
-                        width: `calc(${(bar.span / 7) * 100}% - 4px)`,
-                      }}
-                    >
-                      <div className={`h-[16px] flex items-center pr-1 shadow-sm ${meta.barFill} ${
-                        bar.continuesLeft ? 'rounded-l-none pl-1' : `rounded-l-md border-l-[3px] pl-1 ${meta.barAccent}`
-                      } ${bar.continuesRight ? 'rounded-r-none' : 'rounded-r-md'}`}>
-                        <span className={`text-[9px] font-black truncate ${meta.barText}`}>
-                          {bar.continuesLeft ? '↳ ' : ''}{bar.event.title}
-                        </span>
-                      </div>
-                    </div>
                   );
                 })}
               </div>

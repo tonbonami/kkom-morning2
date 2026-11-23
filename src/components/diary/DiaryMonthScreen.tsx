@@ -31,7 +31,7 @@ import {
 } from '@/lib/diaryTypes';
 import { DiaryMonthCell } from './DiaryMonthCell';
 import { DiaryDecor } from './DiaryDecor';
-import { EVENT_OWNER_STYLE } from './DiaryEventStyle';
+import { EventTitleBand, EVENT_OWNER_STYLE } from '@/components/calendar/EventTitleBand';
 
 export interface DiaryMonthScreenProps {
   me: Person;
@@ -366,12 +366,12 @@ export function DiaryMonthScreen({
         )}
 
         <div
-          className="relative rounded-2xl bg-[var(--sd-card-solid)] border border-[var(--sd-line)] shadow-sm overflow-hidden p-2"
+          className={`relative rounded-2xl bg-[var(--sd-card-solid)] border border-[var(--sd-line)] shadow-sm overflow-hidden ${wide ? 'p-2' : 'p-1.5'}`}
           onTouchStart={onGridTouchStart}
           onTouchEnd={onGridTouchEnd}
           onTouchCancel={() => { swipeRef.current = null; }}
         >
-          <div className="absolute left-1 top-4 bottom-4 flex flex-col justify-between pointer-events-none z-10">
+          <div className={`absolute ${wide ? 'left-1' : 'left-0.5'} top-4 bottom-4 flex flex-col justify-between pointer-events-none z-10`}>
             {[0, 1, 2, 3].map((i) => (
               <span
                 key={i}
@@ -380,7 +380,7 @@ export function DiaryMonthScreen({
             ))}
           </div>
 
-          <div className="pl-2">
+          <div className={wide ? 'pl-2' : undefined}>
             <div className={`grid grid-cols-7 mb-1 text-center ${big ? 'text-[13px]' : 'text-[11px]'} text-[var(--sd-faint)]`}>
               <span className="text-[var(--sd-rel)] font-medium">일</span>
               <span>월</span>
@@ -402,13 +402,46 @@ export function DiaryMonthScreen({
                       const widthCalc = `calc(${(b.span / 7) * 100}% - 4px)`;
                       const topPx = bandTop + b.row * bandStep;   // DiaryMonthCell 의 날짜 줄(20, 넓은 칸 24) 밑, 줄마다 15(띠 14 + 틈 1) · 넓은 칸 18(17 + 1)
                       const isEvent = b.kind === 'event';
-                      const ownerStyle = isEvent
-                        ? EVENT_OWNER_STYLE[b.owner || 'together']
-                        : null;
-
                       const cornerClasses = `${
                         b.continuesLeft || b.kind === 'event' ? 'rounded-l-none' : 'rounded-l-sm'
                       } ${b.continuesRight ? 'rounded-r-none' : 'rounded-r-sm'}`;
+
+                      if (isEvent) {
+                        return (
+                          <EventTitleBand
+                            key={b.key}
+                            owner={b.owner || 'together'}
+                            title={b.label}
+                            showTitle={b.showLabel && !!b.label}
+                            roundLeft={false}
+                            roundRight={!b.continuesRight}
+                            onClick={(e) => {
+                              if (!isDecorate) {
+                                e.stopPropagation();
+                                onTapBand(b.id, 'event');
+                              }
+                            }}
+                            style={{
+                              left: leftCalc,
+                              width: widthCalc,
+                              top: `${topPx}px`,
+                              height: bandH,
+                            }}
+                            className={`absolute ${b.span === 1 ? 'px-[3px]' : 'px-1'} select-none ${
+                              isDecorate
+                                ? 'opacity-40 pointer-events-none'
+                                : 'cursor-pointer active:opacity-80 z-20'
+                            }`}
+                            textClassName={`${big ? 'text-[11.5px]' : 'text-[9.5px]'} font-medium`}
+                          >
+                            {b.decorId && (
+                              <div className="absolute inset-0 opacity-40 overflow-hidden pointer-events-none">
+                                <DiaryDecor decorId={b.decorId} />
+                              </div>
+                            )}
+                          </EventTitleBand>
+                        );
+                      }
 
                       return (
                         <div
@@ -427,48 +460,20 @@ export function DiaryMonthScreen({
                             width: widthCalc,
                             top: `${topPx}px`,
                             height: bandH,
-                            backgroundColor: ownerStyle ? ownerStyle.band : undefined,
-                            borderLeftColor: ownerStyle ? ownerStyle.dot : undefined,
                           }}
                           className={`absolute overflow-hidden ${b.span === 1 ? 'px-[3px]' : 'px-1'} flex items-center select-none ${cornerClasses} ${
-                            isEvent
-                              ? `border-l-[2.5px] ${
-                                  isDecorate
-                                    ? 'opacity-40 pointer-events-none'
-                                    : 'cursor-pointer active:opacity-80 z-20'
-                                }`
-                              : isDecorate
+                            isDecorate
                               ? 'cursor-pointer active:opacity-75 z-20'
                               : 'pointer-events-none'
                           }`}
                         >
-                          {isEvent ? (
-                            <>
-                              {b.decorId && (
-                                <div className="absolute inset-0 opacity-40 overflow-hidden pointer-events-none">
-                                  <DiaryDecor decorId={b.decorId} />
-                                </div>
-                              )}
-                              {b.showLabel && b.label && (
-                                <span
-                                  style={{ color: ownerStyle?.text }}
-                                  className={`relative z-10 ${big ? 'text-[11.5px]' : 'text-[9.5px]'} font-medium truncate leading-none`}
-                                >
-                                  {b.label}
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              <div className="absolute inset-0 opacity-80 pointer-events-none">
-                                <DiaryDecor decorId={b.decorId ?? 'tape-honey'} />
-                              </div>
-                              {b.showLabel && b.label && (
-                                <span className={`relative z-10 ${big ? 'text-[11.5px]' : 'text-[9.5px]'} text-[var(--sd-ink)] font-medium truncate leading-none`}>
-                                  {b.label}
-                                </span>
-                              )}
-                            </>
+                          <div className="absolute inset-0 opacity-80 pointer-events-none">
+                            <DiaryDecor decorId={b.decorId ?? 'tape-honey'} />
+                          </div>
+                          {b.showLabel && b.label && (
+                            <span className={`relative z-10 ${big ? 'text-[11.5px]' : 'text-[9.5px]'} text-[var(--sd-ink)] font-medium truncate leading-none`}>
+                              {b.label}
+                            </span>
                           )}
                         </div>
                       );
