@@ -154,6 +154,9 @@ export const SAI_STICKERS: { word: string; image: string }[] = [
   { word: '약속!', image: '/emo/sai/yaksok.webp' }, // 하트 카드에 발바닥 도장 — 글 속 (약속)과 같은 그림(art/yaksok)
   { word: '꼼돌아', image: '/emo/sai/kkomdol.webp' }, // 꼼이가 우댕을 부름 — 꿀됑 「꼼슌아」를 좌우로 뒤집은 짝(art/kkom-call A안, 우댕 OK 2026-10-30)
   { word: '추워', image: '/emo/sai/cold.webp' },   // 웅크려 떠는 꼼이(파란 반다나) — 사이담 sai_cold 그림 그대로(우댕 「사이담에 있는 추워, 꼼모닝에도」 2026-11-10)
+  // 옆머리에 분홍 앞머리 찍찍이 붙인 채 아무렇지 않게 지하철 손잡이 — 장면 카드(배경 있는 둥근 320, 글자 없음).
+  //   Codex 그림, 원본 art/kkomi-subway(scene-v2 — 찍찍이 반 길이로 왼쪽 귀 위, 리본은 오른쪽 귀). 우댕 「올려」→ 이모티콘 서랍 2026-11-23
+  { word: '출근길', image: '/emo/sai/velcro-subway.webp' },
 ];
 
 // 꽉이 탭 — 사이담 오리 「꽉이」 12종 그대로(우댕 2026-11-19 「꽉이 이모티콘도 전부 우리걸로 가져다 줘」).
