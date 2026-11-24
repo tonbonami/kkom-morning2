@@ -1685,13 +1685,17 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   const handleSave = async (url: string, kind: 'image' | 'video') => {
     if (savingUrl) return;
     setSavingUrl(url);
-    try { const msg = saveToastText(await saveMedia(url, kind), kind); if (msg) flashToast(msg); } finally { setSavingUrl(null); }
+    try { const msg = saveToastText(await saveMedia(url, kind), kind); if (msg) flashToast(msg); }
+    catch { flashToast('저장하지 못했어요. 잠시 뒤에 다시 해 주세요'); }   // 마지막 안전망 — 풍차가 멈추고 말이라도
+    finally { setSavingUrl(null); }
   };
   // 묶음 사진 「전체 저장」 — 보기 창에 뜬 묶음을 한 번에(우댕 「한번에 저장하기도 안돼」).
   const handleSaveAll = async (urls: string[]) => {
     if (savingUrl || urls.length < 2) return;
     setSavingUrl('__all__');
-    try { const msg = saveToastText(await saveMediaMany(urls.map((url) => ({ url, kind: 'image' as const }))), 'image'); if (msg) flashToast(msg); } finally { setSavingUrl(null); }
+    try { const msg = saveToastText(await saveMediaMany(urls.map((url) => ({ url, kind: 'image' as const }))), 'image'); if (msg) flashToast(msg); }
+    catch { flashToast('저장하지 못했어요. 잠시 뒤에 다시 해 주세요'); }
+    finally { setSavingUrl(null); }
   };
 
   // 확인 창에서 「보내기」 — 한 장은 예전처럼 원본 그대로 메시지 하나, 여러 장은 묶음 메시지 하나(chat.ts sendPhotos).

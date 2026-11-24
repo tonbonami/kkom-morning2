@@ -102,7 +102,9 @@ public class MediaSavePlugin: CAPPlugin, CAPBridgedPlugin {
     /// 한 장 받아서 넣기. 사진은 받은 그대로(원본) 먼저, 사진첩이 그 형식을 못 받으면 JPEG 로 바꿔 한 번 더.
     static func saveOne(_ url: URL, isVideo: Bool) async -> Bool {
         do {
-            let (data, resp) = try await URLSession.shared.data(from: url)
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 20   // 한 장 20초 — 네트워크가 멈춰도 끝나게(GPT 검수 권고, 빌드 71~)
+            let (data, resp) = try await URLSession.shared.data(for: req)
             if let http = resp as? HTTPURLResponse, !(200..<300).contains(http.statusCode) { return false }
             if isVideo {
                 let file = FileManager.default.temporaryDirectory.appendingPathComponent("kkommorning_\(UUID().uuidString).mp4")

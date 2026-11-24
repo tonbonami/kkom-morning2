@@ -19,12 +19,34 @@ export interface SaveResult {
 
 type MediaSavePlugin = { save(o: { items: MediaItem[] }): Promise<{ saved?: number; failed?: number; denied?: boolean }> };
 
-async function nativePlugin(): Promise<MediaSavePlugin | null> {
+// ⚠️ 플러그인 객체(registerPlugin 프록시)를 async 함수에서 **그대로 return 하지 말 것**.
+//    프록시는 아무 이름이나 메서드로 만들어 주는데 'then' 도 예외가 아니라서, Promise 가 이걸 약속(thenable)으로 보고 proxy.then(resolve, reject) 를 부른다.
+//    그 안에서 「MediaSave.then() is not implemented」 오류가 나지만 resolve/reject 는 끝내 불리지 않아 영원히 기다린다
+//    — 빌드 70 첫날 「풍차만 계속 돈다」(11/25)의 원인(GPT 검수 확신 99%, 시뮬에서 웹→앱 직접 호출은 2/2 저장으로 정상).
+//    그래서 플러그인을 꺼내는 곳과 부르는 곳을 한 함수 안에 둔다(꺼낸 객체는 밖으로 안 나감).
+/** 네이티브로 저장. 플러그인이 없는 빌드(≤69)·웹이면 null. 어떤 경우에도 끝나게 시간 제한을 둔다. */
+async function saveNative(items: MediaItem[]): Promise<SaveResult | null> {
+  let plugin: MediaSavePlugin;
   try {
     const { Capacitor, registerPlugin } = await import('@capacitor/core');
     if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable('MediaSave')) return null;
-    return registerPlugin<MediaSavePlugin>('MediaSave');
+    plugin = registerPlugin<MediaSavePlugin>('MediaSave');
   } catch { return null; }
+  // 한 장에 20초 + 권한 창 기다림 60초 — 넘으면 실패로 끝낸다(풍차가 영원히 돌지 않게).
+  const limitMs = 60_000 + items.length * 20_000;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const r = await Promise.race([
+      plugin.save({ items }),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('MediaSave timeout')), limitMs); }),
+    ]);
+    return { via: 'native', saved: r.saved ?? 0, failed: r.failed ?? 0, denied: !!r.denied };
+  } catch (err) {
+    console.error('[MediaSave] failed', err);
+    return { via: 'native', saved: 0, failed: items.length };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 /** 여러 장(묶음 사진 「전체 저장」)·한 장 모두 이걸로. */
@@ -33,15 +55,8 @@ export async function saveMediaMany(items: MediaItem[]): Promise<SaveResult> {
   if (!list.length) return { via: 'cancel', saved: 0, failed: 0 };
 
   // ① 앱 — 네이티브가 직접 받아 사진첩에 넣는다(사파리·공유 시트 없이).
-  const plugin = await nativePlugin();
-  if (plugin) {
-    try {
-      const r = await plugin.save({ items: list });
-      return { via: 'native', saved: r.saved ?? 0, failed: r.failed ?? 0, denied: !!r.denied };
-    } catch {
-      return { via: 'native', saved: 0, failed: list.length };
-    }
-  }
+  const native = await saveNative(list);
+  if (native) return native;
 
   // ② 웹·옛 앱 — 받아서 공유 시트(여러 장이면 한 번에) 또는 다운로드
   let files: File[];

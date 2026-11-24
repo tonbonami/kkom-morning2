@@ -34,18 +34,23 @@ class MainViewController: CAPBridgeViewController {
     // 시뮬레이터 확인용 — `simctl launch … -diaryInkDemo` 면 필기 화면을 견본 획(펜·연필·크레파스·형광펜·지우개)과 함께 바로 띄운다. 출시 빌드엔 없음.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        // 사진첩 바로 저장 시험(-mediaSaveDemo) — 공개 그림 두 장(PNG·WebP)을 MediaSave 와 같은 길로 넣고 결과를 창으로
+        // 사진첩 바로 저장 시험(-mediaSaveDemo) — 웹(자바스크립트)에서 MediaSave 플러그인을 부르는 실제 길로 두 장(PNG·WebP)을 넣고 결과를 창으로.
+        //   웹 쪽 함정(플러그인 객체를 async 에서 return → then 대기)과 별개로, 다리(bridge)·getArray·권한·저장이 끝까지 도는지 본다.
         if ProcessInfo.processInfo.arguments.contains("-mediaSaveDemo"), presentedViewController == nil {
-            let urls = ["https://kkommorning-v2.vercel.app/emo/gifts/cake.png", "https://kkommorning-v2.vercel.app/emo/sai/towork.webp"].compactMap(URL.init(string:))
-            PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-                Task {
-                    var ok = 0
-                    for u in urls { if await MediaSavePlugin.saveOne(u, isVideo: false) { ok += 1 } }
-                    await MainActor.run {
-                        let a = UIAlertController(title: "저장 시험", message: "권한 \(status.rawValue) · \(ok)/\(urls.count)장 저장", preferredStyle: .alert)
-                        a.addAction(UIAlertAction(title: "확인", style: .default))
-                        self.present(a, animated: true)
-                    }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+                guard let self = self, let web = self.bridge?.webView else { return }
+                let js = """
+                const items = [{url:'https://kkommorning-v2.vercel.app/emo/gifts/cake.png',kind:'image'},{url:'https://kkommorning-v2.vercel.app/emo/sai/towork.webp',kind:'image'}];
+                const p = window.Capacitor.Plugins.MediaSave.save({ items });
+                const t = new Promise((_, rej) => setTimeout(() => rej(new Error('30초 안에 안 끝남')), 30000));
+                try { return JSON.stringify(await Promise.race([p, t])); } catch (e) { return '오류: ' + e.message; }
+                """
+                web.callAsyncJavaScript(js, arguments: [:], in: nil, in: .page) { result in
+                    let text: String
+                    switch result { case .success(let v): text = "\(v)"; case .failure(let e): text = "JS 실패: \(e.localizedDescription)" }
+                    let a = UIAlertController(title: "저장 시험(웹 → 앱)", message: text, preferredStyle: .alert)
+                    a.addAction(UIAlertAction(title: "확인", style: .default))
+                    self.present(a, animated: true)
                 }
             }
             return
