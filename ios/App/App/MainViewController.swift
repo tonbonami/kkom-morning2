@@ -5,6 +5,7 @@ import WebKit
 import UserNotifications
 import ObjectiveC
 import SwiftUI
+import Photos
 
 // Capacitor 브릿지 로드 시 커스텀 플러그인을 명시적으로 등록.
 class MainViewController: CAPBridgeViewController {
@@ -17,6 +18,7 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(HapticBridgePlugin())
         bridge?.registerPluginInstance(SleepSoundPlugin())   // 잠 소리(백색소음) — 화면 잠가도 계속
         bridge?.registerPluginInstance(DiaryInkPlugin())     // 다이어리 필기 — 그린 부분을 투명 그림으로 돌려준다(11/18)
+        bridge?.registerPluginInstance(MediaSavePlugin())    // 사진·동영상 사진첩에 바로 저장(11/25, 카톡처럼)
     }
 
     // ⚠️ capacitorDidLoad 는 loadView 안(첫 화면 loadWebView 보다 먼저)이라 거기서 주소를 열면 첫 화면이 덮어쓴다.
@@ -32,6 +34,22 @@ class MainViewController: CAPBridgeViewController {
     // 시뮬레이터 확인용 — `simctl launch … -diaryInkDemo` 면 필기 화면을 견본 획(펜·연필·크레파스·형광펜·지우개)과 함께 바로 띄운다. 출시 빌드엔 없음.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        // 사진첩 바로 저장 시험(-mediaSaveDemo) — 공개 그림 두 장(PNG·WebP)을 MediaSave 와 같은 길로 넣고 결과를 창으로
+        if ProcessInfo.processInfo.arguments.contains("-mediaSaveDemo"), presentedViewController == nil {
+            let urls = ["https://kkommorning-v2.vercel.app/emo/gifts/cake.png", "https://kkommorning-v2.vercel.app/emo/sai/towork.webp"].compactMap(URL.init(string:))
+            PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+                Task {
+                    var ok = 0
+                    for u in urls { if await MediaSavePlugin.saveOne(u, isVideo: false) { ok += 1 } }
+                    await MainActor.run {
+                        let a = UIAlertController(title: "저장 시험", message: "권한 \(status.rawValue) · \(ok)/\(urls.count)장 저장", preferredStyle: .alert)
+                        a.addAction(UIAlertAction(title: "확인", style: .default))
+                        self.present(a, animated: true)
+                    }
+                }
+            }
+            return
+        }
         guard ProcessInfo.processInfo.arguments.contains("-diaryInkDemo"), presentedViewController == nil else { return }
         func line(_ y: Double, _ b: String?, _ c: String, _ size: Double, sd: Int? = nil) -> NetStroke {
             let pts = (0 ... 40).map { i -> NetPoint in let x = 0.12 + Double(i) * 0.019; return NetPoint(x: x, y: y + sin(Double(i) / 4) * 0.025, p: 0.5) }

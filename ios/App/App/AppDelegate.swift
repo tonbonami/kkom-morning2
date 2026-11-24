@@ -91,7 +91,7 @@ final class AppLock {
     func authenticateIfNeeded() {
         #if DEBUG
         // 시뮬레이터 필기 견본(-diaryInkDemo)은 잠금 없이 — 출시 빌드엔 없음
-        if ProcessInfo.processInfo.arguments.contains("-diaryInkDemo") { isUnlocked = true; hideCover(); return }
+        if ProcessInfo.processInfo.arguments.contains("-diaryInkDemo") || ProcessInfo.processInfo.arguments.contains("-mediaSaveDemo") { isUnlocked = true; hideCover(); return }
         #endif
         // 유예: 잠깐 나갔다 온 거면 통과
         if isUnlocked, let bg = backgroundedAt, Date().timeIntervalSince(bg) < graceSeconds {

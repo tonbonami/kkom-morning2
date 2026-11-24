@@ -11,7 +11,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard, Search, ChevronLeft, ChevronRight, History, ChevronDown } from 'lucide-react';
 import ChatHistorySheet from './ChatHistorySheet';
 import { linkKindOf, linkSubline, normalizePreview } from '@/lib/linkPreview';
-import { saveMedia } from '@/lib/saveMedia';
+import { saveMedia, saveMediaMany, saveToastText } from '@/lib/saveMedia';
 import { firstUrl, youTubeId } from '@/lib/links';
 import { igPost } from '@/lib/instagram';
 import { addShare, deleteShare, subscribeShareList, type ShareItemView } from '@/lib/share';
@@ -1681,10 +1681,17 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   );
 
   // 원본 사진·동영상 저장 — 중복 탭 방지용 saving 상태만 관리, 실제 저장은 saveMedia가 플랫폼별로.
+  //   앱(빌드 70~)은 바로 사진첩에 넣고 알림만 띄운다(카톡처럼). 옛 앱·웹은 예전처럼 공유 시트.
   const handleSave = async (url: string, kind: 'image' | 'video') => {
     if (savingUrl) return;
     setSavingUrl(url);
-    try { await saveMedia(url, kind); } finally { setSavingUrl(null); }
+    try { const msg = saveToastText(await saveMedia(url, kind), kind); if (msg) flashToast(msg); } finally { setSavingUrl(null); }
+  };
+  // 묶음 사진 「전체 저장」 — 보기 창에 뜬 묶음을 한 번에(우댕 「한번에 저장하기도 안돼」).
+  const handleSaveAll = async (urls: string[]) => {
+    if (savingUrl || urls.length < 2) return;
+    setSavingUrl('__all__');
+    try { const msg = saveToastText(await saveMediaMany(urls.map((url) => ({ url, kind: 'image' as const }))), 'image'); if (msg) flashToast(msg); } finally { setSavingUrl(null); }
   };
 
   // 확인 창에서 「보내기」 — 한 장은 예전처럼 원본 그대로 메시지 하나, 여러 장은 묶음 메시지 하나(chat.ts sendPhotos).
@@ -2945,6 +2952,17 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
                   {savingUrl === viewerImage ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} strokeWidth={2.2} />}
                   저장
                 </button>
+                {/* 묶음이면 옆에 「전체 저장 N」 — 같은 모양의 알약 단추 */}
+                {gallery && gallery.urls.length > 1 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); void handleSaveAll(gallery.urls); }}
+                    aria-label={`사진 ${gallery.urls.length}장 모두 저장`}
+                    className="absolute top-12 left-[6.5rem] z-10 flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-2 text-[13px] font-semibold text-white backdrop-blur-sm transition-transform active:scale-95"
+                  >
+                    {savingUrl === '__all__' ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} strokeWidth={2.2} />}
+                    전체 저장 {gallery.urls.length}
+                  </button>
+                )}
                 <button onClick={() => setViewerImage(null)} aria-label="닫기" className="absolute top-12 right-4 z-10 text-white/80 p-2"><X size={26} /></button>
                 {/* 두 손가락 벌리기·두 번 톡으로 확대(앱 웹뷰는 화면 확대가 꺼져 있어 직접 처리 — ZoomableImage). 빈 곳 톡 = 닫기 */}
                 {/* 묶음이면 1배일 때 옆으로 밀어 넘긴다(ZoomableImage onSwipe — 확대 중엔 끌기가 그림 이동이라 넘기지 않는다). */}

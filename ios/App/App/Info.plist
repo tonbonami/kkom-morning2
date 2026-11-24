@@ -43,6 +43,8 @@
 	<string>편지와 꼼톡에 목소리를 녹음해 보낼 때만 씁니다. 녹음은 상대에게 보낼 때만 저장돼요.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>앨범에서 사진을 골라 추억·편지·레시피에 넣을 때 씁니다.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>꼼톡에서 받은 사진·동영상을 사진첩에 저장할 때 씁니다.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSUserActivityTypes</key>
