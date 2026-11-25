@@ -43,7 +43,7 @@ const PERSON_KEY: Record<string, string> = { '우댕': 'udaeng', '꼼이': 'kkom
 export const CHAT_PACKS = [
   { id: 'gif',      name: '움짤',      thumb: '/emo/sai-anim/love-still.png' },
   { id: 'maltipoo', name: '말티푸',    thumb: '/emo/sai/kkk.webp' },
-  { id: 'office',   name: '직장인 꼼이', thumb: '/emo/kkom/office/o01-nep.webp' }, // 찍찍이 출근길 꼼이 12종(2026-11-25)
+  { id: 'office',   name: '직장인 꼼이', thumb: '/emo/kkom/office/k04-salryeojwo.webp' }, // 찍찍이 출근길 꼼이 16종(2026-11-26 전면 교체)
   { id: 'basic',    name: '기본',      thumb: '/pochacco/face_happy.png' },
   { id: 'dang',     name: '우댕',      thumb: '/pochacco_dang/cutekkomi.png' },
   { id: 'kkom',     name: '꼼이',      thumb: '/pochacco_kkom/kkomiyap.png' },

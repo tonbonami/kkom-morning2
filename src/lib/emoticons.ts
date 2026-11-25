@@ -1,6 +1,6 @@
 export type EmoticonAssetType = 'png' | 'webp' | 'gif';
 
-import { ANIM_STICKERS, DANG_STICKERS, KKOM_STICKERS, KKUL_STICKERS, KKUL_ANIM, KKUL_GLASSES_STICKERS, KKOM_OFFICE_STICKERS, URI_STICKERS, SAI_STICKERS, KKWAGI_STICKERS } from './stickerPacks';
+import { ANIM_STICKERS, DANG_STICKERS, KKOM_STICKERS, KKUL_STICKERS, KKUL_ANIM, KKUL_GLASSES_STICKERS, KKOM_OFFICE_STICKERS, KKOM_OFFICE_RETIRED, URI_STICKERS, SAI_STICKERS, KKWAGI_STICKERS } from './stickerPacks';
 
 export type EmoticonSet = {
   id: string;
@@ -236,6 +236,12 @@ for (const pack of PACKS) {
   }
   const first = EMOTICONS.find((e) => e.id === ids[0]);
   PACK_SETS.push({ ...pack.set, emoticonIds: ids, thumbnailUrl: first?.thumbUrl ?? first?.imageUrl ?? '' });
+}
+// 서랍에서 뺀 그림 — 옛 편지가 저장한 id 로 계속 찾게 숨김(legacy_hidden)으로만 둔다(고르는 창엔 안 뜸).
+for (const item of KKOM_OFFICE_RETIRED) {
+  const id = `kkomoff/${fileKey(item.image)}`;
+  if (EMOTICONS.some((e) => e.id === id)) continue;
+  EMOTICONS.push({ id, setId: 'legacy_hidden', label: item.word, meaning: item.word, notificationPhrase: phraseOf(item.word), imageUrl: item.image, assetType: 'webp' });
 }
 
 // 순서 = 고르는 창 탭 순서(내 캐릭터 팩은 창에서 앞으로 당긴다 — emoticonSetsFor).
