@@ -31,7 +31,7 @@ const MAX = 60;
 
 /** 편지 큰 이모티콘 팩 id → 꼼톡 서랍 팩 id. 여기 없는 편지 팩(사랑 빠샤)은 꼼톡에 없어서 관리 대상이 아니다(늘 보임). */
 export const LETTER_SET_TO_PACK: Record<string, string> = {
-  kkom_anim: 'gif', kkom_sai: 'maltipoo', kkul: 'kkul', kkul_anim: 'kkulgif', kkul_glasses: 'kkulg', uri: 'uri', pochacco_dang: 'dang', pochacco_kkom: 'kkom',
+  kkom_anim: 'gif', kkom_sai: 'maltipoo', kkom_office: 'office', kkul: 'kkul', kkul_anim: 'kkulgif', kkul_glasses: 'kkulg', uri: 'uri', pochacco_dang: 'dang', pochacco_kkom: 'kkom',
 };
 
 const PERSON_KEY: Record<string, string> = { '우댕': 'udaeng', '꼼이': 'kkomi' };
@@ -43,6 +43,7 @@ const PERSON_KEY: Record<string, string> = { '우댕': 'udaeng', '꼼이': 'kkom
 export const CHAT_PACKS = [
   { id: 'gif',      name: '움짤',      thumb: '/emo/sai-anim/love-still.png' },
   { id: 'maltipoo', name: '말티푸',    thumb: '/emo/sai/kkk.webp' },
+  { id: 'office',   name: '직장인 꼼이', thumb: '/emo/kkom/office/o01-nep.webp' }, // 찍찍이 출근길 꼼이 12종(2026-11-25)
   { id: 'basic',    name: '기본',      thumb: '/pochacco/face_happy.png' },
   { id: 'dang',     name: '우댕',      thumb: '/pochacco_dang/cutekkomi.png' },
   { id: 'kkom',     name: '꼼이',      thumb: '/pochacco_kkom/kkomiyap.png' },
@@ -55,7 +56,7 @@ export const CHAT_PACKS = [
 ] as const;
 export type ChatPackId = (typeof CHAT_PACKS)[number]['id'];
 /** 내 캐릭터 팩 — 우댕은 꿀됑·꿀됑 움짤·우댕 포차코, 꼼이는 꼼이 움짤·꼼이 포차코·미니. 탭 앞자리 + 추천 가산점. */
-export const OWN_PACKS: Record<string, ChatPackId[]> = { '우댕': ['kkul', 'kkulgif', 'kkulg', 'dang'], '꼼이': ['gif', 'kkom', 'mini'] };
+export const OWN_PACKS: Record<string, ChatPackId[]> = { '우댕': ['kkul', 'kkulgif', 'kkulg', 'dang'], '꼼이': ['gif', 'office', 'kkom', 'mini'] };
 /** 기본 탭 순서 — 내 캐릭터 팩 먼저, 나머지는 원래 순서. 사용자 순서(withOrder)는 이 위에 입힌다. */
 export function defaultPacks(me: string): { id: ChatPackId; name: string; thumb: string }[] {
   const own = OWN_PACKS[me] ?? [];

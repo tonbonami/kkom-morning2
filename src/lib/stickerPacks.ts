@@ -110,6 +110,23 @@ export const KKUL_ANIM: { word: string; image: string }[] = [
   //   (art/kkuldaeng/yell: Codex 키프레임 3장 → Kling 25 → make_yell.py, 우댕 「꿀됑버전도 만들어」 → 「넣어」 2026-11-18)
   { word: '으악!', image: '/emo/sai-anim/kkul-yell.webp' },
 ];
+// 직장인 꼼이 탭 — 옆머리에 분홍 앞머리 찍찍이 붙인 출근길 꼼이(「출근길」, art/kkomi-subway) 컨셉으로 직장 일상 + 힘들어도 꿀됑 생각.
+//   우댕 2026-11-25 「꼼이, 직장인 버전 그려줘 … 힘들어도 꿀됑생각하는 꼼이도 … gpt랑 회의해봐. 16개」 → GPT 16종 중 커피수혈·월급날·야근중·금요일 빼고 12종(「빼고 올려줘」).
+//   마지막 「찍찍이」는 배지 없음(거울 보고 하루 종일 붙이고 다닌 걸 깨달음). 원본·지시문·make_office.py 는 art/kkomi-office.
+export const KKOM_OFFICE_STICKERS: { word: string; image: string }[] = [
+  { word: '넵!',       image: '/emo/kkom/office/o01-nep.webp' },
+  { word: '확인!',     image: '/emo/kkom/office/o02-hwagin.webp' },
+  { word: '잠깐만',    image: '/emo/kkom/office/o03-jamkkan.webp' },
+  { word: '회의중',    image: '/emo/kkom/office/o04-hoeui.webp' },
+  { word: '점심뭐?',   image: '/emo/kkom/office/o05-jeomsim.webp' },
+  { word: '퇴근각',    image: '/emo/kkom/office/o07-toegeun.webp' },
+  { word: '살려줘',    image: '/emo/kkom/office/o08-salryeojwo.webp' },
+  { word: '일하기싫어', image: '/emo/kkom/office/o09-silheo.webp' },
+  { word: '눈치중',    image: '/emo/kkom/office/o10-nunchi.webp' },
+  { word: '보고싶어',  image: '/emo/kkom/office/o12-bogosipeo.webp' },
+  { word: '월요일',    image: '/emo/kkom/office/o13-woryoil.webp' },
+  { word: '찍찍이',    image: '/emo/kkom/office/o16-mirror.webp' },
+];
 // 안경 꿀됑 탭 — 요즘 안경 쓰는 우댕(우댕 2026-11-25 「꿀됑 캐릭터로 안경 씌워서 팩하나 만들어줘. 지적인 컨셉으로 12개」 → 「넣어」).
 //   GPT 회의 12종(배지 글자·장면) + 꿀닥터처럼 두 발로 서고 눈썹 없이(우댕 「눈썹때문에 귀엽지 않아… 꿀닥터 처럼」). 원본·지시문·make_glasses.py 는 art/kkuldaeng/glasses.
 export const KKUL_GLASSES_STICKERS: { word: string; image: string }[] = [

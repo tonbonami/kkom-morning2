@@ -1,6 +1,6 @@
 export type EmoticonAssetType = 'png' | 'webp' | 'gif';
 
-import { ANIM_STICKERS, DANG_STICKERS, KKOM_STICKERS, KKUL_STICKERS, KKUL_ANIM, KKUL_GLASSES_STICKERS, URI_STICKERS, SAI_STICKERS, KKWAGI_STICKERS } from './stickerPacks';
+import { ANIM_STICKERS, DANG_STICKERS, KKOM_STICKERS, KKUL_STICKERS, KKUL_ANIM, KKUL_GLASSES_STICKERS, KKOM_OFFICE_STICKERS, URI_STICKERS, SAI_STICKERS, KKWAGI_STICKERS } from './stickerPacks';
 
 export type EmoticonSet = {
   id: string;
@@ -196,6 +196,8 @@ const PACKS: PackDef[] = [
     prefix: 'anim', items: ANIM_STICKERS, thumbOf: (s) => s.still ?? stillOf(s.image), assetType: 'webp' },
   { set: { id: 'kkom_sai', title: '말티푸', description: '꼼이가 하루에 제일 많이 하는 말', owner: '꼼이' },
     prefix: 'sai', items: SAI_STICKERS, assetType: 'webp' },
+  { set: { id: 'kkom_office', title: '직장인 꼼이', description: '찍찍이 붙인 출근길 꼼이', owner: '꼼이' },
+    prefix: 'kkomoff', items: KKOM_OFFICE_STICKERS, assetType: 'webp' },
   { set: { id: 'kkul', title: '꿀됑', description: '꿀벌 조끼 꿀됑', owner: '우댕' },
     prefix: 'kkul', items: KKUL_STICKERS, assetType: 'webp' },
   { set: { id: 'kkul_anim', title: '꿀됑 움짤', description: '움직이는 꿀됑', owner: '우댕', animated: true },
