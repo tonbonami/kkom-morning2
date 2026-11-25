@@ -23,7 +23,7 @@ import { DiaryStashSheet } from './DiaryStashSheet';
 import { ARCHIVE_STEP, DiaryArchiveScreen, type ArchiveWho } from './DiaryArchiveScreen';
 import { DiaryTrashPage, type RestoreResult } from './DiaryTrash';
 import { DECOR_ASSETS } from './DiaryDecor';
-import { KKUL_STICKERS, SAI_STICKERS, URI_STICKERS, KKWAGI_STICKERS } from '@/lib/stickerPacks';
+import { KKUL_STICKERS, KKUL_GLASSES_STICKERS, SAI_STICKERS, URI_STICKERS, KKWAGI_STICKERS } from '@/lib/stickerPacks';
 import { DAKU_PACKS, dakuSrc } from '@/lib/dakuStickers';
 import { diaryInkAvailable, diaryInkFormat, editDiaryInk, inkFormatOf, PAPER_HEX, placeStrokes, type DiaryInkResult, type InkSidecar } from '@/lib/diaryInk';
 import { subscribeCalendar, type CalendarEvent } from '@/lib/calendar';
@@ -66,6 +66,7 @@ const ASSETS: Record<string, DiaryAssetVM[]> = {
   ...Object.fromEntries(DAKU_PACKS.map((p) => [p.id, p.items.map((s): DiaryAssetVM => ({ id: `${p.id}-${s.id}`, packId: p.id, kind: 'sticker', src: dakuSrc(p.id, s.id), label: s.label, ratio: s.ratio, w: s.w }))])),
   kkom: STICKER('kkom', SAI_STICKERS),
   kkul: STICKER('kkul', KKUL_STICKERS),
+  kkulg: STICKER('kkulg', KKUL_GLASSES_STICKERS),
   uri: STICKER('uri', URI_STICKERS),
   kkwagi: STICKER('kkwagi', KKWAGI_STICKERS),
   tape: DECOR_ASSETS.filter((d) => d.kind === 'tape').map((d) => ({ id: d.id, packId: 'tape', kind: 'tape', decorId: d.id, label: d.label })),
@@ -78,6 +79,7 @@ const PACKS: DiaryPackVM[] = [
   ...DAKU_PACKS.map((p) => ({ id: p.id, label: p.label, thumbSrc: dakuSrc(p.id, p.items.find((s) => s.id.startsWith('tape'))?.id ?? p.items[0].id) })),
   { id: 'kkom', label: '꼼이', thumbSrc: SAI_STICKERS[0]?.image },
   { id: 'kkul', label: '꿀됑', thumbSrc: KKUL_STICKERS[0]?.image },
+  { id: 'kkulg', label: '안경 꿀됑', thumbSrc: KKUL_GLASSES_STICKERS[0]?.image },
   { id: 'uri', label: '우리', thumbSrc: URI_STICKERS[2]?.image },
   { id: 'kkwagi', label: '꽉이', thumbSrc: KKWAGI_STICKERS[1]?.image },
   { id: 'tape', label: '테이프', thumbDecorId: ASSETS.tape[0]?.decorId },

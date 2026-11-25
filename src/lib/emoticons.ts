@@ -1,6 +1,6 @@
 export type EmoticonAssetType = 'png' | 'webp' | 'gif';
 
-import { ANIM_STICKERS, DANG_STICKERS, KKOM_STICKERS, KKUL_STICKERS, KKUL_ANIM, URI_STICKERS, SAI_STICKERS, KKWAGI_STICKERS } from './stickerPacks';
+import { ANIM_STICKERS, DANG_STICKERS, KKOM_STICKERS, KKUL_STICKERS, KKUL_ANIM, KKUL_GLASSES_STICKERS, URI_STICKERS, SAI_STICKERS, KKWAGI_STICKERS } from './stickerPacks';
 
 export type EmoticonSet = {
   id: string;
@@ -200,6 +200,8 @@ const PACKS: PackDef[] = [
     prefix: 'kkul', items: KKUL_STICKERS, assetType: 'webp' },
   { set: { id: 'kkul_anim', title: '꿀됑 움짤', description: '움직이는 꿀됑', owner: '우댕', animated: true },
     prefix: 'kkulanim', items: KKUL_ANIM, thumbOf: (s) => stillOf(s.image), assetType: 'webp' },
+  { set: { id: 'kkul_glasses', title: '안경 꿀됑', description: '안경 쓴 지적인 꿀됑', owner: '우댕' },
+    prefix: 'kkulg', items: KKUL_GLASSES_STICKERS, assetType: 'webp' },
   { set: { id: 'uri', title: '우리', description: '꿀됑이랑 꼼이랑' },
     prefix: 'uri', items: URI_STICKERS, assetType: 'webp' },
   { set: { id: 'kkwagi', title: '꽉이', description: '동글동글 오리 — 사이담에서 데려옴' },

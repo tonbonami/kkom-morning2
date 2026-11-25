@@ -110,6 +110,22 @@ export const KKUL_ANIM: { word: string; image: string }[] = [
   //   (art/kkuldaeng/yell: Codex 키프레임 3장 → Kling 25 → make_yell.py, 우댕 「꿀됑버전도 만들어」 → 「넣어」 2026-11-18)
   { word: '으악!', image: '/emo/sai-anim/kkul-yell.webp' },
 ];
+// 안경 꿀됑 탭 — 요즘 안경 쓰는 우댕(우댕 2026-11-25 「꿀됑 캐릭터로 안경 씌워서 팩하나 만들어줘. 지적인 컨셉으로 12개」 → 「넣어」).
+//   GPT 회의 12종(배지 글자·장면) + 꿀닥터처럼 두 발로 서고 눈썹 없이(우댕 「눈썹때문에 귀엽지 않아… 꿀닥터 처럼」). 원본·지시문·make_glasses.py 는 art/kkuldaeng/glasses.
+export const KKUL_GLASSES_STICKERS: { word: string; image: string }[] = [
+  { word: '알겠어',   image: '/emo/kkuldaeng/glasses/g01-algesseo.webp' },
+  { word: '일리있군', image: '/emo/kkuldaeng/glasses/g02-ilri.webp' },
+  { word: '잠깐만',   image: '/emo/kkuldaeng/glasses/g03-jamkkan.webp' },
+  { word: '확인중',   image: '/emo/kkuldaeng/glasses/g04-hwagin.webp' },
+  { word: '정답!',    image: '/emo/kkuldaeng/glasses/g05-jeongdap.webp' },
+  { word: '생각중',   image: '/emo/kkuldaeng/glasses/g06-saenggak.webp' },
+  { word: '오호',     image: '/emo/kkuldaeng/glasses/g07-oho.webp' },
+  { word: '맡겨둬',   image: '/emo/kkuldaeng/glasses/g08-matgyeo.webp' },
+  { word: '집중중',   image: '/emo/kkuldaeng/glasses/g09-jipjung.webp' },
+  { word: '똑똑하지', image: '/emo/kkuldaeng/glasses/g10-ttokttok.webp' },
+  { word: '뭐였지',   image: '/emo/kkuldaeng/glasses/g11-mwoyeotji.webp' },
+  { word: '안보여',   image: '/emo/kkuldaeng/glasses/g12-anboyeo.webp' },
+];
 // 우리 탭 — 꿀됑+꼼이가 같이 나오는 커플 16종(정지, 글씨 배지). GPT 회의(후보 20 → 16, 순서 = 자주 쓸 것 앞) + 우댕 OK(2026-10-27).
 //   원본·회의 원문·지시문·만든 스크립트는 art/couple16 (make_couple.py: 투명 그림 → 배지 webp 320).
 export const URI_STICKERS: { word: string; image: string }[] = [

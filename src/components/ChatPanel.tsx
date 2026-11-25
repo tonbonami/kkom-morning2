@@ -31,7 +31,7 @@ import StickerSendPreview from './StickerSendPreview';
 import StickerTextStack from './StickerTextStack';
 import ChatEffectLayer, { type ChatEffect } from '@/components/ChatEffectLayer';
 import { SAIDAMI_STICKERS, MINI_BY_WORD, TEXT_STICKER_BY_SENDER, senderSticker } from '@/lib/miniEmoticons';
-import { ANIM_STICKERS, DANG_STICKERS, KKOM_STICKERS, KKUL_STICKERS, KKUL_ANIM, URI_STICKERS, SAI_STICKERS } from '@/lib/stickerPacks';
+import { ANIM_STICKERS, DANG_STICKERS, KKOM_STICKERS, KKUL_STICKERS, KKUL_ANIM, KKUL_GLASSES_STICKERS, URI_STICKERS, SAI_STICKERS } from '@/lib/stickerPacks';
 import ZoomableImage from '@/components/ZoomableImage';
 
 // 메시지 효과 키워드 → 이모지
@@ -467,7 +467,7 @@ const STICKER_RE = new RegExp(`\\((${STICKER_ALT})\\)`, 'g');
 // 이모티콘 서랍 탭 — 사이챗과 동일 구조(썸네일 + 이름). id/데이터는 꼼모닝 것.
 // 카톡식 탭 — 최근·자주(🕒) + 세트별 탭. 아이콘은 '실제 스티커 대표 그림'(썸네일)이라
 //   어떤 세트인지 한눈에 보인다(윈도우 이모지 X). 포차코는 한 탭에 몰지 않고 기본/우댕/꼼이/커플로 분리.
-type StickerMode = 'recent' | 'gif' | 'kkul' | 'kkulgif' | 'uri' | 'maltipoo' | 'basic' | 'dang' | 'kkom' | 'couple' | 'mini';
+type StickerMode = 'recent' | 'gif' | 'kkul' | 'kkulgif' | 'kkulg' | 'uri' | 'maltipoo' | 'basic' | 'dang' | 'kkom' | 'couple' | 'mini';
 //   팩 목록은 lib/emoPrefs.ts CHAT_PACKS(이모티콘 관리 화면과 같이 쓴다). 「최근·자주」만 여기서 맨 앞에.
 const STICKER_TABS: { id: StickerMode; name: string; thumb?: string; icon?: string }[] = [
   { id: 'recent',   name: '최근·자주', icon: '🕒' },
@@ -496,6 +496,7 @@ function allDrawerItems() {
   SAIDAMI_STICKERS.forEach((s) => put('mini', s.word, s.image, s.image));
   KKUL_STICKERS.forEach((s) => put('kkul', s.word, s.image, s.image));
   KKUL_ANIM.forEach((s) => put('kkulgif', s.word, s.image, drawerThumb(s.image)));
+  KKUL_GLASSES_STICKERS.forEach((s) => put('kkulg', s.word, s.image, s.image));
   URI_STICKERS.forEach((s) => put('uri', s.word, s.image, s.image));
   return (ALL_DRAWER_ITEMS = out);
 }
@@ -1579,6 +1580,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
       case 'gif': return [{ items: ANIM_STICKERS.map((s) => ({ key: s.word, image: s.image, thumb: s.still })) }];
       case 'kkul': return [{ items: KKUL_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'kkulgif': return [{ items: KKUL_ANIM.map((s) => ({ key: s.word, image: s.image, thumb: drawerThumb(s.image) })) }];
+      case 'kkulg': return [{ items: KKUL_GLASSES_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'uri': return [{ items: URI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'maltipoo': return [{ items: SAI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'mini': return [{ items: SAIDAMI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];

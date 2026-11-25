@@ -31,7 +31,7 @@ const MAX = 60;
 
 /** 편지 큰 이모티콘 팩 id → 꼼톡 서랍 팩 id. 여기 없는 편지 팩(사랑 빠샤)은 꼼톡에 없어서 관리 대상이 아니다(늘 보임). */
 export const LETTER_SET_TO_PACK: Record<string, string> = {
-  kkom_anim: 'gif', kkom_sai: 'maltipoo', kkul: 'kkul', kkul_anim: 'kkulgif', uri: 'uri', pochacco_dang: 'dang', pochacco_kkom: 'kkom',
+  kkom_anim: 'gif', kkom_sai: 'maltipoo', kkul: 'kkul', kkul_anim: 'kkulgif', kkul_glasses: 'kkulg', uri: 'uri', pochacco_dang: 'dang', pochacco_kkom: 'kkom',
 };
 
 const PERSON_KEY: Record<string, string> = { '우댕': 'udaeng', '꼼이': 'kkomi' };
@@ -50,11 +50,12 @@ export const CHAT_PACKS = [
   { id: 'mini',     name: '미니',      thumb: '/emo/saidami/love.webp' },
   { id: 'kkul',     name: '꿀됑',      thumb: '/emo/kkuldaeng/01-ggomsyun.webp' },   // 우댕 지시: 탭 맨 끝
   { id: 'kkulgif',  name: '꿀됑 움짤', thumb: '/emo/sai-anim/kkul-euak-still.png' },  // 우댕 지시: 움짤은 탭 따로
+  { id: 'kkulg',    name: '안경 꿀됑', thumb: '/emo/kkuldaeng/glasses/g01-algesseo.webp' }, // 안경 쓴 지적인 꿀됑 12종(2026-11-25)
   { id: 'uri',      name: '우리',      thumb: '/emo/uri/03-love.webp' },               // 꿀됑+꼼이 커플 16종 — 맨 끝(2026-10-27)
 ] as const;
 export type ChatPackId = (typeof CHAT_PACKS)[number]['id'];
 /** 내 캐릭터 팩 — 우댕은 꿀됑·꿀됑 움짤·우댕 포차코, 꼼이는 꼼이 움짤·꼼이 포차코·미니. 탭 앞자리 + 추천 가산점. */
-export const OWN_PACKS: Record<string, ChatPackId[]> = { '우댕': ['kkul', 'kkulgif', 'dang'], '꼼이': ['gif', 'kkom', 'mini'] };
+export const OWN_PACKS: Record<string, ChatPackId[]> = { '우댕': ['kkul', 'kkulgif', 'kkulg', 'dang'], '꼼이': ['gif', 'kkom', 'mini'] };
 /** 기본 탭 순서 — 내 캐릭터 팩 먼저, 나머지는 원래 순서. 사용자 순서(withOrder)는 이 위에 입힌다. */
 export function defaultPacks(me: string): { id: ChatPackId; name: string; thumb: string }[] {
   const own = OWN_PACKS[me] ?? [];
