@@ -17,6 +17,7 @@ export interface LetterStickerPanelProps {
   onPickAnimated: () => void;
   onRemoveAnimated: () => void;
   sign?: string; // 내 사인(Kkomi/Kkuldang)
+  hideAnimated?: boolean; // 시연 모드(공모전 영상) — 움직이는 스티커가 전부 포차코(산리오)라 칸째 숨김
 }
 
 export function LetterStickerPanel({
@@ -28,6 +29,7 @@ export function LetterStickerPanel({
   onPickAnimated,
   onRemoveAnimated,
   sign,
+  hideAnimated,
 }: LetterStickerPanelProps) {
   const prefersReducedMotion = useReducedMotion();
 
@@ -69,6 +71,7 @@ export function LetterStickerPanel({
         )}
       </div>
 
+      {!hideAnimated && (<>
       <h3 className="text-lg font-semibold mb-3">움직이는 포차코</h3>
 
       {/* Animated Pochacco */}
@@ -105,6 +108,7 @@ export function LetterStickerPanel({
           </motion.button>
         )}
       </div>
+      </>)}
     </div>
   );
 }

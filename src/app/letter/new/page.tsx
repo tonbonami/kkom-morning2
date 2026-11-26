@@ -10,6 +10,7 @@ import { ANIMATED_STICKERS, getAnimatedSticker } from '@/lib/animatedStickers';
 import DoodlePad, { type DoodleData } from '@/components/DoodlePad';
 import { splitMini, miniItemsFor, insertMiniToken, SAIDAMI_STICKERS } from '@/lib/miniEmoticons';
 import { useEmoPrefs, withOrder, LETTER_SET_TO_PACK } from '@/lib/emoPrefs';
+import { isDemo } from '@/lib/demo';
 import { formatKstLocale, kstParts } from '@/lib/kst';
 import { LetterComposeScreen, type LetterTool } from '@/components/letter/LetterComposeScreen';
 import { LetterEditor } from '@/components/letter/LetterEditor';
@@ -159,8 +160,11 @@ export default function NewLetterPage() {
   //   이모티콘 관리(lib/emoPrefs.ts, 꼼톡과 같은 설정) — 숨긴 팩은 빼고, 꼼톡 서랍에서 끌어 정한 탭 순서를 입힌다.
   //   ⚠️ 이미 담은 이모티콘·받은 편지의 그림은 그대로(getEmoticonsByIds 는 설정을 안 본다).
   const emo = useEmoPrefs(me);
+  // 시연 모드(공모전 영상) — 포차코(산리오) 묶음(포차코 우댕·포차코 꼼이·사랑 빠샤)과 움직이는 포차코를 뺀다.
+  const [demo, setDemo] = useState(false);
+  useEffect(() => setDemo(isDemo()), []);
   const sheetSets = useMemo(() => {
-    const all = emoticonSetsFor(me).map((set) => ({
+    const all = emoticonSetsFor(me).filter((set) => !(demo && set.id.startsWith('pochacco'))).map((set) => ({
       id: set.id, title: set.title, thumbUrl: set.thumbnailUrl, animated: set.animated,
       items: getEmoticonsByIds(set.emoticonIds).map((e) => ({ id: e.id, label: e.label, thumbUrl: e.thumbUrl ?? e.imageUrl })),
     }));
@@ -168,7 +172,7 @@ export default function NewLetterPage() {
     const shown = all.filter((s) => !emo.prefs.hiddenSetIds.includes(packOf(s.id)));
     const ordered = withOrder(shown.map((s) => ({ ...s, id: packOf(s.id), setId: s.id })), emo.prefs);
     return ordered.map(({ setId, ...s }) => ({ ...s, id: setId }));
-  }, [me, emo.prefs]);
+  }, [me, emo.prefs, demo]);
   const activeSheetSetId = sheetSets.some((s) => s.id === activeEmoticonSetId) ? activeEmoticonSetId : sheetSets[0]?.id || '';
   const mySign = signFor(me);
 
@@ -304,6 +308,7 @@ export default function NewLetterPage() {
         onPickAnimated={() => setShowAnimSheet(true)}
         onRemoveAnimated={() => setAnimatedSticker(null)}
         sign={mySign}
+        hideAnimated={demo}
       />
     ) : activeTool === 'paper' ? (
       <LetterPaperPanel papers={LETTER_PAPERS} value={paperId} onChange={setPaperId} />

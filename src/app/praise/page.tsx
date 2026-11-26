@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { isDemo } from '@/lib/demo';
 import { ArrowLeft, ChevronDown, ChevronUp, Sparkles, Send, Gift, Crown, MessageCircle } from 'lucide-react';
 import {
   PRAISE_STICKERS,
@@ -262,6 +263,10 @@ function Composer({
   const [kind, setKind] = useState<ComposerKind>('praise');
   const [reason, setReason] = useState('');
   const [selectedSticker, setSelectedSticker] = useState<PraiseSticker>(PRAISE_STICKERS[0]);
+  // 시연 모드(공모전 영상) — 포차코(산리오) 스티커 9장은 빼고 클래식만.
+  const [demo, setDemo] = useState(false);
+  useEffect(() => setDemo(isDemo()), []);
+  const pickable = demo ? PRAISE_STICKERS.filter((s) => s.sheet !== 'pochacco') : PRAISE_STICKERS;
   const [stickerCount, setStickerCount] = useState(1);
   const [sending, setSending] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -384,7 +389,7 @@ function Composer({
             <>
               {/* picker — 18장 한 그리드 */}
               <div className="grid grid-cols-6 gap-1.5">
-                {PRAISE_STICKERS.map((s) => {
+                {pickable.map((s) => {
                   const selected = selectedSticker.image === s.image;
                   return (
                     <button
