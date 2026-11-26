@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoaderCircle, Check } from 'lucide-react';
 import { haptic } from '@/lib/feedback';
+import { isDemo } from '@/lib/demo';
 
 type Kind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening';
 interface Item { kind: Kind; image: string; label: string }
@@ -23,7 +24,12 @@ const ITEMS: Item[] = [
 
 interface Receipt { title: string; body: string }
 
+// 시연 모드(공모전 영상)엔 포차코(산리오) 대신 꿀됑 — 서랍 이모티콘에서 글자 띠만 잘라 낸 판.
+const demoImage = (k: Kind) => `/quickbar/demo/${k}.webp`;
+
 export default function QuickReplyBar({ me, partner }: { me: string; partner: string }) {
+  const [demo, setDemo] = useState(false);
+  useEffect(() => setDemo(isDemo()), []);
   const [sending, setSending] = useState<Kind | null>(null);
   const [stamped, setStamped] = useState<Kind | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
@@ -149,7 +155,7 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
                 ) : (
                   <span className="flex flex-col items-center gap-0.5">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={it.image} alt={it.label} width={42} height={42}
+                    <img src={demo ? demoImage(it.kind) : it.image} alt={it.label} width={42} height={42}
                       className="h-[42px] w-[42px] object-contain" loading="lazy" decoding="async" draggable={false} />
                     <span className="text-[10px] font-bold leading-none truncate max-w-full" style={{ color: 'var(--sd-muted)' }}>
                       {it.label}

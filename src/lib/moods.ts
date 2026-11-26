@@ -30,8 +30,10 @@ export const MOOD_OPTIONS: MoodOption[] = [
 
 // 기분 얼굴 그림 — 우댕 기분은 꿀됑(우댕 캐릭터) 얼굴로, 꼼이는 포차코 그대로(우댕 지시 2026-10-15).
 //   파일: /emo/kkuldaeng/mood/{id}.png (320 투명, 원본 art/kkuldaeng/mood).
+//   시연 모드(공모전 영상)에선 꼼이 쪽도 포차코(산리오) 대신 꼼이 닮은 하얀 푸들(/emo/saidami, 허니브러리 꼼이 자리와 같은 그림).
 export function moodImage(m: MoodOption, owner?: string | null): string {
-  return owner === '우댕' ? `/emo/kkuldaeng/mood/${m.id}.png` : m.image;
+  if (owner === '우댕') return `/emo/kkuldaeng/mood/${m.id}.png`;
+  return isDemo() ? `/emo/saidami/${m.id}.webp` : m.image;
 }
 
 // key는 신규 'happy' 같은 id 또는 옛날 '😄' 같은 이모지 둘 다 받음

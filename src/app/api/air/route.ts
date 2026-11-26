@@ -100,8 +100,20 @@ export async function GET(req: NextRequest) {
     let tomorrow: { grade: string; summary: string } | null = null;
     try {
       const fc = await fcRes.json();
-      const fcItems: any[] = fc?.response?.body?.items ?? [];
+      let fcItems: any[] = fc?.response?.body?.items ?? [];
       const tmrw = kstDate(1);
+      // ⚠️ 에어코리아는 하루 첫 예보를 05시쯤 낸다 — 자정~05시엔 「오늘 날짜」 조회가 비어 「준비 중」만 떴다.
+      //    그땐 어젯밤(17·23시) 발표분에서 내일 날짜를 찾는다(그 발표가 내일·모레까지 담는다).
+      if (!fcItems.some((f) => f.informData === tmrw)) {
+        try {
+          const prevUrl =
+            `${SVC}/getMinuDustFrcstDspth?serviceKey=${KEY}&returnType=json` +
+            `&searchDate=${kstDate(-1)}&informCode=PM10&numOfRows=10&pageNo=1&ver=1.0`;
+          const prev = await (await fetch(prevUrl, { next: { revalidate: 1800 } })).json();
+          const prevItems: any[] = prev?.response?.body?.items ?? [];
+          if (prevItems.some((f) => f.informData === tmrw)) fcItems = prevItems;
+        } catch (_) {}
+      }
       const hit = fcItems.find((f) => f.informData === tmrw) ?? fcItems[fcItems.length - 1];
       if (hit) {
         tomorrow = {

@@ -189,7 +189,13 @@ export default function KkomMorningHome() {
     return new Set([...saved, ...ADDED_LATER.filter((id) => !saved.includes(id))]);
   }, [layout.enabledModules]);
   const ordered = useMemo(() => applyModuleOrder(layout.moduleOrder), [layout.moduleOrder]);
-  const shownModules = useMemo(() => ordered.filter((m) => enabledSet.has(m.id)), [ordered, enabledSet]);
+  // 시연 모드(공모전 영상) — 꿀닥터(피부 일지) 카드는 빼고, 가운데 큰 하트·「지금 함께야」 말풍선도 끈다(미세먼지 카드를 가림).
+  const [demoView, setDemoView] = useState(false);
+  useEffect(() => setDemoView(isDemo()), []);
+  const shownModules = useMemo(
+    () => ordered.filter((m) => enabledSet.has(m.id) && !(demoView && m.id === 'skin')),
+    [ordered, enabledSet, demoView],
+  );
   const [editing, setEditing] = useState(false);
   const [draftOrder, setDraftOrder] = useState<ModuleDef[]>(MODULES);
   const [draftSizes, setDraftSizes] = useState<Record<string, CardSize>>(DEFAULT_SIZE);
@@ -760,8 +766,11 @@ export default function KkomMorningHome() {
     air: (
       <div className="sd-card overflow-hidden w-full h-full flex flex-col" style={{ background: 'var(--sd-card-solid)' }}>
         <button onClick={() => router.push('/weather')} className="block w-full text-left px-4 pt-4 pb-1 active:opacity-90" aria-label="미세먼지 상세">
-          <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
-            <Wind size={16} /> {air?.location || '금곡동'} 미세먼지
+          <span className="flex items-center justify-between gap-x-2 gap-y-0.5 flex-wrap">
+            <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
+              <Wind size={16} /> {air?.location || '금곡동'} 미세먼지
+            </span>
+            <span className="text-[10.5px] whitespace-nowrap" style={{ color: 'var(--sd-faint)' }}>출처: 한국환경공단 에어코리아</span>
           </span>
           <div className="mt-2 flex items-baseline gap-2.5 flex-wrap">
             <span className={`text-[34px] font-extrabold leading-none tracking-tight ${theme.text}`}>{hasGrade ? air.grade : '불러오는 중'}</span>
@@ -774,9 +783,17 @@ export default function KkomMorningHome() {
         </button>
         <div className="mt-3 overflow-hidden flex-1">
           <AirSkyVisual grade={air?.grade} height={132} />
-          <div className="px-4 py-3 flex items-center justify-between text-[12.5px]" style={{ borderTop: '1px solid rgba(0,0,0,.06)' }}>
-            <span className="font-bold" style={{ color: 'var(--sd-muted)' }}>내일 예보</span>
-            <span style={{ color: 'var(--sd-faint)' }}>{air?.tomorrow?.summary || (air?.tomorrow?.grade ? `${air.tomorrow.grade} 예상` : '준비 중')}</span>
+          {/* 내일 예보 — 등급은 오른쪽에 짧게, 에어코리아 설명은 아래 두 줄까지(긴 설명이 「내일 예보」 글자를 세로로 찌그러뜨리던 것) */}
+          <div className="px-4 py-3 text-[12.5px]" style={{ borderTop: '1px solid rgba(0,0,0,.06)' }}>
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-bold shrink-0 whitespace-nowrap" style={{ color: 'var(--sd-muted)' }}>내일 예보</span>
+              <span className="text-right" style={{ color: 'var(--sd-faint)' }}>
+                {air?.tomorrow?.grade ? <><b style={{ color: 'var(--sd-ink)' }}>{air.tomorrow.grade}</b> 예상</> : air?.tomorrow?.summary ? null : '준비 중'}
+              </span>
+            </div>
+            {air?.tomorrow?.summary && (
+              <p className="mt-1 line-clamp-2 leading-snug" style={{ color: 'var(--sd-faint)' }}>{air.tomorrow.summary}</p>
+            )}
           </div>
           {pushState !== 'unknown' && pushState !== 'unsupported' && (
             <div className="px-4 py-3 flex items-center justify-between text-[12.5px]" style={{ borderTop: '1px solid rgba(0,0,0,.06)' }}>
@@ -821,7 +838,10 @@ export default function KkomMorningHome() {
                 <span className="flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: 'var(--sd-cardlabel)' }}>
                   <CloudSun size={16} /> 오늘 밖
                 </span>
-                <ChevronRight size={14} style={{ color: 'var(--sd-faint)' }} />
+                <span className="flex items-center gap-1">
+                  <span className="text-[10.5px] whitespace-nowrap" style={{ color: 'var(--sd-faint)' }}>출처: 기상청</span>
+                  <ChevronRight size={14} style={{ color: 'var(--sd-faint)' }} />
+                </span>
               </div>
               {w ? (
                 <>
@@ -1322,7 +1342,7 @@ export default function KkomMorningHome() {
       </main>
 
       {/* 라이브 하트 — 둘 다 접속 중일 때만 중앙 큰 하트 + 양방향 폭탄 */}
-      {(userName === '우댕' || userName === '꼼이') && (
+      {(userName === '우댕' || userName === '꼼이') && !demoView && (
         // isTogetherNow = active + 최근 90초 (serverNow 시계보정). 접속 뱃지와 동일 판정으로 통일
         // — 이전엔 여기만 Date.now()라 기기 시계 어긋나면 왕하트가 안 떴음.
         <LiveHeartLayer me={userName} partnerActive={isTogetherNow(partnerPresence)} onOpenChat={() => { setChatOpen(true); setChatUnread(false); }} />
