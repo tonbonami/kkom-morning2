@@ -55,6 +55,13 @@ function categoryIcon(c: Category, size = 22) {
   return <MonitorPlay size={size} />;
 }
 
+// 받침 있으면 「이」, 없으면 「가」 — 「꼼이이(가)」처럼 어색하게 나오던 것(우댕이 / 꼼이가).
+function withSubject(name: string) {
+  const c = name.charCodeAt(name.length - 1);
+  const hangul = c >= 0xac00 && c <= 0xd7a3;
+  return `${name}${hangul && (c - 0xac00) % 28 === 0 ? '가' : '이'}`;
+}
+
 function relTime(d: Date) {
   const now = new Date();
   const sec = Math.floor((now.getTime() - d.getTime()) / 1000);
@@ -134,7 +141,7 @@ function AgainCard({
 
           <div className="mt-3 flex items-center gap-3 text-[11px] font-bold text-slate-400">
             <span className="flex items-center gap-1 text-[#10B981]">
-              <CheckCircle2 size={12} /> {item.sentBy}이(가) {item.by === item.sentBy ? '추가함' : '보냄'} · {relTime(item.sentAt)}
+              <CheckCircle2 size={12} /> {withSubject(item.sentBy)} {item.by === item.sentBy ? '추가함' : '보냄'} · {relTime(item.sentAt)}
             </span>
           </div>
 

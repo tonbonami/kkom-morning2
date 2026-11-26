@@ -7,7 +7,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { honeyMe } from '@/lib/honeybrary';
-import { defaultPacks, useEmoPrefs } from '@/lib/emoPrefs';
+import { defaultPacks, useEmoPrefs, POCHACCO_PACKS } from '@/lib/emoPrefs';
+import { isDemo } from '@/lib/demo';
 import EmoticonManager from '@/components/EmoticonManager';
 
 export default function EmoticonSettings() {
@@ -18,7 +19,13 @@ export default function EmoticonSettings() {
     if (!who) { router.replace('/'); return; }
     setMe(who);
   }, [router]);
-  const sets = useMemo(() => (me ? defaultPacks(me).map((t) => ({ id: t.id, title: t.name, thumbnailUrl: t.thumb })) : []), [me]);
+  // 시연 모드(공모전 영상) — 포차코(산리오) 팩 넷은 목록에서 뺀다.
+  const [demo, setDemo] = useState(false);
+  useEffect(() => setDemo(isDemo()), []);
+  const sets = useMemo(
+    () => (me ? defaultPacks(me).filter((t) => !(demo && POCHACCO_PACKS.includes(t.id))).map((t) => ({ id: t.id, title: t.name, thumbnailUrl: t.thumb })) : []),
+    [me, demo],
+  );
   const { prefs, setShown, setSuggestions, setOrder, resetOrder } = useEmoPrefs(me ?? '');
   // ⚠️ 이 화면이 앱에서 처음 연 화면이면 뒤로 갈 데가 없다 — 그땐 홈으로.
   const back = () => { if (window.history.length > 1) router.back(); else router.replace('/'); };

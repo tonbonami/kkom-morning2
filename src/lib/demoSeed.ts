@@ -1,7 +1,13 @@
 import { doc, setDoc, Timestamp, type Firestore } from 'firebase/firestore';
 
 const DAY = 86_400_000;
-const at = (days = 0, hours = 12) => Timestamp.fromMillis(Date.now() + days * DAY + hours * 3_600_000);
+// at(며칠 뒤, 몇 시) — 한국 날짜 기준 그날 그 시각. 오늘·지난날은 지금보다 미래가 되지 않게 자른다
+//   (예전엔 「지금 + 시간」이라 미래 시각이 생겨 편지함에 「-1일 전」이 떴다). 미래(예약 편지 도착 등)는 그대로.
+const KST_MIDNIGHT = (() => { const k = Date.now() + 9 * 3_600_000; return k - (k % DAY) - 9 * 3_600_000; })();
+const at = (days = 0, hours = 12) => {
+  const ms = KST_MIDNIGHT + days * DAY + hours * 3_600_000;
+  return Timestamp.fromMillis(days <= 0 ? Math.min(ms, Date.now() - 120_000) : ms);
+};
 const ymd = (days = 0) => new Date(Date.now() + 9 * 3_600_000 + days * DAY).toISOString().slice(0, 10);
 const ym = () => ymd().slice(0, 7);
 
@@ -35,9 +41,8 @@ export async function seedDemo(db: Firestore): Promise<number> {
     ['우댕', '우리 오늘도 같은 편!'],
   ] as const;
   // 시각은 「어제 아침~밤」 하루 흐름 + 마지막 한 줄만 오늘(지금보다 미래는 안 되게). 새벽 시각이 찍히면 시연이 어색하다.
-  const kstMidnight = (() => { const k = Date.now() + 9 * 3_600_000; return k - (k % DAY) - 9 * 3_600_000; })();
   const clock = (day: number, hh: number, mm: number) =>
-    Timestamp.fromMillis(Math.min(kstMidnight + day * DAY + (hh * 60 + mm) * 60_000, Date.now() - 120_000));
+    Timestamp.fromMillis(Math.min(KST_MIDNIGHT + day * DAY + (hh * 60 + mm) * 60_000, Date.now() - 120_000));
   const chatTimes: [number, number, number][] = [
     [-1, 8, 12], [-1, 8, 15], [-1, 8, 21], [-1, 8, 22], [-1, 11, 48], [-1, 12, 30], [-1, 12, 31],
     [-1, 13, 5], [-1, 13, 7], [-1, 16, 40], [-1, 16, 42], [-1, 17, 55], [-1, 18, 3], [-1, 19, 10],
@@ -52,8 +57,8 @@ export async function seedDemo(db: Firestore): Promise<number> {
     if (i === 3) data.sticker = '/emo/kkuldaeng/02-saranghae.webp';
     add(['messages', `demo-message-${String(i + 1).padStart(2, '0')}`], data);
   });
-  add(['chatReads', 'udaeng'], { at: at(0, 8) });
-  add(['chatReads', 'kkomi'], { at: at(0, 8) });
+  add(['chatReads', 'udaeng'], { at: Timestamp.now() });
+  add(['chatReads', 'kkomi'], { at: Timestamp.now() });
 
   add(['letters', 'demo-letter-unread'], { from: '꼼이', to: '우댕', body: '오늘 네가 웃었던 순간이 오래 남았어. 내일도 다정한 하루 보내자.', paper: 'peach', revealVersion: 1, hearts: 3, createdAt: at(-1, 21) });
   add(['letters', 'demo-letter-2'], { from: '우댕', to: '꼼이', body: '별일 없는 날도 같이 있으면 기억하고 싶은 날이 돼.', paper: 'sky', revealVersion: 1, createdAt: at(-8, 20) });
@@ -75,7 +80,7 @@ export async function seedDemo(db: Firestore): Promise<number> {
 
   add(['moods', `우댕_${ymd()}`], { name: '우댕', day: ymd(), emoji: 'calm', note: '오늘은 차분하게', updatedAt: at() });
   add(['moods', `꼼이_${ymd()}`], { name: '꼼이', day: ymd(), emoji: 'love', note: '같이 있어서 좋아', updatedAt: at() });
-  add(['presence', '우댕'], { active: true, lastSeenAt: at(0, 0), clientAt: Date.now() });
+  add(['presence', '우댕'], { active: true, lastSeenAt: Timestamp.now(), clientAt: Date.now() });
   add(['presence', '꼼이'], { active: true, lastSeenAt: Timestamp.now(), clientAt: Date.now() });
 
   const events = [

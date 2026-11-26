@@ -5,11 +5,8 @@ import { useRouter } from 'next/navigation';
 import { calendarHref } from '@/lib/calendarLink';
 import DraggableTabs from './DraggableTabs';
 import EmoticonManager from './EmoticonManager';
-import { useEmoPrefs, withOrder, withoutHidden, CHAT_PACKS, OWN_PACKS, defaultPacks } from '@/lib/emoPrefs';
+import { useEmoPrefs, withOrder, withoutHidden, CHAT_PACKS, OWN_PACKS, defaultPacks, POCHACCO_PACKS } from '@/lib/emoPrefs';
 import { isDemo } from '@/lib/demo';
-
-/** 포차코(산리오) 그림 팩 — 시연 모드에서 서랍에서 뺀다. */
-const POCHACCO_PACKS = ['basic', 'dang', 'kkom', 'couple'];
 import { flushSync } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard, Search, ChevronLeft, ChevronRight, History, ChevronDown } from 'lucide-react';
@@ -2690,7 +2687,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
                     {emoManage ? (
                       // 이모티콘 관리 — 팩마다 「서랍에 표시」, 「입력할 때 이모티콘 추천」, 「탭 순서 처음대로」(lib/emoPrefs.ts)
                       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-0.5">
-                        <EmoticonManager compact sets={packTabs.map((t) => ({ id: t.id, title: t.name, thumbnailUrl: t.thumb }))}
+                        <EmoticonManager compact sets={packTabs.filter((t) => !(demoChat && POCHACCO_PACKS.includes(t.id))).map((t) => ({ id: t.id, title: t.name, thumbnailUrl: t.thumb }))}
                           prefs={emo.prefs} onShown={emo.setShown} onSuggestions={emo.setSuggestions} onResetOrder={emo.resetOrder} onReorder={emo.setOrder} />
                       </div>
                     ) : dragTabs.length === 0 ? (

@@ -55,6 +55,8 @@ export const CHAT_PACKS = [
   { id: 'uri',      name: '우리',      thumb: '/emo/uri/03-love.webp' },               // 꿀됑+꼼이 커플 16종 — 맨 끝(2026-10-27)
 ] as const;
 export type ChatPackId = (typeof CHAT_PACKS)[number]['id'];
+/** 포차코(산리오) 그림 팩 — 시연 모드(공모전 영상)에선 서랍·관리 화면에서 뺀다. */
+export const POCHACCO_PACKS: string[] = ['basic', 'dang', 'kkom', 'couple'];
 /** 내 캐릭터 팩 — 우댕은 꿀됑·꿀됑 움짤·우댕 포차코, 꼼이는 꼼이 움짤·꼼이 포차코·미니. 탭 앞자리 + 추천 가산점. */
 export const OWN_PACKS: Record<string, ChatPackId[]> = { '우댕': ['kkul', 'kkulgif', 'kkulg', 'dang'], '꼼이': ['gif', 'office', 'kkom', 'mini'] };
 /** 기본 탭 순서 — 내 캐릭터 팩 먼저, 나머지는 원래 순서. 사용자 순서(withOrder)는 이 위에 입힌다. */
