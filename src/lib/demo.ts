@@ -1,5 +1,4 @@
-'use client';
-
+// ⚠️ 'use client' 붙이지 말 것 — 서버 경로(/api/bump 등)도 이 파일을 거쳐 불러온다. 함수마다 window 확인으로 막아 둠.
 const DEMO_KEY = 'kk-demo';
 const DEMO_AS_KEY = 'kk-demo-as';
 const DEMO_BADGE_KEY = 'kk-demo-badge';
