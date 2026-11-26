@@ -6,6 +6,10 @@ import { calendarHref } from '@/lib/calendarLink';
 import DraggableTabs from './DraggableTabs';
 import EmoticonManager from './EmoticonManager';
 import { useEmoPrefs, withOrder, withoutHidden, CHAT_PACKS, OWN_PACKS, defaultPacks } from '@/lib/emoPrefs';
+import { isDemo } from '@/lib/demo';
+
+/** 포차코(산리오) 그림 팩 — 시연 모드에서 서랍에서 뺀다. */
+const POCHACCO_PACKS = ['basic', 'dang', 'kkom', 'couple'];
 import { flushSync } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ImagePlus, Smile, CornerDownRight, Copy, Trash2, Pencil, Mic, Play, Pause, Bookmark, BookmarkCheck, Hourglass, Download, Loader2, Palette, Check, Sparkles, Plus, Keyboard, Search, ChevronLeft, ChevronRight, History, ChevronDown } from 'lucide-react';
@@ -903,7 +907,14 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   // 이모티콘 관리(사이담 이식 2026-11-17) — 숨긴 팩은 고르는 자리(서랍·찾기·추천·짝 답장·★·자주·최근)에서만 빠진다.
   //   ⚠️ 받은 이모티콘·지난 대화·글 속 (단어) 미니 그림(renderRich)은 이 설정을 보지 않는다 — 보게 하면 지난 대화가 바뀐다.
   const emo = useEmoPrefs(me);
-  const hiddenPacks = useMemo(() => new Set(emo.prefs.hiddenSetIds), [emo.prefs.hiddenSetIds]);
+  // 시연 모드(공모전 영상)엔 포차코(산리오) 그림 팩 넷을 숨긴 팩처럼 뺀다 — 탭·찾기·추천·최근·★ 모두. 실제 설정은 안 건드림.
+  const [demoChat, setDemoChat] = useState(false);
+  useEffect(() => setDemoChat(isDemo()), []);
+  const pickPrefs = useMemo(
+    () => (demoChat ? { ...emo.prefs, hiddenSetIds: [...new Set([...emo.prefs.hiddenSetIds, ...POCHACCO_PACKS])] } : emo.prefs),
+    [demoChat, emo.prefs],
+  );
+  const hiddenPacks = useMemo(() => new Set(pickPrefs.hiddenSetIds), [pickPrefs.hiddenSetIds]);
   const packShown = useCallback((m: StickerMode) => m === 'recent' || !hiddenPacks.has(m), [hiddenPacks]);
   const [emoManage, setEmoManage] = useState(false);    // 서랍 안 「관리」 화면
   const tabRowRef = useRef<HTMLDivElement | null>(null);
@@ -956,7 +967,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
   // 내 캐릭터 탭 먼저 — 우댕은 꿀됑·꿀됑 움짤·우댕, 꼼이는 움짤·꼼이·미니(OWN_MODES). 「최근·자주」는 늘 맨 앞, 나머지는 원래 순서.
   //   그 위에 내가 끌어 옮긴 순서(withOrder)를 입히고, 숨긴 팩을 뺀다. 「최근·자주」는 맨 앞 고정(끌 수 없음).
   const packTabs = useMemo(() => defaultPacks(me) as { id: StickerMode; name: string; thumb: string }[], [me]);
-  const dragTabs = useMemo(() => withoutHidden(withOrder(packTabs, emo.prefs), emo.prefs), [packTabs, emo.prefs]);
+  const dragTabs = useMemo(() => withoutHidden(withOrder(packTabs, pickPrefs), pickPrefs), [packTabs, pickPrefs]);
   const stickerTabs = useMemo(() => [STICKER_TABS[0], ...dragTabs], [dragTabs]);
   // ★·자주·최근 — 기록은 그대로 두고 숨긴 팩만 화면에서 뺀다(다시 표시하면 돌아온다).
   const favShown = favPicks.filter((p) => packShown(p.mode));
