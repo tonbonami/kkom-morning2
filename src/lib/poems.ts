@@ -6,6 +6,7 @@ import { db, storage } from './firebase';
 import {
   collection,
   addDoc,
+  setDoc,
   doc,
   deleteDoc,
   updateDoc,
@@ -17,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { partnerOf } from './letters';
+import { isDemo, settleDemoWrite } from './demo';
 
 export interface PoemDoc {
   title: string;
@@ -63,6 +65,7 @@ function toView(id: string, d: PoemDoc): PoemItemView {
 
 // 이미지 1장 Storage 업로드 → 다운로드 URL. (시 사진 / 시화 공용)
 async function uploadImage(file: File, kind: 'photo' | 'art', by: string): Promise<string> {
+  if (isDemo()) return URL.createObjectURL(file);
   const ext = file.type.includes('png') ? 'png' : file.type.includes('webp') ? 'webp' : 'jpg';
   const safeBy = by.replace(/[^\w가-힣]/g, '_') || 'anon';
   const path = `poems/${kind}_${Date.now()}_${safeBy}.${ext}`;
@@ -109,7 +112,8 @@ export async function addPoem(input: {
   if (photoUrl) payload.photoUrl = photoUrl;
   if (artUrl) payload.artUrl = artUrl;
 
-  const ref = await addDoc(collection(db, 'poems'), payload);
+  const ref = doc(collection(db, 'poems'));
+  await settleDemoWrite(setDoc(ref, { ...payload, ...(isDemo() ? { createdAt: Timestamp.now(), postedAt: Timestamp.now() } : {}) }));
 
   // 새 시 푸시 — 만든 사람의 partner에게
   const to = partnerOf(input.by) as '우댕' | '꼼이';
@@ -123,18 +127,18 @@ export async function addPoem(input: {
 }
 
 export async function deletePoem(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'poems', id));
+  await settleDemoWrite(deleteDoc(doc(db, 'poems', id)));
 }
 
 // 이미 올라간 시에 시화만 따로 붙이기/바꾸기 (둘 다 가능 — 상대 시에 그림 선물 OK)
 export async function setPoemArt(id: string, file: File, by: '우댕' | '꼼이'): Promise<string> {
   const artUrl = await uploadImage(file, 'art', by);
-  await updateDoc(doc(db, 'poems', id), { artUrl, updatedAt: serverTimestamp() });
+  await settleDemoWrite(updateDoc(doc(db, 'poems', id), { artUrl, updatedAt: isDemo() ? Timestamp.now() : serverTimestamp() }));
   return artUrl;
 }
 
 export async function removePoemArt(id: string): Promise<void> {
-  await updateDoc(doc(db, 'poems', id), { artUrl: deleteField(), updatedAt: serverTimestamp() });
+  await settleDemoWrite(updateDoc(doc(db, 'poems', id), { artUrl: deleteField(), updatedAt: isDemo() ? Timestamp.now() : serverTimestamp() }));
 }
 
 // ── '새 시' 안읽음 판정 ──────────────────────────────────────────

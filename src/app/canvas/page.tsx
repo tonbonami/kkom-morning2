@@ -21,6 +21,7 @@ import {
 import { Heart, MessageCircle, Send } from 'lucide-react';
 import { nameFromCode, partnerOf } from '@/lib/letters';
 import { feedback } from '@/lib/feedback';
+import { isDemo } from '@/lib/demo';
 
 // 색 팔레트 — 꼼이(로즈)·우댕(블루) 기본 + 먹색·형광
 const COLORS = [
@@ -44,6 +45,36 @@ const BOARD_RATIO = 3 / 4; // 세로 교재 비율 (w:h = 3:4)
 const EMPTY_STROKES: never[] = []; // StaticInkCanvas는 라이브 획만 그림 (베이크는 InkCanvas 담당)
 
 export default function CanvasPage() {
+  return isDemo() ? <DemoCanvasPreview /> : <RealCanvasPage />;
+}
+
+function DemoCanvasPreview() {
+  const router = useRouter();
+  return (
+    <main className="min-h-app bg-[#fff8fa] px-5 pb-8 pt-[calc(env(safe-area-inset-top,0px)+42px)]">
+      <div className="mx-auto max-w-md">
+        <button type="button" onClick={() => router.push('/')} className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-slate-600">
+          <ArrowLeft className="h-4 w-4" /> 홈으로
+        </button>
+        <div className="rounded-3xl border border-[#f2cad8] bg-white p-5 shadow-sm">
+          <p className="text-xs font-bold text-[#bd6685]">시연용 미리보기</p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-800">우리 낙서장</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">시연 모드에선 낙서장 미리보기만 보여요. 실제 공유 낙서장과 네이티브 캔버스에는 연결하지 않아요.</p>
+          <div className="relative mt-5 aspect-[3/4] overflow-hidden rounded-2xl border border-[#eadce1] bg-[#fffdf8]">
+            <img src="/demo/demo-sunset.jpg" alt="예시 노을 배경" className="absolute inset-0 h-full w-full object-cover opacity-20" />
+            <svg viewBox="0 0 300 400" className="absolute inset-0 h-full w-full" aria-label="예시 하트 낙서">
+              <path d="M150 276 C117 238 64 197 70 139 C75 91 132 91 150 132 C168 91 225 91 230 139 C236 197 183 238 150 276Z" fill="none" stroke="#ef6f9c" strokeWidth="9" strokeLinecap="round" />
+              <path d="M82 318 C120 300 180 300 218 318" fill="none" stroke="#6fa7e8" strokeWidth="6" strokeLinecap="round" />
+              <text x="150" y="338" textAnchor="middle" fill="#64748b" fontSize="15">오늘도 같은 편 ♡</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function RealCanvasPage() {
   const router = useRouter();
   const [me, setMe] = useState<'우댕' | '꼼이' | ''>('');
   const [strokes, setStrokes] = useState<BoardStroke[]>([]);

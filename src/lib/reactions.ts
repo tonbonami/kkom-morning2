@@ -15,6 +15,7 @@ import {
   Timestamp,
   increment,
 } from 'firebase/firestore';
+import { isDemo, settleDemoWrite } from './demo';
 
 export interface ReactionComment {
   id: string;
@@ -26,7 +27,7 @@ export interface ReactionComment {
 export async function incrementHeartsAt(collectionName: string, docId: string): Promise<void> {
   if (!docId) return;
   try {
-    await updateDoc(doc(db, collectionName, docId), { hearts: increment(1) });
+    await settleDemoWrite(updateDoc(doc(db, collectionName, docId), { hearts: increment(1) }));
   } catch (e) {
     console.warn(`하트 증가 실패 (${collectionName}/${docId}):`, e);
   }
@@ -74,13 +75,13 @@ export async function addCommentAt(
 ): Promise<void> {
   const t = text.trim();
   if (!t || !docId) return;
-  await addDoc(collection(db, collectionName, docId, 'comments'), {
+  await settleDemoWrite(addDoc(collection(db, collectionName, docId, 'comments'), {
     by,
     text: t,
-    createdAt: serverTimestamp(),
-  });
+    createdAt: isDemo() ? Timestamp.now() : serverTimestamp(),
+  }));
   try {
-    await updateDoc(doc(db, collectionName, docId), { commentCount: increment(1) });
+    await settleDemoWrite(updateDoc(doc(db, collectionName, docId), { commentCount: increment(1) }));
   } catch {}
 }
 
@@ -89,8 +90,8 @@ export async function deleteCommentAt(
   docId: string,
   commentId: string
 ): Promise<void> {
-  await deleteDoc(doc(db, collectionName, docId, 'comments', commentId));
+  await settleDemoWrite(deleteDoc(doc(db, collectionName, docId, 'comments', commentId)));
   try {
-    await updateDoc(doc(db, collectionName, docId), { commentCount: increment(-1) });
+    await settleDemoWrite(updateDoc(doc(db, collectionName, docId), { commentCount: increment(-1) }));
   } catch {}
 }

@@ -65,6 +65,7 @@ import { DiaryHomeCard } from '@/components/diary/DiaryHomeCard';
 import { calendarHref } from '@/lib/calendarLink';
 import { subscribeDiaryMonthMeta, diaryPageId, type DiaryMeta } from '@/lib/diary';
 import { subscribeHoneyBooks, backfillHoneyVisibility, type HoneyBook } from '@/lib/honeybrary';
+import { enterDemo, isDemo, leaveDemo } from '@/lib/demo';
 
 // 등급별 테마 (배경 그라데이션·텍스트·막대 색을 한 색으로 통일)
 const getAirTheme = (grade?: string) => {
@@ -257,6 +258,7 @@ export default function KkomMorningHome() {
   const [skinToday, setSkinToday] = useState('');
   useEffect(() => {
     if (userName !== '꼼이' && userName !== '우댕') return;
+    if (isDemo()) { setSkinToday('오늘 점수 3/10 · 약 먹음'); return; }
     let alive = true;
     fetch(`/api/skin/log?date=${skinKstToday()}`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
@@ -345,7 +347,7 @@ export default function KkomMorningHome() {
       setPraiseCount(((s.praiseStickers as any)[praisePartner] || 0) + ((s.praiseRequests as any)[praisePartner] || 0));
     });
 
-    const start = new Date('2023-09-28');
+    const start = isDemo() ? new Date(Date.now() - 419 * 86400000) : new Date('2023-09-28');
     const today = new Date();
     start.setHours(0, 0, 0, 0); today.setHours(0, 0, 0, 0);
     setDDay(Math.floor((today.getTime() - start.getTime()) / 86400000) + 1);
@@ -611,6 +613,7 @@ export default function KkomMorningHome() {
 
   // 낙서장 열기 — 네이티브면 KkomCanvas, 웹이면 /canvas (doodle 노드·편집모드 공용)
   const openDoodle = async () => {
+    if (isDemo()) { router.push('/canvas'); return; }
     const { Capacitor, registerPlugin } = await import('@capacitor/core');
     if (Capacitor.isNativePlatform()) {
       try {
@@ -1282,8 +1285,26 @@ export default function KkomMorningHome() {
         </button>)}
 
         {/* 로그아웃 — 페이지 맨 아래 우측에 작고 옅게 (실수로 꼼이 계정 들어갔을 때만 쓰는 안전망) */}
-        <div className="flex justify-end pt-2 pb-1">
-          <button
+        <div className="flex items-center justify-end gap-1 pt-2 pb-1">
+          {!isDemo() && (
+            <button
+              type="button"
+              onClick={() => enterDemo(userName === '꼼이' ? '꼼이' : '우댕')}
+              className="text-[10px] font-bold text-[#d291a9] hover:text-[#b45b7b] active:text-[#9d4666] transition-colors px-2 py-1"
+            >
+              시연 모드
+            </button>
+          )}
+          {isDemo() && (
+            <button
+              type="button"
+              onClick={leaveDemo}
+              className="text-[10px] font-bold text-[#d291a9] hover:text-[#b45b7b] active:text-[#9d4666] transition-colors px-2 py-1"
+            >
+              시연 끝내기
+            </button>
+          )}
+          {!isDemo() && <button
             onClick={() => {
               if (!confirm(`현재 ${userName} 계정으로 로그인됨. 로그아웃할까?`)) return;
               try { localStorage.removeItem('kkom-user'); } catch {}
@@ -1295,7 +1316,7 @@ export default function KkomMorningHome() {
             aria-label="로그아웃"
           >
             {userName} 로그아웃
-          </button>
+          </button>}
         </div>
         </>)}
       </main>

@@ -2,6 +2,7 @@
 import { emptyMemos, itch10Of, sevOf, MEMO_SLOTS, type MemoSlot, type SkinLog } from './skinTypes';
 import { nameFromCode } from './letters';
 import { isPractice } from './practice';
+import { isDemo } from './demo';
 import { demo } from './skinDemo';
 import type { SkinDraft, MedStatus } from '@/components/skin/skinUi';
 import type { ReportDay } from '@/components/skin/SkinDayReport';
@@ -9,6 +10,7 @@ import type { ApplyItem, ChatSummary, MemoryCandidate } from './skinChatSummary'
 
 export const DEFAULT_MED = '항히스타민';
 export const READ_ONLY_MSG = '보기 전용이에요 — 기록은 꼼이만 써요';
+const useSkinDemo = () => isPractice() || isDemo();
 
 // 이 폰에 꼼모닝으로 로그인한 사람 이름(로그인코드 → 이름)
 export function appUserName(): string {
@@ -27,14 +29,14 @@ export const weekdayOf = (date: string) => WEEKDAY[new Date(date + 'T00:00:00Z')
 export type SkinRole = 'kkomi' | 'viewer';
 
 export async function skinSession(): Promise<{ configured: boolean; authed: boolean; role: SkinRole | null }> {
-  if (isPractice()) return demo.session();
+  if (useSkinDemo()) return demo.session();
   const r = await fetch('/api/skin/session', { cache: 'no-store' });
   return r.ok ? r.json() : { configured: false, authed: false, role: null };
 }
 
 // as = 이 폰에 꼼모닝으로 로그인한 사람. 우댕 폰이면 서버가 보기 전용(viewer)으로 연다.
 export async function skinLogin(pin: string, as: string): Promise<'ok' | 'bad' | 'locked' | 'error'> {
-  if (isPractice()) return 'ok';
+  if (useSkinDemo()) return 'ok';
   const r = await fetch('/api/skin/session', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, as }),
   });
@@ -45,7 +47,7 @@ export async function skinLogin(pin: string, as: string): Promise<'ok' | 'bad' |
 }
 
 export async function fetchSkinLogs(from: string, to: string): Promise<SkinLog[] | null> {
-  if (isPractice()) return demo.logs(from, to);
+  if (useSkinDemo()) return demo.logs(from, to);
   const r = await fetch(`/api/skin/log?from=${from}&to=${to}`, { cache: 'no-store' });
   if (r.status === 401) return null;
   if (!r.ok) throw new Error(`skin logs ${r.status}`);
@@ -55,7 +57,7 @@ export async function fetchSkinLogs(from: string, to: string): Promise<SkinLog[]
 export async function saveSkinLog(draft: SkinDraft): Promise<SkinLog> {
   // 약 줄 중 아무것도 안 고른 기본 줄(이름만 있는 빈 줄)은 '기록 없음'이라 빼고 보낸다.
   const meds = draft.meds.filter((m) => m.status || m.time || m.dose || (m.name.trim() && m.name.trim() !== DEFAULT_MED));
-  if (isPractice()) return demo.save({ ...(draft as unknown as Partial<SkinLog>), date: draft.date, meds });
+  if (useSkinDemo()) return demo.save({ ...(draft as unknown as Partial<SkinLog>), date: draft.date, meds });
   const r = await fetch('/api/skin/log', {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...draft, meds }),
@@ -124,13 +126,13 @@ async function shrinkImage(file: File, maxSide = 1600): Promise<Blob> {
 export type SkinPhotoView = { id: string; url: string; t: string | null; slot?: MemoSlot | null };   // slot = 아침·점심·저녁·밤 메모 칸(없으면 예전 사진)
 
 export async function fetchSkinPhotos(date: string): Promise<SkinPhotoView[]> {
-  if (isPractice()) return demo.photos(date);
+  if (useSkinDemo()) return demo.photos(date);
   const r = await fetch(`/api/skin/photo?date=${date}`, { cache: 'no-store' });
   return r.ok ? (await r.json()).photos : [];
 }
 
 export async function uploadSkinPhoto(date: string, file: File, slot?: MemoSlot): Promise<SkinPhotoView> {
-  if (isPractice()) return demo.addPhoto(date, file, slot);
+  if (useSkinDemo()) return demo.addPhoto(date, file, slot);
   const fd = new FormData();
   fd.append('date', date);
   if (slot) fd.append('slot', slot);
@@ -141,28 +143,28 @@ export async function uploadSkinPhoto(date: string, file: File, slot?: MemoSlot)
 }
 
 export async function deleteSkinPhoto(date: string, id: string): Promise<void> {
-  if (isPractice()) { demo.deletePhoto(date, id); return; }
+  if (useSkinDemo()) { demo.deletePhoto(date, id); return; }
   await fetch(`/api/skin/photo?date=${date}&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 // ── 설정·설문 ──
 export async function fetchSkinSettings(): Promise<{ partnerAlert: boolean } | null> {
-  if (isPractice()) return demo.settings();
+  if (useSkinDemo()) return demo.settings();
   const r = await fetch('/api/skin/settings', { cache: 'no-store' });
   return r.ok ? r.json() : null;
 }
 export async function saveSkinSettings(partnerAlert: boolean): Promise<boolean> {
-  if (isPractice()) { demo.setSettings(partnerAlert); return true; }
+  if (useSkinDemo()) { demo.setSettings(partnerAlert); return true; }
   const r = await fetch('/api/skin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ partnerAlert }) });
   return r.ok;
 }
 export async function fetchIntake(): Promise<Record<string, string | string[]> | null> {
-  if (isPractice()) return demo.intake();
+  if (useSkinDemo()) return demo.intake();
   const r = await fetch('/api/skin/intake', { cache: 'no-store' });
   return r.ok ? (await r.json()).answers : null;
 }
 export async function saveIntakeAnswer(id: string, value: string | string[] | null): Promise<boolean> {
-  if (isPractice()) { demo.setIntake(id, value); return true; }
+  if (useSkinDemo()) { demo.setIntake(id, value); return true; }
   const r = await fetch('/api/skin/intake', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, value }) });
   return r.ok;
 }
@@ -234,25 +236,25 @@ export type SkinUsage = {
   today: { count: number; won: number }; month: { count: number; won: number }; total: { count: number; won: number }; limit: number;
 };
 export async function fetchSkinUsage(): Promise<SkinUsage | null> {
-  if (isPractice()) return { today: { count: 3, won: 120 }, month: { count: 41, won: 1650 }, total: { count: 41, won: 1650 }, limit: 60 }; // 연습 모드 예시
+  if (useSkinDemo()) return { today: { count: 3, won: 120 }, month: { count: 41, won: 1650 }, total: { count: 41, won: 1650 }, limit: 60 }; // 연습/시연 모드 예시
   const r = await fetch('/api/skin/usage', { cache: 'no-store' });
   return r.ok ? ((await r.json()) as SkinUsage) : null;
 }
 
 // ── 오늘 상담 정리(우댕 2026-10-21) — 정리 받기·불러오기·일지 반영
 export async function fetchChatSummary(date: string): Promise<{ summary: ChatSummary | null; msgCount: number } | null> {
-  if (isPractice()) return { summary: demo.chatSummary(date), msgCount: date === kstToday() ? 2 : 0 }; // 연습 모드는 오늘만 상담이 있는 걸로
+  if (useSkinDemo()) return { summary: demo.chatSummary(date), msgCount: date === kstToday() ? 2 : 0 };
   const r = await fetch(`/api/skin/chat/summary?date=${date}`, { cache: 'no-store' });
   return r.ok ? r.json() : null;
 }
 export async function makeChatSummary(date: string): Promise<{ summary: ChatSummary; logs: SkinLog[] }> {
-  if (isPractice()) { await new Promise((r) => setTimeout(r, 1500)); return demo.makeChatSummary(date); }
+  if (useSkinDemo()) { await new Promise((r) => setTimeout(r, 1500)); return demo.makeChatSummary(date); }
   const r = await fetch('/api/skin/chat/summary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date }) });
   if (!r.ok) throw new Error((await r.json().catch(() => null))?.error ?? `summary ${r.status}`);
   return r.json();
 }
 export async function applyChatSummary(date: string, items: ApplyItem[], memory: MemoryCandidate[]): Promise<boolean> {
-  if (isPractice()) { demo.applyChatSummary(date, items, memory); return true; }
+  if (useSkinDemo()) { demo.applyChatSummary(date, items, memory); return true; }
   const r = await fetch('/api/skin/chat/summary/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, items, memory }) });
   return r.ok;
 }

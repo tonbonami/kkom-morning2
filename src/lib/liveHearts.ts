@@ -5,6 +5,7 @@
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { partnerOf } from './letters';
+import { isDemo, settleDemoWrite } from './demo';
 
 export interface LiveHeartPing {
   from: string;
@@ -20,7 +21,7 @@ export async function throwHeart(from: string, emoji: string = '❤️'): Promis
   // Math.random은 워크플로 밖 일반 앱 코드라 사용 가능. nonce는 시각+난수로 충분히 유니크.
   const nonce = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   try {
-    await setDoc(doc(db, 'liveHearts', to), { from, nonce, at: serverTimestamp(), emoji });
+    await settleDemoWrite(setDoc(doc(db, 'liveHearts', to), { from, nonce, at: isDemo() ? Timestamp.now() : serverTimestamp(), emoji }));
   } catch (e) {
     console.warn('하트 던지기 실패:', e);
   }

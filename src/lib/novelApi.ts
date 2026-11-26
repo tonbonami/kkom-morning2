@@ -10,6 +10,7 @@ import type {
   CompleteNovelResponse,
   LikeSentenceResponse,
 } from '@/types';
+import { isDemo } from './demo';
 
 // ─────────────────────────────────────────────
 // 환경변수에서 API URL 가져오기 (api.ts와 동일 패턴)
@@ -78,6 +79,7 @@ export function isLastSentenceMine(novel: Novel): boolean {
 // ─────────────────────────────────────────────
 
 async function postToGAS<T>(body: Record<string, unknown>): Promise<T> {
+  if (isDemo()) return { success: true, demo: true } as T;
   if (!API_URL) {
     throw new Error('[novelApi] NEXT_PUBLIC_APPS_SCRIPT_URL 환경변수가 설정되지 않았습니다.');
   }
@@ -114,6 +116,7 @@ async function postToGAS<T>(body: Record<string, unknown>): Promise<T> {
  * 모든 소설 데이터 조회 (GET)
  */
 export async function getNovelData(): Promise<NovelDataResponse> {
+  if (isDemo()) return { activeNovels: [], completedNovels: [], coverLibrary: [] };
   if (!API_URL) {
     throw new Error('[novelApi] NEXT_PUBLIC_APPS_SCRIPT_URL 환경변수가 설정되지 않았습니다.');
   }

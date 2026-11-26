@@ -2,6 +2,7 @@
 // 2인 앱이라 둘이 같은 배치를 본다. moduleOrder/moduleSizes/enabledModules.
 import { db } from './firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { settleDemoWrite } from './demo';
 
 export type CardSize = '1x1' | '2x1' | '2x2';
 export interface HomeLayout {
@@ -23,5 +24,5 @@ export function subscribeHomeLayout(cb: (layout: HomeLayout) => void): () => voi
 
 // 저장 — merge로 세 필드. (사이담은 updateDoc 3개 Promise.all이지만 문서 하나라 setDoc merge 한 번으로 충분)
 export async function saveHomeLayout(patch: HomeLayout): Promise<void> {
-  await setDoc(REF(), patch, { merge: true });
+  await settleDemoWrite(setDoc(REF(), patch, { merge: true }));
 }

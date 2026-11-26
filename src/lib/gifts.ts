@@ -4,6 +4,7 @@
 import { db } from './firebase';
 import { doc, setDoc, getDoc, onSnapshot, deleteDoc, Timestamp } from 'firebase/firestore';
 import { partnerOf } from './letters';
+import { settleDemoWrite } from './demo';
 
 // 소품 — 공통(보살핌, 누구든 서로에게) + 받는 사람 최애. 이미지 /emo/gifts/{id}.png.
 // 2026-11-22 사이담 선물함 개편을 옮겨 칸 6개 + 추천 탭으로 정리했다.
@@ -176,7 +177,7 @@ export async function giveGifts(from: string, itemIds: string[]): Promise<void> 
   try {
     const snap = await getDoc(ref);
     const items = [...readItems(snap.data()), ...entries].slice(-MAX_GIFTS);   // 최근 3개만 유지
-    await setDoc(ref, { items });
+    await settleDemoWrite(setDoc(ref, { items }));
   } catch (e) { console.warn('두고 가기 실패:', e); }
 }
 export const giveGift = (from: string, itemId: string) => giveGifts(from, [itemId]);
@@ -205,5 +206,5 @@ export function subscribeGifts(me: string, cb: (gifts: Gift[]) => void): () => v
 // 받았어(고마워) — 전부 지운다.
 export async function clearGifts(me: string): Promise<void> {
   if (!me) return;
-  try { await deleteDoc(doc(db, 'gifts', me)); } catch { /* noop */ }
+  try { await settleDemoWrite(deleteDoc(doc(db, 'gifts', me))); } catch { /* noop */ }
 }

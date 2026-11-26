@@ -4,6 +4,7 @@ import { db } from './firebase';
 import {
   collection, addDoc, doc, deleteDoc, query, orderBy, onSnapshot, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
+import { isDemo, settleDemoWrite } from './demo';
 
 export interface SavedLink {
   id: string;
@@ -60,11 +61,11 @@ async function fetchLinkMeta(url: string): Promise<{ title?: string; image?: str
 // 링크 저장 — 메타 붙여서 'links'에. undefined 필드는 Firestore 저장 안 되므로 정리.
 export async function saveLink(url: string, from: string): Promise<void> {
   const meta = await fetchLinkMeta(url);
-  const payload: Record<string, unknown> = { url, from, createdAt: serverTimestamp() };
+  const payload: Record<string, unknown> = { url, from, createdAt: isDemo() ? Timestamp.now() : serverTimestamp() };
   if (meta.title) payload.title = meta.title;
   if (meta.image) payload.image = meta.image;
   if (meta.site) payload.site = meta.site;
-  await addDoc(collection(db, 'links'), payload);
+  await settleDemoWrite(addDoc(collection(db, 'links'), payload));
 }
 
 // 최신순 실시간 구독.
@@ -83,5 +84,5 @@ export function subscribeLinks(cb: (links: SavedLink[]) => void): () => void {
 }
 
 export async function deleteLink(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'links', id));
+  await settleDemoWrite(deleteDoc(doc(db, 'links', id)));
 }

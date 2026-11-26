@@ -2,6 +2,7 @@
 // 서버는 매일 아침 이 구독들을 읽어 web-push로 발송함.
 
 import { db } from './firebase';
+import { isDemo } from './demo';
 import { doc, setDoc, deleteDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
@@ -19,6 +20,7 @@ export type PushState = 'unsupported' | 'denied' | 'off' | 'on' | 'unknown';
 
 // 현재 브라우저의 구독 상태 (UI 표시용)
 export async function getPushState(name: string): Promise<PushState> {
+  if (isDemo()) return 'unsupported';
   if (typeof window === 'undefined') return 'unknown';
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return 'unsupported';
   if (Notification.permission === 'denied') return 'denied';
@@ -37,6 +39,7 @@ export async function getPushState(name: string): Promise<PushState> {
 
 // 구독 시작 — 권한 요청 → SW 구독 → Firestore에 저장
 export async function enablePush(name: string): Promise<{ ok: boolean; error?: string }> {
+  if (isDemo()) return { ok: false, error: '시연 모드에서는 알림을 등록하지 않아요' };
   if (!VAPID_PUBLIC) return { ok: false, error: 'VAPID 키 미설정' };
   if (typeof window === 'undefined') return { ok: false, error: '브라우저 환경 아님' };
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -76,6 +79,7 @@ export async function enablePush(name: string): Promise<{ ok: boolean; error?: s
 
 // 구독 해제 (브라우저 + Firestore 둘 다)
 export async function disablePush(name: string): Promise<void> {
+  if (isDemo()) return;
   try {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();

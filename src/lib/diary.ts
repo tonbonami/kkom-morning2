@@ -16,10 +16,11 @@
 import { db, storage, usingEmulator } from './firebase';
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, startAfter, writeBatch, runTransaction,
-  serverTimestamp, deleteField, type DocumentData, type QueryDocumentSnapshot, type Transaction,
+  serverTimestamp, deleteField, Timestamp, type DocumentData, type QueryDocumentSnapshot, type Transaction,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { isPractice, practiceBlocked } from './practice';
+import { isDemo, settleDemoWrite } from './demo';
 import { PERSON_KEY, PracticeBlocked } from './honeybrary';
 import { addCalendarEvent, deleteCalendarEvent } from './calendar';
 import {
@@ -155,7 +156,7 @@ export function fetchAllDiaryMeta(): Promise<DiaryMeta[]> {
 }
 
 /** 저장할 수 있는 물건만 — 아직 올리는 중인 사진(blob:)은 뺀다(다 올라오면 다시 저장된다). */
-export const storableItems = (items: DiaryItemVM[]) => items.filter((i) => !(i.src ?? '').startsWith('blob:')).slice(0, DIARY_LIMITS.items);
+export const storableItems = (items: DiaryItemVM[]) => items.filter((i) => isDemo() || !(i.src ?? '').startsWith('blob:')).slice(0, DIARY_LIMITS.items);
 
 /** 저장하려는데 서버 판이 내가 알던 판과 다르다 — 다른 기기(아이패드↔폰)가 먼저 고쳤다. */
 export class DiaryConflict extends Error {
@@ -172,6 +173,21 @@ export class DiaryConflict extends Error {
 export async function saveDiaryPage(page: DiaryPageVM, baseRevision: number): Promise<number> {
   if (blocked('다이어리 저장')) throw new PracticeBlocked();
   const id = diaryPageId(page.date, page.owner);
+  if (isDemo()) {
+    const items = clean(storableItems(page.items));
+    const text = page.text.slice(0, DIARY_LIMITS.text);
+    const empty = !text.trim() && items.length === 0;
+    const photos = empty ? [] : items.filter((i) => i.type === 'photo' && i.src).map((i) => i.src!).slice(0, 4);
+    const thumb = empty ? undefined : thumbOf(items);
+    const revision = baseRevision + 1;
+    const now = Timestamp.now();
+    await settleDemoWrite(Promise.all([
+      setDoc(contentRef(id), { text: empty ? '' : text, items: empty ? [] : items, theme: page.theme, ...(page.question ? { question: page.question.slice(0, 60) } : {}), empty, revision, updatedAt: now }),
+      setDoc(doc(db, 'diaryPages', id), { date: page.date, ym: page.date.slice(0, 7), owner: page.owner, theme: page.theme, itemCount: items.length, hasPhoto: !!photos.length, excerpt: empty ? '' : excerptOf(text), ...(thumb ? { thumb } : {}), ...(photos.length ? { photos } : {}), empty, schemaVersion: 1, revision, updatedAt: now }, { merge: true }),
+    ]));
+    forgetAllDiaryMeta();
+    return revision;
+  }
   return runTransaction(db, async (tx) => {
     const cur = await tx.get(contentRef(id));
     const serverRev = cur.exists() ? num(cur.data()?.revision, 0, 0, 1e9) : 0;
@@ -332,8 +348,8 @@ function notifyDiary(body: { kind: 'heart' | 'text'; from: Person; date: string;
 export async function setDiaryHeart(date: string, owner: Person, me: Person, on: boolean): Promise<void> {
   if (blocked('다이어리 마음')) throw new PracticeBlocked();
   const ref = doc(notesCol(diaryPageId(date, owner)), `heart_${PERSON_KEY[me]}`);
-  if (!on) { await deleteDoc(ref); return; }
-  await setDoc(ref, { by: me, kind: 'heart', text: '', at: serverTimestamp() });
+  if (!on) { await settleDemoWrite(deleteDoc(ref)); return; }
+  await settleDemoWrite(setDoc(ref, { by: me, kind: 'heart', text: '', at: isDemo() ? Timestamp.now() : serverTimestamp() }));
   notifyDiary({ kind: 'heart', from: me, date, owner });
 }
 
@@ -341,13 +357,13 @@ export async function addDiaryNote(date: string, owner: Person, me: Person, text
   const t = text.trim().slice(0, DIARY_NOTE_MAX);
   if (!t) return;
   if (blocked('다이어리 한마디')) throw new PracticeBlocked();
-  await setDoc(doc(notesCol(diaryPageId(date, owner))), { by: me, kind: 'text', text: t, at: serverTimestamp() });
+  await settleDemoWrite(setDoc(doc(notesCol(diaryPageId(date, owner))), { by: me, kind: 'text', text: t, at: isDemo() ? Timestamp.now() : serverTimestamp() }));
   notifyDiary({ kind: 'text', from: me, date, owner, text: t });
 }
 
 export async function deleteDiaryNote(date: string, owner: Person, id: string): Promise<void> {
   if (blocked('다이어리 한마디 지우기')) throw new PracticeBlocked();
-  await deleteDoc(doc(notesCol(diaryPageId(date, owner)), id));
+  await settleDemoWrite(deleteDoc(doc(notesCol(diaryPageId(date, owner)), id)));
 }
 
 // ── 사진 ─────────────────────────────────────────────────────────────────
@@ -380,6 +396,7 @@ export async function prepareDiaryPhoto(file: File): Promise<{ blob: Blob; ratio
 
 export async function uploadDiaryPhoto(date: string, owner: Person, blob: Blob): Promise<{ src: string; path: string }> {
   if (blocked('다이어리 사진 올리기')) throw new PracticeBlocked();
+  if (isDemo()) return { src: URL.createObjectURL(blob), path: `demo-local/${Date.now()}.jpg` };
   const photoId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
   const path = `diary/${PERSON_KEY[owner]}/${date.slice(0, 4)}/${date.slice(5, 7)}/${diaryPageId(date, owner)}/${photoId}.jpg`;
   const r = storageRef(storage, path);
@@ -451,6 +468,7 @@ export async function appPhotoFile(p: AppPhotoVM): Promise<File> {
 /** 손으로 그린 필기(투명 PNG) 올리기 — 사진과 같은 자리(diary/…/{장 id}/ink-…png). JPEG 로 바꾸면 투명이 사라져서 따로 둔다. */
 export async function uploadDiaryInk(date: string, owner: Person, png: Blob, sidecarJson?: string): Promise<{ src: string; path: string; strokeSrc?: string; strokePath?: string }> {
   if (blocked('다이어리 필기 올리기')) throw new PracticeBlocked();
+  if (isDemo()) return { src: URL.createObjectURL(png), path: `demo-local/ink-${Date.now()}.png` };
   const inkId = `ink-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
   const base = `diary/${PERSON_KEY[owner]}/${date.slice(0, 4)}/${date.slice(5, 7)}/${diaryPageId(date, owner)}/${inkId}`;
   const r = storageRef(storage, `${base}.png`);
@@ -469,7 +487,7 @@ export async function uploadDiaryInk(date: string, owner: Person, png: Blob, sid
 
 /** 장에서 빠진 사진 파일 지우기 — 「이미 없음」은 성공으로 본다. 실패해도 장 저장은 이미 끝난 뒤라 조용히 넘긴다. */
 export async function deleteDiaryPhotos(paths: string[]): Promise<void> {
-  if (isPractice()) return;
+  if (isPractice() || isDemo()) return;
   await Promise.all(paths.filter((p) => p.startsWith('diary/')).map((p) => deleteObject(storageRef(storage, p)).catch(() => {})));
 }
 
@@ -577,7 +595,7 @@ export async function writeDiaryMonthPatch(ym: string, owner: MonthOwner, p: Mon
     case 'margin': body = { margin: clean(p.list.slice(0, MONTH_LIMITS.margin)) }; break;
     case 'title': body = { title: p.title }; break;
   }
-  await setDoc(monthRef(ym, owner), { ...body, ym, owner: OWNER_KEY[owner], updatedAt: serverTimestamp() }, { merge: true });
+  await settleDemoWrite(setDoc(monthRef(ym, owner), { ...body, ym, owner: OWNER_KEY[owner], updatedAt: isDemo() ? Timestamp.now() : serverTimestamp() }, { merge: true }));
 }
 
 // ── 생일·기념일 ──────────────────────────────────────────────────────────
@@ -605,11 +623,11 @@ export function subscribeSpecialDates(cb: (list: SpecialDateVM[]) => void): () =
 export async function addSpecialDate(v: Omit<SpecialDateVM, 'id'>): Promise<void> {
   if (blocked('기념일 추가')) throw new PracticeBlocked();
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-  await setDoc(doc(db, 'specialDates', id), { ...clean(v), repeat: 'yearly', createdAt: serverTimestamp() });
+  await settleDemoWrite(setDoc(doc(db, 'specialDates', id), { ...clean(v), repeat: 'yearly', createdAt: isDemo() ? Timestamp.now() : serverTimestamp() }));
 }
 export async function deleteSpecialDate(id: string): Promise<void> {
   if (blocked('기념일 지우기')) throw new PracticeBlocked();
-  await deleteDoc(doc(db, 'specialDates', id));
+  await settleDemoWrite(deleteDoc(doc(db, 'specialDates', id)));
 }
 
 /** 처음부터 들어 있는 날 — 두 사람 생일과 처음 만난 날(코드에 박혀 있던 것: birthday.ts · 홈의 2023-09-28). */
@@ -620,7 +638,7 @@ export const BUILTIN_SPECIALS: SpecialDateVM[] = [
 ];
 /** 한 번만 심는다(settings/diary.specialSeeded) — 그 뒤로는 지워도 다시 안 생긴다. id 가 고정이라 두 폰이 동시에 해도 같은 문서. */
 export async function seedSpecialDates(): Promise<void> {
-  if (isPractice()) return;
+  if (isPractice() || isDemo()) return;
   const flag = doc(db, 'settings', 'diary');
   const cur = await getDoc(flag);
   if (cur.exists() && cur.data().specialSeeded) return;
@@ -642,13 +660,13 @@ export async function saveDiaryEvent(d: DiaryEventDraft, me: Person, id?: string
       startTime: d.startTime || undefined, memo: d.memo, location: d.location, remindDaysBefore: d.remindDaysBefore, decorId: d.decorId, createdBy: me,
     });
   }
-  await updateDoc(doc(db, 'calendarEvents', id), {
+  await settleDemoWrite(updateDoc(doc(db, 'calendarEvents', id), {
     title: d.title, owner: d.owner, startDate: d.startDate, endDate: d.endDate, allDay: d.allDay,
     startTime: !d.allDay && d.startTime ? d.startTime : deleteField(),
     location: d.location || deleteField(), memo: d.memo || deleteField(),
     remindDaysBefore: d.remindDaysBefore.length ? d.remindDaysBefore : deleteField(),
     decorId: d.decorId || deleteField(), updatedAt: serverTimestamp(),
-  });
+  }));
   return id;
 }
 /** 일정 지우기 — 알림도 같이 없어진다(크론이 이 문서를 보고 보낸다). 일정 창 안에서 한 번 더 확인한 뒤에만 부른다. */

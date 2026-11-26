@@ -1,6 +1,9 @@
 // 네이티브 앱(Capacitor)에서만 — 커스텀 PushBridge 플러그인으로 APNs 푸시 등록.
 // 웹 브라우저에선 no-op. userKey = 'udaeng' | 'kkomi'.
+import { isDemo } from './demo';
+
 export async function registerNativePush(userKey: 'udaeng' | 'kkomi'): Promise<void> {
+  if (isDemo()) return;
   try {
     const { Capacitor, registerPlugin } = await import('@capacitor/core');
     if (!Capacitor.isNativePlatform()) return;

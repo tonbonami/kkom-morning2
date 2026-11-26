@@ -5,6 +5,7 @@ import PresenceHeartbeat from '@/components/PresenceHeartbeat';
 import AppViewportHeight from '@/components/AppViewportHeight';
 import './globals.css';
 import { cn } from '@/lib/utils';
+import DemoProvider from '@/components/DemoProvider';
 
 export const metadata: Metadata = {
   title: 'Kkom-Morning Companion',
@@ -35,11 +36,13 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&family=PT+Sans:wght@400;700&family=Dongle:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=Alex+Brush&display=swap" rel="stylesheet" />
       </head>
       <body className={cn("font-body antialiased")}>
-        {children}
-        <AppViewportHeight />
-        <Toaster />
-        <PwaRegister />
-        <PresenceHeartbeat />
+        <DemoProvider>
+          {children}
+          <AppViewportHeight />
+          <Toaster />
+          <PwaRegister />
+          <PresenceHeartbeat />
+        </DemoProvider>
       </body>
     </html>
   );

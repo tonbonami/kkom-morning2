@@ -7,6 +7,7 @@ import SkinScreen from '@/components/skin/SkinScreen';
 import { addDays, fetchChatSummary, fetchSkinPhotos, fetchSkinUsage, kstToday, skinSession, uploadSkinPhoto, type SkinUsage } from '@/lib/skinClient';
 import { MEMO_SLOT_LABEL, type MemoSlot } from '@/lib/skinTypes';
 import { isPractice } from '@/lib/practice';
+import { isDemo } from '@/lib/demo';
 import { demo } from '@/lib/skinDemo';
 
 type Msg = { id: string; role: 'user' | 'assistant'; text: string; at: string; photoUrls?: string[] };
@@ -49,7 +50,7 @@ export default function SkinChatPage() {
   }, []);
 
   useEffect(() => {
-    if (isPractice()) { setLoaded(true); return; } // 연습 모드: 저장된 대화 안 불러옴
+    if (isPractice() || isDemo()) { setLoaded(true); return; } // 연습/시연 모드: 저장된 대화 안 불러옴
     fetch('/api/skin/chat', { cache: 'no-store' })
       .then((r) => {
         if (r.status === 401) { router.replace('/skin'); return null; }
@@ -128,7 +129,7 @@ export default function SkinChatPage() {
     setStreamingText('');
     let full = '';
     try {
-      if (isPractice()) {
+      if (isPractice() || isDemo()) {
         // 연습 모드: 실제 Claude 대신 정해진 안내를 글자씩 흘려 보여 준다(서버·비용 0)
         for (const ch of demo.chatReply) { full += ch; setStreamingText(full); await new Promise((r) => setTimeout(r, 12)); }
         return;

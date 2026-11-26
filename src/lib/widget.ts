@@ -1,6 +1,7 @@
 // 홈 위젯 스냅샷 — 웹이 모은 데이터를 네이티브 앱그룹에 써서 위젯이 읽게 함.
 // (네이티브 앱에서만 동작. PWA/브라우저는 무시.)
 import { serverNow } from './presence';
+import { isDemo } from './demo';
 
 const DDAY = '2023-09-28'; // 우댕♥꼼이 사귄 날
 
@@ -43,6 +44,7 @@ export interface WidgetSnapshot {
 
 // 로그아웃 시 호출 — 위젯이 옛 상대를 계속 보여주지 않게 네이티브 앱그룹 스냅샷을 지운다.
 export async function clearWidgetSnapshot(): Promise<void> {
+  if (isDemo()) return;
   try {
     const { Capacitor, registerPlugin } = await import('@capacitor/core');
     if (!Capacitor.isNativePlatform()) return;
@@ -52,6 +54,7 @@ export async function clearWidgetSnapshot(): Promise<void> {
 }
 
 export async function pushWidgetSnapshot(s: WidgetSnapshot): Promise<void> {
+  if (isDemo()) return;
   try {
     const { Capacitor, registerPlugin } = await import('@capacitor/core');
     if (!Capacitor.isNativePlatform()) return;

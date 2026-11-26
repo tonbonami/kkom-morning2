@@ -17,9 +17,10 @@ import {
   fetchSkinSettings, prefillCycle, saveSkinLog, saveSkinSettings, savedAtText, skinLogin, skinSession, uploadSkinPhoto, type SkinPhotoView, type SkinRole,
 } from '@/lib/skinClient';
 import { isPractice } from '@/lib/practice';
+import { isDemo } from '@/lib/demo';
 
 // 저장 전 기록을 폰에도 적어 둔다(앱이 꺼지거나 저장이 실패해도 다시 열면 되살림 — 우댕: 기록이 절대 날아가면 안 됨)
-const draftKey = (date: string) => `${isPractice() ? 'kk-skin-draft-demo' : 'kk-skin-draft'}:${date}`;
+const draftKey = (date: string) => `${isPractice() || isDemo() ? 'kk-skin-draft-demo' : 'kk-skin-draft'}:${date}`;
 function readLocalDraft(date: string, serverUpdatedAt?: string): SkinDraft | null {
   try {
     const raw = localStorage.getItem(draftKey(date));

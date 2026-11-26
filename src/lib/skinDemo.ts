@@ -3,6 +3,7 @@
 //   보이는 숫자·메모·사진은 전부 지어낸 예시다(꼼이 실제 기록 아님).
 import { addDaysIso, sevOf, type MemoSlot, type SkinLog } from './skinTypes';
 import { practiceAsViewer } from './practice';
+import { demoAs, isDemo } from './demo';
 import { patchFromProposals, type ApplyItem, type ChatSummary, type MemoryCandidate, type Proposal } from './skinChatSummary';
 
 const kst = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
@@ -77,7 +78,7 @@ function sampleSummary(date: string): ChatSummary {
 export const demo = {
   // ?practice=1&view=1 이면 보기 전용(우댕 폰)으로 흉내
   session() {
-    store.role = practiceAsViewer() ? 'viewer' : 'kkomi';
+    store.role = practiceAsViewer() || (isDemo() && demoAs() === '우댕') ? 'viewer' : 'kkomi';
     return { configured: true, authed: true, role: store.role };
   },
   logs(from: string, to: string): SkinLog[] {

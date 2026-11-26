@@ -1,4 +1,5 @@
 import { PinInput } from '@/components/login/pin-input';
+import DemoEntryButton from '@/components/DemoEntryButton';
 
 export default function LoginPage() {
   return (
@@ -21,6 +22,7 @@ export default function LoginPage() {
         <p className="text-center text-xs text-gray-500 mt-6">
           Created 💚 by 우댕님
         </p>
+        <DemoEntryButton />
       </div>
     </div>
   );

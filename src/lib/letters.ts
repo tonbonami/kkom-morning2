@@ -11,11 +11,13 @@ import {
   orderBy,
   limit,
   onSnapshot,
+  getDoc,
   serverTimestamp,
   Timestamp,
   runTransaction,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { isDemo, settleDemoWrite } from './demo';
 
 // 2인 앱: 로그인 코드 → 이름 (정체성의 단일 출처)
 export const CODE_TO_NAME: Record<string, string> = {
@@ -294,17 +296,23 @@ export async function sendLetter(
     //    letters 엔 봉투(누가·언제 도착)만 + sealed:true.  (받는 앱은 letterVault 를 안 읽는다.)
     const ref = doc(collection(db, 'letters'));
     letterId = ref.id;
-    await setDoc(doc(db, 'letterVault', letterId), content);
-    await setDoc(ref, {
+    await settleDemoWrite(setDoc(doc(db, 'letterVault', letterId), content));
+    await settleDemoWrite(setDoc(ref, {
       from,
       to,
-      createdAt: serverTimestamp(),
+      createdAt: isDemo() ? Timestamp.now() : serverTimestamp(),
       openAt: Timestamp.fromDate(openAt!),
       sealed: true,
-    });
+    }));
   } else {
-    const ref = await addDoc(collection(db, 'letters'), { from, to, createdAt: serverTimestamp(), ...content });
-    letterId = ref.id;
+    if (isDemo()) {
+      const ref = doc(collection(db, 'letters'));
+      letterId = ref.id;
+      await settleDemoWrite(setDoc(ref, { from, to, createdAt: Timestamp.now(), ...content }));
+    } else {
+      const ref = await addDoc(collection(db, 'letters'), { from, to, createdAt: serverTimestamp(), ...content });
+      letterId = ref.id;
+    }
   }
 
   // "매일매일 꼼모닝" 헤더용 카운트 (실패해도 본 기능 망치지 않게 fire-and-forget).
@@ -335,6 +343,14 @@ export async function sendLetter(
 //   트랜잭션이라 폰·데스크톱에서 동시에 열어도 한 대만 true. 보낸 사람·옛 편지(revealVersion 없음)·이미 연 편지·
 //   예약 도착 전·오프라인(트랜잭션 실패)은 false → 봉투 없이 바로 편지(애니메이션 때문에 편지가 막히면 안 된다).
 export async function claimFirstOpen(letterId: string, me: string): Promise<boolean> {
+  if (isDemo()) {
+    const ref = doc(db, 'letters', letterId);
+    const snap = await getDoc(ref);
+    const d = snap.data() as Partial<Letter> | undefined;
+    if (!d || d.to !== me || d.revealVersion !== 1 || d.firstOpenedAt || d.sealed === true) return false;
+    await settleDemoWrite(updateDoc(ref, { firstOpenedAt: Timestamp.now() }));
+    return true;
+  }
   try {
     return await runTransaction(db, async (tx) => {
       const ref = doc(db, 'letters', letterId);
@@ -353,16 +369,17 @@ export async function claimFirstOpen(letterId: string, me: string): Promise<bool
 // 보낸 편지 수정 — 본인이 보낸 편지의 본문을 고친다. editedAt 기록(수정됨 표시용).
 // 도착 푸시는 다시 보내지 않는다(수정은 조용히). 손글씨·음성·이모티콘 수정은 추후 확장.
 export async function updateLetter(id: string, patch: { body?: string }): Promise<void> {
-  const data: Record<string, unknown> = { editedAt: serverTimestamp() };
+  const data: Record<string, unknown> = { editedAt: isDemo() ? Timestamp.now() : serverTimestamp() };
   if (patch.body != null) data.body = patch.body.trim();
   // updateDoc의 UpdateData 제네릭 마찰 회피
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await updateDoc(doc(db, 'letters', id), data as any);
+  await settleDemoWrite(updateDoc(doc(db, 'letters', id), data as any));
 }
 
 // 음성 Blob을 Firebase Storage에 올리고 다운로드 URL 반환.
 // 경로: voices/{보낸사람}/{timestamp}.{ext}  (Storage 콘솔에서 정리해 보기 좋게)
 export async function uploadVoice(blob: Blob, fromName: string): Promise<string> {
+  if (isDemo()) return URL.createObjectURL(blob);
   const ext = blob.type.includes('mp4') ? 'm4a' : 'webm';
   const safeName = fromName.replace(/[^\w가-힣]/g, '_') || 'anon';
   const path = `voices/${safeName}/${Date.now()}.${ext}`;

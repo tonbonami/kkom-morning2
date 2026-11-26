@@ -5,6 +5,7 @@ import { db } from './firebase';
 import {
   collection,
   addDoc,
+  setDoc,
   doc,
   deleteDoc,
   onSnapshot,
@@ -13,6 +14,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import type { WishCategory, WishPreview } from './wishlist';
+import { isDemo, settleDemoWrite } from './demo';
 
 export interface AgainDoc {
   category: WishCategory;
@@ -97,10 +99,11 @@ export async function addAgain(input: {
   if (input.memo) payload.memo = input.memo;
   if (input.wishlistCreatedAt) payload.wishlistCreatedAt = Timestamp.fromDate(input.wishlistCreatedAt);
 
-  const ref = await addDoc(collection(db, 'again'), payload);
+  const ref = doc(collection(db, 'again'));
+  await settleDemoWrite(setDoc(ref, { ...payload, ...(isDemo() ? { sentAt: Timestamp.now() } : {}) }));
   return ref.id;
 }
 
 export async function deleteAgain(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'again', id));
+  await settleDemoWrite(deleteDoc(doc(db, 'again', id)));
 }

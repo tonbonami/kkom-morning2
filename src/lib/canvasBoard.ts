@@ -15,6 +15,7 @@ import {
   ref as dbRef, set as dbSet, push as dbPush, remove as dbRemove,
   update as dbUpdate, get as dbGet, onValue, onDisconnect, serverTimestamp,
 } from 'firebase/database';
+import { isDemo } from './demo';
 
 export const DEFAULT_BOARD = 'main'; // 첫 페이지 id (기존 낙서 승계)
 export const DEFAULT_BOOK = 'main';  // 책은 전역 canvas/book 하나 (인자는 시그니처 호환용)
@@ -43,6 +44,14 @@ function strokesRef(boardId: string) { return dbRef(rtdb, `canvas/${boardId}/str
 
 // 완성된 획 구독 (양쪽 것 모두 — user별 subtree를 평탄화). t로 정렬.
 export function subscribeStrokes(boardId: string, cb: (strokes: BoardStroke[]) => void): () => void {
+  if (isDemo()) {
+    cb([{ id: 'demo/heart', color: '#ef6f9c', size: 7, by: '꼼이', points: [
+      { x: .5, y: .66, p: .5 }, { x: .31, y: .48, p: .5 }, { x: .23, y: .33, p: .5 }, { x: .29, y: .22, p: .5 },
+      { x: .43, y: .25, p: .5 }, { x: .5, y: .37, p: .5 }, { x: .57, y: .25, p: .5 }, { x: .71, y: .22, p: .5 },
+      { x: .77, y: .33, p: .5 }, { x: .69, y: .48, p: .5 }, { x: .5, y: .66, p: .5 },
+    ] }]);
+    return () => {};
+  }
   return onValue(
     strokesRef(boardId),
     (snap) => {
@@ -77,6 +86,7 @@ export async function addStroke(
   stroke: { color: string; size: number; points: StrokePoint[] },
   by: '우댕' | '꼼이',
 ): Promise<void> {
+  if (isDemo()) return;
   if (!stroke.points || stroke.points.length < 2) return;
   const user = liveKey(by);
   const r = dbPush(dbRef(rtdb, `canvas/${boardId}/strokes/${user}`));
@@ -86,6 +96,7 @@ export async function addStroke(
 
 // ids = "{user}/{pushId}" 복합 id. 멀티패스 업데이트로 한 번에 삭제.
 export async function eraseStrokes(boardId: string, ids: string[]): Promise<void> {
+  if (isDemo()) return;
   if (!ids.length) return;
   const updates: Record<string, null> = {};
   for (const id of ids) updates[`canvas/${boardId}/strokes/${id}`] = null;
@@ -93,6 +104,7 @@ export async function eraseStrokes(boardId: string, ids: string[]): Promise<void
 }
 
 export async function clearBoard(boardId: string): Promise<void> {
+  if (isDemo()) return;
   await dbRemove(strokesRef(boardId));
 }
 
@@ -100,6 +112,7 @@ export async function clearBoard(boardId: string): Promise<void> {
 function metaRef(boardId: string) { return dbRef(rtdb, `canvas/${boardId}/meta`); }
 
 export function subscribeBoardMeta(boardId: string, cb: (meta: BoardMeta) => void): () => void {
+  if (isDemo()) { cb({ passageUrl: '/demo/demo-sunset.jpg' }); return () => {}; }
   return onValue(
     metaRef(boardId),
     (snap) => cb((snap.val() as BoardMeta) || {}),
@@ -108,6 +121,7 @@ export function subscribeBoardMeta(boardId: string, cb: (meta: BoardMeta) => voi
 }
 
 export async function uploadPassageImage(file: File, by: string): Promise<string> {
+  if (isDemo()) return URL.createObjectURL(file);
   const ext = file.type.includes('png') ? 'png' : file.type.includes('webp') ? 'webp' : 'jpg';
   const safeBy = by.replace(/[^\w가-힣]/g, '_') || 'anon';
   const path = `canvas/passage_${Date.now()}_${safeBy}.${ext}`;
@@ -117,22 +131,26 @@ export async function uploadPassageImage(file: File, by: string): Promise<string
 }
 
 export async function setPassage(boardId: string, passageUrl: string): Promise<void> {
+  if (isDemo()) return;
   await dbUpdate(metaRef(boardId), { passageUrl });
 }
 
 export async function clearPassage(boardId: string): Promise<void> {
+  if (isDemo()) return;
   await dbRemove(dbRef(rtdb, `canvas/${boardId}/meta/passageUrl`));
 }
 
 // ── 여러 장 노트북 (전역 공유 책: canvas/book) ──
 // 첫 진입 시 currentPage 없으면 초기화 — 'main'을 1페이지로.
 export async function ensureBook(_bookId: string): Promise<void> {
+  if (isDemo()) return;
   const snap = await dbGet(dbRef(rtdb, 'canvas/book/currentPage'));
   if (snap.exists() && snap.val()) return;
   await dbUpdate(dbRef(rtdb, 'canvas/book'), { currentPage: 'main', 'pages/main': { t: 0 } });
 }
 
 export function subscribeCurrentPage(_bookId: string, cb: (pageId: string | null) => void): () => void {
+  if (isDemo()) { cb(DEFAULT_BOARD); return () => {}; }
   return onValue(
     dbRef(rtdb, 'canvas/book/currentPage'),
     (snap) => cb((snap.val() as string) || null),
@@ -141,6 +159,7 @@ export function subscribeCurrentPage(_bookId: string, cb: (pageId: string | null
 }
 
 export function subscribePages(_bookId: string, cb: (pages: CanvasPage[]) => void): () => void {
+  if (isDemo()) { cb([{ id: DEFAULT_BOARD, t: 0 }]); return () => {}; }
   return onValue(
     dbRef(rtdb, 'canvas/book/pages'),
     (snap) => {
@@ -156,6 +175,7 @@ export function subscribePages(_bookId: string, cb: (pages: CanvasPage[]) => voi
 
 // 새 빈 페이지 만들고 현재 페이지를 그리로 이동(둘 다 넘어감)
 export async function createPage(_bookId: string): Promise<string> {
+  if (isDemo()) return DEFAULT_BOARD;
   const id = `p_${Date.now()}`;
   await dbUpdate(dbRef(rtdb, 'canvas/book'), { [`pages/${id}`]: { t: Date.now() }, currentPage: id });
   return id;
@@ -163,11 +183,13 @@ export async function createPage(_bookId: string): Promise<string> {
 
 // 현재 페이지 이동(넘겨보기 — 공유라 상대도 같이 넘어감)
 export async function setCurrentPage(_bookId: string, pageId: string): Promise<void> {
+  if (isDemo()) return;
   await dbSet(dbRef(rtdb, 'canvas/book/currentPage'), pageId);
 }
 
 // 페이지 삭제 — 페이지 항목 + 그 페이지 데이터(획·지문·라이브) 제거, currentPage를 newCurrent로 이동.
 export async function deletePage(_bookId: string, pageId: string, newCurrent: string): Promise<void> {
+  if (isDemo()) return;
   await dbUpdate(dbRef(rtdb), {
     [`canvas/book/pages/${pageId}`]: null,
     'canvas/book/currentPage': newCurrent,
@@ -180,6 +202,7 @@ export interface CanvasComment { id: string; by: '우댕' | '꼼이'; text: stri
 export interface Reactions { likedBy: ('우댕' | '꼼이')[]; comments: CanvasComment[] }
 
 export function subscribeReactions(boardId: string, cb: (r: Reactions) => void): () => void {
+  if (isDemo()) { cb({ likedBy: ['우댕'], comments: [{ id: 'demo', by: '꼼이', text: '우리 낙서 귀엽다', t: Date.now() }] }); return () => {}; }
   return onValue(
     dbRef(rtdb, `canvas/${boardId}/react`),
     (snap) => {
@@ -196,15 +219,18 @@ export function subscribeReactions(boardId: string, cb: (r: Reactions) => void):
   );
 }
 export async function toggleLike(boardId: string, by: '우댕' | '꼼이', on: boolean): Promise<void> {
+  if (isDemo()) return;
   await dbSet(dbRef(rtdb, `canvas/${boardId}/react/likes/${liveKey(by)}`), on ? true : null);
 }
 export async function addComment(boardId: string, by: '우댕' | '꼼이', text: string): Promise<void> {
+  if (isDemo()) return;
   const t = text.trim();
   if (!t) return;
   const r = dbPush(dbRef(rtdb, `canvas/${boardId}/react/comments`));
   await dbSet(r, { by, text: t.slice(0, 500), t: Date.now() });
 }
 export async function deleteComment(boardId: string, id: string): Promise<void> {
+  if (isDemo()) return;
   await dbRemove(dbRef(rtdb, `canvas/${boardId}/react/comments/${id}`));
 }
 
@@ -216,15 +242,18 @@ function liveRef(boardId: string, userKey: string) {
 }
 
 export function publishLive(boardId: string, userKey: string, stroke: LiveStroke | null): void {
+  if (isDemo()) return;
   dbSet(liveRef(boardId, userKey), stroke ?? null).catch(() => {});
 }
 
 export function armLiveDisconnect(boardId: string, userKey: string): void {
+  if (isDemo()) return;
   onDisconnect(liveRef(boardId, userKey)).remove().catch(() => {});
 }
 
 export function subscribeLive(
   boardId: string, userKey: string, cb: (stroke: LiveStroke | null) => void,
 ): () => void {
+  if (isDemo()) { cb(null); return () => {}; }
   return onValue(liveRef(boardId, userKey), (snap) => cb(snap.val() as LiveStroke | null));
 }

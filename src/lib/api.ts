@@ -7,6 +7,7 @@ import type {
   Novel,
   CoverImage,
 } from '@/types';
+import { demoUser, isDemo } from './demo';
 
 const API_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
 
@@ -74,6 +75,7 @@ function normalizeInitialData(raw: any): {
 }
 
 export async function loginUser(code: string): Promise<User | null> {
+  if (isDemo()) return demoUser() as User;
   if (!API_URL) {
     console.error('❌ NEXT_PUBLIC_APPS_SCRIPT_URL이 설정되어 있지 않습니다.');
     return null;

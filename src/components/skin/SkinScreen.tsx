@@ -3,10 +3,11 @@
 // 상태바 높이만큼 덮개를 깔고, 그 아래부터 스크롤되는 상자에 화면을 넣는다 → 제미나이 화면의 sticky 머리가 상태바 바로 밑에 붙는다.
 import React, { useEffect, useState } from 'react';
 import { isPractice } from '@/lib/practice';
+import { isDemo } from '@/lib/demo';
 
 export default function SkinScreen({ children }: { children: React.ReactNode }) {
   const [practice, setPractice] = useState(false);
-  useEffect(() => setPractice(isPractice()), []);
+  useEffect(() => setPractice(isPractice() || isDemo()), []);
   return (
     <>
       <div aria-hidden className="fixed inset-x-0 top-0 z-30" style={{ height: 'env(safe-area-inset-top)', background: 'var(--sd-surface-2)' }} />

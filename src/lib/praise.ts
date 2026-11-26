@@ -2,6 +2,7 @@ import { db } from './firebase';
 import {
   collection,
   addDoc,
+  setDoc,
   doc,
   updateDoc,
   onSnapshot,
@@ -15,6 +16,14 @@ import {
 } from 'firebase/firestore';
 import { partnerOf } from './letters';
 import { addCommentAt } from './reactions';
+import { isDemo, settleDemoWrite } from './demo';
+
+async function addPraiseDoc(payload: DocumentData) {
+  if (!isDemo()) return addDoc(collection(db, 'praiseStickers'), payload);
+  const ref = doc(collection(db, 'praiseStickers'));
+  await settleDemoWrite(setDoc(ref, { ...payload, createdAt: Timestamp.now() }));
+  return ref;
+}
 
 export type PraiseUser = '우댕' | '꼼이';
 // Phase 4: 'memo' — 칭찬/조르기와 별개 짧은 자유 메모. 영감 자료의 노란 포스트잇 패턴.
@@ -194,7 +203,7 @@ export async function addPraise(input: {
     stickerCount: count,
     createdAt: serverTimestamp(),
   };
-  const ref = await addDoc(collection(db, 'praiseStickers'), payload);
+  const ref = await addPraiseDoc(payload);
 
   // 매일매일 꼼모닝 헤더 카운트
   import('./dailyStats').then(({ incrementPraiseStickers }) =>
@@ -232,7 +241,7 @@ export async function addMemo(input: {
     stickerCount: 0,
     createdAt: serverTimestamp(),
   };
-  const ref = await addDoc(collection(db, 'praiseStickers'), payload);
+  const ref = await addPraiseDoc(payload);
   return ref.id;
 }
 
@@ -249,7 +258,7 @@ export async function requestPraise(input: {
     stickerCount: 0,
     createdAt: serverTimestamp(),
   };
-  const ref = await addDoc(collection(db, 'praiseStickers'), payload);
+  const ref = await addPraiseDoc(payload);
 
   import('./dailyStats').then(({ incrementPraiseRequest }) =>
     incrementPraiseRequest(input.from)
@@ -283,9 +292,9 @@ export async function addPraiseReply(praiseId: string, by: PraiseUser, text: str
   if (!t || !praiseId) return;
   await addCommentAt('praiseStickers', praiseId, by, t);
   try {
-    await updateDoc(doc(db, 'praiseStickers', praiseId), {
+    await settleDemoWrite(updateDoc(doc(db, 'praiseStickers', praiseId), {
       latestReply: t.length > 60 ? t.slice(0, 60) + '…' : t,
-    });
+    }));
   } catch (e) {
     console.warn('latestReply 캐시 실패:', e);
   }

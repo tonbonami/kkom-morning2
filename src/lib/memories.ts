@@ -1,9 +1,10 @@
 import { db } from './firebase';
 import {
-  collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp,
-  query, orderBy, increment, limit, getCountFromServer,
+  collection, onSnapshot, addDoc, setDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp,
+  query, orderBy, increment, limit, getCountFromServer, getDocs,
   type DocumentData,
 } from 'firebase/firestore';
+import { isDemo, settleDemoWrite } from './demo';
 
 export type Memory = {
   id: string;
@@ -61,6 +62,7 @@ export function subscribeLatestMemory(cb: (latest: Memory | null) => void): () =
 
 export async function fetchMemoryCount(): Promise<number> {
   try {
+    if (isDemo()) return (await getDocs(collection(db, 'memories'))).size;
     const snap = await getCountFromServer(collection(db, 'memories'));
     const n = snap.data().count;
     return n > 0 ? n : SEED_MEMORIES.length;
@@ -94,10 +96,8 @@ export function subscribeMemories(cb: (memories: Memory[]) => void): () => void 
 // 호출 측에서 id/createdAt를 같이 보내도 안전하게 무시하고 Firestore에 깨끗하게 저장.
 export async function addMemory(m: Omit<Memory, 'id' | 'createdAt'> & { id?: string; createdAt?: unknown }): Promise<string> {
   const { id: _ignoredId, createdAt: _ignoredCreatedAt, ...clean } = m;
-  const ref = await addDoc(collection(db, 'memories'), {
-    ...clean,
-    createdAt: serverTimestamp(),
-  });
+  const ref = doc(collection(db, 'memories'));
+  await settleDemoWrite(setDoc(ref, { ...clean, createdAt: isDemo() ? Timestamp.now() : serverTimestamp() }));
   // 매일매일 꼼모닝 헤더 카운트
   import('./dailyStats').then(({ incrementMemory }) => {
     const by = (clean as any).by;
@@ -111,7 +111,7 @@ export async function deleteMemory(id: string): Promise<void> {
   if (id.startsWith('seed-')) {
     throw new Error('시드 사진은 삭제할 수 없어요 (코드에 들어있음).');
   }
-  await deleteDoc(doc(db, 'memories', id));
+  await settleDemoWrite(deleteDoc(doc(db, 'memories', id)));
 }
 
 // 추억 부분 수정 (title/date/description/by). id·createdAt·imageUrl은 보호.
@@ -128,14 +128,14 @@ export async function updateMemory(
   if (patch.description !== undefined) clean.description = patch.description;
   if (patch.by !== undefined) clean.by = patch.by;
   if (Object.keys(clean).length === 0) return;
-  await updateDoc(doc(db, 'memories', id), clean);
+  await settleDemoWrite(updateDoc(doc(db, 'memories', id), clean));
 }
 
 // 하트 +1 (시드 사진은 silently skip — 실제 doc이 없어서 increment 불가)
 export async function incrementHearts(id: string): Promise<void> {
   if (id.startsWith('seed-')) return;
   try {
-    await updateDoc(doc(db, 'memories', id), { hearts: increment(1) });
+    await settleDemoWrite(updateDoc(doc(db, 'memories', id), { hearts: increment(1) }));
   } catch (e) {
     console.warn('하트 추가 실패:', e);
   }
@@ -185,14 +185,14 @@ export async function addMemoryComment(
   }
   const t = text.trim();
   if (!t) return;
-  await addDoc(collection(db, 'memories', memoryId, 'comments'), {
+  await settleDemoWrite(addDoc(collection(db, 'memories', memoryId, 'comments'), {
     by,
     text: t,
-    createdAt: serverTimestamp(),
-  });
+    createdAt: isDemo() ? Timestamp.now() : serverTimestamp(),
+  }));
   // 메모리 doc의 commentCount 캐시 증가 (UI에 즉시 반영용)
   try {
-    await updateDoc(doc(db, 'memories', memoryId), { commentCount: increment(1) });
+    await settleDemoWrite(updateDoc(doc(db, 'memories', memoryId), { commentCount: increment(1) }));
   } catch {}
 }
 
@@ -200,9 +200,9 @@ export async function deleteMemoryComment(
   memoryId: string,
   commentId: string
 ): Promise<void> {
-  await deleteDoc(doc(db, 'memories', memoryId, 'comments', commentId));
+  await settleDemoWrite(deleteDoc(doc(db, 'memories', memoryId, 'comments', commentId)));
   try {
-    await updateDoc(doc(db, 'memories', memoryId), { commentCount: increment(-1) });
+    await settleDemoWrite(updateDoc(doc(db, 'memories', memoryId), { commentCount: increment(-1) }));
   } catch {}
 }
 

@@ -5,6 +5,7 @@ import { db, storage } from './firebase';
 import {
   collection,
   addDoc,
+  setDoc,
   doc,
   updateDoc,
   deleteDoc,
@@ -16,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { partnerOf } from './letters';
+import { isDemo, settleDemoWrite } from './demo';
 
 export interface RecipeDoc {
   title: string;
@@ -86,7 +88,8 @@ export async function addRecipe(input: {
   if (input.description?.trim()) payload.description = input.description.trim();
   if (input.youtubeUrl?.trim()) payload.youtubeUrl = input.youtubeUrl.trim();
 
-  const ref = await addDoc(collection(db, 'recipes'), payload);
+  const ref = doc(collection(db, 'recipes'));
+  await settleDemoWrite(setDoc(ref, { ...payload, ...(isDemo() ? { createdAt: Timestamp.now() } : {}) }));
   // 새 레시피 푸시 — 만든 사람의 partner에게
   const to = partnerOf(input.by) as '우댕' | '꼼이';
   fetch('/api/notify-recipe', {
@@ -98,10 +101,15 @@ export async function addRecipe(input: {
 }
 
 export async function deleteRecipe(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'recipes', id));
+  await settleDemoWrite(deleteDoc(doc(db, 'recipes', id)));
 }
 
 export async function addRecipePhoto(id: string, file: File, by: '우댕' | '꼼이'): Promise<string> {
+  if (isDemo()) {
+    const url = URL.createObjectURL(file);
+    await settleDemoWrite(updateDoc(doc(db, 'recipes', id), { photoUrls: arrayUnion(url), updatedAt: Timestamp.now() }));
+    return url;
+  }
   const ext = file.type.includes('png') ? 'png'
     : file.type.includes('webp') ? 'webp'
       : 'jpg';
@@ -110,9 +118,9 @@ export async function addRecipePhoto(id: string, file: File, by: '우댕' | '꼼
   const ref = storageRef(storage, path);
   await uploadBytes(ref, file, { contentType: file.type || 'image/jpeg' });
   const url = await getDownloadURL(ref);
-  await updateDoc(doc(db, 'recipes', id), {
+  await settleDemoWrite(updateDoc(doc(db, 'recipes', id), {
     photoUrls: arrayUnion(url),
     updatedAt: serverTimestamp(),
-  });
+  }));
   return url;
 }

@@ -28,6 +28,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject, listAll, 
 import { db, storage } from './firebase';
 import { nameFromCode } from './letters';
 import { isPractice, practiceBlocked } from './practice';
+import { isDemo, settleDemoWrite } from './demo';
 import {
   LIMITS, partnerOf, type BookVM, type NoteVM, type Person, type PhotoVM, type Rating, type ReadingVM, type ReviewDraft, type ReviewVM, type Visibility,
 } from './honeybraryTypes';
@@ -91,6 +92,10 @@ async function resize(file: File, maxSide: number, quality: number): Promise<{ b
 /** 사진 하나 → 원본(1600, q.8) + 작은 판(480, q.7). 밑줄 사진은 글자가 중요해서 1600(GPT 회의 2번). */
 async function uploadPhoto(base: string, file: File): Promise<StoredPhoto> {
   if (!file.type.startsWith('image/')) throw new Error('이미지 파일만 올릴 수 있어요.');
+  if (isDemo()) {
+    const url = URL.createObjectURL(file);
+    return { id: base.split('/').pop() || String(Date.now()), url, thumbUrl: url, path: '', thumbPath: '' };
+  }
   const [full, thumb] = await Promise.all([resize(file, 1600, 0.8), resize(file, 480, 0.7)]);
   const path = `${base}.jpg`, thumbPath = `${base}_t.jpg`;
   const put = async (p: string, b: Blob) => {
@@ -104,6 +109,7 @@ async function uploadPhoto(base: string, file: File): Promise<StoredPhoto> {
 
 /** 지우기 — 「이미 없음」은 성공으로 본다. */
 async function removeFile(path?: string): Promise<void> {
+  if (isDemo()) return;
   if (!path) return;
   try { await deleteObject(storageRef(storage, path)); }
   catch (e) { if ((e as { code?: string })?.code !== 'storage/object-not-found') throw e; }
@@ -113,6 +119,7 @@ async function removePhoto(p?: Pick<StoredPhoto, 'path' | 'thumbPath'> | null): 
   await Promise.all([removeFile(p.path), removeFile(p.thumbPath)]);
 }
 async function removeFolder(r: StorageReference): Promise<void> {
+  if (isDemo()) return;
   const res = await listAll(r);
   await Promise.all(res.items.map((it) => removeFile(it.fullPath)));
   for (const p of res.prefixes) await removeFolder(p);
@@ -223,11 +230,12 @@ export async function addHoneyBook(input: {
   if (visibility === 'shared') visibleAt[PERSON_KEY[partner]] = at;
   const data: DocumentData = { title, placedBy: input.by, readers, visibility, visibleAt, createdAt: at };
   if (visibility === 'private') data.privateOwner = input.by;
-  const ref = await addDoc(collection(db, BOOKS), data);
+  const ref = doc(collection(db, BOOKS));
+  await settleDemoWrite(setDoc(ref, data));
   if (input.cover) {
     try {
       const cover = await uploadPhoto(`${photoBase(ref.id)}/cover_${stamp()}`, input.cover);
-      await updateDoc(ref, { cover });
+      await settleDemoWrite(updateDoc(ref, { cover }));
     } catch (e) { console.error('표지 올리기 실패(책은 놓임):', e); }
   }
   return ref.id;
@@ -236,14 +244,14 @@ export async function addHoneyBook(input: {
 export async function renameHoneyBook(id: string, title: string): Promise<void> {
   if (blocked('제목 고치기')) throw new PracticeBlocked();
   const t = title.trim().slice(0, LIMITS.title);
-  if (t) await updateDoc(doc(db, BOOKS, id), { title: t });
+  if (t) await settleDemoWrite(updateDoc(doc(db, BOOKS, id), { title: t }));
 }
 
 /** 표지 바꾸기 — 새것을 올리고 문서를 바꾼 **뒤** 옛 파일을 지운다(문서 저장이 실패하면 새 파일을 되지운다). */
 export async function setHoneyCover(book: HoneyBook, file: File): Promise<void> {
   if (blocked('표지 바꾸기')) throw new PracticeBlocked();
   const next = await uploadPhoto(`${photoBase(book.id)}/cover_${stamp()}`, file);
-  try { await updateDoc(doc(db, BOOKS, book.id), { cover: next }); }
+  try { await settleDemoWrite(updateDoc(doc(db, BOOKS, book.id), { cover: next })); }
   catch (e) { await removePhoto(next).catch(() => {}); throw e; }
   await removePhoto(book.cover).catch((e) => console.warn('옛 표지 지우기 실패:', e));
 }
@@ -273,18 +281,18 @@ export async function setHoneyVisibility(book: HoneyBook, me: Person, next: Visi
   if (next === 'private') {
     const why = await honeyPrivateBlock(book, me);
     if (why) throw new Error(why);
-    await updateDoc(ref, 'visibility', 'private', 'privateOwner', me, new FieldPath('visibleAt', partnerKey), deleteField());
+    await settleDemoWrite(updateDoc(ref, 'visibility', 'private', 'privateOwner', me, new FieldPath('visibleAt', partnerKey), deleteField()));
   } else {
-    await updateDoc(ref, 'visibility', 'shared', 'privateOwner', deleteField(),
+    await settleDemoWrite(updateDoc(ref, 'visibility', 'shared', 'privateOwner', deleteField(),
       new FieldPath('visibleAt', partnerKey), book.createdAtTs ?? Timestamp.now(),
-      new FieldPath('visibleAt', PERSON_KEY[me]), book.createdAtTs ?? Timestamp.now());
+      new FieldPath('visibleAt', PERSON_KEY[me]), book.createdAtTs ?? Timestamp.now()));
   }
 }
 
 /** 내 진행 — 나만 고친다(남의 줄엔 고치기 단추가 없다). ⚠️ 시각을 남기지 않는다. */
 export async function setMyHoneyReading(bookId: string, me: Person, r: ReadingVM): Promise<void> {
   if (blocked('진행 고치기')) throw new PracticeBlocked();
-  await updateDoc(doc(db, BOOKS, bookId), new FieldPath('readers', PERSON_KEY[me]), cleanReading(r));
+  await settleDemoWrite(updateDoc(doc(db, BOOKS, bookId), new FieldPath('readers', PERSON_KEY[me]), cleanReading(r)));
 }
 
 /** 책 지우기 — 사진(폴더째) → 기록 → 감상 → 책. 파일 지우기가 실패하면 문서는 남겨 두고 멈춘다(다시 하면 이어서). */
@@ -296,10 +304,10 @@ export async function deleteHoneyBook(bookId: string): Promise<void> {
     for (let i = 0; i < snap.docs.length; i += 450) {
       const b = writeBatch(db);
       snap.docs.slice(i, i + 450).forEach((d) => b.delete(d.ref));
-      await b.commit();
+      await settleDemoWrite(b.commit());
     }
   }
-  await deleteDoc(doc(db, BOOKS, bookId));
+  await settleDemoWrite(deleteDoc(doc(db, BOOKS, bookId)));
 }
 
 // ── 기록 ─────────────────────────────────────────────────────────────────
@@ -341,7 +349,7 @@ export async function addHoneyNote(bookId: string, input: { by: Person; text?: s
     photo = await uploadPhoto(`${photoBase(bookId)}/notes/${ref.id}_${stamp()}`, input.photo);
     data.photo = photo;
   }
-  try { await setDoc(ref, data); }
+  try { await settleDemoWrite(setDoc(ref, data)); }
   catch (e) { await removePhoto(photo).catch(() => {}); throw e; }
 }
 
@@ -352,7 +360,7 @@ export async function deleteHoneyNote(bookId: string, note: HoneyNote, replies: 
   const b = writeBatch(db);
   b.delete(doc(db, BOOKS, bookId, 'notes', note.id));
   if (!note.parentNoteId) replies.forEach((r) => b.delete(doc(db, BOOKS, bookId, 'notes', r.id)));
-  await b.commit();
+  await settleDemoWrite(b.commit());
 }
 
 // ── 감상 ─────────────────────────────────────────────────────────────────
@@ -410,7 +418,7 @@ export async function saveHoneyReview(bookId: string, by: Person, draft: ReviewD
       hasSpoiler: !!draft.hasSpoiler,
     };
     if (opts.isNew) data.createdAt = serverTimestamp();
-    await setDoc(doc(db, BOOKS, bookId, 'reviews', key), data, { merge: true });
+    await settleDemoWrite(setDoc(doc(db, BOOKS, bookId, 'reviews', key), data, { merge: true }));
   } catch (e) {
     await Promise.all(added.map((p) => removePhoto(p).catch(() => {})));
     throw e;
@@ -422,7 +430,7 @@ export async function saveHoneyReview(bookId: string, by: Person, draft: ReviewD
 export async function deleteHoneyReview(bookId: string, review: HoneyReview): Promise<void> {
   if (blocked('감상 지우기')) throw new PracticeBlocked();
   await Promise.all(review.stored.map((p) => removePhoto(p)));
-  await deleteDoc(doc(db, BOOKS, bookId, 'reviews', PERSON_KEY[review.by]));
+  await settleDemoWrite(deleteDoc(doc(db, BOOKS, bookId, 'reviews', PERSON_KEY[review.by])));
 }
 
 /** 상대의 한마디 — 리뷰당 하나, 고칠 수 있음, 빈 글이면 지움. 감상 쓴 사람은 자기 감상에 못 단다(화면이 막음). */
@@ -430,5 +438,5 @@ export async function setHoneyReply(bookId: string, reviewBy: Person, replier: P
   if (blocked('한마디')) throw new PracticeBlocked();
   if (replier === reviewBy) return;
   const t = text.trim().slice(0, LIMITS.partnerReply);
-  await updateDoc(doc(db, BOOKS, bookId, 'reviews', PERSON_KEY[reviewBy]), { reply: t ? { by: replier, text: t } : deleteField() });
+  await settleDemoWrite(updateDoc(doc(db, BOOKS, bookId, 'reviews', PERSON_KEY[reviewBy]), { reply: t ? { by: replier, text: t } : deleteField() }));
 }

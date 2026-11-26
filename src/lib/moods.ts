@@ -1,5 +1,6 @@
 import { db } from './firebase';
-import { doc, setDoc, collection, query, where, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, collection, query, where, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { isDemo, settleDemoWrite } from './demo';
 
 export interface MoodOption {
   id: string;          // Firestore에 저장되는 키
@@ -52,13 +53,13 @@ export type MoodMap = Record<string, { emoji: string; note: string }>;
 // 오늘 내 기분 저장 (사람+날짜당 1개)
 export async function setMyMood(name: string, emoji: string, note = ''): Promise<void> {
   const day = todayKst();
-  await setDoc(doc(db, 'moods', `${name}_${day}`), {
+  await settleDemoWrite(setDoc(doc(db, 'moods', `${name}_${day}`), {
     name,
     day,
     emoji,
     note: note.trim(),
-    updatedAt: serverTimestamp(),
-  });
+    updatedAt: isDemo() ? Timestamp.now() : serverTimestamp(),
+  }));
 }
 
 // 오늘 두 사람의 기분을 실시간 구독.

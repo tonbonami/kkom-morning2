@@ -2,6 +2,7 @@ import { db, storage } from './firebase';
 import {
   collection,
   addDoc,
+  setDoc,
   doc,
   updateDoc,
   deleteDoc,
@@ -12,6 +13,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { isDemo, settleDemoWrite } from './demo';
 
 export type WishCategory = 'food' | 'place' | 'watch';
 
@@ -143,7 +145,8 @@ export async function addWish(input: {
   if (input.location) payload.location = input.location.trim();
   if (input.memo) payload.memo = input.memo.trim();
 
-  const ref = await addDoc(collection(db, 'wishlist'), payload);
+  const ref = doc(collection(db, 'wishlist'));
+  await settleDemoWrite(setDoc(ref, { ...payload, ...(isDemo() ? { createdAt: Timestamp.now() } : {}) }));
   // 매일매일 꼼모닝 헤더 카운트 — 복귀(skipDailyStats)일 땐 카운트 안 함
   if (!input.skipDailyStats) {
     import('./dailyStats').then(({ incrementWish }) => incrementWish(input.by)).catch(() => {});
@@ -152,18 +155,23 @@ export async function addWish(input: {
 }
 
 export async function toggleWishDone(id: string, done: boolean, by: '우댕' | '꼼이'): Promise<void> {
-  await updateDoc(doc(db, 'wishlist', id), {
+  await settleDemoWrite(updateDoc(doc(db, 'wishlist', id), {
     done,
     doneAt: done ? serverTimestamp() : null,
     doneBy: done ? by : null,
-  });
+  }));
 }
 
 export async function deleteWish(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'wishlist', id));
+  await settleDemoWrite(deleteDoc(doc(db, 'wishlist', id)));
 }
 
 export async function addWishPhoto(id: string, file: File, by: '우댕' | '꼼이'): Promise<string> {
+  if (isDemo()) {
+    const url = URL.createObjectURL(file);
+    await settleDemoWrite(updateDoc(doc(db, 'wishlist', id), { photoUrls: arrayUnion(url), updatedAt: Timestamp.now() }));
+    return url;
+  }
   const ext = file.type.includes('png') ? 'png'
     : file.type.includes('webp') ? 'webp'
       : 'jpg';
@@ -172,10 +180,10 @@ export async function addWishPhoto(id: string, file: File, by: '우댕' | '꼼�
   const ref = storageRef(storage, path);
   await uploadBytes(ref, file, { contentType: file.type || 'image/jpeg' });
   const url = await getDownloadURL(ref);
-  await updateDoc(doc(db, 'wishlist', id), {
+  await settleDemoWrite(updateDoc(doc(db, 'wishlist', id), {
     photoUrls: arrayUnion(url),
     updatedAt: serverTimestamp(),
-  });
+  }));
   return url;
 }
 

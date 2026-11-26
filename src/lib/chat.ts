@@ -8,6 +8,7 @@ import {
 import { ref as dbRef, set as dbSet, onValue, onDisconnect } from 'firebase/database';
 import { firstUrl, youTubeId } from './links';
 import { isPractice, practiceBlocked } from './practice';
+import { isDemo, settleDemoWrite } from './demo';
 import { ref as sRef, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 
 export interface ReplyRef { id: string; from: string; text: string }
@@ -49,13 +50,13 @@ export async function sendMessage(
   const t = text.trim();
   if (!t && !imageUrl && !sticker && !audio && !video) return;
   const clipped = t.slice(0, 2000);
-  const payload: Record<string, unknown> = { from, text: clipped, createdAt: serverTimestamp() };
+  const payload: Record<string, unknown> = { from, text: clipped, createdAt: isDemo() ? Timestamp.now() : serverTimestamp() };
   if (imageUrl) payload.imageUrl = imageUrl;
   if (sticker) payload.sticker = sticker;
   if (audio) { payload.audioUrl = audio.url; payload.audioDur = audio.dur; }
   if (video) { payload.videoUrl = video.url; if (video.dur != null) payload.videoDur = video.dur; }
   if (replyTo) payload.replyTo = { id: replyTo.id, from: replyTo.from, text: replyTo.text.slice(0, 80) };
-  await addDoc(collection(db, 'messages'), payload);
+  await settleDemoWrite(addDoc(collection(db, 'messages'), payload));
   // 잠금화면 알림 — 항상 서버로 보내고, 서버가 받는 사람의 '최신 presence'로 판단한다
   //   (진짜 앱 보고 있으면 스킵 / 아니면 무조건 푸시).
   // ⚠️ 예전엔 여기(클라)서 partnerOnline이면 아예 안 보냈다. presence가 '지금 함께'로 오탐되면
@@ -86,7 +87,7 @@ export async function sendMessage(
 
 // 사진 업로드 → 다운로드 URL. Storage chat/ 아래.
 export async function uploadChatImage(file: File): Promise<string> {
-  if (isPractice()) return URL.createObjectURL(file);
+  if (isPractice() || isDemo()) return URL.createObjectURL(file);
   const key = `chat/${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const r = sRef(storage, key);
   await uploadBytes(r, file, { contentType: file.type || 'image/jpeg' });
@@ -123,7 +124,7 @@ async function resizeImage(file: File, maxSide: number, quality: number): Promis
 /** 묶음 사진 하나를 큰 판(1280px)·작은 판(512px) 두 벌로 올린다. Storage chat/ 아래(규칙은 skin/ 만 막는다).
  *  ⚠️ 열 장을 원본으로 올리면 한 장 4MB × 10 — 약한 망에서 한참 걸리고 내려받는 쪽도 무겁다. */
 export async function uploadChatImagePair(file: File): Promise<{ url: string; thumbUrl: string }> {
-  if (isPractice()) { const u = URL.createObjectURL(file); return { url: u, thumbUrl: u }; }
+  if (isPractice() || isDemo()) { const u = URL.createObjectURL(file); return { url: u, thumbUrl: u }; }
   const [full, thumb] = await Promise.all([resizeImage(file, 1280, 0.82), resizeImage(file, 512, 0.7)]);
   const base = `chat/${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const put = async (blob: Blob, key: string) => {
@@ -151,7 +152,7 @@ export async function uploadPhotoBatch(files: File[]): Promise<{ url: string; th
     }
   }
   if (failed) {
-    if (!isPractice()) {
+    if (!isPractice() && !isDemo()) {
       await Promise.all(out.flatMap((x) => [x.url, x.thumbUrl]).filter((u) => u.includes('firebasestorage'))
         .map((u) => deleteObject(sRef(storage, u)).catch(() => {})));
     }
@@ -172,13 +173,13 @@ export async function sendPhotos(
   if (!list.length) return;
   if (isPractice()) { practiceBlocked(`사진 ${list.length}장`); return; }
   const payload: Record<string, unknown> = {
-    from, text: '', createdAt: serverTimestamp(),
+    from, text: '', createdAt: isDemo() ? Timestamp.now() : serverTimestamp(),
     imageUrl: list[0].url,
     imageThumbs: list.map((x) => x.thumbUrl || x.url),
   };
   if (list.length > 1) payload.imageUrls = list.map((x) => x.url);
   if (replyTo) payload.replyTo = { id: replyTo.id, from: replyTo.from, text: replyTo.text.slice(0, 80) };
-  await addDoc(collection(db, 'messages'), payload);
+  await settleDemoWrite(addDoc(collection(db, 'messages'), payload));
   const to = from === '우댕' ? '꼼이' : '우댕';
   fetch('/api/message', {
     method: 'POST',
@@ -208,7 +209,7 @@ export function chatFileUrls(d: Record<string, unknown> | undefined): string[] {
 
 // 동영상 업로드 → 다운로드 URL. Storage chat-video/ 아래. 파일이 커서 진행률 콜백 지원(resumable).
 export async function uploadChatVideo(file: File, onProgress?: (pct: number) => void): Promise<string> {
-  if (isPractice()) return URL.createObjectURL(file);
+  if (isPractice() || isDemo()) { onProgress?.(1); return URL.createObjectURL(file); }
   const key = `chat-video/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.mp4`;
   const r = sRef(storage, key);
   const meta = { contentType: file.type || 'video/mp4' };
@@ -229,14 +230,14 @@ export async function sendCapsule(from: string, text: string, deliverAt: Date): 
   if (isPractice()) { practiceBlocked('타임캡슐'); return; }
   const t = text.trim();
   if (!t) return;
-  await addDoc(collection(db, 'messages'), {
+  await settleDemoWrite(addDoc(collection(db, 'messages'), {
     from, text: t.slice(0, 2000), capsule: true, createdAt: Timestamp.fromDate(deliverAt),
-  });
+  }));
 }
 
 // 음성 업로드 → 다운로드 URL. Storage chat-audio/ 아래.
 export async function uploadChatAudio(blob: Blob): Promise<string> {
-  if (isPractice()) return URL.createObjectURL(blob);
+  if (isPractice() || isDemo()) return URL.createObjectURL(blob);
   const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('webm') ? 'webm' : 'dat';
   const key = `chat-audio/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const r = sRef(storage, key);
@@ -246,12 +247,13 @@ export async function uploadChatAudio(blob: Blob): Promise<string> {
 
 // 입력 중 — RTDB(휘발성). onDisconnect로 앱 죽어도 자동 해제.
 export function setTyping(userKey: string, typing: boolean): void {
-  if (isPractice()) return;
+  if (isPractice() || isDemo()) return;
   const r = dbRef(rtdb, `chatTyping/${userKey}`);
   if (typing) { onDisconnect(r).set(false); dbSet(r, true).catch(() => {}); }
   else { dbSet(r, false).catch(() => {}); }
 }
 export function subscribeTyping(partnerKey: string, cb: (typing: boolean) => void): () => void {
+  if (isDemo()) { cb(false); return () => {}; }
   const r = dbRef(rtdb, `chatTyping/${partnerKey}`);
   return onValue(r, (snap) => cb(snap.val() === true), () => cb(false));
 }
@@ -259,7 +261,7 @@ export function subscribeTyping(partnerKey: string, cb: (typing: boolean) => voi
 // 읽음 — 내가 채팅 보는 순간 내 lastRead 갱신. 상대 lastRead로 내 메시지 '읽음' 판정.
 export async function markRead(userKey: string): Promise<void> {
   if (isPractice()) return;
-  await setDoc(doc(db, 'chatReads', userKey), { at: serverTimestamp() }).catch(() => {});
+  await settleDemoWrite(setDoc(doc(db, 'chatReads', userKey), { at: isDemo() ? Timestamp.now() : serverTimestamp() }).catch(() => {}));
 }
 export function subscribeRead(partnerKey: string, cb: (at: Date | null) => void): () => void {
   return onSnapshot(
@@ -275,7 +277,7 @@ export async function toggleReaction(messageId: string, userKey: string, emoji: 
   const ref = doc(db, 'messages', messageId);
   const snap = await getDoc(ref);
   const cur = ((snap.data()?.reactions ?? {}) as Record<string, string>)[userKey];
-  await updateDoc(ref, { [`reactions.${userKey}`]: cur === emoji ? deleteField() : emoji });
+  await settleDemoWrite(updateDoc(ref, { [`reactions.${userKey}`]: cur === emoji ? deleteField() : emoji }));
 }
 
 // 메시지 삭제 — 양쪽에서 '삭제된 메시지'로 표시(soft delete).
@@ -289,15 +291,15 @@ export async function deleteMessage(messageId: string): Promise<void> {
   try {
     const snap = await getDoc(ref);
     // ⚠️ 묶음 사진(imageUrls)·작은 판(imageThumbs)까지 지운다 — 안 하면 2번째 이후 사진이 고아로 남아 주소로 계속 열린다.
-    await Promise.all(chatFileUrls(snap.data()).map((url) =>
+    if (!isDemo()) await Promise.all(chatFileUrls(snap.data()).map((url) =>
       deleteObject(sRef(storage, url)).catch(() => { /* 이미 없거나 접근불가 — 문서 삭제는 계속 */ })));
   } catch { /* 문서 조회 실패해도 아래 필드 비우기는 진행 */ }
-  await updateDoc(ref, {
+  await settleDemoWrite(updateDoc(ref, {
     deleted: true, text: '',
     imageUrl: deleteField(), imageUrls: deleteField(), imageThumbs: deleteField(),
     sticker: deleteField(), videoUrl: deleteField(),
     audioUrl: deleteField(), audioDur: deleteField(),
-  });
+  }));
 }
 
 // 메시지 수정 — 내 텍스트 메시지 본문만. editedAt 기록 → 말풍선에 '수정됨' 표시.
@@ -306,7 +308,7 @@ export async function editMessage(messageId: string, text: string): Promise<void
   if (isPractice()) { practiceBlocked('수정'); return; }
   const t = text.trim();
   if (!t) return;
-  await updateDoc(doc(db, 'messages', messageId), { text: t, editedAt: serverTimestamp() });
+  await settleDemoWrite(updateDoc(doc(db, 'messages', messageId), { text: t, editedAt: isDemo() ? Timestamp.now() : serverTimestamp() }));
 }
 
 // 별표(추억 보관함) 토글 — 둘 중 누구나 별표 가능(공유).
@@ -315,7 +317,7 @@ export async function toggleStar(messageId: string): Promise<void> {
   const ref = doc(db, 'messages', messageId);
   const snap = await getDoc(ref);
   const cur = snap.data()?.starred === true;
-  await updateDoc(ref, { starred: !cur });
+  await settleDemoWrite(updateDoc(ref, { starred: !cur }));
 }
 
 // 추억 보관함용 — 최근 max개 한 번 조회(별표/사진 필터는 호출처에서, 오래된→최신).

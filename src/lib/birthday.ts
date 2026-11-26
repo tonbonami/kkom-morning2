@@ -3,11 +3,21 @@
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { serverNow } from './presence';
+import { isDemo } from './demo';
 
 export const BIRTHDAYS: Record<string, { month: number; day: number }> = {
   '우댕': { month: 3, day: 19 },
   '꼼이': { month: 9, day: 20 },
 };
+
+function birthdays(): Record<string, { month: number; day: number }> {
+  if (!isDemo()) return BIRTHDAYS;
+  const fromNow = (days: number) => {
+    const d = new Date(Date.now() + 9 * 3600_000 + days * 86400000);
+    return { month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+  };
+  return { '우댕': fromNow(25), '꼼이': fromNow(60) };
+}
 
 function kstNow(): Date { return new Date(serverNow() + 9 * 3600_000); }
 function kstYMD(d = kstNow()) { return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() }; }
@@ -17,7 +27,7 @@ function testOverride(): string | null {
   if (typeof window === 'undefined') return null;
   try {
     const v = new URLSearchParams(window.location.search).get('bday');
-    return v && BIRTHDAYS[v] ? v : null;
+    return v && birthdays()[v] ? v : null;
   } catch { return null; }
 }
 
@@ -25,18 +35,18 @@ function testOverride(): string | null {
 export function birthdayPersonToday(): string | null {
   const o = testOverride(); if (o) return o;
   const { m, d } = kstYMD();
-  for (const [name, b] of Object.entries(BIRTHDAYS)) if (b.month === m && b.day === d) return name;
+  for (const [name, b] of Object.entries(birthdays())) if (b.month === m && b.day === d) return name;
   return null;
 }
 
 export function birthdayYear(): number { return kstYMD().y; }
 
 // 함께 맞는 N번째 생일. 사귄 날 2023-09-28 → 첫 함께 생일은 2024(둘 다). 2026이면 3.
-export function nthTogether(year = birthdayYear()): number { return Math.max(1, year - 2023); }
+export function nthTogether(year = birthdayYear()): number { return isDemo() ? 2 : Math.max(1, year - 2023); }
 
 // name의 다음 생일까지 남은 일수(오늘이면 0). 우댕이 상대 생일 카운트다운 보는 용.
 export function daysUntilBirthday(name: string): number {
-  const b = BIRTHDAYS[name]; if (!b) return 9999;
+  const b = birthdays()[name]; if (!b) return 9999;
   const now = kstNow();
   const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   let target = Date.UTC(now.getUTCFullYear(), b.month - 1, b.day);

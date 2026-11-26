@@ -5,10 +5,11 @@
 
 import { db, usingEmulator } from './firebase';
 import {
-  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot,
+  collection, addDoc, setDoc, updateDoc, deleteDoc, doc, onSnapshot,
   serverTimestamp, Timestamp, deleteField, type DocumentData,
 } from 'firebase/firestore';
 import { partnerOf } from './letters';
+import { isDemo, settleDemoWrite } from './demo';
 
 export type EventOwner = 'kkomi' | 'udaeng' | 'together';
 
@@ -101,7 +102,7 @@ export async function addCalendarEvent(input: {
     endDate: input.endDate || input.startDate,
     allDay: input.allDay,
     createdBy: input.createdBy,
-    createdAt: serverTimestamp(),
+    createdAt: isDemo() ? Timestamp.now() : serverTimestamp(),
   };
   if (!input.allDay && input.startTime) payload.startTime = input.startTime;
   if (input.memo?.trim()) payload.memo = input.memo.trim();
@@ -109,17 +110,20 @@ export async function addCalendarEvent(input: {
   if (input.remindDaysBefore && input.remindDaysBefore.length > 0) payload.remindDaysBefore = input.remindDaysBefore;
   if (input.decorId) payload.decorId = input.decorId;
 
-  const ref = await addDoc(collection(db, 'calendarEvents'), payload);
+  const ref = isDemo() ? doc(collection(db, 'calendarEvents')) : null;
+  const savedRef = ref
+    ? (await settleDemoWrite(setDoc(ref, payload)), ref)
+    : await addDoc(collection(db, 'calendarEvents'), payload);
 
   // 상대에게 '일정 추가됨' 알림 (즉시 push) — 로컬 에뮬레이터 시험(?emu=1) 중에는 진짜 푸시를 보내지 않는다.
   const to = partnerOf(input.createdBy) as '우댕' | '꼼이';
   if (!usingEmulator) fetch('/api/notify-calendar', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ kind: 'new', from: input.createdBy, to, title: input.title.trim(), owner: input.owner, date: input.startDate, id: ref.id }),
+    body: JSON.stringify({ kind: 'new', from: input.createdBy, to, title: input.title.trim(), owner: input.owner, date: input.startDate, id: savedRef.id }),
   }).catch(() => {});
 
-  return ref.id;
+  return savedRef.id;
 }
 
 /**
@@ -136,9 +140,9 @@ export async function updateCalendarEvent(
     else if (v !== undefined) clean[k] = v;
   }
   if (Object.keys(clean).length === 0) return;
-  await updateDoc(doc(db, 'calendarEvents', id), clean);
+  await settleDemoWrite(updateDoc(doc(db, 'calendarEvents', id), clean));
 }
 
 export async function deleteCalendarEvent(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'calendarEvents', id));
+  await settleDemoWrite(deleteDoc(doc(db, 'calendarEvents', id)));
 }

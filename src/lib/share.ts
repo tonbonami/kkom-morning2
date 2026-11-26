@@ -2,6 +2,7 @@ import { db } from './firebase';
 import {
   collection,
   addDoc,
+  setDoc,
   doc,
   updateDoc,
   deleteDoc,
@@ -12,6 +13,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { fetchLinkPreview, LINK_PREVIEW_VERSION, type LinkPreview } from './linkPreview';
+import { isDemo, settleDemoWrite } from './demo';
 
 // Firestore 스키마
 export interface ShareDoc {
@@ -91,19 +93,20 @@ export async function addShare(input: {
   if (preview) payload.preview = preview;
   if (input.memo) payload.memo = input.memo.trim();
 
-  const ref = await addDoc(collection(db, 'shareList'), payload);
+  const ref = doc(collection(db, 'shareList'));
+  await settleDemoWrite(setDoc(ref, { ...payload, ...(isDemo() ? { createdAt: Timestamp.now() } : {}) }));
   return ref.id;
 }
 
 // 상대가 봤을 때 seenBy에 추가 (중복 OK — arrayUnion이 처리)
 export async function markShareSeen(id: string, by: '우댕' | '꼼이'): Promise<void> {
   try {
-    await updateDoc(doc(db, 'shareList', id), { seenBy: arrayUnion(by) });
+    await settleDemoWrite(updateDoc(doc(db, 'shareList', id), { seenBy: arrayUnion(by) }));
   } catch (e) {
     console.warn('markShareSeen 실패:', e);
   }
 }
 
 export async function deleteShare(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'shareList', id));
+  await settleDemoWrite(deleteDoc(doc(db, 'shareList', id)));
 }
