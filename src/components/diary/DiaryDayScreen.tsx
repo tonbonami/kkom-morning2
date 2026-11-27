@@ -74,11 +74,12 @@ export interface DiaryDayScreenProps {
   onAddMaterial: (m: DiaryMaterialVM) => void;
   onOpenSpecialDates: () => void;
   onClearQuestion?: () => void;
-  /** 이 장의 ♥·한마디(DiaryNotes) */
+  /** 이 장의 ♥·한마디·스티커(DiaryNotes) */
   notes?: DiaryNoteVM[];
   pageExists?: boolean;
   onToggleHeart?: () => void;
   onSendNote?: (text: string) => Promise<boolean>;
+  onSendSticker?: (src: string) => Promise<boolean>;
   onDeleteNote?: (id: string) => void;
   /** 사진(GPT 회의 2026-11-18): 지금 몇 장인지 · 꼼톡·추억에서 고른 것 · 고른 사진의 모양·글귀 */
   photoCount: number;
@@ -140,6 +141,7 @@ export function DiaryDayScreen({
   pageExists,
   onToggleHeart,
   onSendNote,
+  onSendSticker,
   onDeleteNote,
   photoCount,
   selectedItem,
@@ -399,7 +401,7 @@ export function DiaryDayScreen({
           <p className="text-[11px] text-[var(--sd-faint)] mt-1">
             {me === pageOwner
               ? '아직 오지 않은 날이에요 — 그날이 되면 쓸 수 있어요'
-              : pageExists ? `${pageOwner}의 장 — 아래에 마음·한마디를 남길 수 있어요` : `${pageOwner}의 장 — 보기만 할 수 있어요`}
+              : pageExists ? `${pageOwner}의 장 — 아래에 마음·한마디·스티커를 남길 수 있어요` : `${pageOwner}의 장 — 보기만 할 수 있어요`}
           </p>
         )}
       </div>
@@ -435,10 +437,10 @@ export function DiaryDayScreen({
         className={`px-4 pb-3 pt-1 space-y-2 z-30 ${layout === 'tall' ? 'w-full max-w-[600px] mx-auto' : ''}`}
         style={side ? { gridArea: 'tools', alignSelf: 'center', maxHeight: '100%', overflowY: 'auto' } : undefined}
       >
-        {notes && onToggleHeart && onSendNote && onDeleteNote && !selectedItemId && (
+        {notes && onToggleHeart && onSendNote && onSendSticker && onDeleteNote && !selectedItemId && (
           <DiaryNotes
             me={me} pageOwner={pageOwner} notes={notes} pageExists={!!pageExists}
-            onToggleHeart={onToggleHeart} onSend={onSendNote} onDelete={onDeleteNote}
+            onToggleHeart={onToggleHeart} onSend={onSendNote} onSendSticker={onSendSticker} onDelete={onDeleteNote}
           />
         )}
 

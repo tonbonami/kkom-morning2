@@ -39,7 +39,7 @@ import {
   BUILTIN_SPECIALS, DiaryConflict, DiaryRestoreOccupied, PracticeBlocked, subscribeDiaryRevision, addSpecialDate, applyMonthPatch, blankDiaryPage, clearDiaryDraft, deleteDiaryPhotos, deleteSpecialDate,
   diaryPageHasContent, diaryPageId, emptyMonthDeco, invertMonthPatch, loadDiaryPage, prepareDiaryPhoto, readDiaryDraft, saveDiaryDraft, saveDiaryPage,
   removeDiaryEvent, saveDiaryEvent, uploadDiaryInk, seedSpecialDates, specialsOn, subscribeDiaryMonth, subscribeDiaryMonthMeta, subscribeDiaryPage, subscribeSpecialDates, uploadDiaryPhoto,
-  writeDiaryMonthPatch, addDiaryNote, deleteDiaryNote, setDiaryHeart, subscribeDiaryNotes, appPhotoFile, restoreDiaryTrash, subscribeDiaryTrash, trashDiaryPage,
+  writeDiaryMonthPatch, addDiaryNote, addDiarySticker, deleteDiaryNote, setDiaryHeart, subscribeDiaryNotes, appPhotoFile, restoreDiaryTrash, subscribeDiaryTrash, trashDiaryPage,
   type AppPhotoVM, type DiaryMeta, type DiaryNoteVM, type DiaryTrashVM, type MonthDeco, type MonthPatch,
 } from '@/lib/diary';
 import {
@@ -360,7 +360,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
     removeDiaryConflictStash(stash.key); refreshStashes(); say('보관본을 지웠어요');
   };
 
-  // ── ♥·한마디(보고 있는 장 아래) ──
+  // ── ♥·한마디·스티커(보고 있는 장 아래) ──
   const [notes, setNotes] = useState<DiaryNoteVM[]>([]);
   useEffect(() => { setNotes([]); return subscribeDiaryNotes(date, owner, setNotes); }, [date, owner]);
   const noteFail = (e: unknown, what: string) => { if (!(e instanceof PracticeBlocked)) say(`${what} 못했어요. 잠시 뒤 다시 해 주세요`); };
@@ -372,7 +372,10 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
   const sendNote = async (text: string): Promise<boolean> => {
     try { await addDiaryNote(date, owner, me, text); return true; } catch (e) { noteFail(e, '한마디를 남기지'); return false; }
   };
-  const removeNote = (id: string) => { deleteDiaryNote(date, owner, id).catch((e) => noteFail(e, '지우지')); };
+  const sendSticker = async (src: string): Promise<boolean> => {
+    try { await addDiarySticker(date, owner, me, src); return true; } catch (e) { noteFail(e, '스티커를 남기지'); return false; }
+  };
+  const removeNote = (id: string) => { deleteDiaryNote(date, owner, id, me).catch((e) => noteFail(e, '지우지')); };
   const topZ = Math.max(0, ...mine.items.map((i) => i.z));
   const selItem = isMine && sel ? mine.items.find((i) => i.id === sel) ?? null : null;
 
@@ -1001,7 +1004,7 @@ export function DiaryApp({ me, initialDate, initialOwner, initialView, openAgend
         onOpenSpecialDates={() => setSpecial(true)}
         notes={diaryPageHasContent(page) ? notes : []}
         pageExists={isMine ? diaryPageHasContent(mine) : !!theirs}
-        onToggleHeart={toggleHeart} onSendNote={sendNote} onDeleteNote={removeNote}
+        onToggleHeart={toggleHeart} onSendNote={sendNote} onSendSticker={sendSticker} onDeleteNote={removeNote}
         photoCount={isMine ? mine.items.filter((i) => i.type === 'photo').length : 0}
         selectedItem={selItem}
         onPickAppPhotos={(list) => void pickAppPhotos(list)}

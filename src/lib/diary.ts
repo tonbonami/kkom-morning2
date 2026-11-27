@@ -15,7 +15,7 @@
  */
 import { db, storage, usingEmulator } from './firebase';
 import {
-  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, startAfter, writeBatch, runTransaction,
+  collection, doc, getDoc, getDocFromCache, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, startAfter, writeBatch, runTransaction,
   serverTimestamp, deleteField, Timestamp, type DocumentData, type QueryDocumentSnapshot, type Transaction,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -23,6 +23,7 @@ import { isPractice, practiceBlocked } from './practice';
 import { isDemo, settleDemoWrite } from './demo';
 import { PERSON_KEY, PracticeBlocked } from './honeybrary';
 import { addCalendarEvent, deleteCalendarEvent } from './calendar';
+import { DIARY_REPLY_STICKER_SRCS } from './diaryReplyStickers';
 import {
   DIARY_LIMITS, DIARY_PROMPTS, MONTH_LIMITS, type DiaryEventDraft, type DiaryItemVM, type DiaryPageVM, type DiaryPaperTheme, type MonthOwner, type MonthSpanVM,
   type MonthStickerVM, type MonthTitleStyle, type Person, type SpecialDateVM,
@@ -308,16 +309,20 @@ export function subscribeDiaryTrash(owner: Person, cb: (list: DiaryTrashVM[] | n
 
 // ── 마음(♥)·한마디 ─────────────────────────────────────────────────────────
 // 우댕 2026-11-17 (꼼이 장을 보며): 「이거 내가 답글 남기거나 하트는 못해?」
-//   diaryPages/{장 id}/notes/{id}   { by, kind: 'heart'|'text', text, at }
-//   ♥ 는 사람마다 하나(문서 id heart_{udaeng|kkomi}) — 눌렀다 떼면 지운다. 한마디는 여러 개.
+//   diaryPages/{장 id}/notes/{id}   { by, kind: 'heart'|'text'|'sticker', text 또는 src, at }
+//   ♥ 는 사람마다 하나(문서 id heart_{udaeng|kkomi}) — 눌렀다 떼면 지운다. 한마디·스티커는 여러 개.
 // ⚠️ 장 주인이 아니어도 쓴다 — 장(content/main)은 건드리지 않고 아래 notes 에만 쓴다(주인의 장 저장과 안 부딪힌다).
 // ⚠️ 주인이 장을 비우거나 휴지통으로 옮겨도 notes 는 남는다 — 장을 되살리면 그대로 돌아온다.
-export interface DiaryNoteVM { id: string; by: Person; kind: 'heart' | 'text'; text: string; at: number }
+interface DiaryNoteBase { id: string; by: Person; at: number }
+export type DiaryNoteVM =
+  | (DiaryNoteBase & { kind: 'heart' })
+  | (DiaryNoteBase & { kind: 'text'; text: string })
+  | (DiaryNoteBase & { kind: 'sticker'; src: string });
 export const DIARY_NOTE_MAX = 300;
 const notesCol = (pageId: string) => collection(db, 'diaryPages', pageId, 'notes');
 const otherOf = (p: Person): Person => (p === '우댕' ? '꼼이' : '우댕');
 
-/** 그 장의 ♥·한마디(오래된 것 먼저). */
+/** 그 장의 ♥·한마디·스티커(오래된 것 먼저). */
 export function subscribeDiaryNotes(date: string, owner: Person, cb: (n: DiaryNoteVM[]) => void): () => void {
   return onSnapshot(notesCol(diaryPageId(date, owner)),
     (snap) => {
@@ -325,20 +330,24 @@ export function subscribeDiaryNotes(date: string, owner: Person, cb: (n: DiaryNo
       snap.forEach((s) => {
         const d = s.data({ serverTimestamps: 'estimate' });
         if (d.by !== '우댕' && d.by !== '꼼이') return;
-        const kind = d.kind === 'heart' ? 'heart' : 'text';
-        const text = typeof d.text === 'string' ? d.text.slice(0, DIARY_NOTE_MAX) : '';
-        if (kind === 'text' && !text.trim()) return;
         const at = typeof d.at?.toMillis === 'function' ? d.at.toMillis() : 0;
-        out.push({ id: s.id, by: d.by, kind, text, at });
+        if (d.kind === 'heart') out.push({ id: s.id, by: d.by, kind: 'heart', at });
+        else if (d.kind === 'text') {
+          const text = typeof d.text === 'string' ? d.text.slice(0, DIARY_NOTE_MAX) : '';
+          if (text.trim()) out.push({ id: s.id, by: d.by, kind: 'text', text, at });
+        } else if (d.kind === 'sticker' && typeof d.src === 'string' && DIARY_REPLY_STICKER_SRCS.has(d.src)) {
+          out.push({ id: s.id, by: d.by, kind: 'sticker', src: d.src, at });
+        }
+        // 모르는 kind는 건너뛴다. 옛 앱도 sticker를 빈 text로 읽어 건너뛰므로 새 문서 때문에 깨지지 않는다.
       });
       cb(out.sort((a, b) => a.at - b.at));
     },
     (e) => { console.error('diary notes 구독 오류:', e); cb([]); });
 }
 
-/** 상대에게 알림(진짜 앱에서만 — 에뮬레이터·연습 모드는 안 보낸다). */
-function notifyDiary(body: { kind: 'heart' | 'text'; from: Person; date: string; owner: Person; text?: string }) {
-  if (usingEmulator || isPractice()) return;
+/** 상대에게 알림(진짜 앱에서만 — 에뮬레이터·연습·시연 모드는 안 보낸다). */
+function notifyDiary(body: { kind: 'heart' | 'text' | 'sticker'; from: Person; date: string; owner: Person; text?: string }) {
+  if (usingEmulator || isPractice() || isDemo()) return;
   fetch('/api/notify-diary', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...body, to: otherOf(body.from) }),
@@ -361,9 +370,23 @@ export async function addDiaryNote(date: string, owner: Person, me: Person, text
   notifyDiary({ kind: 'text', from: me, date, owner, text: t });
 }
 
-export async function deleteDiaryNote(date: string, owner: Person, id: string): Promise<void> {
-  if (blocked('다이어리 한마디 지우기')) throw new PracticeBlocked();
-  await settleDemoWrite(deleteDoc(doc(notesCol(diaryPageId(date, owner)), id)));
+/** 상대 장에 고른 캐릭터 스티커를 바로 남긴다. */
+export async function addDiarySticker(date: string, owner: Person, me: Person, src: string): Promise<void> {
+  if (owner === me) throw new Error('상대 장에만 스티커를 남길 수 있어요');
+  if (!DIARY_REPLY_STICKER_SRCS.has(src)) throw new Error('꼼이어리에서 쓸 수 없는 스티커예요');
+  if (blocked('다이어리 스티커')) throw new PracticeBlocked();
+  await settleDemoWrite(setDoc(doc(notesCol(diaryPageId(date, owner))), { by: me, kind: 'sticker', src, at: isDemo() ? Timestamp.now() : serverTimestamp() }));
+  notifyDiary({ kind: 'sticker', from: me, date, owner });
+}
+
+export async function deleteDiaryNote(date: string, owner: Person, id: string, me: Person): Promise<void> {
+  if (blocked('다이어리 답장 지우기')) throw new PracticeBlocked();
+  const ref = doc(notesCol(diaryPageId(date, owner)), id);
+  // 시연 Firestore는 네트워크가 꺼져 있으므로 구독으로 받은 로컬 문서에서 작성자를 확인한다.
+  const snap = isDemo() ? await getDocFromCache(ref).catch(() => null) : await getDoc(ref);
+  if (!snap?.exists()) return;
+  if (snap.data().by !== me) throw new Error('내가 남긴 답장만 지울 수 있어요');
+  await settleDemoWrite(deleteDoc(ref));
 }
 
 // ── 사진 ─────────────────────────────────────────────────────────────────
