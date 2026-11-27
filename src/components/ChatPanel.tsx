@@ -103,7 +103,12 @@ interface Props {
 }
 
 const keyOf = (name: string) => (name === '우댕' ? 'udaeng' : 'kkomi');
-const avatarOf = (name: string) => (name === '우댕' ? '/avatars/woodang_avatar.png' : '/avatars/kkomi_avatar.png');
+// 시연 모드(공모전 영상)에선 포차코를 닮은 옛 얼굴 그림 대신 둘의 캐릭터 얼굴 — 우댕=꿀됑, 꼼이=강아지 꼼이.
+//   꼼톡 창은 누른 뒤에야 그려지니(화면이 뜬 뒤) isDemo() 를 바로 불러도 하이드레이션과 안 부딪힌다.
+const avatarOf = (name: string) =>
+  isDemo()
+    ? (name === '우댕' ? '/emo/kkuldaeng/mood/happy.png' : '/emo/saidami/happy.webp')
+    : (name === '우댕' ? '/avatars/woodang_avatar.png' : '/avatars/kkomi_avatar.png');
 const REACTIONS = ['❤️', '😂', '🥺'];
 
 function timeText(d: Date | null): string {
