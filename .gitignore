@@ -77,3 +77,12 @@ public/pochacco_kkom/pochacco_fly.png
 
 # 피부 일지 등 로컬 백업(건강 기록이라 저장소에 안 올림)
 backups/
+
+# 옛 백업·응답 덤프(공개 저장소라 다시 올리지 않음, 2026-11-28 정리)
+*.tar.gz
+*.backup
+*.backup-*
+*.broken
+api-response.json
+final-test.json
+response.txt
