@@ -18,6 +18,8 @@ export interface ZoomableImageProps {
   onZoomChange?: (zoomed: boolean) => void;
   /** 1배일 때 옆으로 밀면 — 여러 장 넘기기 */
   onSwipe?: (dir: 'next' | 'prev') => void;
+  /** 1배일 때 아래로 밀면 — 크게 보기 닫기 */
+  onSwipeDown?: () => void;
   /** 사진 밖 빈 곳을 톡(1배일 때) — 보통 닫기 */
   onBackgroundTap?: () => void;
 }
@@ -30,7 +32,7 @@ const SWIPE = 60;       // 이만큼 밀면 넘김
 
 type Pt = { x: number; y: number };
 
-export default function ZoomableImage({ src, alt = '', imgClassName = 'max-w-full max-h-full object-contain', onZoomChange, onSwipe, onBackgroundTap }: ZoomableImageProps) {
+export default function ZoomableImage({ src, alt = '', imgClassName = 'max-w-full max-h-full object-contain', onZoomChange, onSwipe, onSwipeDown, onBackgroundTap }: ZoomableImageProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const view = useRef({ s: 1, x: 0, y: 0 });                 // 지금 배율·이동
@@ -112,9 +114,14 @@ export default function ZoomableImage({ src, alt = '', imgClassName = 'max-w-ful
     if (st.kind === 'pan') {
       view.current = clamp(st.s0, st.x0 + dx, st.y0 + dy);
       paint();
-    } else if (st.kind === 'swipe' && onSwipe && Math.abs(dx) > Math.abs(dy)) {
-      view.current = { s: 1, x: dx * 0.6, y: 0 };            // 손가락을 따라 살짝(놓으면 넘기거나 제자리)
-      paint();
+    } else if (st.kind === 'swipe') {
+      if (onSwipe && Math.abs(dx) > Math.abs(dy)) {
+        view.current = { s: 1, x: dx * 0.6, y: 0 };          // 손가락을 따라 살짝(놓으면 넘기거나 제자리)
+        paint();
+      } else if (onSwipeDown && dy > 0 && Math.abs(dy) > Math.abs(dx)) {
+        view.current = { s: 1, x: 0, y: dy * 0.35 };
+        paint();
+      }
     }
   };
 
@@ -144,9 +151,10 @@ export default function ZoomableImage({ src, alt = '', imgClassName = 'max-w-ful
     const kind = st.kind;
     g.current.kind = 'none';
 
-    if (kind === 'swipe' && onSwipe && st.moved > TAP_MOVE) {
+    if (kind === 'swipe' && (onSwipe || onSwipeDown) && st.moved > TAP_MOVE) {
       const dx = e.clientX - st.p0.x, dy = e.clientY - st.p0.y;
-      if (Math.abs(dx) > SWIPE && Math.abs(dx) > Math.abs(dy)) { reset(false); onSwipe(dx < 0 ? 'next' : 'prev'); return; }
+      if (onSwipe && Math.abs(dx) > SWIPE && Math.abs(dx) > Math.abs(dy)) { reset(false); onSwipe(dx < 0 ? 'next' : 'prev'); return; }
+      if (onSwipeDown && dy > SWIPE && Math.abs(dy) > Math.abs(dx)) { reset(false); onSwipeDown(); return; }
       reset(true);
       return;
     }

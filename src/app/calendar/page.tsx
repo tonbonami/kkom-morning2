@@ -14,7 +14,7 @@ import {
 } from '@/lib/calendar';
 import {
   buildMonthGrid, todayYmd, eventsOnDate, parseYmd, upcomingEvents, shortDateLabel,
-  type UpcomingEvent,
+  type CalendarWeek, type UpcomingEvent,
 } from '@/lib/calendarLayout';
 import { nameFromCode } from '@/lib/letters';
 import { feedback } from '@/lib/feedback';
@@ -23,6 +23,107 @@ import { EventTitleBand } from '@/components/calendar/EventTitleBand';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const MAX_DAY_BANDS = 2;
+
+function CalendarWeekRow({ week, events, weekIndex, onSelectDate }: {
+  week: CalendarWeek;
+  events: CalendarEvent[];
+  weekIndex: number;
+  onSelectDate: (date: string) => void;
+}) {
+  const visibleBars = week.bars.filter((bar) => bar.slot < MAX_DAY_BANDS);
+  const singleBands: Array<{ event: CalendarEvent; column: number; slot: number }> = [];
+  const moreByColumn = Array(7).fill(0) as number[];
+
+  week.cells.forEach((cell, column) => {
+    const occupiedSlots = new Set(
+      visibleBars
+        .filter((bar) => column >= bar.colStart && column < bar.colStart + bar.span)
+        .map((bar) => bar.slot),
+    );
+    const hiddenMultiDayCount = week.bars.filter(
+      (bar) => bar.slot >= MAX_DAY_BANDS
+        && column >= bar.colStart
+        && column < bar.colStart + bar.span,
+    ).length;
+    const availableSlots = Array.from({ length: MAX_DAY_BANDS }, (_, slot) => slot)
+      .filter((slot) => !occupiedSlots.has(slot));
+    // 기존 칩과 같은 시간순을 지킨다(멀티데이만 위의 이어진 띠가 맡는다).
+    const singleDayEvents = eventsOnDate(cell.date, events)
+      .filter((event) => event.startDate === event.endDate);
+
+    singleDayEvents.slice(0, availableSlots.length).forEach((event, index) => {
+      singleBands.push({ event, column, slot: availableSlots[index] });
+    });
+    moreByColumn[column] = hiddenMultiDayCount
+      + Math.max(0, singleDayEvents.length - availableSlots.length);
+  });
+
+  return (
+    <div
+      className={`relative grid grid-cols-7 ${weekIndex > 0 ? 'border-t border-dashed border-slate-200/70' : ''}`}
+      style={{ minHeight: 82 }}
+    >
+      {/* 날짜 칸은 그대로 탭하고, 일정은 위에 겹쳐 그려도 손짓을 가로채지 않는다. */}
+      {week.cells.map((cell, column) => {
+        const hol = holidayName(cell.date);
+        const isSun = column === 0;
+        return (
+          <button
+            key={cell.date}
+            onClick={() => onSelectDate(cell.date)}
+            className={`relative min-w-0 overflow-hidden flex flex-col items-center pt-1.5 ${column > 0 ? 'border-l border-dashed border-slate-200/70' : ''} active:bg-purple-50/50 transition-colors ${!cell.inMonth ? 'opacity-40' : ''}`}
+          >
+            <span className={`text-[12px] font-bold w-6 h-6 flex items-center justify-center rounded-full z-10 ${
+              cell.isToday ? 'bg-emerald-500 text-white shadow-sm' : !cell.inMonth ? 'text-slate-300' : (hol || isSun) ? 'text-rose-500' : 'text-slate-700'
+            }`}>{cell.day}</span>
+            {/* 공휴일 이름 (한국 공휴일 자동 표시) */}
+            {hol && cell.inMonth && (
+              <span className="max-w-full px-0.5 -mt-0.5 text-[8px] font-black text-rose-500 leading-none truncate z-10">{hol}</span>
+            )}
+            {moreByColumn[column] > 0 && (
+              <span className="absolute inset-x-0 top-[68px] pr-1 text-right text-[8px] leading-[9px] font-black text-slate-400 z-20">
+                +{moreByColumn[column]}
+              </span>
+            )}
+          </button>
+        );
+      })}
+
+      {/* 왜 한 레이어에서 그리나: 여러 날짜 칸 안에 각각 넣으면 띠가 칸 경계마다 끊겨 보인다. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-[38px] h-[29px] grid grid-cols-7 grid-rows-2 gap-y-px z-10"
+        aria-hidden="true"
+      >
+        {visibleBars.map((bar) => (
+          <EventTitleBand
+            key={bar.event.id}
+            owner={bar.event.owner}
+            title={bar.event.title}
+            roundLeft={!bar.continuesLeft}
+            roundRight={!bar.continuesRight}
+            className="h-[14px] px-0.5"
+            textClassName="text-[10px] font-bold"
+            style={{
+              gridColumn: `${bar.colStart + 1} / span ${bar.span}`,
+              gridRow: bar.slot + 1,
+              borderLeftWidth: bar.continuesLeft ? 0 : 3,
+            }}
+          />
+        ))}
+        {singleBands.map(({ event, column, slot }) => (
+          <EventTitleBand
+            key={event.id}
+            owner={event.owner}
+            title={event.title}
+            className="mx-0.5 h-[14px] pl-0.5 pr-px"
+            textClassName="text-[10px] font-bold"
+            style={{ gridColumn: column + 1, gridRow: slot + 1 }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function fmtRange(e: CalendarEvent): string {
   const s = parseYmd(e.startDate);
@@ -154,52 +255,15 @@ export default function CalendarPage() {
 
         {/* 캘린더 그리드 — 흰 컨테이너 + 점선 모눈 (다이어리 속지 톤) */}
         <div className="rounded-3xl bg-white border border-slate-100 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-1.5">
-          {weeks.map((week, wi) => {
-            return (
-              <div key={wi} className={`relative grid grid-cols-7 ${wi > 0 ? 'border-t border-dashed border-slate-200/70' : ''}`} style={{ minHeight: 82 }}>
-                {/* 날짜 칸 (탭 타겟) */}
-                {week.cells.map((cell, ci) => {
-                  const dayEvents = eventsOnDate(cell.date, events);
-                  const visibleEvents = dayEvents.slice(0, MAX_DAY_BANDS);
-                  const more = dayEvents.length - visibleEvents.length;
-                  const hol = holidayName(cell.date);
-                  const isSun = ci === 0;
-                  return (
-                    <button
-                      key={cell.date}
-                      onClick={() => setDaySheet(cell.date)}
-                      className={`relative min-w-0 overflow-hidden flex flex-col items-center pt-1.5 ${ci > 0 ? 'border-l border-dashed border-slate-200/70' : ''} active:bg-purple-50/50 transition-colors ${!cell.inMonth ? 'opacity-40' : ''}`}
-                    >
-                      <span className={`text-[12px] font-bold w-6 h-6 flex items-center justify-center rounded-full z-10 ${
-                        cell.isToday ? 'bg-emerald-500 text-white shadow-sm' : !cell.inMonth ? 'text-slate-300' : (hol || isSun) ? 'text-rose-500' : 'text-slate-700'
-                      }`}>{cell.day}</span>
-                      {/* 공휴일 이름 (한국 공휴일 자동 표시) */}
-                      {hol && cell.inMonth && (
-                        <span className="max-w-full px-0.5 -mt-0.5 text-[8px] font-black text-rose-500 leading-none truncate z-10">{hol}</span>
-                      )}
-                      {/* 일정 제목 띠 — 여러 날 일정도 걸치는 날짜마다 같은 모양으로 표시한다. */}
-                      {visibleEvents.length > 0 && (
-                        <div className="w-full min-w-0 mt-1 px-0.5 space-y-px z-10">
-                          {visibleEvents.map((event) => (
-                            <EventTitleBand
-                              key={event.id}
-                              owner={event.owner}
-                              title={event.title}
-                              className="w-full h-[14px] pl-0.5 pr-px"
-                              textClassName="text-[10px] font-bold"
-                            />
-                          ))}
-                          {more > 0 && (
-                            <div className="pr-0.5 text-right text-[8px] leading-[9px] font-black text-slate-400">+{more}</div>
-                          )}
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
+          {weeks.map((week, wi) => (
+            <CalendarWeekRow
+              key={week.cells[0].date}
+              week={week}
+              events={events}
+              weekIndex={wi}
+              onSelectDate={setDaySheet}
+            />
+          ))}
         </div>
 
         <p className="text-center text-[11px] font-bold text-slate-400 mt-3">날짜를 탭하면 그날 일정이 보여요</p>
