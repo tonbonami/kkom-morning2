@@ -8,29 +8,25 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoaderCircle, Check } from 'lucide-react';
 import { haptic } from '@/lib/feedback';
-import { demoAs, isDemo } from '@/lib/demo';
-
 type Kind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening';
-interface Item { kind: Kind; image: string; label: string }
+interface Item { kind: Kind; label: string }
 
-// 포차코 손그림(ChatGPT 생성, public/quickbar). 흰 독 위에서 깨끗하게 읽히도록 가공(트림·정사각·헤이즈 정리).
 const ITEMS: Item[] = [
-  { kind: 'miss',      image: '/quickbar/miss.png',      label: '보고싶어' },
-  { kind: 'love',      image: '/quickbar/love.png',      label: '사랑해' },
-  { kind: 'hug',       image: '/quickbar/hug.png',       label: '안아줘' },
-  { kind: 'kiss',      image: '/quickbar/kiss.png',      label: '뽀뽀' },
-  { kind: 'whitening', image: '/quickbar/whitening.png', label: '화이트닝' },
+  { kind: 'miss',      label: '보고싶어' },
+  { kind: 'love',      label: '사랑해' },
+  { kind: 'hug',       label: '안아줘' },
+  { kind: 'kiss',      label: '뽀뽀' },
+  { kind: 'whitening', label: '화이트닝' },
 ];
 
 interface Receipt { title: string; body: string }
 
-// 시연 모드(공모전 영상)엔 포차코(산리오) 대신 보내는 사람의 캐릭터 — 우댕은 꿀됑, 꼼이는 강아지 꼼이(워치와 같은 짝).
-//   서랍 이모티콘에서 글자 띠만 잘라 낸 판(public/quickbar/demo).
-const demoImage = (k: Kind) => (demoAs() === '꼼이' ? `/quickbar/demo/kkomi-${k}.webp` : `/quickbar/demo/${k}.webp`);
+// 단추 그림 = 보내는 사람(나)의 캐릭터 — 우댕은 꿀됑, 꼼이는 강아지 꼼이(워치 범프와 같은 짝).
+//   서랍 이모티콘에서 글자 띠만 잘라 낸 판(public/quickbar/char). 옛 포차코 그림(public/quickbar/*.png)은 안 씀
+//   (2026-11-28 우댕 「자주 보는 포차코 19장 교체」 — 시연 모드에서 먼저 보고 고름).
+const charImage = (me: string, k: Kind) => (me === '꼼이' ? `/quickbar/char/kkomi-${k}.webp` : `/quickbar/char/${k}.webp`);
 
 export default function QuickReplyBar({ me, partner }: { me: string; partner: string }) {
-  const [demo, setDemo] = useState(false);
-  useEffect(() => setDemo(isDemo()), []);
   const [sending, setSending] = useState<Kind | null>(null);
   const [stamped, setStamped] = useState<Kind | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
@@ -156,7 +152,7 @@ export default function QuickReplyBar({ me, partner }: { me: string; partner: st
                 ) : (
                   <span className="flex flex-col items-center gap-0.5">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={demo ? demoImage(it.kind) : it.image} alt={it.label} width={42} height={42}
+                    <img src={charImage(me, it.kind)} alt={it.label} width={42} height={42}
                       className="h-[42px] w-[42px] object-contain" loading="lazy" decoding="async" draggable={false} />
                     <span className="text-[10px] font-bold leading-none truncate max-w-full" style={{ color: 'var(--sd-muted)' }}>
                       {it.label}

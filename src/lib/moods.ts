@@ -28,12 +28,12 @@ export const MOOD_OPTIONS: MoodOption[] = [
   { id: 'sulky',   label: '삐짐',     image: '/pochacco/face_sulky.png',   emojiFallback: '😤', anim: 'sulk' },
 ];
 
-// 기분 얼굴 그림 — 우댕 기분은 꿀됑(우댕 캐릭터) 얼굴로, 꼼이는 포차코 그대로(우댕 지시 2026-10-15).
-//   파일: /emo/kkuldaeng/mood/{id}.png (320 투명, 원본 art/kkuldaeng/mood).
-//   시연 모드(공모전 영상)에선 꼼이 쪽도 포차코(산리오) 대신 꼼이 닮은 하얀 푸들(/emo/saidami, 허니브러리 꼼이 자리와 같은 그림).
+// 기분 얼굴 그림 — 우댕은 꿀됑(/emo/kkuldaeng/mood/{id}.png, 원본 art/kkuldaeng/mood),
+//   꼼이는 강아지 꼼이(/emo/saidami/{id}.webp — 허니브러리 꼼이 자리와 같은 그림).
+//   예전엔 꼼이만 포차코였음(10/15) → 2026-11-28 우댕 「자주 보는 포차코 19장 교체」로 꼼이도 바꿈(시연 모드에서 먼저 보고 고름).
+//   MOOD_OPTIONS.image(포차코)는 옛 기록 호환용으로만 남김.
 export function moodImage(m: MoodOption, owner?: string | null): string {
-  if (owner === '우댕') return `/emo/kkuldaeng/mood/${m.id}.png`;
-  return isDemo() ? `/emo/saidami/${m.id}.webp` : m.image;
+  return owner === '우댕' ? `/emo/kkuldaeng/mood/${m.id}.png` : `/emo/saidami/${m.id}.webp`;
 }
 
 // key는 신규 'happy' 같은 id 또는 옛날 '😄' 같은 이모지 둘 다 받음
