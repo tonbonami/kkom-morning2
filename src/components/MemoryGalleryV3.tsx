@@ -6,6 +6,7 @@ import {
   Plus, X, Image as ImageIcon, Trash2, ChevronLeft, ChevronRight,
   Calendar, Type, AlignLeft, Heart, MessageCircle, Pencil, Send
 } from 'lucide-react';
+import ZoomableImage from '@/components/ZoomableImage';
 
 export interface Memory {
   id: string;
@@ -428,7 +429,11 @@ function LightboxOverlay({
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
   const commentsEndRef = useRef<HTMLDivElement>(null);
+
+  // 사진이 바뀌면 화살표와 1배 손짓을 바로 되살린다.
+  useEffect(() => setIsImageZoomed(false), [memory.id]);
 
   // Subscribe to comments
   useEffect(() => {
@@ -476,29 +481,33 @@ function LightboxOverlay({
       <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col relative pb-4">
 
         {/* Swipeable Image Viewer */}
-        <div className="w-full shrink-0 relative bg-black flex items-center justify-center min-h-[50vh] md:min-h-[60vh] touch-pan-y"
+        <div className="w-full h-[50vh] md:h-[60vh] shrink-0 relative bg-black flex items-center justify-center"
              onPointerDown={(e) => e.stopPropagation()}>
-          <motion.img
+          <motion.div
             key={memory.id}
             layoutId={`memory-img-${memory.id}`}
-            src={memory.imageUrl}
-            alt={memory.title}
-            className="w-full max-h-full object-contain"
-            drag="x"
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.6}
-            onDragEnd={(_, info) => {
-              if (info.offset.x < -60 && currentIndex < memories.length - 1) onNext();
-              if (info.offset.x > 60 && currentIndex > 0) onPrev();
-            }}
-          />
+            className="w-full h-full"
+          >
+            {/* 왜 ZoomableImage 한 곳에서 손짓을 맡기나: 확대 이동과 넘기기·닫기를 따로 받으면 두 손가락이 서로 싸운다. */}
+            <ZoomableImage
+              src={memory.imageUrl}
+              alt={memory.title}
+              imgClassName="max-w-full max-h-full object-contain"
+              onZoomChange={setIsImageZoomed}
+              onSwipe={isImageZoomed ? undefined : (dir) => {
+                if (dir === 'next' && currentIndex < memories.length - 1) onNext();
+                if (dir === 'prev' && currentIndex > 0) onPrev();
+              }}
+              onSwipeDown={isImageZoomed ? undefined : onClose}
+            />
+          </motion.div>
           {currentIndex > 0 && (
-            <button onClick={(e) => { e.stopPropagation(); onPrev(); }} className="absolute left-4 p-3 bg-black/40 text-white rounded-full backdrop-blur-md">
+            <button onClick={(e) => { e.stopPropagation(); onPrev(); }} className={`absolute left-4 p-3 bg-black/40 text-white rounded-full backdrop-blur-md transition-opacity ${isImageZoomed ? 'opacity-0 pointer-events-none' : ''}`}>
               <ChevronLeft className="w-6 h-6" />
             </button>
           )}
           {currentIndex < memories.length - 1 && (
-            <button onClick={(e) => { e.stopPropagation(); onNext(); }} className="absolute right-4 p-3 bg-black/40 text-white rounded-full backdrop-blur-md">
+            <button onClick={(e) => { e.stopPropagation(); onNext(); }} className={`absolute right-4 p-3 bg-black/40 text-white rounded-full backdrop-blur-md transition-opacity ${isImageZoomed ? 'opacity-0 pointer-events-none' : ''}`}>
               <ChevronRight className="w-6 h-6" />
             </button>
           )}
