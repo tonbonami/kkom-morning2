@@ -19,11 +19,14 @@ private let cBg    = Color(hexW: "#17110F")
 private let cRose  = Color(hexW: "#FB7BA8")
 private let cMint  = Color(hexW: "#34D399")
 
-// 폰 QuickReplyBar와 동일한 범프 5종 (포차코 그림은 워치 애셋에 PNG로 내장 — webp가 watchOS AsyncImage에서 안 그려짐)
+// 폰 QuickReplyBar와 동일한 범프 5종 (그림은 워치 애셋에 PNG로 내장 — webp가 watchOS AsyncImage에서 안 그려짐. 옛 포차코 miss·love… 는 안 씀)
 let BUMP_ITEMS: [(kind: String, label: String)] = [
     ("miss", "보고싶어"), ("love", "사랑해"), ("hug", "안아줘"), ("kiss", "뽀뽀"), ("whitening", "화이트닝"),
 ]
 func bumpLabel(_ kind: String?) -> String { BUMP_ITEMS.first { $0.kind == kind }?.label ?? "" }
+// 범프 그림 = 보내는 사람의 캐릭터 — 우댕은 꿀됑(kkul_), 꼼이는 강아지 꼼이(kkomi_). 포차코(산리오)에서 바꿈(2026-11-27 우댕 「워치 범프를 이 기회에 바꿔 꼼이나 꿀됑으로」).
+//   고르는 판·「보냈어!」는 내 캐릭터, 「왔어 💗」는 보낸 상대 캐릭터. 역할을 아직 안 골랐으면 꿀됑.
+func bumpImage(_ kind: String, sender: String?) -> String { (sender == "꼼이" ? "kkomi_" : "kkul_") + kind }
 
 struct ContentView: View {
     @EnvironmentObject var store: WatchStore
@@ -46,13 +49,13 @@ struct ContentView: View {
                     if store.heartFlash > 0 {
                         ReceivedHeart(trigger: store.heartFlash, emoji: store.lastReceivedEmoji)
                     }
-                    // 내가 범프 보낸 확인 (폰 QuickReplyBar 재현: 큰 포차코 떠오름)
+                    // 내가 범프 보낸 확인 (폰 QuickReplyBar 재현: 내 캐릭터가 크게 떠오름)
                     if store.bumpFlash > 0, let k = store.bumpKind {
-                        BumpConfirm(trigger: store.bumpFlash, kind: k)
+                        BumpConfirm(trigger: store.bumpFlash, kind: k, sender: store.role)
                     }
-                    // 상대가 보낸 범프 수신 — 어느 페이지에서든 '보고싶어' 등 무슨 범프인지 또렷이.
+                    // 상대가 보낸 범프 수신 — 보낸 상대의 캐릭터로, 무슨 범프인지 또렷이.
                     if store.recvBumpFlash > 0, let k = store.recvBumpKind {
-                        ReceivedBump(trigger: store.recvBumpFlash, kind: k)
+                        ReceivedBump(trigger: store.recvBumpFlash, kind: k, sender: store.role == nil ? nil : store.partner)
                     }
                     // 연결 상태 배지(B) — 오프라인/보내는 중/전송 대기일 때만 상단에 작게.
                     if !store.connected || store.inFlight > 0 || store.pendingCount > 0 {
@@ -298,7 +301,7 @@ struct ChatPage: View {
     }
 }
 
-// ── 범프 — 폰 QuickReplyBar 그대로: 포차코 그림 탭하면 /api/bump 푸시 ──
+// ── 범프 — 폰 QuickReplyBar 그대로: 내 캐릭터(꿀됑·꼼이) 그림 탭하면 /api/bump 푸시 ──
 struct BumpPalette: View {
     @EnvironmentObject var store: WatchStore
     private let cols = [GridItem(.adaptive(minimum: 58), spacing: 8)]
@@ -310,7 +313,7 @@ struct BumpPalette: View {
                 ForEach(BUMP_ITEMS, id: \.kind) { b in
                     Button { store.sendBump(b.kind) } label: {
                         VStack(spacing: 3) {
-                            Image(b.kind).resizable().scaledToFit().frame(width: 52, height: 52)
+                            Image(bumpImage(b.kind, sender: store.role)).resizable().scaledToFit().frame(width: 52, height: 52)
                             Text(b.label).font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.6))
                         }
                         .padding(.vertical, 2)
@@ -324,14 +327,15 @@ struct BumpPalette: View {
     }
 }
 
-// 범프 보낸 확인 — 폰처럼 큰 포차코가 떠오르며 "라벨 보냈어!"
+// 범프 보낸 확인 — 내 캐릭터가 크게 떠오르며 "라벨 보냈어!"
 struct BumpConfirm: View {
     let trigger: Int
     let kind: String
+    var sender: String? = nil
     @State private var show = false
     var body: some View {
         VStack(spacing: 6) {
-            Image(kind).resizable().scaledToFit().frame(width: 96, height: 96)
+            Image(bumpImage(kind, sender: sender)).resizable().scaledToFit().frame(width: 96, height: 96)
             Text("\(bumpLabel(kind)) 보냈어!")
                 .font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
                 .padding(.horizontal, 12).padding(.vertical, 5)
@@ -353,10 +357,11 @@ struct BumpConfirm: View {
 struct ReceivedBump: View {
     let trigger: Int
     let kind: String
+    var sender: String? = nil
     @State private var show = false
     var body: some View {
         VStack(spacing: 6) {
-            Image(kind).resizable().scaledToFit().frame(width: 96, height: 96)
+            Image(bumpImage(kind, sender: sender)).resizable().scaledToFit().frame(width: 96, height: 96)
             Text("\(bumpLabel(kind)) 왔어 💗")
                 .font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
                 .padding(.horizontal, 12).padding(.vertical, 5)

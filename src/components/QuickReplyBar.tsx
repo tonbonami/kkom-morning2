@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoaderCircle, Check } from 'lucide-react';
 import { haptic } from '@/lib/feedback';
-import { isDemo } from '@/lib/demo';
+import { demoAs, isDemo } from '@/lib/demo';
 
 type Kind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening';
 interface Item { kind: Kind; image: string; label: string }
@@ -24,8 +24,9 @@ const ITEMS: Item[] = [
 
 interface Receipt { title: string; body: string }
 
-// 시연 모드(공모전 영상)엔 포차코(산리오) 대신 꿀됑 — 서랍 이모티콘에서 글자 띠만 잘라 낸 판.
-const demoImage = (k: Kind) => `/quickbar/demo/${k}.webp`;
+// 시연 모드(공모전 영상)엔 포차코(산리오) 대신 보내는 사람의 캐릭터 — 우댕은 꿀됑, 꼼이는 강아지 꼼이(워치와 같은 짝).
+//   서랍 이모티콘에서 글자 띠만 잘라 낸 판(public/quickbar/demo).
+const demoImage = (k: Kind) => (demoAs() === '꼼이' ? `/quickbar/demo/kkomi-${k}.webp` : `/quickbar/demo/${k}.webp`);
 
 export default function QuickReplyBar({ me, partner }: { me: string; partner: string }) {
   const [demo, setDemo] = useState(false);
