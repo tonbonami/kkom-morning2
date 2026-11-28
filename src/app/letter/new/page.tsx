@@ -287,7 +287,7 @@ export default function NewLetterPage() {
     ...(recording ? { voice: '녹음 중' } : voiceBlob ? { voice: `${voiceDuration}초` } : {}),
     ...(doodle ? { doodle: '그림' } : {}),
     ...(stickerCount ? { sticker: `${stickerCount}` } : {}),
-    mood: letterMoodById(mood).label,
+    ...(mood !== 'default' ? { mood: letterMoodById(mood).label } : {}),   // 기본이면 배지 없음
     ...(scheduled && openAtStr ? { schedule: (() => { const d = new Date(openAtStr); const p = kstParts(d); return `${p.month}/${p.day} ${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`; })() } : {}),
   };
   const toolPanel =
