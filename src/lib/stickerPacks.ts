@@ -185,6 +185,7 @@ export const URI_STICKERS: { word: string; image: string }[] = [
   { word: '데이트',     image: '/emo/uri/16-date.webp' },      // 셰이크 하나에 빨대 둘
   { word: '토닥토닥',   image: '/emo/uri/17-pat.webp' },       // 담요 위 꿀됑이 꼼이 머리 쓰담 — 포차코 토닥토닥 대신(원본 kkom-upgrade/art/batch1, 우댕 「다 OK」 2026-11-28)
   { word: '헹가래',     image: '/emo/uri/18-cheer.webp' },     // 꼼이가 꿀됑을 위로 번쩍, 색종이 — 포차코 헹가래 대신
+  { word: '헹가래!',    image: '/emo/uri/19-cheer2.webp' },    // 거꾸로 꿀됑이 꼼이를 번쩍(우댕 「꿀됑이 꼼이 헹가래하는 것도」→「ok」 2026-11-28, 원본 kkom-upgrade/art/batch2)
 ];
 
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
