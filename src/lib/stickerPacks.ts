@@ -80,6 +80,7 @@ export const KKUL_STICKERS: { word: string; image: string }[] = [
   { word: '뽀뽀',     image: '/emo/kkuldaeng/19-ppoppo.webp' },
   { word: '미안해',   image: '/emo/kkuldaeng/20-mianhae.webp' }, // 꿀단지 내밀며 울먹 — Aside 검수 "꿀됑에 미안해 없음" (우댕 A안 OK 2026-10-21) // 꼼이가 꿀됑 볼에 기습 뽀뽀, 꿀됑 더듬이가 하트로 (우댕 "1,2 둘다" 2026-10-20)
   { word: '약속!',    image: '/emo/kkuldaeng/21-yaksok.webp' },  // 하트 카드에 코 도장(콧구멍 두 개), 코끝에 잉크 — 글 속 (약속)과 같은 그림(art/yaksok)
+  { word: '귀엽꼬미', image: '/emo/kkuldaeng/22-gwiyeopkkomi.webp' }, // 두 발로 서서 배 톡톡 + 반짝 — 포차코 「귀엽꼬미」(83번 씀) 대신(우댕 A안 OK 2026-11-28, 원본 kkom-upgrade/art/gwiyeop)
 ];
 // 꿀됑 움짤 탭(우댕 지시: 따로) — sai-anim 경로에 둬서 서랍은 정지컷(-still.png), 채팅은 흔들기 없이 재생(기존 움짤 규칙 그대로).
 //   만든 법·원본은 art/kkuldaeng/{euak,…} (Codex 키프레임 → Kling → 편집 → make_anim.py).
