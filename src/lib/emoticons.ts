@@ -24,24 +24,26 @@ export type Emoticon = {
   thumbUrl?: string;         // 고르는 창 썸네일(움짤은 정지컷 — 여러 개 동시 재생 방지)
 };
 
-const POCHACCO_LOVE_SET_IDS = [
-  'pochacco_love',
-  'pochacco_mine',
-  'pochacco_hug',
-  'pochacco_miss_you',
-  'pochacco_cheer',
-  'pochacco_can_do',
-  'pochacco_charge',
-  'pochacco_best',
-  'pochacco_my_side',
+// 편지 「사랑 빠샤」 — 포차코 9장을 꿀됑·꼼이 9장으로 교체(우댕 「편지 사랑 빠샤도 바꿔줘」 2026-11-28, 그림 OK 받음).
+//   같은 말·같은 뜻. 포차코 9장(pochacco_*)은 옛 편지가 저장한 id 로 계속 보이게 legacy_hidden 으로 남긴다.
+const LOVE_BBASHA = [
+  { id: 'bbasha_love',     label: '사랑해',   meaning: '사랑한다',  notificationPhrase: '사랑한다고' },
+  { id: 'bbasha_mine',     label: '내꺼야',   meaning: '내꺼라고',  notificationPhrase: '내꺼라고' },
+  { id: 'bbasha_hug',      label: '안아줘',   meaning: '안아달라',  notificationPhrase: '안아달라고' },
+  { id: 'bbasha_miss_you', label: '보고싶어', meaning: '보고싶다',  notificationPhrase: '보고싶다고' },
+  { id: 'bbasha_cheer',    label: '빠샤',     meaning: '응원한다',  notificationPhrase: '빠샤 응원한다고' },
+  { id: 'bbasha_can_do',   label: '할수있어', meaning: '할 수 있다', notificationPhrase: '할 수 있다고' },
+  { id: 'bbasha_charge',   label: '충전완료', meaning: '충전 완료', notificationPhrase: '충전 완료됐다고' },
+  { id: 'bbasha_best',     label: '최고야',   meaning: '최고다',    notificationPhrase: '최고라고' },
+  { id: 'bbasha_my_side',  label: '내편',     meaning: '내 편이다', notificationPhrase: '내 편이라고' },
 ];
 
-// 원본 /imoticon/Pochacco_love.png는 3x3 시트라서 개별 칸을 잘라서 연결한다.
-// Claude 참고: 시트 교체 시 public/imoticon/pochacco-love/{1..9}.png만 다시 생성하면 된다.
+// 옛 포차코 9장 — 원본 /imoticon/Pochacco_love.png 3x3 시트를 잘라 둔 것. 고르는 창엔 안 뜬다(legacy_hidden).
 export const EMOTICONS: Emoticon[] = [
+  ...LOVE_BBASHA.map((e, i): Emoticon => ({ ...e, setId: 'love_bbasha', imageUrl: `/imoticon/bbasha/${i + 1}.webp`, assetType: 'webp' })),
   {
     id: 'pochacco_love',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '사랑해',
     meaning: '사랑한다',
     notificationPhrase: '사랑한다고',
@@ -50,7 +52,7 @@ export const EMOTICONS: Emoticon[] = [
   },
   {
     id: 'pochacco_mine',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '내꺼야',
     meaning: '내꺼라고',
     notificationPhrase: '내꺼라고',
@@ -59,7 +61,7 @@ export const EMOTICONS: Emoticon[] = [
   },
   {
     id: 'pochacco_hug',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '안아줘',
     meaning: '안아달라',
     notificationPhrase: '안아달라고',
@@ -68,7 +70,7 @@ export const EMOTICONS: Emoticon[] = [
   },
   {
     id: 'pochacco_miss_you',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '보고싶어',
     meaning: '보고싶다',
     notificationPhrase: '보고싶다고',
@@ -77,7 +79,7 @@ export const EMOTICONS: Emoticon[] = [
   },
   {
     id: 'pochacco_cheer',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '빠샤',
     meaning: '응원한다',
     notificationPhrase: '빠샤 응원한다고',
@@ -86,7 +88,7 @@ export const EMOTICONS: Emoticon[] = [
   },
   {
     id: 'pochacco_can_do',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '할수있어',
     meaning: '할 수 있다',
     notificationPhrase: '할 수 있다고',
@@ -95,7 +97,7 @@ export const EMOTICONS: Emoticon[] = [
   },
   {
     id: 'pochacco_charge',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '충전완료',
     meaning: '충전 완료',
     notificationPhrase: '충전 완료됐다고',
@@ -104,7 +106,7 @@ export const EMOTICONS: Emoticon[] = [
   },
   {
     id: 'pochacco_best',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '최고야',
     meaning: '최고다',
     notificationPhrase: '최고라고',
@@ -113,7 +115,7 @@ export const EMOTICONS: Emoticon[] = [
   },
   {
     id: 'pochacco_my_side',
-    setId: 'pochacco_daily',
+    setId: 'legacy_hidden',
     label: '내편',
     meaning: '내 편이다',
     notificationPhrase: '내 편이라고',
@@ -248,11 +250,11 @@ for (const item of KKOM_OFFICE_RETIRED) {
 export const EMOTICON_SETS: EmoticonSet[] = [
   ...PACK_SETS,
   {
-    id: 'pochacco_daily',
+    id: 'love_bbasha',
     title: '사랑 빠샤',
     description: '사랑 고백과 응원을 또렷하게 보내요.',
-    thumbnailUrl: '/imoticon/pochacco-love/1.png',
-    emoticonIds: POCHACCO_LOVE_SET_IDS,
+    thumbnailUrl: '/imoticon/bbasha/1.webp',
+    emoticonIds: LOVE_BBASHA.map((e) => e.id),
   },
 ];
 

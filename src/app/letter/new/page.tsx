@@ -164,7 +164,8 @@ export default function NewLetterPage() {
   //   이모티콘 관리(lib/emoPrefs.ts, 꼼톡과 같은 설정) — 숨긴 팩은 빼고, 꼼톡 서랍에서 끌어 정한 탭 순서를 입힌다.
   //   ⚠️ 이미 담은 이모티콘·받은 편지의 그림은 그대로(getEmoticonsByIds 는 설정을 안 본다).
   const emo = useEmoPrefs(me);
-  // 시연 모드(공모전 영상) — 포차코(산리오) 묶음(포차코 우댕·포차코 꼼이·사랑 빠샤)과 움직이는 포차코를 뺀다.
+  // 시연 모드(공모전 영상) — 포차코(산리오) 묶음(포차코 우댕·포차코 꼼이)과 움직이는 포차코를 뺀다.
+  //   「사랑 빠샤」는 11/28 꿀됑·꼼이 그림으로 바뀌어(love_bbasha) 시연에도 나온다.
   const [demo, setDemo] = useState(false);
   useEffect(() => setDemo(isDemo()), []);
   const sheetSets = useMemo(() => {
