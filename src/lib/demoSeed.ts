@@ -11,6 +11,10 @@ const at = (days = 0, hours = 12) => {
 const ymd = (days = 0) => new Date(Date.now() + 9 * 3_600_000 + days * DAY).toISOString().slice(0, 10);
 const ym = () => ymd().slice(0, 7);
 
+// 시연 날짜 회귀 시험용 — seed 내용은 그대로 두고 순수 시각 계산 결과만 공개한다.
+export const demoAt = at;
+export const demoYmd = ymd;
+
 type SeedDoc = { path: string[]; data: Record<string, unknown> };
 
 /** 네트워크가 꺼진 메모리 Firestore에 예시 문서를 한꺼번에 얹는다. */

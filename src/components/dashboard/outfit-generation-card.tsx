@@ -24,8 +24,8 @@ export default function OutfitGenerationCard({ weather, airQuality }: OutfitGene
     startTransition(async () => {
       try {
         const result = await generateTrendingOutfits({
-          weatherCondition: weather.condition,
-          temperature: weather.temperature,
+          weatherCondition: weather.condition ?? 'Cloudy',
+          temperature: weather.temperature ?? weather.current.temp ?? 0,
           airQualityGrade: airQuality.grade,
         });
         setOutfit(result);

@@ -331,7 +331,7 @@ export default function KkomMorningHome() {
     });
     // 또갈래 — 카드 배지용
     const unsubAgains = subscribeAgain((items) => {
-      setAgains(items.map((i) => ({ id: i.id, title: i.title, createdAt: i.createdAt })));
+      setAgains(items.map((i) => ({ id: i.id, title: i.title, createdAt: i.sentAt })));
     });
     // 레시피 — 카드 NEW 배지 + 매일매일 꼼모닝 헤더 정확한 오늘 카운트용
     const unsubRecipes = subscribeRecipes(setRecipes);
