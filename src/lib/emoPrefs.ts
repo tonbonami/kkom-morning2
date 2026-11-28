@@ -44,7 +44,7 @@ export const CHAT_PACKS = [
   { id: 'gif',      name: '움짤',      thumb: '/emo/sai-anim/love-still.png' },
   { id: 'maltipoo', name: '말티푸',    thumb: '/emo/sai/kkk.webp' },
   { id: 'office',   name: '직장인 꼼이', thumb: '/emo/kkom/office/k04-salryeojwo.webp' }, // 찍찍이 출근길 꼼이 16종(2026-11-26 전면 교체)
-  { id: 'basic',    name: '기본',      thumb: '/pochacco/face_happy.png' },
+  { id: 'basic',    name: '기분',      thumb: '/emo/kkuldaeng/mood/happy.png' }, // 기분 얼굴 12 — 우댕=꿀됑·꼼이=꼼이(2026-11-28 포차코에서 교체, 썸네일은 defaultPacks 가 사람별로)
   { id: 'dang',     name: '우댕',      thumb: '/pochacco_dang/cutekkomi.png' },
   { id: 'kkom',     name: '꼼이',      thumb: '/pochacco_kkom/kkomiyap.png' },
   { id: 'couple',   name: '커플',      thumb: '/pochacco_couple/love.png' },
@@ -56,14 +56,15 @@ export const CHAT_PACKS = [
 ] as const;
 export type ChatPackId = (typeof CHAT_PACKS)[number]['id'];
 /** 포차코(산리오) 그림 팩 — 시연 모드(공모전 영상)에선 서랍·관리 화면에서 뺀다. */
-export const POCHACCO_PACKS: string[] = ['basic', 'dang', 'kkom', 'couple'];
+export const POCHACCO_PACKS: string[] = ['dang', 'kkom', 'couple'];
 /** 내 캐릭터 팩 — 우댕은 꿀됑·꿀됑 움짤·우댕 포차코, 꼼이는 꼼이 움짤·꼼이 포차코·미니. 탭 앞자리 + 추천 가산점. */
 export const OWN_PACKS: Record<string, ChatPackId[]> = { '우댕': ['kkul', 'kkulgif', 'kkulg', 'dang'], '꼼이': ['gif', 'office', 'kkom', 'mini'] };
 /** 기본 탭 순서 — 내 캐릭터 팩 먼저, 나머지는 원래 순서. 사용자 순서(withOrder)는 이 위에 입힌다. */
 export function defaultPacks(me: string): { id: ChatPackId; name: string; thumb: string }[] {
   const own = OWN_PACKS[me] ?? [];
   const rank = (id: ChatPackId) => (own.includes(id) ? own.indexOf(id) : 100 + CHAT_PACKS.findIndex((t) => t.id === id));
-  return [...CHAT_PACKS].sort((a, b) => rank(a.id) - rank(b.id));
+  return [...CHAT_PACKS].sort((a, b) => rank(a.id) - rank(b.id))
+    .map((t) => (t.id === 'basic' && me !== '우댕' ? { ...t, thumb: '/emo/saidami/happy.webp' } : t));
 }
 
 function parse(raw: unknown): EmoPrefs {

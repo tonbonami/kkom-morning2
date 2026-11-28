@@ -25,7 +25,7 @@ import {
   toggleReaction, deleteMessage, editMessage, toggleStar, fetchRecentMessages,
   uploadPhotoBatch, sendPhotos, photosOf, MAX_CHAT_PHOTOS,
 } from '@/lib/chat';
-import { MOOD_OPTIONS } from '@/lib/moods';
+import { MOOD_OPTIONS, moodImage } from '@/lib/moods';
 import { normForMatch, toJamo, prepareAlias, matchTier, isConsonantsOnly, type PreparedAlias } from '@/lib/hangulMatch';
 import StickerSuggestTray, { type SuggestItem } from './StickerSuggestTray';
 import StickerSendPreview from './StickerSendPreview';
@@ -493,7 +493,8 @@ function allDrawerItems() {
   ANIM_STICKERS.forEach((s) => put('gif', s.word, s.image, s.still));
   SAI_STICKERS.forEach((s) => put('maltipoo', s.word, s.image, s.image));
   KKOM_OFFICE_STICKERS.forEach((s) => put('office', s.word, s.image, s.image));
-  MOOD_OPTIONS.forEach((o) => put('basic', o.id, o.image, o.image, o.label));
+  // 기본(기분 얼굴) — 2026-11-28 포차코 → 캐릭터. 꼼이 얼굴은 미니 팩에 이미 있어 검색엔 꿀됑 얼굴만 더한다.
+  MOOD_OPTIONS.forEach((o) => { const img = moodImage(o, '우댕'); put('basic', o.id, img, img, o.label); });
   DANG_STICKERS.forEach((s) => put('dang', s.word, s.image, s.image));
   KKOM_STICKERS.forEach((s) => put('kkom', s.word, s.image, s.image));
   POCKET_STICKERS.forEach((s) => put('couple', s.word, s.image, s.image));
@@ -1596,7 +1597,7 @@ export default function ChatPanel({ me, partner, messages: messagesIn, open, onC
       case 'maltipoo': return [{ items: SAI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'office': return [{ items: KKOM_OFFICE_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'mini': return [{ items: SAIDAMI_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
-      case 'basic': return [{ items: MOOD_OPTIONS.map((o) => ({ key: o.id, image: o.image })) }];
+      case 'basic': return [{ items: MOOD_OPTIONS.map((o) => ({ key: o.id, image: moodImage(o, me) })) }];
       case 'dang': return [{ items: DANG_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'kkom': return [{ items: KKOM_STICKERS.map((s) => ({ key: s.word, image: s.image })) }];
       case 'couple': return [{ items: POCKET_STICKERS.map((s) => ({ key: s.word, image: s.image, video: isVideoSrc(s.image) })) }];
