@@ -15,11 +15,12 @@ import {
   Eye,
   EyeOff,
   Palette,
+  Heart,
 } from 'lucide-react';
 import { LETTER_PAPER_CLASS } from './LetterPaper';
 import type { LetterPaperTheme } from '@/lib/letterPapers';
 
-export type LetterTool = 'voice' | 'doodle' | 'sticker' | 'schedule' | 'paper';
+export type LetterTool = 'voice' | 'doodle' | 'sticker' | 'schedule' | 'paper' | 'mood';
 
 export interface LetterComposeScreenProps {
   toName: string;
@@ -74,6 +75,7 @@ export function LetterComposeScreen({
     { icon: Mic, label: '음성', tool: 'voice' },
     { icon: PenLine, label: '손글씨', tool: 'doodle' },
     { icon: Sticker, label: '스티커', tool: 'sticker' },
+    { icon: Heart, label: '분위기', tool: 'mood' },
     { icon: Palette, label: '편지지', tool: 'paper' },
     { icon: Clock, label: '예약', tool: 'schedule' },
   ];

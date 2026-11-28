@@ -25,6 +25,8 @@ import { envelopeFor } from '@/lib/letterEnvelopes';
 import { claimFirstOpen } from '@/lib/letters';
 import { LetterEditor } from '@/components/letter/LetterEditor';
 import { MiniEmoticonSheet } from '@/components/letter/MiniEmoticonSheet';
+import { letterMoodById, letterMoodImage, preloadLetterMoodImage, type LetterMood } from '@/lib/letterMoods';
+import { letterMoodHaptic } from '@/lib/nativeHaptics';
 
 export type Letter = {
   id: string;
@@ -39,6 +41,7 @@ export type Letter = {
   emoticonIds?: string[];
   animatedSticker?: string | null;
   paper?: string | null;   // 편지지 id(letterPapers.ts) — 없으면 살구
+  mood?: LetterMood;       // 없음 = 옛 편지(기존 calm 연출 유지)
   revealVersion?: number;  // 1 = 처음 열 때 봉투(편지 3탄)
   firstOpenedAt?: Date | null;   // 받은 사람이 처음 연 시각
   hearts?: number;
@@ -219,6 +222,17 @@ export default function LetterInboxV3({
     });
   }, [letters, filter, me, now]);
 
+  // 안 연 분위기 편지는 목록에 보일 때부터 보낸 사람 표정을 풀어 둔다.
+  // 왜: 봉투를 누른 직후 디코딩하면 1.3초 열림이 첫 장면에서 끊길 수 있다.
+  useEffect(() => {
+    const sources = new Set(
+      letters
+        .filter((letter) => letter.to === me && letter.mood && letter.mood !== 'default' && letter.revealVersion === 1 && !letter.firstOpenedAt)
+        .map((letter) => letterMoodImage(letter.mood, letter.from)),
+    );
+    for (const src of sources) preloadLetterMoodImage(src);
+  }, [letters, me]);
+
   return (
     <div className="min-h-app bg-[#F7F9F9] max-w-md mx-auto relative font-sans text-slate-900 pb-32">
       {/* Sticky Header */}
@@ -308,7 +322,7 @@ export default function LetterInboxV3({
                   <UnopenedLetterCard
                     fromName={letter.from}
                     dateText={formatRelative(letter.createdAt)}
-                    palette={envelopeFor(letter.paper)}
+                    palette={envelopeFor(letter.paper, letter.mood)}
                     onOpen={() => setSelectedLetter(letter)}
                   />
                 </motion.div>
@@ -522,14 +536,23 @@ function LetterModal({
   const reduceMotion = useReducedMotion();
   const [needsEnvelope] = useState(() => letter.to === me && letter.revealVersion === 1 && !letter.firstOpenedAt && letter.sealed !== true);
   const [gate, setGate] = useState<OpeningPhase>(needsEnvelope ? 'closed' : 'opened');
+  const mood = letterMoodById(letter.mood);
+  // 기본 분위기(또는 mood 없는 옛 편지)는 예전처럼 두 캐릭터 말풍선 — 고른 분위기일 때만 보낸 사람 표정 하나.
+  const hasStoredMood = !!letter.mood && letter.mood !== 'default';
   useEffect(() => {
     if (!needsEnvelope) return;
     // 생각풍선 그림을 미리 풀어 둔다(누르는 순간 바로 움직이게)
-    for (const src of [BUBBLE_KKUL, BUBBLE_KKOM]) { const img = new Image(); img.src = src; img.decode?.().catch(() => {}); }
+    const sources = hasStoredMood
+      ? [letterMoodImage(letter.mood, letter.from)]
+      : [BUBBLE_KKUL, BUBBLE_KKOM];
+    for (const src of sources) { const img = new Image(); img.src = src; img.decode?.().catch(() => {}); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const openEnvelope = useCallback(() => {
     setGate((g) => (g === 'closed' ? 'opening' : g));
+    if (letter.mood && letter.mood !== 'default') {
+      void letterMoodHaptic(letter.mood);
+    }
     void claimFirstOpen(letter.id, me);   // 기록은 뒤에서 — 이미 다른 기기에서 열었어도 여기선 누른 대로 연다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -585,9 +608,10 @@ function LetterModal({
           phase={gate}
           fromName={letter.from}
           toName={letter.to}
-          palette={envelopeFor(letter.paper)}
-          kkulSrc={BUBBLE_KKUL}
-          kkomSrc={BUBBLE_KKOM}
+          palette={envelopeFor(letter.paper, letter.mood)}
+          kkulSrc={mood.kkulSrc}
+          kkomSrc={mood.kkomSrc}
+          senderOnly={hasStoredMood}
           reducedMotion={!!reduceMotion}
           durationMs={ENVELOPE_MS}
           bubbles="opening"
@@ -634,7 +658,12 @@ function LetterModal({
           miniOpen={editMiniOpen}
           onToggleMini={() => (editMiniOpen ? closeEditMini() : openEditMini())}
         />
-        <LetterCornerBubbles kkulSrc={BUBBLE_KKUL} kkomSrc={BUBBLE_KKOM} fromName={letter.from} />
+        <LetterCornerBubbles
+          kkulSrc={mood.kkulSrc}
+          kkomSrc={mood.kkomSrc}
+          fromName={letter.from}
+          senderOnly={hasStoredMood}
+        />
         </div>
       )}
       hearts={letter.hearts ?? 0}

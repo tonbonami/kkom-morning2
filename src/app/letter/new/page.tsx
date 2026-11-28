@@ -24,6 +24,8 @@ import { LETTER_PAPERS, DEFAULT_PAPER_ID, paperById } from '@/lib/letterPapers';
 import { LetterEmoticonSheet } from '@/components/letter/LetterEmoticonSheet';
 import { LetterAnimSheet } from '@/components/letter/LetterAnimSheet';
 import { LetterEnclosures } from '@/components/letter/LetterEnclosures';
+import { LetterMoodPanel } from '@/components/letter/LetterMoodPanel';
+import { letterMoodById, type LetterMood } from '@/lib/letterMoods';
 
 const MAX_REC_SEC = 30;
 const MAX_EMOTICONS_PER_LETTER = 3;
@@ -63,6 +65,8 @@ export default function NewLetterPage() {
   const [showAnimSheet, setShowAnimSheet] = useState(false);
   // 편지지 2탄 — 고른 편지지 id(기본 살구). 받는 사람도 이걸로 읽는다.
   const [paperId, setPaperId] = useState<string>(DEFAULT_PAPER_ID);
+  // 안 고르면 기본. 본문으로 분위기를 추측하지 않고 이 값만 저장한다.
+  const [mood, setMood] = useState<LetterMood>('default');
   const paper = paperById(paperId);
 
   useEffect(() => {
@@ -216,7 +220,8 @@ export default function NewLetterPage() {
         doodle as Doodle | null,
         selectedEmoticonIds,
         animatedSticker,
-        paperId
+        paperId,
+        mood
       );
       const partner = partnerOf(me);
       feedback(scheduled ? `⏳ ${partner}한테 예약 편지 보냈어` : `📨 ${partner}한테 편지 보냈어`);
@@ -282,6 +287,7 @@ export default function NewLetterPage() {
     ...(recording ? { voice: '녹음 중' } : voiceBlob ? { voice: `${voiceDuration}초` } : {}),
     ...(doodle ? { doodle: '그림' } : {}),
     ...(stickerCount ? { sticker: `${stickerCount}` } : {}),
+    mood: letterMoodById(mood).label,
     ...(scheduled && openAtStr ? { schedule: (() => { const d = new Date(openAtStr); const p = kstParts(d); return `${p.month}/${p.day} ${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`; })() } : {}),
   };
   const toolPanel =
@@ -312,6 +318,8 @@ export default function NewLetterPage() {
       />
     ) : activeTool === 'paper' ? (
       <LetterPaperPanel papers={LETTER_PAPERS} value={paperId} onChange={setPaperId} />
+    ) : activeTool === 'mood' ? (
+      <LetterMoodPanel value={mood} onChange={setMood} />
     ) : activeTool === 'schedule' ? (
       <LetterSchedulePanel enabled={scheduled} onEnabledChange={setScheduled} value={openAtStr} onChange={setOpenAtStr} toName={partner} />
     ) : null;

@@ -25,6 +25,25 @@ final class HeartHaptics {
         }
     }
 
+    func letterMood(_ mood: String) {
+        guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else {
+            fallbackLetterMood(mood)
+            return
+        }
+        do {
+            if engine == nil {
+                engine = try CHHapticEngine()
+                engine?.resetHandler = { [weak self] in try? self?.engine?.start() }
+                engine?.stoppedHandler = { _ in }
+            }
+            try engine?.start()
+            let player = try engine?.makePlayer(with: letterMoodPattern(mood))
+            try player?.start(atTime: 0)
+        } catch {
+            fallbackLetterMood(mood)
+        }
+    }
+
     private func thump(_ t: Double, _ intensity: Float, _ sharpness: Float) -> CHHapticEvent {
         CHHapticEvent(eventType: .hapticTransient, parameters: [
             CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
@@ -41,12 +60,41 @@ final class HeartHaptics {
         return try CHHapticPattern(events: events, parameters: [])
     }
 
+    private func letterMoodPattern(_ mood: String) throws -> CHHapticPattern {
+        // 모두 0.45초 안쪽. 봉투 애니메이션을 가리지 않게 표정만 짧게 다르게 한다.
+        let events: [CHHapticEvent]
+        switch mood {
+        case "love":
+            events = [thump(0.00, 0.65, 0.25), thump(0.14, 0.85, 0.35)]
+        case "thanks":
+            events = [thump(0.00, 0.55, 0.35), thump(0.18, 0.45, 0.25)]
+        case "sorry":
+            events = [thump(0.00, 0.35, 0.15)]
+        case "cheer":
+            events = [thump(0.00, 0.55, 0.55), thump(0.12, 0.85, 0.70)]
+        case "missing":
+            events = [thump(0.00, 0.40, 0.20), thump(0.24, 0.48, 0.20)]
+        case "celebrate":
+            events = [thump(0.00, 0.55, 0.80), thump(0.10, 0.72, 0.85), thump(0.22, 0.90, 0.90)]
+        default:
+            events = [thump(0.00, 0.45, 0.35)]
+        }
+        return try CHHapticPattern(events: events, parameters: [])
+    }
+
     private func fallback() {
         DispatchQueue.main.async {
             UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             }
+        }
+    }
+
+    private func fallbackLetterMood(_ mood: String) {
+        DispatchQueue.main.async {
+            let style: UIImpactFeedbackGenerator.FeedbackStyle = mood == "celebrate" || mood == "cheer" ? .medium : .light
+            UIImpactFeedbackGenerator(style: style).impactOccurred()
         }
     }
 }
@@ -56,10 +104,15 @@ public class HapticBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "HapticBridgePlugin"
     public let jsName = "HapticBridge"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "heartbeat", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "heartbeat", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "letterMood", returnType: CAPPluginReturnPromise)
     ]
     @objc func heartbeat(_ call: CAPPluginCall) {
         HeartHaptics.shared.heartbeat()
+        call.resolve()
+    }
+    @objc func letterMood(_ call: CAPPluginCall) {
+        HeartHaptics.shared.letterMood(call.getString("mood") ?? "default")
         call.resolve()
     }
 }

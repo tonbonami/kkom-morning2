@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { isDemo, settleDemoWrite } from './demo';
+import { isLetterMood, type LetterMood } from './letterMoods';
 
 // 2인 앱: 로그인 코드 → 이름 (정체성의 단일 출처)
 export const CODE_TO_NAME: Record<string, string> = {
@@ -76,6 +77,8 @@ export type Letter = {
   animatedSticker?: string | null;
   // 편지지 — letterPapers.ts 의 id 하나(우댕 「편지지 2탄」 2026-11-07). 없으면 기본 살구. 예약편지는 letterVault 에 같이 넣어 승격 때 따라온다.
   paper?: string | null;
+  // 보내는 사람이 직접 고른 분위기. 없음은 옛 편지이며 기존 calm 연출을 그대로 쓴다.
+  mood?: LetterMood;
   // 편지 3탄(2026-11-07) — 처음 열 때 봉투. revealVersion 1 인 편지만 봉투로 열린다(옛 편지는 없음 = 바로).
   //   firstOpenedAt = 받은 사람이 처음 연 시각(claimFirstOpen 트랜잭션, 한 기기만 봉투 재생).
   revealVersion?: number;
@@ -209,6 +212,7 @@ export type InboxLetter = {
   emoticonIds?: string[];
   animatedSticker?: string | null;
   paper?: string | null;
+  mood?: LetterMood;
   revealVersion?: number;
   firstOpenedAt?: Date | null;
   hearts?: number;
@@ -251,6 +255,7 @@ export function toInboxLetter(l: Letter): InboxLetter {
     emoticonIds: Array.isArray(l.emoticonIds) ? l.emoticonIds.filter((id) => typeof id === 'string') : [],
     animatedSticker: typeof l.animatedSticker === 'string' ? l.animatedSticker : null,
     paper: typeof l.paper === 'string' ? l.paper : null,
+    mood: isLetterMood(l.mood) ? l.mood : undefined,
     revealVersion: typeof l.revealVersion === 'number' ? l.revealVersion : undefined,
     firstOpenedAt: l.firstOpenedAt?.toDate?.() ?? null,
     hearts: l.hearts,
@@ -268,7 +273,8 @@ export async function sendLetter(
   doodle?: Doodle | null,
   emoticonIds: string[] = [],
   animatedSticker?: string | null,
-  paper?: string | null
+  paper?: string | null,
+  mood: LetterMood = 'default'
 ): Promise<void> {
   const to = partnerOf(from);
   const cleanEmoticonIds = emoticonIds.filter((id) => typeof id === 'string' && id.trim().length > 0);
@@ -283,6 +289,8 @@ export async function sendLetter(
   if (animatedSticker && typeof animatedSticker === 'string') content.animatedSticker = animatedSticker;
   // 편지지 — 기본(살구)이면 안 넣는다(옛 편지와 똑같이 보이게). 예약편지면 content 째로 vault 로 가서 도착 때 같이 풀린다.
   if (paper && typeof paper === 'string' && paper !== DEFAULT_PAPER_ID) content.paper = paper;
+  // 기본도 명시해 새 편지와 mood 없는 옛 편지를 구분한다. 예약편지는 이 묶음째 vault로 간다.
+  content.mood = mood;
   // 새 편지는 처음 열 때 봉투(편지 3탄). 예약편지는 content 째로 vault → 도착 때 같이 풀린다.
   content.revealVersion = 1;
 

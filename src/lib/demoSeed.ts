@@ -64,8 +64,8 @@ export async function seedDemo(db: Firestore): Promise<number> {
   add(['chatReads', 'udaeng'], { at: Timestamp.now() });
   add(['chatReads', 'kkomi'], { at: Timestamp.now() });
 
-  add(['letters', 'demo-letter-unread'], { from: '꼼이', to: '우댕', body: '오늘 네가 웃었던 순간이 오래 남았어. 내일도 다정한 하루 보내자.', paper: 'peach', revealVersion: 1, hearts: 3, createdAt: at(-1, 21) });
-  add(['letters', 'demo-letter-2'], { from: '우댕', to: '꼼이', body: '별일 없는 날도 같이 있으면 기억하고 싶은 날이 돼.', paper: 'sky', revealVersion: 1, createdAt: at(-8, 20) });
+  add(['letters', 'demo-letter-unread'], { from: '꼼이', to: '우댕', body: '오늘 네가 웃었던 순간이 오래 남았어. 내일도 다정한 하루 보내자.', paper: 'peach', mood: 'love', revealVersion: 1, hearts: 3, createdAt: at(-1, 21) });
+  add(['letters', 'demo-letter-2'], { from: '우댕', to: '꼼이', body: '별일 없는 날도 같이 있으면 기억하고 싶은 날이 돼.', paper: 'sky', mood: 'thanks', revealVersion: 1, createdAt: at(-8, 20) });
   add(['letters', 'demo-letter-3'], { from: '꼼이', to: '우댕', body: '우리 다음 계절에도 자주 걷고 많이 웃자.', revealVersion: 1, createdAt: at(-20, 19) });
   add(['letters', 'demo-letter-scheduled'], { from: '우댕', to: '꼼이', body: '', sealed: true, openAt: at(7, 9), createdAt: at(0, 9) });
   add(['letterVault', 'demo-letter-scheduled'], { body: '다음 주의 꼼이에게 보내는 작은 응원이야.', revealVersion: 1 });
