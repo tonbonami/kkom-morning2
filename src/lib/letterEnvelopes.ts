@@ -1,5 +1,7 @@
 // src/lib/letterEnvelopes.ts
 
+import { letterMoodById, type LetterMood } from './letterMoods';
+
 export type EnvelopePalette = {
   body: string; flap: string; lining: string;   // 봉투 몸통·덮개·안쪽 안감
   paperPreview: string;                          // 올라오는 내용 없는 종이 색(= 편지지 바탕과 같게)
@@ -70,9 +72,25 @@ export const ENVELOPE_BY_PAPER: Record<string, EnvelopePalette> = {
   },
 };
 
-export function envelopeFor(paperId?: string | null): EnvelopePalette {
-  if (paperId && paperId in ENVELOPE_BY_PAPER) {
-    return ENVELOPE_BY_PAPER[paperId];
-  }
-  return ENVELOPE_BY_PAPER.peach;
+export function envelopeFor(paperId?: string | null, moodId?: LetterMood | null): EnvelopePalette {
+  const paperPalette = paperId && paperId in ENVELOPE_BY_PAPER
+    ? ENVELOPE_BY_PAPER[paperId]
+    : ENVELOPE_BY_PAPER.peach;
+  const accentId = letterMoodById(moodId).envelopeAccent;
+
+  // mood 없는 옛 편지와 기본 분위기는 예전 팔레트를 그대로 쓴다.
+  if (!accentId) return paperPalette;
+
+  // 새 색을 만들지 않고 기존 봉투 팔레트의 몸통·도장만 분위기색으로 빌린다.
+  // 편지지 미리보기 색은 실제로 고른 편지지를 유지한다.
+  const accent = ENVELOPE_BY_PAPER[accentId];
+  return {
+    ...paperPalette,
+    body: accent.body,
+    flap: accent.flap,
+    lining: accent.lining,
+    seal: accent.seal,
+    sealInk: accent.sealInk,
+    labelInk: accent.labelInk,
+  };
 }

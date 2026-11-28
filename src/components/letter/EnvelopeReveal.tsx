@@ -20,6 +20,7 @@ export interface EnvelopeRevealProps {
   reducedMotion: boolean;
   durationMs?: number;          // 전체 연출 시간 (기본 700ms)
   bubbles?: 'opening' | 'none'; // 말풍선 표시 여부
+  senderOnly?: boolean;         // 분위기 편지는 보낸 사람 캐릭터 표정만 표시
   onOpen?: () => void;          // 닫힌 봉투 누를 때 호출 (선택)
   onSkip: () => void;           // 바로 열기 / 건너뛰기
   onComplete: () => void;       // 연출 종료 콜백
@@ -34,6 +35,7 @@ export function EnvelopeReveal({
   reducedMotion,
   durationMs = 700,
   bubbles = 'opening',
+  senderOnly = false,
   onOpen,
   onSkip,
   onComplete,
@@ -120,7 +122,7 @@ export function EnvelopeReveal({
           }`}
         >
           {/* 생각풍선: 꿀됑 (왼쪽 위) */}
-          {bubbles === 'opening' && (
+          {bubbles === 'opening' && (!senderOnly || fromName === '우댕') && (
             <motion.div
               className="absolute -top-7 -left-3 z-40 will-change-transform pointer-events-none"
               animate={
@@ -147,7 +149,7 @@ export function EnvelopeReveal({
           )}
 
           {/* 생각풍선: 꼼이 (오른쪽 아래) */}
-          {bubbles === 'opening' && (
+          {bubbles === 'opening' && (!senderOnly || fromName === '꼼이') && (
             <motion.div
               className="absolute -bottom-10 -right-6 z-40 will-change-transform pointer-events-none"
               animate={
