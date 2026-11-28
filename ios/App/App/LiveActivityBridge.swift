@@ -46,7 +46,8 @@ final class LiveActivityManager {
             rainEmoji: d["rainEmoji"] as? String,
             partnerMood: d["partnerMood"] as? String
         )
-        let content = ActivityContent(state: state, staleDate: nil)
+        // 왜: 서버 갱신 기준과 같은 150초 뒤 온라인·날씨를 오래된 정보로 표시한다.
+        let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(150))
 
         // 프로세스 재시작하면 current가 nil → 이미 떠있는 activity를 채택(중복 생성 방지 + 여분 정리).
         if current == nil {
