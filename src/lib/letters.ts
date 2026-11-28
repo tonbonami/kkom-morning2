@@ -12,6 +12,7 @@ import {
   limit,
   onSnapshot,
   getDoc,
+  documentId,
   serverTimestamp,
   Timestamp,
   runTransaction,
@@ -132,7 +133,15 @@ export function subscribeLatestLetterTo(
   name: string,
   cb: (letter: Letter | null) => void
 ): () => void {
-  const q = query(collection(db, 'letters'), where('to', '==', name));
+  // 홈 「받은 최신 편지」 — 예전엔 받은 편지 전부(목소리·그림 포함 ~1MB)를 홈 열 때마다 받았다.
+  //   예약 편지가 섞여 있어 여유 있게 최근 20통만(2026-11-28, 색인 letters to↑ createdAt↓ 필요).
+  const q = query(
+    collection(db, 'letters'),
+    where('to', '==', name),
+    orderBy('createdAt', 'desc'),
+    orderBy(documentId(), 'desc'),
+    limit(20),
+  );
 
   return onSnapshot(
     q,

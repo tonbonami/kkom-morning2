@@ -48,7 +48,12 @@ export function useChatMessages(userName: string | null | undefined): {
 
   const loadMore = useCallback(async () => {
     if (busy.current || done) return;
-    const oldest = [...storeRef.current.values()].reduce<Date | null>((o, m) => (m.createdAt && (!o || m.createdAt < o) ? m.createdAt : o), null);
+    const oldest = [...storeRef.current.values()].reduce<ChatMessage | null>((o, m) => {
+      if (!m.createdAt) return o;
+      if (!o?.createdAt) return m;
+      const dt = m.createdAt.getTime() - o.createdAt.getTime();
+      return dt < 0 || (dt === 0 && m.id < o.id) ? m : o;
+    }, null);
     if (!oldest) return;
     busy.current = true; setLoading(true);
     try {

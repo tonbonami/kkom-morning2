@@ -53,7 +53,7 @@ export default function ChatHistorySheet({ open, onClose, me, renderText }: {
     } catch { setFailed(true); } finally { setLoading(''); }
   };
   const loadBefore = async () => {
-    const first = msgs?.find((m) => m.createdAt)?.createdAt;
+    const first = msgs?.find((m) => m.createdAt);
     if (!first || loading) return;
     setLoading('before');
     try {
@@ -65,11 +65,11 @@ export default function ChatHistorySheet({ open, onClose, me, renderText }: {
     } catch { setFailed(true); } finally { setLoading(''); }
   };
   const loadAfter = async () => {
-    const last = [...(msgs ?? [])].reverse().find((m) => m.createdAt)?.createdAt;
+    const last = [...(msgs ?? [])].reverse().find((m) => m.createdAt);
     if (!last || loading) return;
     setLoading('after');
     try {
-      const r = await fetchMessagesFrom(new Date(last.getTime() + 1), 80);
+      const r = await fetchMessagesFrom(last, 80);
       setMsgs((cur) => { const ids = new Set((cur ?? []).map((m) => m.id)); return [...(cur ?? []), ...r.msgs.filter((m) => visible(m) && !ids.has(m.id))]; });
       setDoneAfter(r.done);
     } catch { setFailed(true); } finally { setLoading(''); }

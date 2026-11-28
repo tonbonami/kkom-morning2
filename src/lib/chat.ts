@@ -3,7 +3,7 @@
 import { db, rtdb, storage } from './firebase';
 import {
   collection, addDoc, doc, setDoc, getDoc, getDocs, updateDoc, deleteField,
-  query, orderBy, limit, onSnapshot, serverTimestamp, Timestamp, where,
+  query, orderBy, limit, onSnapshot, serverTimestamp, Timestamp, where, startAfter, documentId,
 } from 'firebase/firestore';
 import { ref as dbRef, set as dbSet, onValue, onDisconnect } from 'firebase/database';
 import { firstUrl, youTubeId } from './links';
@@ -363,21 +363,38 @@ function toChatMessage(id: string, data: Record<string, unknown> & { createdAt?:
   };
 }
 
-/** before 보다 앞선 메시지 n개(오래된→최신). done = 더 앞은 없다. */
-export async function fetchMessagesBefore(before: Date, n = 60): Promise<{ msgs: ChatMessage[]; done: boolean }> {
-  const snap = await getDocs(query(collection(db, 'messages'), where('createdAt', '<', Timestamp.fromDate(before)), orderBy('createdAt', 'desc'), limit(n)));
+/** before 보다 앞선 메시지 n개(오래된→최신). 같은 시각은 id까지 커서로 삼아 빠짐을 막는다. */
+export async function fetchMessagesBefore(before: Pick<ChatMessage, 'id' | 'createdAt'>, n = 60): Promise<{ msgs: ChatMessage[]; done: boolean }> {
+  if (!before.createdAt) return { msgs: [], done: true };
+  const snap = await getDocs(query(
+    collection(db, 'messages'),
+    orderBy('createdAt', 'desc'),
+    orderBy(documentId(), 'desc'),
+    startAfter(Timestamp.fromDate(before.createdAt), before.id),
+    limit(n),
+  ));
   return { msgs: snap.docs.map((d) => toChatMessage(d.id, d.data())).reverse(), done: snap.size < n };
 }
 
-/** from 부터 n개(오래된→최신) — 날짜로 지난 대화 보기. done = 그 뒤로 더 없다(아직 오지 않은 타임캡슐은 부르는 쪽이 거른다). */
-export async function fetchMessagesFrom(from: Date, n = 80): Promise<{ msgs: ChatMessage[]; done: boolean }> {
-  const snap = await getDocs(query(collection(db, 'messages'), where('createdAt', '>=', Timestamp.fromDate(from)), orderBy('createdAt', 'asc'), limit(n)));
+/** 날짜 또는 마지막 메시지 뒤부터 n개(오래된→최신). 같은 시각은 id까지 이어 간다. */
+export async function fetchMessagesFrom(
+  from: Date | Pick<ChatMessage, 'id' | 'createdAt'>,
+  n = 80,
+): Promise<{ msgs: ChatMessage[]; done: boolean }> {
+  const base = collection(db, 'messages');
+  const q = from instanceof Date
+    ? query(base, where('createdAt', '>=', Timestamp.fromDate(from)), orderBy('createdAt', 'asc'), orderBy(documentId(), 'asc'), limit(n))
+    : from.createdAt
+      ? query(base, orderBy('createdAt', 'asc'), orderBy(documentId(), 'asc'), startAfter(Timestamp.fromDate(from.createdAt), from.id), limit(n))
+      : null;
+  if (!q) return { msgs: [], done: true };
+  const snap = await getDocs(q);
   return { msgs: snap.docs.map((d) => toChatMessage(d.id, d.data())), done: snap.size < n };
 }
 
 // 최근 max개 실시간 구독 (오래된→최신 순으로 콜백).
 export function subscribeMessages(cb: (msgs: ChatMessage[]) => void, max = 60): () => void {
-  const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(max));
+  const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), orderBy(documentId(), 'desc'), limit(max));
   return onSnapshot(
     q,
     (snap) => {
