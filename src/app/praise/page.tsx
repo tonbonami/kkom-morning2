@@ -7,7 +7,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { isDemo } from '@/lib/demo';
 import { ArrowLeft, ChevronDown, ChevronUp, Sparkles, Send, Gift, Crown, MessageCircle } from 'lucide-react';
 import {
   PRAISE_STICKERS,
@@ -264,9 +263,8 @@ function Composer({
   const [reason, setReason] = useState('');
   const [selectedSticker, setSelectedSticker] = useState<PraiseSticker>(PRAISE_STICKERS[0]);
   // 시연 모드(공모전 영상) — 포차코(산리오) 스티커 9장은 빼고 클래식만.
-  const [demo, setDemo] = useState(false);
-  useEffect(() => setDemo(isDemo()), []);
-  const pickable = demo ? PRAISE_STICKERS.filter((s) => s.sheet !== 'pochacco') : PRAISE_STICKERS;
+  // 포차코는 꿀됑·꼼이로 바뀌어(2026-11-28) 이제 고르는 칸엔 안 나온다(옛 칭찬 그림은 그대로 보임).
+  const pickable = PRAISE_STICKERS.filter((s) => s.sheet !== 'pochacco');
   const [stickerCount, setStickerCount] = useState(1);
   const [sending, setSending] = useState(false);
   const [toast, setToast] = useState<string | null>(null);

@@ -28,7 +28,7 @@ async function addPraiseDoc(payload: DocumentData) {
 export type PraiseUser = '우댕' | '꼼이';
 // Phase 4: 'memo' — 칭찬/조르기와 별개 짧은 자유 메모. 영감 자료의 노란 포스트잇 패턴.
 export type PraiseKind = 'praise' | 'request' | 'memo';
-export type PraiseStickerSheet = 'classic' | 'pochacco';
+export type PraiseStickerSheet = 'classic' | 'pochacco' | 'chars';
 // Claude 참고: 'line' = 줄지어 N개 깔기 좋은 단순/작은 스티커, 'stamp' = 크게 1장 박는 일러스트형.
 // 다만 강제 분류가 아니라 정렬 힌트일 뿐 — 사용자가 어떤 스티커든 1개(도장)~20개(줄)로 자유롭게 씁니다.
 export type PraiseStickerCategory = 'line' | 'stamp';
@@ -59,7 +59,18 @@ export const PRAISE_STICKERS: PraiseSticker[] = [
   { emoji: '🎀', label: '리본하트', color: 'bg-pink-100 text-pink-700',       sheet: 'classic', category: 'line',  image: '/praise/classic/7.webp' },
   { emoji: '🏅', label: '잘했장',   color: 'bg-orange-100 text-orange-700',   sheet: 'classic', category: 'stamp', image: '/praise/classic/8.webp' },
   { emoji: '👑', label: '왕칭찬',   color: 'bg-yellow-100 text-yellow-700',   sheet: 'classic', category: 'stamp', image: '/praise/classic/9.webp' },
-  // 포차코 — 큰 일러스트는 stamp, 작은 표정은 line
+  // 꿀됑·꼼이 — 포차코 9장과 같은 동작으로 바꿔 그림(우댕 「칭찬 포차코 9장도 바꿔줘」→「다 OK」 2026-11-28, 원본 kkom-upgrade/art/praise9).
+  //   고르는 칸엔 이것만 나오고 포차코는 안 나온다. 옛 칭찬에 붙은 포차코는 저장된 주소 그대로 보인다.
+  { emoji: '⭐', label: '별 번쩍 꼼이',   color: 'bg-amber-100 text-amber-700',     sheet: 'chars', category: 'stamp', image: '/praise/chars/1.webp' },
+  { emoji: '💚', label: '하트 윙크 꿀됑', color: 'bg-emerald-100 text-emerald-700', sheet: 'chars', category: 'stamp', image: '/praise/chars/2.webp' },
+  { emoji: '👏', label: '박수 꼼이',      color: 'bg-rose-100 text-rose-700',       sheet: 'chars', category: 'line',  image: '/praise/chars/3.webp' },
+  { emoji: '🏅', label: '금메달 꿀됑',    color: 'bg-orange-100 text-orange-700',   sheet: 'chars', category: 'stamp', image: '/praise/chars/4.webp' },
+  { emoji: '🌷', label: '꽃다발 꼼이',    color: 'bg-pink-100 text-pink-700',       sheet: 'chars', category: 'stamp', image: '/praise/chars/5.webp' },
+  { emoji: '🥺', label: '칭찬조름 꿀됑',  color: 'bg-cyan-100 text-cyan-700',       sheet: 'chars', category: 'line',  image: '/praise/chars/6.webp' },
+  { emoji: '✨', label: '폴짝 꼼이',      color: 'bg-lime-100 text-lime-700',       sheet: 'chars', category: 'line',  image: '/praise/chars/7.webp' },
+  { emoji: '👑', label: '왕 꿀됑',        color: 'bg-yellow-100 text-yellow-700',   sheet: 'chars', category: 'stamp', image: '/praise/chars/8.webp' },
+  { emoji: '🤗', label: '꼬옥 꼼이',      color: 'bg-amber-100 text-amber-700',     sheet: 'chars', category: 'stamp', image: '/praise/chars/9.webp' },
+  // 포차코 — 옛 기록 호환용으로만 남김(고르는 칸에선 뺌, 2026-11-28)
   { emoji: '⭐', label: '별안은 포차코', color: 'bg-amber-100 text-amber-700',     sheet: 'pochacco', category: 'stamp', image: '/praise/pochacco/1.webp' },
   { emoji: '💚', label: '하트 포차코',   color: 'bg-emerald-100 text-emerald-700', sheet: 'pochacco', category: 'stamp', image: '/praise/pochacco/2.webp' },
   { emoji: '👏', label: '박수 포차코',   color: 'bg-rose-100 text-rose-700',       sheet: 'pochacco', category: 'line',  image: '/praise/pochacco/3.webp' },
