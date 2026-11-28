@@ -1,4 +1,3 @@
-// @ts-ignore -- 이 worktree의 공유 node_modules에는 새 devDependency가 아직 설치되지 않았다.
 import { describe, expect, it } from 'vitest';
 import { insertMiniToken, splitMini } from '../src/lib/miniEmoticons';
 
