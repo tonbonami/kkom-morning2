@@ -81,6 +81,7 @@ export const KKUL_STICKERS: { word: string; image: string }[] = [
   { word: '미안해',   image: '/emo/kkuldaeng/20-mianhae.webp' }, // 꿀단지 내밀며 울먹 — Aside 검수 "꿀됑에 미안해 없음" (우댕 A안 OK 2026-10-21) // 꼼이가 꿀됑 볼에 기습 뽀뽀, 꿀됑 더듬이가 하트로 (우댕 "1,2 둘다" 2026-10-20)
   { word: '약속!',    image: '/emo/kkuldaeng/21-yaksok.webp' },  // 하트 카드에 코 도장(콧구멍 두 개), 코끝에 잉크 — 글 속 (약속)과 같은 그림(art/yaksok)
   { word: '귀엽꼬미', image: '/emo/kkuldaeng/22-gwiyeopkkomi.webp' }, // 두 발로 서서 배 톡톡 + 반짝 — 포차코 「귀엽꼬미」(83번 씀) 대신(우댕 A안 OK 2026-11-28, 원본 kkom-upgrade/art/gwiyeop)
+  { word: '치카치카', image: '/emo/kkuldaeng/23-chicca.webp' },  // 두 발로 서서 양치, 컵·거품 — 포차코 치카치카 대신(원본 kkom-upgrade/art/batch1, 우댕 「다 OK」 2026-11-28)
 ];
 // 꿀됑 움짤 탭(우댕 지시: 따로) — sai-anim 경로에 둬서 서랍은 정지컷(-still.png), 채팅은 흔들기 없이 재생(기존 움짤 규칙 그대로).
 //   만든 법·원본은 art/kkuldaeng/{euak,…} (Codex 키프레임 → Kling → 편집 → make_anim.py).
@@ -182,6 +183,8 @@ export const URI_STICKERS: { word: string; image: string }[] = [
   { word: '화이트닝',   image: '/emo/uri/14-whitening.webp' }, // 둘만의 구호 — 반짝 이빨 광선 교차
   { word: '먼지 저리가', image: '/emo/uri/15-dust.webp' },     // 날개 바람에 울상 먼지들 도망
   { word: '데이트',     image: '/emo/uri/16-date.webp' },      // 셰이크 하나에 빨대 둘
+  { word: '토닥토닥',   image: '/emo/uri/17-pat.webp' },       // 담요 위 꿀됑이 꼼이 머리 쓰담 — 포차코 토닥토닥 대신(원본 kkom-upgrade/art/batch1, 우댕 「다 OK」 2026-11-28)
+  { word: '헹가래',     image: '/emo/uri/18-cheer.webp' },     // 꼼이가 꿀됑을 위로 번쩍, 색종이 — 포차코 헹가래 대신
 ];
 
 // 사이 탭 — 사이담 말티푸 '사이' 팩(하루에 제일 많이 하는 말). 글자가 그림 안에 들어있음.
@@ -210,6 +213,11 @@ export const SAI_STICKERS: { word: string; image: string }[] = [
   // 옆머리에 분홍 앞머리 찍찍이 붙인 채 아무렇지 않게 지하철 손잡이 — 장면 카드(배경 있는 둥근 320, 글자 없음).
   //   Codex 그림, 원본 art/kkomi-subway(scene-v2 — 찍찍이 반 길이로 왼쪽 귀 위, 리본은 오른쪽 귀). 우댕 「올려」→ 이모티콘 서랍 2026-11-23
   { word: '출근길', image: '/emo/sai/velcro-subway.webp' },
+  // 포차코 꼼이 팩 대신 새로(그림만으로 읽히게 과장 동작·소품, 원본 kkom-upgrade/art/batch1, 우댕 「다 OK」 2026-11-28)
+  { word: '얍', image: '/emo/sai/yap.webp' },           // 수박 크게 한 입(포차코 「얍」 78번 씀)
+  { word: '치카치카', image: '/emo/sai/chicca.webp' },  // 분홍 칫솔·컵
+  { word: '푸데데', image: '/emo/sai/pudede.webp' },    // 잠옷·고깔모자 하품, 베개
+  { word: '인싸강아지', image: '/emo/sai/insa.webp' },  // 선글라스·가방 메고 당당히, 하트
 ];
 
 // 꽉이 탭 — 사이담 오리 「꽉이」 12종 그대로(우댕 2026-11-19 「꽉이 이모티콘도 전부 우리걸로 가져다 줘」).
