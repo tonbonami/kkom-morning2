@@ -52,9 +52,15 @@ final class PushManager: NSObject, UNUserNotificationCenterDelegate {
             completionHandler(); return
         }
 
-        guard let meKey = user, !meKey.isEmpty else { completionHandler(); return }
-        let meName = meKey == "udaeng" ? "우댕" : "꼼이"
-        let toName = meKey == "udaeng" ? "꼼이" : "우댕"
+        // 왜: 저장된 키가 깨졌을 때 엉뚱한 이름으로 Firestore에 쓰지 않는다.
+        guard let meKey = user else { completionHandler(); return }
+        let meName: String
+        let toName: String
+        switch meKey {
+        case "udaeng": meName = "우댕"; toName = "꼼이"
+        case "kkomi": meName = "꼼이"; toName = "우댕"
+        default: completionHandler(); return
+        }
 
         // 카톡급 텍스트 답장 — 채팅 메시지로 저장(Firestore) + 상대 푸시
         if let textResp = response as? UNTextInputNotificationResponse {
@@ -84,35 +90,94 @@ final class PushManager: NSObject, UNUserNotificationCenterDelegate {
         URLSession.shared.dataTask(with: req) { _, _, _ in done() }.resume()
     }
 
-    // 텍스트 답장 = 채팅 메시지: Firestore 'messages'에 저장(REST, 웹 채팅과 동일 스키마) + /api/message 푸시.
+    // 2xx만 성공으로 본다. 잠금화면 액션의 백그라운드 시간을 넘기지 않도록
+    // 최초 요청 + 짧은 재시도 2번, 요청당 2.5초로 제한한다.
+    private func requestWithRetry(_ request: URLRequest, retriesLeft: Int = 2,
+                                  done: @escaping (Bool) -> Void) {
+        URLSession.shared.dataTask(with: request) { [weak self] _, response, error in
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if error == nil && (200...299).contains(code) {
+                done(true)
+                return
+            }
+            guard retriesLeft > 0, let self = self else {
+                done(false)
+                return
+            }
+            let delay = retriesLeft == 2 ? 0.35 : 0.7
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay) {
+                self.requestWithRetry(request, retriesLeft: retriesLeft - 1, done: done)
+            }
+        }.resume()
+    }
+
+    private func showReplyFailure(text: String, messageId: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "답장을 못 보냈어요"
+        let preview = String(text.prefix(40))
+        content.body = preview.isEmpty
+            ? "꼼모닝을 열어 다시 보내 주세요"
+            : "\(preview)\n꼼모닝을 열어 다시 보내 주세요"
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: "reply-failed-\(messageId)",
+                                            content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    // 텍스트 답장 = 채팅 메시지: Firestore 'messages'에 저장(REST, 웹 채팅과 동일 스키마) 후 /api/message 푸시.
     private func sendChatReply(from: String, to: String, text: String, done: @escaping () -> Void) {
+        let allowedNames = Set(["우댕", "꼼이"])
+        guard allowedNames.contains(from), allowedNames.contains(to), from != to else { done(); return }
+
         let projectId = "kkom-morning"
         let apiKey = "AIzaSyBaIIIwJ5x19svwkmUvVtuQSio0VPcRkQg"   // 공개값(웹 번들에도 노출)
-        let group = DispatchGroup()
+        // 왜: 같은 잠금화면 답장의 재시도는 같은 문서를 덮어써서 한 번만 남게 한다.
+        let messageId = UUID().uuidString.lowercased()
+        let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fields: [String: Any] = ["fields": [
+            "from": ["stringValue": from],
+            "text": ["stringValue": text],
+            "createdAt": ["timestampValue": iso.string(from: Date())],
+        ]]
 
         // 1) Firestore messages 저장 → 기록에 남고 상대 앱에 실시간 표시
-        if let url = URL(string: "https://firestore.googleapis.com/v1/projects/\(projectId)/databases/(default)/documents/messages?key=\(apiKey)") {
-            let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            let fields: [String: Any] = ["fields": [
-                "from": ["stringValue": from],
-                "text": ["stringValue": text],
-                "createdAt": ["timestampValue": iso.string(from: Date())],
-            ]]
-            var req = URLRequest(url: url); req.httpMethod = "POST"
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.httpBody = try? JSONSerialization.data(withJSONObject: fields)
-            group.enter()
-            URLSession.shared.dataTask(with: req) { _, _, _ in group.leave() }.resume()
+        guard let saveURL = URL(string: "https://firestore.googleapis.com/v1/projects/\(projectId)/databases/(default)/documents/messages/\(messageId)?key=\(apiKey)"),
+              let saveBody = try? JSONSerialization.data(withJSONObject: fields) else {
+            showReplyFailure(text: text, messageId: messageId)
+            done()
+            return
         }
-        // 2) 상대에게 푸시(잠긴 폰/백그라운드)
-        if let url = URL(string: "\(WEB_BASE)/api/message") {
-            var req = URLRequest(url: url); req.httpMethod = "POST"
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.httpBody = try? JSONSerialization.data(withJSONObject: ["from": from, "to": to, "text": text])
-            group.enter()
-            URLSession.shared.dataTask(with: req) { _, _, _ in group.leave() }.resume()
+        var saveRequest = URLRequest(url: saveURL)
+        saveRequest.httpMethod = "PATCH"
+        saveRequest.timeoutInterval = 2.5
+        saveRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        saveRequest.httpBody = saveBody
+
+        requestWithRetry(saveRequest) { [weak self] saved in
+            guard let self = self else { done(); return }
+            guard saved else {
+                self.showReplyFailure(text: text, messageId: messageId)
+                done()
+                return
+            }
+
+            // 2) 저장 성공 뒤 상대에게 푸시한다. 실패해도 저장을 다시 하지 않는다.
+            guard let pushURL = URL(string: "\(self.WEB_BASE)/api/message"),
+                  let pushBody = try? JSONSerialization.data(withJSONObject: ["from": from, "to": to, "text": text]) else {
+                NSLog("잠금화면 답장 푸시 요청 생성 실패: \(messageId)")
+                done()
+                return
+            }
+            var pushRequest = URLRequest(url: pushURL)
+            pushRequest.httpMethod = "POST"
+            pushRequest.timeoutInterval = 2.5
+            pushRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            pushRequest.httpBody = pushBody
+            self.requestWithRetry(pushRequest) { pushed in
+                if !pushed { NSLog("잠금화면 답장은 저장됐지만 푸시 실패: \(messageId)") }
+                done()
+            }
         }
-        group.notify(queue: .main) { done() }
     }
 
     // 앱을 켜고 있을 때(포그라운드)도 상단 배너 + 소리로 알림 표시.

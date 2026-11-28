@@ -2,7 +2,7 @@ import SwiftUI
 import ActivityKit
 import WidgetKit
 
-// 꼼모닝 Live Activity — 디자인: Gemini(대기질·기온 헤드라인). 데이터는 파이프라인에서 미리 계산해 넣음.
+// 꼼모닝 Live Activity — 오래된 값·빈 값을 현재 정보처럼 보이지 않게 구분한다.
 
 // MARK: - Color Tokens (라이트/다크 대응)
 extension Color {
@@ -22,79 +22,112 @@ extension Color {
     }
 }
 
+private extension String {
+    var nonEmptyTrimmed: String? {
+        let value = trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+}
+
 // MARK: - Lock Screen Banner View
 @available(iOS 16.2, *)
 struct LockLiveView: View {
     let state: KkomActivityAttributes.ContentState
+    let isStale: Bool
+
+    private var airGrade: String? { state.airGrade?.nonEmptyTrimmed }
+    private var airLocation: String? { state.airLoc?.nonEmptyTrimmed }
+    private var mood: String? { state.partnerMood?.nonEmptyTrimmed }
+    private var partnerName: String { state.partnerName.nonEmptyTrimmed ?? "상대" }
+    private var agoText: String? { state.agoText.nonEmptyTrimmed }
+
+    // 왜: stale(마지막 갱신 150초 뒤)은 상대가 더 이상 신호를 안 보낸다는 뜻 → 접속만 꺼진 것으로 본다.
+    //   날씨·미세먼지는 아침 크론·앱 열 때 값이라 그대로 보여 준다(우리가 다 지우면 거의 늘 빈 화면).
+    private var isOnline: Bool { !isStale && state.online }
+
+    private var particleSummary: String? {
+        var parts: [String] = []
+        if let pm10 = state.pm10 { parts.append("미세 \(pm10)") }
+        if let pm25 = state.pm25 { parts.append("초미세 \(pm25)") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
 
     var body: some View {
         HStack(alignment: .top) {
-            // 1. 좌측: 메인 정보 (기온, 날씨, 미세먼지)
             VStack(alignment: .leading, spacing: 6) {
-                // 기온 & 날씨 헤드라인
-                HStack(spacing: 4) {
-                    Text(state.skyEmoji).font(.title2)
-                    Text("\(state.temp ?? 0)°")
-                        .font(.system(size: 34, weight: .black, design: .rounded))
-                        .foregroundColor(.cInk)
-                        .tracking(-1)
+                Group {
+                    // 왜: 빈 기온을 0도로 보여 주면 실제 영하·영상 0도와 구분할 수 없다.
+                    if let temp = state.temp {
+                        HStack(spacing: 4) {
+                            Text(state.skyEmoji).font(.title2)
+                            Text("\(temp)°")
+                                .font(.system(size: 34, weight: .black, design: .rounded))
+                                .foregroundColor(.cInk)
+                                .tracking(-1)
+                            if let rain = state.rainEmoji?.nonEmptyTrimmed {
+                                Text(rain).font(.title3)
+                            }
+                        }
+                    } else {
+                        Label("날씨 정보 없음", systemImage: "cloud.slash")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(.cInkSoft)
+                    }
 
-                    if let rain = state.rainEmoji {
-                        Text(rain).font(.title3)
+                    if let grade = airGrade {
+                        HStack(spacing: 6) {
+                            Text(grade)
+                                .font(.system(size: 22, weight: .heavy))
+                                .foregroundColor(.airColor(grade: grade))
+                            if let summary = particleSummary {
+                                Text(summary)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.cInkSoft)
+                            }
+                        }
+                        if let location = airLocation {
+                            Text(location)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.cInkSoft)
+                        }
+                    } else {
+                        Text("미세먼지 정보 없음")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.cInkSoft)
                     }
                 }
-
-                // 미세먼지 등급 (색상 강조)
-                HStack(spacing: 6) {
-                    Text(state.airGrade ?? "정보 없음")
-                        .font(.system(size: 22, weight: .heavy))
-                        .foregroundColor(.airColor(grade: state.airGrade))
-
-                    Text("미세 \(state.pm10 ?? 0) · 초미세 \(state.pm25 ?? 0)")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.cInkSoft)
-                }
-
-                // 보조 정보: 위치
-                Text(state.airLoc ?? "")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.cInkSoft)
             }
 
             Spacer()
 
-            // 2. 우측: 상대방 상태 (접속, 기분, 텍스트)
             VStack(alignment: .trailing, spacing: 4) {
                 HStack(spacing: 4) {
-                    // 온라인 상태 점 (에메랄드)
-                    if state.online {
-                        Circle()
-                            .fill(Color.airColor(grade: "좋음"))
-                            .frame(width: 8, height: 8)
-                            .shadow(color: Color.airColor(grade: "좋음").opacity(0.5), radius: 2)
-                    }
-
-                    Text(state.partnerName)
+                    Circle()
+                        .fill(isOnline ? Color.airColor(grade: "좋음") : Color.gray)
+                        .frame(width: 8, height: 8)
+                        .shadow(color: isOnline ? Color.airColor(grade: "좋음").opacity(0.5) : Color.clear,
+                                radius: 2)
+                    Text(partnerName)
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.cInk)
-
-                    if let mood = state.partnerMood {
+                    if let mood = mood {
                         Text(mood).font(.system(size: 14))
                     }
                 }
 
-                Text(state.agoText)
+                Text(isOnline ? "지금 함께" : (isStale ? "오프라인" : (agoText ?? "오프라인")))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.cInkSoft)
 
-                // D-day 배지 (오른쪽)
-                Text(state.dday)
-                    .font(.system(size: 11, weight: .bold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.cRose.opacity(0.15))
-                    .foregroundColor(.cRose)
-                    .clipShape(Capsule())
+                if let dday = state.dday.nonEmptyTrimmed {
+                    Text(dday)
+                        .font(.system(size: 11, weight: .bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.cRose.opacity(0.15))
+                        .foregroundColor(.cRose)
+                        .clipShape(Capsule())
+                }
             }
         }
         .padding(20)
@@ -107,67 +140,81 @@ struct LockLiveView: View {
 struct KkomLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: KkomActivityAttributes.self) { context in
-            // 1. 잠금화면 (Lock Screen) 뷰
-            LockLiveView(state: context.state)
+            LockLiveView(state: context.state, isStale: context.isStale)
         } dynamicIsland: { context in
-            // 2. 다이나믹 아일랜드 (Dynamic Island)
-            DynamicIsland {
-                // 펼침(Expanded) 상태 - 4개 영역 조합
+            // 오래됨(150초 동안 신호 없음) = 상대 접속만 꺼진 것. 날씨·미세먼지는 그대로.
+            let online = !context.isStale && context.state.online
+            return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(alignment: .center, spacing: 4) {
-                        Text(context.state.skyEmoji).font(.title3)
-                        Text("\(context.state.temp ?? 0)°")
-                            .font(.system(size: 24, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
+                        if let temp = context.state.temp {
+                            Text(context.state.skyEmoji).font(.title3)
+                            Text("\(temp)°")
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                        } else {
+                            Image(systemName: "cloud.slash").foregroundColor(.gray)
+                        }
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(context.state.online ? Color.airColor(grade: "좋음") : .gray)
+                            .fill(online ? Color.airColor(grade: "좋음") : Color.gray)
                             .frame(width: 8, height: 8)
-
-                        if let mood = context.state.partnerMood {
+                        if online, let mood = context.state.partnerMood?.nonEmptyTrimmed {
                             Text(mood).font(.body)
+                        } else {
+                            Text(online ? "함께" : "오프라인")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.gray)
                         }
                     }
                     .padding(.top, 4)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    VStack(spacing: 0) {
-                        Text(context.state.airGrade ?? "")
-                            .font(.system(size: 26, weight: .heavy))
-                            .foregroundColor(.airColor(grade: context.state.airGrade))
-                        Text(context.state.airLoc ?? "")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.gray)
+                    VStack(spacing: 1) {
+                        if let grade = context.state.airGrade?.nonEmptyTrimmed {
+                            Text(grade)
+                                .font(.system(size: 26, weight: .heavy))
+                                .foregroundColor(.airColor(grade: grade))
+                            if let location = context.state.airLoc?.nonEmptyTrimmed {
+                                Text(location)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.gray)
+                            }
+                        } else {
+                            Text("미세먼지 정보 없음")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.gray)
+                        }
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
-                        Text(context.state.dday)
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.cRose)
+                        if let dday = context.state.dday.nonEmptyTrimmed {
+                            Text(dday)
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.cRose)
+                        }
                         Spacer()
-                        Text(context.state.agoText)
+                        Text(online ? "지금 함께" : (context.isStale ? "오프라인" : (context.state.agoText.nonEmptyTrimmed ?? "오프라인")))
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.gray)
                     }
                     .padding(.horizontal, 8)
                 }
             } compactLeading: {
-                // 아주 좁은 좌측 (하트/접속)
-                Image(systemName: context.state.online ? "heart.fill" : "heart")
-                    .foregroundColor(context.state.online ? .airColor(grade: "좋음") : .cRose)
+                // 왜: 작은 화면은 둘의 접속 상태 하나를 가장 먼저 보여 준다.
+                Image(systemName: online ? "heart.fill" : "heart")
+                    .foregroundColor(online ? Color.airColor(grade: "좋음") : Color.cRose)
             } compactTrailing: {
-                // 아주 좁은 우측 (미세먼지 등급 글자색으로 표현)
-                Text(context.state.airGrade ?? "")
+                Text(online ? "함께" : "오프라인")
                     .font(.system(size: 12, weight: .heavy))
-                    .foregroundColor(.airColor(grade: context.state.airGrade))
+                    .foregroundColor(online ? Color.airColor(grade: "좋음") : Color.cRose)
             } minimal: {
-                // 원형 (최소 상태)
-                Image(systemName: context.state.online ? "heart.fill" : "heart")
-                    .foregroundColor(.cRose)
+                Image(systemName: online ? "heart.fill" : "heart")
+                    .foregroundColor(online ? Color.airColor(grade: "좋음") : Color.cRose)
             }
         }
     }
