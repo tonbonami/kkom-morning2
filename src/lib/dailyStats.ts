@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 
 export type Sender = '우댕' | '꼼이';
-export type BumpKind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening' | 'night';
+export type BumpKind = 'miss' | 'love' | 'hug' | 'kiss' | 'whitening' | 'night' | 'pet' | 'gift';
 
 type Pair = { 우댕: number; 꼼이: number };
 
@@ -23,7 +23,7 @@ export interface DailyStats {
   praiseRequests: Pair;   // 누가 졸랐는지
   memories: Pair;         // 누가 올린 추억 사진
   wishItems: Pair;        // 누가 추가한 위시
-  bumps: Record<BumpKind, Pair>; // miss/love/kiss/night × from
+  bumps: Record<BumpKind, Pair>; // 범프 종류 × 보낸 사람
 }
 
 // Claude 참고: KST 자정 기준 오늘 날짜 — 한국 사용자라 항상 Asia/Seoul 기준.
@@ -49,6 +49,8 @@ export function emptyStats(): DailyStats {
       kiss: { ...ZERO_PAIR },
       whitening: { ...ZERO_PAIR },
       night: { ...ZERO_PAIR },
+      pet: { ...ZERO_PAIR },
+      gift: { ...ZERO_PAIR },
     },
   };
 }
@@ -79,7 +81,7 @@ export const incrementBump = (sender: Sender, kind: BumpKind) =>
   bumpPath(['bumps', kind, sender]);
 
 // 안전 머지 — Firestore 응답에 일부 필드 없어도 zero로 채움.
-function normalizeStats(data: any): DailyStats {
+export function normalizeStats(data: any): DailyStats {
   const empty = emptyStats();
   return {
     letters: { ...empty.letters, ...(data?.letters || {}) },
@@ -94,6 +96,8 @@ function normalizeStats(data: any): DailyStats {
       kiss: { ...ZERO_PAIR, ...(data?.bumps?.kiss || {}) },
       whitening: { ...ZERO_PAIR, ...(data?.bumps?.whitening || {}) },
       night: { ...ZERO_PAIR, ...(data?.bumps?.night || {}) },
+      pet: { ...ZERO_PAIR, ...(data?.bumps?.pet || {}) },
+      gift: { ...ZERO_PAIR, ...(data?.bumps?.gift || {}) },
     },
   };
 }

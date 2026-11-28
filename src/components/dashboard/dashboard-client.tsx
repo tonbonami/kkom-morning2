@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User, WeatherData, AirQualityData, OutfitGuide } from '@/types';
-import { fetchWeatherData, fetchAirQualityData, getOutfitGuide } from '@/lib/api';
-import { generateOutfit } from '@/ai/flows/outfit-generation';
+import { getInitialData } from '@/lib/api';
 import SkeletonLoader from './skeleton-loader';
 import DashboardHeader from './dashboard-header';
 import WeatherCard from './weather-card';
@@ -35,13 +34,10 @@ export default function DashboardClient() {
       const loadDashboardData = async () => {
         try {
           setLoading(true);
-          const [weatherData, airQualityData] = await Promise.all([
-            fetchWeatherData(),
-            fetchAirQualityData(),
-          ]);
+          const { weather: weatherData, air: airQualityData, outfit } = await getInitialData('home');
           setWeather(weatherData);
           setAirQuality(airQualityData);
-          setOutfitGuide(getOutfitGuide(weatherData.temperature));
+          setOutfitGuide(outfit);
         } catch (error) {
           console.error("Failed to load dashboard data:", error);
         } finally {
@@ -58,7 +54,7 @@ export default function DashboardClient() {
 
   return (
     <div className="space-y-6">
-      <DashboardHeader name={user.name} />
+      <DashboardHeader name={user.name ?? user.이름} />
       <WeatherCard weather={weather} />
       <AirQualityCard airQuality={airQuality} />
       <OutfitGuideCard outfitGuide={outfitGuide} airQualityGrade={airQuality.grade} />

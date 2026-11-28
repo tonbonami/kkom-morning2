@@ -9,7 +9,7 @@ interface WeatherCardProps {
 }
 
 export default function WeatherCard({ weather }: WeatherCardProps) {
-  const weatherIcon = getWeatherIcon(weather.condition);
+  const weatherIcon = getWeatherIcon((weather.condition ?? 'Cloudy') as 'Sunny' | 'Cloudy' | 'Rainy' | 'Snowy');
 
   return (
     <Card className="shadow-md dark:shadow-lg dark:shadow-black/20">

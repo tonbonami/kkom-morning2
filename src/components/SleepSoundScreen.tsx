@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import {
   ArrowLeft,
   Play,
@@ -56,7 +56,7 @@ export function SleepSoundScreen({
   const selectedSound = sounds.find((s) => s.id === selectedId);
 
   // Background animation variants
-  const backgroundVariants = {
+  const backgroundVariants: Variants = {
     play: {
       opacity: [0.05, 0.1, 0.05],
       scale: [1, 1.02, 1],

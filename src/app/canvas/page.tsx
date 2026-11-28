@@ -379,11 +379,18 @@ function RealCanvasPage() {
               tool={tool}
               color={color}
               size={size}
+              stylusOnly={false}
               handedness={handedness}
               palmSensitivity={palm}
               onAddStroke={handleAddStroke}
               onEraseStrokes={handleErase}
               onLiveStroke={handleLiveStroke}
+              onLaser={undefined}
+              onTempEnd={undefined}
+              gestureRef={undefined}
+              bridgeRef={undefined}
+              onDebug={undefined}
+              onPenDetected={undefined}
             />
             {/* 상대가 그리는 중인 획 — 위에 겹쳐 생중계 (입력은 통과) */}
             {partnerLive && (
